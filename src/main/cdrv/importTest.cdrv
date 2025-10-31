@@ -1,0 +1,30 @@
+unit main.test get {
+    cdrv.Math
+}
+
+ship ImportTest {
+    
+    ship testMathOperations() {
+        output "=== Testing Math Import ==="
+        
+        // Test calling imported math functions
+        sqrtResult = [result]:cdrv.Math.sqrt(16)
+        output "Square root of 16: " + sqrtResult
+        
+        powResult = [result]:cdrv.Math.pow(2, 3) 
+        output "2 to the power of 3: " + powResult
+        
+        maxResult = [result]:cdrv.Math.max(10, 20)
+        output "Maximum of 10 and 20: " + maxResult
+    }
+    
+    ship main() {
+        output "=== IMPORT SYSTEM TEST ==="
+        output ""
+        
+        testMathOperations()
+        output ""
+        
+        output "=== TEST COMPLETE ==="
+    }
+}

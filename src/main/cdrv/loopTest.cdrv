@@ -1,0 +1,15 @@
+unit sample
+
+ship LoopTest {
+
+ship main() {
+output "Enter start"
+start = (int) input
+output "Enter end"
+end = (int) input
+for i by *+2 in start to end {
+output "Result is: " + i
+}
+}
+
+}

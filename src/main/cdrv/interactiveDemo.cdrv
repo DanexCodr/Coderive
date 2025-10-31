@@ -1,0 +1,327 @@
+unit demo.program get {
+    cdrv.Math
+}
+
+share interactiveDemo {
+    
+    // Supporting both else-if and elif
+    ~| formula, operation
+    local calculate(int a, int b, string op) {  
+    if op == "+" {
+        ~ formula a + b
+        ~ operation "addition"
+    } else if op == "-" {
+        ~ formula a - b  
+        ~ operation "subtraction"
+    } else if op == "*" {
+        ~ formula a * b
+        ~operation "multiplication"
+    } else if op == "/" {
+        ~ formula a / b
+        ~operation "division"
+    } else {
+        ~formula 0
+        ~operation "unknown"
+    }
+}
+
+~| return
+local add(int a, int b) {
+~return a + b
+}
+
+~| x, y
+local haha(int a) {
+}
+
+    
+    // Array demonstration
+    local demonstrateArrays() {
+        output "=== Array Demo ==="
+        
+        numbers = [10, 20, 30, 40, 50]
+        output "Array: " + numbers
+        
+        output "First element: " + numbers[0]
+        output "Last element: " + numbers[4]
+        
+        numbers[2] = 99
+        output "After modification: " + numbers
+    }
+    
+    // Input demonstration
+    local getUserInfo() {
+        output "=== User Registration ==="
+        
+        output "Enter your name:"
+        name = (string) input
+        
+        output "Enter your age:"
+        age = (int) input
+        
+        output "Enter your height (meters):"
+        height = (float) input
+        
+        output "Are you a student? (true/false)"
+        isStudent = (bool) input
+        
+        output ""
+        output "Registration Complete!"
+        output "Name: " + name
+        output "Age: " + age
+        output "Height: " + height + "m"
+        output "Student: " + isStudent
+        
+        if isStudent {
+            output "Welcome student " + name + "!"
+        } else {
+            output "Welcome " + name + "!"
+        }
+    }
+    
+    // Calculator with user input
+    local interactiveCalculator() {
+        output "=== Interactive Calculator ==="
+        
+        output "Enter first number:"
+        num1 = (int) input
+        
+        output "Enter second number:"
+        num2 = (int) input
+        
+        output "Enter operation (+, -, *, /):"
+        op = (string) input
+        
+        result, operation = [formula, operation]:calculate(num1, num2, op)
+        
+        output ""
+        output "Calculation Result:"
+        output num1 + " " + op + " " + num2 + " = " + result
+        output "Operation: " + operation
+    }
+    
+    // Loop demonstration with input
+    share numberSeries() {
+        output "=== Number Series Generator ==="
+        
+        output "Enter start number:"
+        start = (int) input
+        
+        output "Enter end number:"
+        end = (int) input
+        
+        output "Number series from " + start + " to " + end + ":"
+        
+        output ""
+        output "=== DEFAULT STEPS (No 'by' clause) ==="
+        output "Counting up naturally:"
+        for i in 1 to 5 {
+            output "Default step: " + i  // 1, 2, 3, 4, 5
+        }
+        
+        output "Counting down naturally:"
+        for i in 5 to 1 {
+            output "Default step: " + i  // 5, 4, 3, 2, 1
+        }
+        
+        output "User range - smart default:"
+        for i in start to end {
+            output "Smart default: " + i  // auto +1 or -1 based on start/end
+        }
+        
+        output ""
+        output "=== BASIC STEPS ==="
+        output "Enter step size:"
+        steps = (int) input
+        
+        for i by steps in start to end {
+            output "Step by " + steps + ": " + i
+        }
+        
+        // Manual assignments
+        for i by i = i + 1 in start to end {
+            output "Manual i=i+1: " + i
+        }
+        
+        // Compound assignments  
+        for i by i += 1 in start to end {
+            output "Compound i+=1: " + i
+        }
+        
+        // Operator prefixes
+        for i by +1 in start to end {
+            output "Step by +1: " + i
+        }
+        
+        // Counting down with various methods
+        for i by -1 in 10 to 1 {
+            output "Countdown by -1: " + i
+        }
+        
+        for i by i = i - 1 in 10 to 1 {
+            output "Countdown manual: " + i
+        }
+        
+        for i by i -= 1 in 10 to 1 {
+            output "Countdown compound: " + i
+        }
+        
+        output ""
+        output "=== MULTIPLICATIVE STEPS ==="
+        
+        // Multiplicative patterns
+        
+        for i by *2 in 1 to 32 {
+            output "Doubling: " + i
+        }
+        
+        for i by i = i * 2 in 1 to 32 {
+            output "Doubling manual: " + i
+        }
+        
+        for i by i *= 2 in 1 to 32 {
+            output "Doubling compound: " + i
+        } 
+        
+        for i by *+2 in start to end {
+            output "Step by *+2: " + i
+        }
+        
+        output ""
+        output "=== DIVISION STEPS ==="
+        
+        // Division patterns
+        for i by /2 in 64 to 2 {
+            output "Halving: " + i
+        }
+        
+        for i by i = i / 2 in 64 to 2 {
+            output "Halving manual: " + i
+        }
+        
+        for i by i /= 2 in 64 to 2 {
+            output "Halving compound: " + i
+        }
+        
+        for i by /+2 in 32 to 1 {
+            output "Step by /+2: " + i
+        }
+        
+        output ""
+        output "=== PRACTICAL PATTERNS ==="
+        output "Powers of 2:"
+        
+        // Various power patterns
+        for power by *2 in 1 to 64 {
+            output "2^" + power + " = " + power
+        }
+        
+        for power by power *= 2 in 1 to 64 {
+            output "Power compound: " + power
+        }
+        
+        output "Countdown sequences:"
+        // Natural countdown
+        for count in 10 to 1 {
+            output "Natural countdown: " + count
+        }
+        
+        // Explicit countdown
+        for count by -1 in 10 to 1 {
+            output "Explicit countdown: " + count
+        }
+        
+        output "Growing sequences:"
+        // Complex patterns
+        for grow by *2 + 1 in 1 to 50 {
+            output "Growing: " + grow
+        }
+        
+        for grow
+        by grow = grow * 2 + 1
+        in 1
+        to 50 {
+            output "Growing manual: " + grow
+        }
+        
+        output "Mixed operations:"
+        for mixed in 1 to 20 {
+            output "Mixed default: " + mixed
+        }
+        
+        for mixed by +2 in 1 to 20 {
+            output "Mixed +2: " + mixed
+        }
+        
+        for mixed by -2 in 20 to 2 {
+            output "Mixed -2: " + mixed
+        }
+    }
+    
+    // Additional demo for edge cases
+    share edgeCaseLoops() {
+        output "=== Edge Case Loops ==="
+        
+        // Single element ranges
+        output "Single element:"
+        for i in 5 to 5 {
+            output "Single: " + i  // Should output: 5
+        }
+        
+        // Zero-step ranges
+        output "Zero range up:"
+        for i in 0 to 0 {
+            output "Zero up: " + i  // Should output: 0
+        }
+        
+        output "Zero range down:"
+        for i in 0 to 0 {
+            output "Zero down: " + i  // Should output: 0
+        }
+        
+        // Negative numbers
+        output "Negative ranges:"
+        for i in -5 to -1 {
+            output "Negative up: " + i  // -5, -4, -3, -2, -1
+        }
+        
+        for i in -1 to -5 {
+            output "Negative down: " + i  // -1, -2, -3, -4, -5
+        }
+        
+        // Large steps
+        output "Large steps:"
+        for i by 10 in 0 to 50 {
+            output "Large step: " + i  // 0, 10, 20, 30, 40, 50
+        }
+    }
+    
+    // Main method - program entry point
+    share main() {
+        output "=== CODERIVE INTERACTIVE DEMO ==="
+        output ""
+        
+        // Demonstrate arrays
+        demonstrateArrays()
+        output ""
+        
+        // Get user information
+        getUserInfo() 
+        output ""
+        
+        // Calculator demo
+        interactiveCalculator()
+        output ""
+        
+        // Number series demo
+        numberSeries()
+        output ""
+        
+        // Edge cases
+        edgeCaseLoops()
+        output ""
+        
+        output "=== DEMO COMPLETE ==="
+        output "Thank you for using Coderive!"
+    }
+}

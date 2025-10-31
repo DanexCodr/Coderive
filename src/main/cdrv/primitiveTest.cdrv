@@ -1,0 +1,60 @@
+unit full.test get {
+    cdrv.Math
+}
+
+ship FullTest {
+    
+    // Test arithmetic operations
+    ship testArithmetic() {
+        int a = 15
+        int b = 4
+        float x = 10.5
+        float y = 2.5
+        
+        output "Arithmetic Operations:"
+        output "15 + 4 = " + (a + b)
+        output "15 - 4 = " + (a - b)
+        output "15 * 4 = " + (a * b)
+        output "15 / 4 = " + (a / b)
+        output "10.5 + 2.5 = " + (x + y)
+        output "10.5 - 2.5 = " + (x - y)
+        output "10.5 * 2.5 = " + (x * y)
+        output "10.5 / 2.5 = " + (x / y)
+    }
+    
+    // Test comparison operations  
+    ship testComparisons() {
+        int num1 = 10
+        int num2 = 20
+        
+        output "Comparison Operations:"
+        output "10 == 10: " + (num1 == num1)
+        output "10 == 20: " + (num1 == num2)
+        output "10 != 20: " + (num1 != num2)
+        output "10 < 20: " + (num1 < num2)
+        output "10 > 20: " + (num1 > num2)
+        output "10 <= 20: " + (num1 <= num2)
+        output "10 >= 20: " + (num1 >= num2)
+    }
+    
+    // Test multiple return values
+        ~|intResult, stringResult
+        ship testMultiReturn(int inputInteger) {
+        ~ intResult inputInteger * 2
+        ~ stringResult "Processed: " + inputInteger
+    }
+    
+    ship main() {
+        output "=== COMPREHENSIVE TESTS ==="
+        output ""
+        
+        testArithmetic()
+        output ""
+        
+        testComparisons() 
+        output ""
+        
+        output "Multiple Return Test:"
+        output [stringResult, intResult]:testMultiReturn(25)
+    }
+}

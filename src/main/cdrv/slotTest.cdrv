@@ -1,0 +1,17 @@
+unit sample.test get {
+cdrv.Math
+}
+
+ship Sample {
+
+[sum, diff] ship compute(int a, int b) {
+sum = a + b
+diff = a - b
+}
+
+ship main() {
+output [sum]:compute(2, 1)
+output [diff]:compute(2, 1)
+}
+
+}

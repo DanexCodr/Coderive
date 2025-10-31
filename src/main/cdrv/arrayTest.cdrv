@@ -1,0 +1,32 @@
+unit array.test get {
+    cdrv.Math
+}
+
+ship ArrayTest {
+    ship main() {
+        // Array declaration and initialization
+        int[] numbers = [1, 2, 3, 4, 5]
+        output "Array: " + numbers
+        
+        // Array access
+        output "First element: " + numbers[0]
+        output "Third element: " + numbers[2]
+        
+        // String array
+        string[] names = ["Alice", "Bob", "Charlie"]
+        output "Names: " + names
+        output "Second name: " + names[1]
+        
+        // Array assignment
+        numbers[0] = 100
+        output "After assignment - First element: " + numbers[0]
+        
+        // Empty array
+        int[] empty = []
+        output "Empty array: " + empty
+        
+        // Single element array
+        int[] single = [42]
+        output "Single element: " + single[0]
+    }
+}
