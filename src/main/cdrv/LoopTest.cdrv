@@ -1,8 +1,8 @@
 unit sample
 
-ship LoopTest {
+share LoopTest {
 
-ship main() {
+share main() {
 output "Enter start"
 start = (int) input
 output "Enter end"
@@ -11,5 +11,6 @@ for i by *+2 in start to end {
 output "Result is: " + i
 }
 }
+
 
 }
