@@ -1,4 +1,4 @@
-unit demo.program get {
+unit sample get {
     cdrv.Math
 }
 
@@ -326,3 +326,4 @@ local haha(int a) {
     }
 
 }
+
