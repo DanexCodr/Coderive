@@ -1,0 +1,13 @@
+share EvenOdd {
+
+  share main() {
+    int number = 5
+    output "The number is " + number
+    if (number % 2) == 0 {
+      output "The number is even."
+    } else {
+      output "The number is odd."
+    }
+  }
+
+}
