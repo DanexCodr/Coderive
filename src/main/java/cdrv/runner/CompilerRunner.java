@@ -25,7 +25,8 @@ public class CompilerRunner extends BaseRunner {
 
     @Override
     public void run(String[] args) throws Exception {
-        String defaultFilename = "/storage/emulated/0/JavaNIDE/Programming-Language/Coderive/executables/interactiveDemo.cdrv";
+        // Directly used by the developer
+        String defaultFilename = "/storage/emulated/0/JavaNIDE/Programming-Language/Coderive/executables/InteractiveDemo.cdrv";
         final String defaultOutputFilename = "/storage/emulated/0/program.s";
         
         CompilationMode mode = CompilationMode.NATIVE_ONLY;
