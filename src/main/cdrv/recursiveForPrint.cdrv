@@ -1,9 +1,9 @@
-unit codx.test get {
-    codx.Math
+unit sample get {
+    cdrv.Math
 }
 
-ship RecursivePrinter {
-    ship main() {
+share RecursivePrinter {
+    share main() {
     	output "This is a test for for-loop"
     
         output "Counting up:"
