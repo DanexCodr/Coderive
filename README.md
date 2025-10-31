@@ -88,6 +88,16 @@ add:
 
 The system demonstrates working register allocation and proper loop execution across both interpreter and native compilation targets, with the native code showing expected output for complex loop patterns and edge cases.
 
+## Notable Features
+
+· Multi-return slots with slit declarations on top of each function declarations.
+
+· Expressive and smart for-loops.
+
+· Implicit class and method declaration.
+
+· Cleaner importing
+
 ## Current Status
 
 · ✅ Working interpreter with full language features
@@ -104,4 +114,4 @@ The system demonstrates working register allocation and proper loop execution ac
 
 ---
 
-Built with passion and persistence on and for mobile devices — proving that innovation knows no hardware boundaries.
+>>>  Built with passion and persistence on and for mobile devices — proving that innovation knows no hardware boundaries.
