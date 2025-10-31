@@ -9,7 +9,9 @@ public class InterpreterRunner extends BaseRunner {
     
     @Override
     public void run(String[] args) throws Exception {
-        String defaultFilename = "/storage/emulated/0/JavaNIDE/Programming-Language/Coderive/executables/interactiveDemo.cdrv";
+
+        // Used by the developer directly
+        String defaultFilename = "/storage/emulated/0/JavaNIDE/Programming-Language/Coderive/executables/InteractiveDemo.cdrv";
         
         // Process command line arguments with anonymous configuration
         RunnerConfig config = processCommandLineArgs(args, defaultFilename, new Configuration() {
