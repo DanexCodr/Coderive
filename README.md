@@ -88,6 +88,16 @@ add:
 
 The system demonstrates working register allocation and proper loop execution across both interpreter and native compilation targets, with the native code showing expected output for complex loop patterns and edge cases.
 
+## Getting Started
+
+```bash
+# Run interpreter
+java -jar coderive.jar program.cdrv
+
+# Compile to native
+java -jar coderive.jar --native program.cdrv
+```
+
 ## Notable Features
 
 ### **Language Innovations**
@@ -126,4 +136,4 @@ The system demonstrates working register allocation and proper loop execution ac
 
 ---
 
->>>  Built with passion and persistence on and for mobile devices — proving that innovation knows no hardware boundaries.
+>>>  Built with passion and persistence on and for mobile devices — proving that innovation knows no hardware boundaries. Happy coding to derive your visions! 😊
