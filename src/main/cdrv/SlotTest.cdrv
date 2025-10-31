@@ -2,14 +2,14 @@ unit sample.test get {
 cdrv.Math
 }
 
-ship Sample {
+share SlotTest {
 
-[sum, diff] ship compute(int a, int b) {
+[sum, diff] share compute(int a, int b) {
 sum = a + b
 diff = a - b
 }
 
-ship main() {
+share main() {
 output [sum]:compute(2, 1)
 output [diff]:compute(2, 1)
 }
