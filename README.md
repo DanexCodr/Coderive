@@ -134,6 +134,12 @@ java -jar coderive.jar --native program.cdrv
 
 · 🔧 Enhanced type system in development
 
+## Contributing
+
+This project proves great software can come from anywhere. We welcome contributions from developers of all backgrounds!
+
+*Note: The language is evolving rapidly - reach out before major contributions.*
+
 ---
 
 >>>  Built with passion and persistence on and for mobile devices — proving that innovation knows no hardware boundaries. Happy coding to derive your visions! 😊
