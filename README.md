@@ -90,13 +90,25 @@ The system demonstrates working register allocation and proper loop execution ac
 
 ## Notable Features
 
-· Multi-return slots with slit declarations on top of each function declarations.
+### **Language Innovations**
+- **Multi-return slots** with slot declarations atop function definitions
+- **Expressive smart for-loops** with complex step patterns (`by *2`, `by i+=1`, `by *+2`)
+- **Implicit class and method declaration** for reduced boilerplate
+- **Cleaner importing system** with modular unit support
 
-· Expressive and smart for-loops.
+### **Technical Breakthroughs**  
+- **Mobile-first compiler architecture** - built entirely on Android devices
+- **Hybrid "future-cost" register allocation** with predictive spilling
+- **Dual-parser system** (ANTLR + recursive backtracking) for robust parsing
+- **Multi-target native compilation** from single Java codebase (ARM64/x86_64)
 
-· Implicit class and method declaration.
+## 🚀 Novel Contributions
 
-· Cleaner importing
+- **First production-ready compiler designed and built entirely on mobile devices**
+- **Proving serious systems programming can happen outside traditional environments** 
+- **AI-paired mobile development methodology** using DeepSeek/Gemini as coding partners
+- **Filipino-led compiler innovation** challenging Western-dominated language development
+- **Constraint-driven architecture** turning mobile limitations into strengths
 
 ## Current Status
 
