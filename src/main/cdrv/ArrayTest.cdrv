@@ -1,9 +1,9 @@
-unit array.test get {
+unit sample get {
     cdrv.Math
 }
 
-ship ArrayTest {
-    ship main() {
+share ArrayTest {
+    share main() {
         // Array declaration and initialization
         int[] numbers = [1, 2, 3, 4, 5]
         output "Array: " + numbers
