@@ -1,10 +1,10 @@
-unit main.test get {
+unit sample get {
     cdrv.Math
 }
 
-ship ImportTest {
+share ImportTest {
     
-    ship testMathOperations() {
+    share testMathOperations() {
         output "=== Testing Math Import ==="
         
         // Test calling imported math functions
@@ -18,7 +18,7 @@ ship ImportTest {
         output "Maximum of 10 and 20: " + maxResult
     }
     
-    ship main() {
+    share main() {
         output "=== IMPORT SYSTEM TEST ==="
         output ""
         
@@ -28,3 +28,4 @@ ship ImportTest {
         output "=== TEST COMPLETE ==="
     }
 }
+
