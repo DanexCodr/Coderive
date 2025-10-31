@@ -1,11 +1,11 @@
-unit full.test get {
+unit sample get {
     cdrv.Math
 }
 
-ship FullTest {
+share PrimitiveTest {
     
     // Test arithmetic operations
-    ship testArithmetic() {
+    share testArithmetic() {
         int a = 15
         int b = 4
         float x = 10.5
@@ -23,7 +23,7 @@ ship FullTest {
     }
     
     // Test comparison operations  
-    ship testComparisons() {
+    share testComparisons() {
         int num1 = 10
         int num2 = 20
         
@@ -39,12 +39,12 @@ ship FullTest {
     
     // Test multiple return values
         ~|intResult, stringResult
-        ship testMultiReturn(int inputInteger) {
+        share testMultiReturn(int inputInteger) {
         ~ intResult inputInteger * 2
         ~ stringResult "Processed: " + inputInteger
     }
     
-    ship main() {
+    share main() {
         output "=== COMPREHENSIVE TESTS ==="
         output ""
         
