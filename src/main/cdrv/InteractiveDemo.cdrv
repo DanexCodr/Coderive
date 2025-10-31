@@ -2,7 +2,7 @@ unit demo.program get {
     cdrv.Math
 }
 
-share interactiveDemo {
+share InteractiveDemo {
     
     // Supporting both else-if and elif
     ~| formula, operation
@@ -324,4 +324,5 @@ local haha(int a) {
         output "=== DEMO COMPLETE ==="
         output "Thank you for using Coderive!"
     }
+
 }
