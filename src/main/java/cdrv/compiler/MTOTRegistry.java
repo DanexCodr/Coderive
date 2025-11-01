@@ -134,7 +134,13 @@ public class MTOTRegistry {
             store_to_stack = "store_to_stack",
             load_from_stack = "load_from_stack",
             load_field_offset = "load_field_offset",
-            store_field_offset = "store_field_offset";
+            store_field_offset = "store_field_offset",
+            alloc_stack_frame = "alloc_stack_frame",
+            dealloc_stack_frame = "dealloc_stack_frame",
+            save_callee_reg_pair = "save_callee_reg_pair",
+            save_callee_reg_single = "save_callee_reg_single",
+            restore_callee_reg_pair = "restore_callee_reg_pair",
+            restore_callee_reg_single = "restore_callee_reg_single";
 
     // ======================================================================
     // --- INSTRUCTION TEMPLATE STRINGS ---
@@ -190,10 +196,14 @@ public class MTOTRegistry {
             x86_jmp_if_true_1 = "test {condition}, {condition}",
             x86_jmp_if_true_2 = "jnz {label}",
             x86_call = "call {name}",
-            x86_store_to_stack = "mov [" + rbp + " + {offset}], {src_reg}",
-            x86_load_from_stack = "mov {dest_reg}, [" + rbp + " + {offset}]",
+            x86_store_to_stack = "mov [" + rbp + " - {offset}], {src_reg}", // Note: x86 offsets from RBP are negative
+            x86_load_from_stack = "mov {dest_reg}, [" + rbp + " - {offset}]",
             x86_load_field_offset = "mov {dest_reg}, [{base_reg} + {offset}]",
-            x86_store_field_offset = "mov [{base_reg} + {offset}], {src_reg}";
+            x86_store_field_offset = "mov [{base_reg} + {offset}], {src_reg}",
+            x86_alloc_stack_frame = "sub " + rsp + ", {size}",
+            x86_dealloc_stack_frame = "mov " + rsp + ", " + rbp,
+            x86_save_callee_reg_single = "push {reg}",
+            x86_restore_callee_reg_single = "pop {reg}";
 
     // AArch64 instruction templates
     public static final String
@@ -232,10 +242,16 @@ public class MTOTRegistry {
             arm_jmp_if_true_1 = "cmp {condition}, #0",
             arm_jmp_if_true_2 = "b.ne {label}",
             arm_call = "bl {name}",
-            arm_store_to_stack = "str {src_reg}, [" + x29 + ", #{offset}]",
+            arm_store_to_stack = "str {src_reg}, [" + x29 + ", #{offset}]", // Note: ARM offsets from FP are negative
             arm_load_from_stack = "ldr {dest_reg}, [" + x29 + ", #{offset}]",
             arm_load_field_offset = "ldr {dest_reg}, [{base_reg}, #{offset}]",
-            arm_store_field_offset = "str {src_reg}, [{base_reg}, #{offset}]";
+            arm_store_field_offset = "str {src_reg}, [{base_reg}, #{offset}]",
+            arm_alloc_stack_frame = "sub " + sp + ", " + sp + ", #{size}",
+            arm_dealloc_stack_frame = "mov " + sp + ", " + x29,
+            arm_save_callee_reg_pair = "stp {reg1}, {reg2}, [" + fp + ", #{offset}]",
+            arm_save_callee_reg_single = "str {reg1}, [" + fp + ", #{offset}]",
+            arm_restore_callee_reg_pair = "ldp {reg1}, {reg2}, [" + fp + ", #{offset}]",
+            arm_restore_callee_reg_single = "ldr {reg1}, [" + fp + ", #{offset}]";
 
     // ======================================================================
     // --- INNER PROFILE CLASSES ---
@@ -344,9 +360,18 @@ public class MTOTRegistry {
                             new ArrayList<String>(
                                     Arrays.asList(ymm0, ymm1, ymm2, ymm3, ymm4, ymm5, ymm6, ymm7)));
             // Argument registers (in System V ABI order)
+            // --- MODIFIED: x86 arg regs are also used for return (rax, rdx) ---
             this.argumentRegisters =
                     Collections.unmodifiableList(
-                            new ArrayList<String>(Arrays.asList(rdi, rsi, rdx, rcx, r8, r9)));
+                            new ArrayList<String>(Arrays.asList(
+                                rdi, // arg 0
+                                rsi, // arg 1
+                                rdx, // arg 2 (also return 1)
+                                rcx, // arg 3
+                                r8,  // arg 4
+                                r9,  // arg 5
+                                rax  // return 0 (not technically an arg reg, but convenient here)
+                                )));
             this.stackPointer = rsp;
             this.framePointer = rbp;
             this.registerCount = this.generalPurpose.size();
@@ -357,19 +382,21 @@ public class MTOTRegistry {
     public static class CPUProfile {
         public final String architecture;
         public final Map<String, InstructionPattern> patterns;
-        public static RegisterFile registerFile;
+        // --- MODIFICATION: Removed 'static' ---
+        public final RegisterFile registerFile;
+        // --- END MODIFICATION ---
         public final VectorCapabilities vector;
         public final SyntaxProfile syntax;
 
         public CPUProfile(
                 String architecture,
                 Map<String, InstructionPattern> patterns,
-                RegisterFile registerFile,
+                RegisterFile registerFile, // <--- ADDED to constructor
                 VectorCapabilities vector,
                 SyntaxProfile syntax) {
             this.architecture = architecture;
             this.patterns = patterns;
-            this.registerFile = registerFile;
+            this.registerFile = registerFile; // <--- ADDED assignment
             this.vector = vector;
             this.syntax = syntax;
         }
@@ -434,19 +461,22 @@ public class MTOTRegistry {
                 new InstructionPattern(
                         mul_int,
                         Arrays.asList(x86_mul_int_1, x86_mul_int_2, x86_mul_int_3),
-                        emptyList));
+                        Arrays.asList(rax, rdx) // Clobbers rax, rdx
+                        ));
         x86Patterns.put(
                 div_int,
                 new InstructionPattern(
                         div_int,
                         Arrays.asList(x86_div_int_1, x86_div_int_2, x86_div_int_3, x86_div_int_4),
-                        emptyList));
+                        Arrays.asList(rax, rdx) // Clobbers rax, rdx
+                        ));
         x86Patterns.put(
                 mod_int,
                 new InstructionPattern(
                         mod_int,
                         Arrays.asList(x86_mod_int_1, x86_mod_int_2, x86_mod_int_3, x86_mod_int_4),
-                        emptyList));
+                        Arrays.asList(rax, rdx) // Clobbers rax, rdx
+                        ));
         x86Patterns.put(
                 neg_int,
                 new InstructionPattern(
@@ -456,37 +486,38 @@ public class MTOTRegistry {
                 new InstructionPattern(
                         cmp_eq_int,
                         Arrays.asList(x86_cmp_eq_int_1, x86_cmp_eq_int_2, x86_cmp_eq_int_3),
-                        emptyList));
+                        Arrays.asList("al") // Uses 'al' register
+                        ));
         x86Patterns.put(
                 cmp_ne_int,
                 new InstructionPattern(
                         cmp_ne_int,
                         Arrays.asList(x86_cmp_ne_int_1, x86_cmp_ne_int_2, x86_cmp_ne_int_3),
-                        emptyList));
+                        Arrays.asList("al")));
         x86Patterns.put(
                 cmp_lt_int,
                 new InstructionPattern(
                         cmp_lt_int,
                         Arrays.asList(x86_cmp_lt_int_1, x86_cmp_lt_int_2, x86_cmp_lt_int_3),
-                        emptyList));
+                        Arrays.asList("al")));
         x86Patterns.put(
                 cmp_le_int,
                 new InstructionPattern(
                         cmp_le_int,
                         Arrays.asList(x86_cmp_le_int_1, x86_cmp_le_int_2, x86_cmp_le_int_3),
-                        emptyList));
+                        Arrays.asList("al")));
         x86Patterns.put(
                 cmp_gt_int,
                 new InstructionPattern(
                         cmp_gt_int,
                         Arrays.asList(x86_cmp_gt_int_1, x86_cmp_gt_int_2, x86_cmp_gt_int_3),
-                        emptyList));
+                        Arrays.asList("al")));
         x86Patterns.put(
                 cmp_ge_int,
                 new InstructionPattern(
                         cmp_ge_int,
                         Arrays.asList(x86_cmp_ge_int_1, x86_cmp_ge_int_2, x86_cmp_ge_int_3),
-                        emptyList));
+                        Arrays.asList("al")));
         x86Patterns.put(
                 pop, new InstructionPattern(pop, Collections.<String>emptyList(), emptyList));
         x86Patterns.put(jmp, new InstructionPattern(jmp, Arrays.asList(x86_jmp), emptyList));
@@ -519,13 +550,22 @@ public class MTOTRegistry {
                 store_field_offset,
                 new InstructionPattern(
                         store_field_offset, Arrays.asList(x86_store_field_offset), emptyList));
+        
+        x86Patterns.put(alloc_stack_frame, new InstructionPattern(alloc_stack_frame, Arrays.asList(x86_alloc_stack_frame), emptyList));
+        x86Patterns.put(dealloc_stack_frame, new InstructionPattern(dealloc_stack_frame, Arrays.asList(x86_dealloc_stack_frame), emptyList));
+        x86Patterns.put(save_callee_reg_single, new InstructionPattern(save_callee_reg_single, Arrays.asList(x86_save_callee_reg_single), emptyList));
+        x86Patterns.put(restore_callee_reg_single, new InstructionPattern(restore_callee_reg_single, Arrays.asList(x86_restore_callee_reg_single), emptyList));
+        x86Patterns.put(save_callee_reg_pair, new InstructionPattern(save_callee_reg_pair, Collections.<String>emptyList(), emptyList));
+        x86Patterns.put(restore_callee_reg_pair, new InstructionPattern(restore_callee_reg_pair, Collections.<String>emptyList(), emptyList));
 
         RegisterFile x86Registers = new RegisterFile();
-
         VectorCapabilities x86Vector = new VectorCapabilities(256, true, false, false);
+        
+        // --- MODIFIED: Pass RegisterFile to constructor ---
         profiles.put(
                 "x86_64",
                 new CPUProfile("x86_64", x86Patterns, x86Registers, x86Vector, x86Syntax));
+        // --- END MODIFIED ---
 
         // ======================================================================
         // AArch64 Profile (ARM64)
@@ -577,7 +617,8 @@ public class MTOTRegistry {
                 new InstructionPattern(
                         mod_int,
                         Arrays.asList(arm_mod_int_1, arm_mod_int_2, arm_mod_int_3),
-                        emptyList));
+                        Arrays.asList(x16) // Clobbers x16
+                        ));
         armPatterns.put(
                 neg_int, new InstructionPattern(neg_int, Arrays.asList(arm_neg_int), emptyList));
         armPatterns.put(
@@ -636,13 +677,22 @@ public class MTOTRegistry {
                 store_field_offset,
                 new InstructionPattern(
                         store_field_offset, Arrays.asList(arm_store_field_offset), emptyList));
+        
+        armPatterns.put(alloc_stack_frame, new InstructionPattern(alloc_stack_frame, Arrays.asList(arm_alloc_stack_frame), emptyList));
+        armPatterns.put(dealloc_stack_frame, new InstructionPattern(dealloc_stack_frame, Arrays.asList(arm_dealloc_stack_frame), emptyList));
+        armPatterns.put(save_callee_reg_pair, new InstructionPattern(save_callee_reg_pair, Arrays.asList(arm_save_callee_reg_pair), emptyList));
+        armPatterns.put(save_callee_reg_single, new InstructionPattern(save_callee_reg_single, Arrays.asList(arm_save_callee_reg_single), emptyList));
+        armPatterns.put(restore_callee_reg_pair, new InstructionPattern(restore_callee_reg_pair, Arrays.asList(arm_restore_callee_reg_pair), emptyList));
+        armPatterns.put(restore_callee_reg_single, new InstructionPattern(restore_callee_reg_single, Arrays.asList(arm_restore_callee_reg_single), emptyList));
 
         RegisterFile armRegisters = new RegisterFile(new AArch64Registers());
-
         VectorCapabilities armVector = new VectorCapabilities(128, false, true, false);
+        
+        // --- MODIFIED: Pass RegisterFile to constructor ---
         profiles.put(
                 "aarch64",
                 new CPUProfile("aarch64", armPatterns, armRegisters, armVector, armSyntax));
+        // --- END MODIFIED ---
     }
 
     // ======================================================================
