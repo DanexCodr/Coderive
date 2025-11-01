@@ -78,32 +78,32 @@ jobs:
         javac -cp "lib/antlr4-runtime-4.13.2.jar" -d target/classes @sources.txt
     
     - name: Test compilation with actual .cdrv files
-  run: |
-    echo "Available .cdrv files:"
-    find src/main/cdrv -name "*.cdrv" -type f
+      run: |
+       echo "Available .cdrv files:"
+       find src/main/cdrv -name "*.cdrv" -type f
     
-    # Use the first .cdrv file found for testing
-    FIRST_CDRV=$(find src/main/cdrv -name "*.cdrv" -type f | head -1)
-    if [ -n "$FIRST_CDRV" ]; then
-      echo "Testing with: $FIRST_CDRV"
+       # Use the first .cdrv file found for testing
+       FIRST_CDRV=$(find src/main/cdrv -name "*.cdrv" -type f | head -1)
+       if [ -n "$FIRST_CDRV" ]; then
+         echo "Testing with: $FIRST_CDRV"
       
-      # Test bytecode compilation
-      java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CompilerRunner --bytecode "$FIRST_CDRV"
+         # Test bytecode compilation
+         java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CompilerRunner --bytecode "$FIRST_CDRV"
       
-      # Test native compilation
-      java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CompilerRunner --native "$FIRST_CDRV"
-    else
-      echo "No .cdrv files found in src/main/cdrv/"
-      # Create a simple test file using echo
-      mkdir -p src/main/cdrv
-      echo 'output "Multi-arch compilation test"' > src/main/cdrv/test.cdrv
-      echo 'x = 10 + 5' >> src/main/cdrv/test.cdrv
-      echo 'output "Result: " + x' >> src/main/cdrv/test.cdrv
-      echo 'for i in 1 to 3 {' >> src/main/cdrv/test.cdrv
-      echo '  output "Loop: " + i' >> src/main/cdrv/test.cdrv
-      echo '}' >> src/main/cdrv/test.cdrv
-      java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CompilerRunner --native src/main/cdrv/test.cdrv
-    fi
+         # Test native compilation
+         java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CompilerRunner --native "$FIRST_CDRV"
+       else
+         echo "No .cdrv files found in src/main/cdrv/"
+         # Create a simple test file using echo
+         mkdir -p src/main/cdrv
+         echo 'output "Multi-arch compilation test"' > src/main/cdrv/test.cdrv
+         echo 'x = 10 + 5' >> src/main/cdrv/test.cdrv
+         echo 'output "Result: " + x' >> src/main/cdrv/test.cdrv
+         echo 'for i in 1 to 3 {' >> src/main/cdrv/test.cdrv
+         echo '  output "Loop: " + i' >> src/main/cdrv/test.cdrv
+         echo '}' >> src/main/cdrv/test.cdrv
+         java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CompilerRunner --native src/main/cdrv/test.cdrv
+       fi
     
     - name: Verify assembly generation
       run: |
