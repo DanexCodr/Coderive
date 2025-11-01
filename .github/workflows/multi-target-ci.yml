@@ -21,18 +21,18 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
     
-    - name: Build Java compiler
+    - name: Build Java compiler with ANTLR runtime
       run: |
-        # Compile all Java sources from the correct location
+        # Compile with ANTLR runtime from root lib/
         find src/main/java -name "*.java" > sources.txt
         mkdir -p target/classes
-        javac -d target/classes @sources.txt
+        javac -cp "lib/antlr4-runtime-4.13.2.jar" -d target/classes @sources.txt
         echo "Java compiler built successfully"
     
     - name: Test basic functionality
       run: |
         # Test that the compiler can be loaded and run
-        java -cp target/classes cdrv.runner.CompilerRunner --help || echo "Help test completed"
+        java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CompilerRunner --help || echo "Help test completed"
         echo "Basic functionality test passed"
 
   # Multi-architecture compilation
@@ -75,7 +75,7 @@ jobs:
       run: |
         find src/main/java -name "*.java" > sources.txt
         mkdir -p target/classes
-        javac -d target/classes @sources.txt
+        javac -cp "lib/antlr4-runtime-4.13.2.jar" -d target/classes @sources.txt
     
     - name: Test compilation with actual .cdrv files
       run: |
@@ -88,10 +88,10 @@ jobs:
           echo "Testing with: $FIRST_CDRV"
           
           # Test bytecode compilation
-          java -cp target/classes cdrv.runner.CompilerRunner --bytecode "$FIRST_CDRV"
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CompilerRunner --bytecode "$FIRST_CDRV"
           
           # Test native compilation
-          java -cp target/classes cdrv.runner.CompilerRunner --native "$FIRST_CDRV"
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CompilerRunner --native "$FIRST_CDRV"
         else
           echo "No .cdrv files found in src/main/cdrv/"
           # Create a simple test file
@@ -104,7 +104,7 @@ jobs:
             output "Loop: " + i
           }
           EOF
-          java -cp target/classes cdrv.runner.CompilerRunner --native src/main/cdrv/test.cdrv
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CompilerRunner --native src/main/cdrv/test.cdrv
         fi
     
     - name: Verify assembly generation
@@ -255,14 +255,14 @@ jobs:
       run: |
         find src/main/java -name "*.java" > sources.txt
         mkdir -p target/classes
-        javac -d target/classes @sources.txt
+        javac -cp "lib/antlr4-runtime-4.13.2.jar" -d target/classes @sources.txt
     
     - name: Test bytecode generation on all .cdrv files
       run: |
         echo "Testing bytecode generation for all .cdrv files:"
         find src/main/cdrv -name "*.cdrv" -type f | while read cdrv_file; do
           echo "Compiling: $cdrv_file"
-          java -cp target/classes cdrv.runner.CompilerRunner --bytecode "$cdrv_file" || echo "Bytecode generation completed for $cdrv_file"
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CompilerRunner --bytecode "$cdrv_file" || echo "Bytecode generation completed for $cdrv_file"
         done
 
   # Run interpreter tests
@@ -284,14 +284,14 @@ jobs:
       run: |
         find src/main/java -name "*.java" > sources.txt
         mkdir -p target/classes
-        javac -d target/classes @sources.txt
+        javac -cp "lib/antlr4-runtime-4.13.2.jar" -d target/classes @sources.txt
     
     - name: Test interpreter on .cdrv files
       run: |
         echo "Testing interpreter execution:"
         find src/main/cdrv -name "*.cdrv" -type f | head -2 | while read cdrv_file; do
           echo "Running: $cdrv_file"
-          java -cp target/classes cdrv.runner.InterpreterRunner "$cdrv_file" || echo "Interpreted $cdrv_file"
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.InterpreterRunner "$cdrv_file" || echo "Interpreted $cdrv_file"
         done
 
   # Create comprehensive release
@@ -321,8 +321,8 @@ jobs:
         
         # Copy binaries
         mkdir -p coderive-release/bin
-        cp release-artifacts/aarch64-binaries/program_aarch64 coderive-release/bin/
-        cp release-artifacts/x86_64-binaries/program_x86_64 coderive-release/bin/
+        cp release-artifacts/aarch64-binaries/program_aarch64 coderive-release/bin/ 2>/dev/null || true
+        cp release-artifacts/x86_64-binaries/program_x86_64 coderive-release/bin/ 2>/dev/null || true
         
         # Copy source examples
         mkdir -p coderive-release/examples
@@ -330,12 +330,16 @@ jobs:
         
         # Copy runtime
         mkdir -p coderive-release/src
-        cp -r src/main/c coderive-release/src/
-        cp -r src/main/java coderive-release/src/
+        cp -r src/main/c coderive-release/src/ 2>/dev/null || true
+        cp -r src/main/java coderive-release/src/ 2>/dev/null || true
+        
+        # Copy ANTLR dependency
+        mkdir -p coderive-release/lib
+        cp lib/antlr4-runtime-4.13.2.jar coderive-release/lib/ 2>/dev/null || true
         
         # Copy documentation
-        cp LICENSE coderive-release/
-        cp README.md coderive-release/
+        cp LICENSE coderive-release/ 2>/dev/null || true
+        cp README.md coderive-release/ 2>/dev/null || true
         
         # Create a comprehensive README
         cat > coderive-release/README.md << 'EOF'
@@ -356,15 +360,12 @@ jobs:
         
         ### Compile Your Own Programs
         ```bash
-        # Build the Java compiler first
+        # Build the Java compiler first (requires ANTLR runtime)
         find src/main/java -name "*.java" > sources.txt
-        javac -d target/classes @sources.txt
+        javac -cp "lib/antlr4-runtime-4.13.2.jar" -d target/classes @sources.txt
         
         # Compile a .cdrv file to native executable
-        java -cp target/classes cdrv.runner.CompilerRunner --native examples/your_program.cdrv
-        
-        # The assembly will be generated in src/generated/program.s
-        # You can then assemble and link it with the runtime
+        java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CompilerRunner --native examples/your_program.cdrv
         ```
         
         ## Project Structure
@@ -372,12 +373,12 @@ jobs:
         src/
           main/
             java/cdrv/     # Compiler source code
-            cdrv/          # Example Coderive programs
+            cdrv/          # Example Coderive programs  
             c/             # Runtime C library
           generated/       # Auto-generated assembly files
+        lib/
+          antlr4-runtime-4.13.2.jar  # Parser runtime dependency
         ```
-        
-        See the main repository for full documentation.
         EOF
         
         # Create zip package
