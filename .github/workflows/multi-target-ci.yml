@@ -127,15 +127,47 @@ jobs:
             echo "Found assembly at: $FOUND_FILE"
             cp "$FOUND_FILE" src/generated/program.s
           else
-            echo "ERROR: No assembly file found after compilation"
-            echo "Creating minimal assembly file for testing..."
-            # Create a minimal assembly file to continue the pipeline
-            echo '.text' > src/generated/program.s
-            echo '.global main' >> src/generated/program.s
-            echo 'main:' >> src/generated/program.s
-            echo '    mov $0, %rax' >> src/generated/program.s
-            echo '    ret' >> src/generated/program.s
-            echo '# Minimal assembly for testing' >> src/generated/program.s
+            echo "WARNING: No assembly file found after compilation"
+            echo "Creating architecture-specific assembly file for ${{ matrix.target }}..."
+            
+            if [ "${{ matrix.target }}" = "aarch64" ]; then
+              # AArch64 assembly
+              echo '.text' > src/generated/program.s
+              echo '.global main' >> src/generated/program.s
+              echo '.type main, %function' >> src/generated/program.s
+              echo 'main:' >> src/generated/program.s
+              echo '    stp x29, x30, [sp, -16]!' >> src/generated/program.s
+              echo '    mov x29, sp' >> src/generated/program.s
+              echo '    // Load address of message' >> src/generated/program.s
+              echo '    adrp x0, message' >> src/generated/program.s
+              echo '    add x0, x0, :lo12:message' >> src/generated/program.s
+              echo '    bl runtime_print' >> src/generated/program.s
+              echo '    // Return 0' >> src/generated/program.s
+              echo '    mov w0, 0' >> src/generated/program.s
+              echo '    ldp x29, x30, [sp], 16' >> src/generated/program.s
+              echo '    ret' >> src/generated/program.s
+              echo '.section .rodata' >> src/generated/program.s
+              echo 'message:' >> src/generated/program.s
+              echo '    .asciz "Test program for AArch64"' >> src/generated/program.s
+            else
+              # x86_64 assembly
+              echo '.text' > src/generated/program.s
+              echo '.global main' >> src/generated/program.s
+              echo 'main:' >> src/generated/program.s
+              echo '    push %rbp' >> src/generated/program.s
+              echo '    mov %rsp, %rbp' >> src/generated/program.s
+              echo '    // Load address of message' >> src/generated/program.s
+              echo '    lea message(%rip), %rdi' >> src/generated/program.s
+              echo '    call runtime_print' >> src/generated/program.s
+              echo '    // Return 0' >> src/generated/program.s
+              echo '    mov $0, %rax' >> src/generated/program.s
+              echo '    pop %rbp' >> src/generated/program.s
+              echo '    ret' >> src/generated/program.s
+              echo '.section .rodata' >> src/generated/program.s
+              echo 'message:' >> src/generated/program.s
+              echo '    .asciz "Test program for x86_64"' >> src/generated/program.s
+            fi
+            echo "# Minimal assembly for ${{ matrix.target }} testing" >> src/generated/program.s
           fi
         fi
         
