@@ -106,27 +106,65 @@ jobs:
        fi
     
     - name: Verify assembly generation
-      run: |
-        if [ -f "src/generated/program.s" ]; then
-          echo "Assembly generated successfully for ${{ matrix.target }}"
-          echo "=== First 20 lines of generated assembly ==="
-          head -20 src/generated/program.s
-          
-          # Copy to a predictable location for artifact collection
-          mkdir -p build/${{ matrix.target }}
-          cp src/generated/program.s build/${{ matrix.target }}/program.s
-        else
-          echo "ERROR: src/generated/program.s not generated"
-          # Try alternative location
-          if [ -f "program.s" ]; then
-            echo "Found program.s in root directory instead"
-            mkdir -p build/${{ matrix.target }}
-            cp program.s build/${{ matrix.target }}/program.s
-          else
-            echo "No assembly file found anywhere"
-            exit 1
-          fi
-        fi
+  run: |
+    # Create necessary directories
+    mkdir -p src/main/cdrv
+    mkdir -p src/generated
+    
+    # Ensure we have a test .cdrv file
+    if [ ! -f "src/main/cdrv/test.cdrv" ]; then
+      cat > src/main/cdrv/test.cdrv << 'EOF'
+      output "Multi-arch compilation test"
+      x = 10 + 5
+      output "Result: " + x
+      for i in 1 to 3 {
+        output "Loop: " + i
+      }
+      EOF
+    fi
+    
+    echo "Compiling with CompilerRunner..."
+    
+    # Run compiler - it will generate program.s in current directory
+    java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CompilerRunner --native src/main/cdrv/test.cdrv
+    
+    # Check for assembly file in multiple possible locations
+    if [ -f "program.s" ]; then
+      echo "Assembly generated in current directory"
+      mkdir -p src/generated
+      mv program.s src/generated/program.s
+    elif [ -f "/storage/emulated/0/program.s" ]; then
+      echo "Assembly generated in Android path (simulated)"
+      mkdir -p src/generated
+      cp "/storage/emulated/0/program.s" src/generated/program.s
+    else
+      # Try to find it anywhere
+      FOUND_FILE=$(find . -name "program.s" -type f | head -1)
+      if [ -n "$FOUND_FILE" ]; then
+        echo "Found assembly at: $FOUND_FILE"
+        mkdir -p src/generated
+        cp "$FOUND_FILE" src/generated/program.s
+      else
+        echo "ERROR: No assembly file generated"
+        echo "Listing files in current directory:"
+        ls -la
+        exit 1
+      fi
+    fi
+    
+    # Final verification
+    if [ -f "src/generated/program.s" ]; then
+      echo "Assembly generated successfully for ${{ matrix.target }}"
+      echo "=== First 20 lines of generated assembly ==="
+      head -20 src/generated/program.s
+      
+      # Copy to build directory
+      mkdir -p build/${{ matrix.target }}
+      cp src/generated/program.s build/${{ matrix.target }}/program.s
+    else
+      echo "ERROR: Assembly file not found after generation"
+      exit 1
+    fi
     
     - name: Assemble for ${{ matrix.target }}
       run: |
