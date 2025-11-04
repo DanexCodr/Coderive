@@ -1,4 +1,4 @@
-unit share get {
+unit sample get {
     cdrv.Math
 }
 
