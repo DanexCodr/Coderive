@@ -9,8 +9,7 @@ public class CommandRunner extends BaseRunner {
     
     // Operation modes
     private enum OperationMode {
-        AST_INTERPRET,
-        MANUAL_INTERPRET,
+        INTERPRET,
         COMPILE_BYTECODE,
         COMPILE_NATIVE,
         COMPILE_BOTH
@@ -27,8 +26,9 @@ public class CommandRunner extends BaseRunner {
     @Override
     public void run(String[] args) throws Exception {
         // Default operation mode
-        OperationMode mode = OperationMode.MANUAL_INTERPRET;
+        OperationMode mode = OperationMode.INTERPRET;
         String outputFilename = null;
+        boolean showHelp = false;
         
         // Process command line arguments with anonymous configuration
         RunnerConfig config = processCommandLineArgs(args, null, new Configuration() {
@@ -51,10 +51,8 @@ public class CommandRunner extends BaseRunner {
                 mode = OperationMode.COMPILE_BYTECODE;
             } else if ("--compile-both".equals(arg)) {
                 mode = OperationMode.COMPILE_BOTH;
-            } else if ("--ast-interpret".equals(arg) || "-ai".equals(arg)) {
-                mode = OperationMode.AST_INTERPRET;
-            } else if ("--manual-interpret".equals(arg) || "-mi".equals(arg)) {
-                mode = OperationMode.MANUAL_INTERPRET;
+            } else if ("--interpret".equals(arg) || "-i".equals(arg)) {
+                mode = OperationMode.INTERPRET;
             } else if ("-o".equals(arg)) {
                 if (i + 1 < args.length) {
                     outputFilename = args[i + 1];
@@ -62,12 +60,26 @@ public class CommandRunner extends BaseRunner {
                 } else {
                     System.err.println("Error: -o option requires an output filename.");
                 }
+            } else if ("--help".equals(arg) || "-h".equals(arg)) {
+                showHelp = true;
             }
+        }
+        
+        // Show help and exit if requested
+        if (showHelp) {
+            printHelp();
+            return;
         }
         
         // Set output filename if provided
         if (outputFilename != null) {
             config.withOutputFilename(outputFilename);
+        }
+        
+        // Validate input filename
+        if (config.inputFilename == null || config.inputFilename.isEmpty()) {
+            printHelp();
+            throw new RuntimeException("No input file specified");
         }
         
         // Configure debug system with the specified level
@@ -80,11 +92,6 @@ public class CommandRunner extends BaseRunner {
         DebugSystem.info(LOG_TAG, "Output file: " + config.outputFilename);
         DebugSystem.info(LOG_TAG, "Print AST: " + config.printAST);
         DebugSystem.info(LOG_TAG, "Enable linting: " + config.enableLinting);
-        
-        // Validate input filename
-        if (config.inputFilename == null || config.inputFilename.isEmpty()) {
-            throw new RuntimeException("No input file specified");
-        }
         
         // STAGE 1: PARSING AND AST
         DebugSystem.startTimer("parsing_and_ast");
@@ -105,11 +112,8 @@ public class CommandRunner extends BaseRunner {
 
         // STAGE 3: EXECUTION BASED ON MODE
         switch (mode) {
-            case AST_INTERPRET:
-                executeASTInterpretation(ast);
-                break;
-            case MANUAL_INTERPRET:
-                executeManualInterpretation(ast);
+            case INTERPRET:
+                executeInterpretation(ast);
                 break;
             case COMPILE_BYTECODE:
                 compilationEngine.compileToBytecode(ast, true);
@@ -127,16 +131,44 @@ public class CommandRunner extends BaseRunner {
         DebugSystem.info(LOG_TAG, "CommandRunner execution completed");
     }
 
-    private void executeASTInterpretation(ProgramNode ast) {
-        DebugSystem.info(LOG_TAG, "Starting AST-based program interpretation");
+    private void executeInterpretation(ProgramNode ast) {
+        DebugSystem.info(LOG_TAG, "Starting program interpretation");
         interpreter.run(ast);
-        DebugSystem.info(LOG_TAG, "AST-based interpretation completed");
+        DebugSystem.info(LOG_TAG, "Program interpretation completed");
     }
-
-    private void executeManualInterpretation(ProgramNode ast) {
-        DebugSystem.info(LOG_TAG, "Starting manual program interpretation");
-        interpreter.run(ast);
-        DebugSystem.info(LOG_TAG, "Manual interpretation completed");
+    
+    private void printHelp() {
+        System.out.println("Coderive CommandRunner - Multi-target language runner");
+        System.out.println();
+        System.out.println("Usage: java CommandRunner [options] <input_file.cdrv>");
+        System.out.println();
+        System.out.println("Operation Modes:");
+        System.out.println("  --interpret, -i     Interpret the program (default)");
+        System.out.println("  --compile, -c       Compile to native assembly");
+        System.out.println("  --compile-bytecode  Compile to bytecode only");
+        System.out.println("  --compile-both      Compile to both bytecode and native");
+        System.out.println();
+        System.out.println("Parser Options:");
+        System.out.println("  --manual            Use manual parser (default)");
+        System.out.println("  --antlr             Use ANTLR parser");
+        System.out.println();
+        System.out.println("Output Options:");
+        System.out.println("  -o <file>           Output filename for compilation");
+        System.out.println("  --print-ast         Print the Abstract Syntax Tree");
+        System.out.println();
+        System.out.println("Analysis Options:");
+        System.out.println("  --no-lint           Disable linting");
+        System.out.println("  --stop-on-lint      Stop execution on lint errors");
+        System.out.println();
+        System.out.println("Debug Options:");
+        System.out.println("  --debug             Enable debug output");
+        System.out.println("  --trace             Enable trace-level output");
+        System.out.println("  --help, -h          Show this help message");
+        System.out.println();
+        System.out.println("Examples:");
+        System.out.println("  java CommandRunner program.cdrv --interpret");
+        System.out.println("  java CommandRunner program.cdrv --compile -o output.s");
+        System.out.println("  java CommandRunner program.cdrv --compile-bytecode --print-ast");
     }
 
     public static void main(String[] args) {
