@@ -6,7 +6,6 @@ import cdrv.debug.DebugSystem;
 import cdrv.ast.ASTPrinter;
 import java.io.*;
 import java.util.List;
-import java.util.Map;
 
 // ANTLR-specific imports
 import org.antlr.v4.runtime.ANTLRInputStream;
@@ -184,7 +183,6 @@ protected void printASTIfEnabled(ProgramNode ast, RunnerConfig config) {
         System.err.flush();
         
         DebugSystem.info("AST", "Printing Abstract Syntax Tree:");
-        ASTPrinter printer = new ASTPrinter();
         ASTPrinter.print(ast);
         
         // Flush stdout after AST printing

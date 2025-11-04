@@ -4,15 +4,6 @@ import cdrv.runner.BaseRunner;
 import cdrv.ast.nodes.*;
 import cdrv.debug.DebugSystem;
 import java.io.*;
-import java.util.List;
-import java.util.Map;
-
-// Bytecode compiler imports
-import cdrv.compiler.BytecodeCompiler;
-import cdrv.compiler.BytecodeProgram;
-import cdrv.compiler.BytecodeInstruction;
-import cdrv.compiler.MTOTNativeCompiler;
-import cdrv.compiler.MTOTRegistry;
 
 public class CompilerRunner extends BaseRunner {
     
@@ -22,12 +13,21 @@ public class CompilerRunner extends BaseRunner {
         BYTECODE_ONLY,
         NATIVE_ONLY
     }
+    
+    private final String androidPath = "/storage/emulated/0";
+    private final String definedFilePath = "/JavaNIDE/Programming-Language/Coderive/executables/interactiveDemo.cdrv";
+    private final String definedOutputFilePath = "/program.s";
+    
+    private final CompilationEngine compilationEngine;
+    
+    public CompilerRunner() {
+        this.compilationEngine = new CompilationEngine();
+    }
 
     @Override
     public void run(String[] args) throws Exception {
-        // Directly used by the developer
-        String defaultFilename = "/storage/emulated/0/JavaNIDE/Programming-Language/Coderive/executables/InteractiveDemo.cdrv";
-        final String defaultOutputFilename = "/storage/emulated/0/program.s";
+        String defaultFilename = androidPath + definedFilePath;
+        final String defaultOutputFilename = androidPath + definedOutputFilePath;
         
         CompilationMode mode = CompilationMode.NATIVE_ONLY;
         
@@ -81,42 +81,17 @@ public class CompilerRunner extends BaseRunner {
             return; // Stop compilation if linting failed
         }
 
-        // STAGE 3: BYTECODE COMPILATION
-        DebugSystem.startTimer("bytecode_compilation");
-        BytecodeCompiler compiler = new BytecodeCompiler();
-        BytecodeProgram bytecode = compiler.compile(ast);
-        DebugSystem.stopTimer("bytecode_compilation");
-
-        if (mode == CompilationMode.BYTECODE_ONLY || mode == CompilationMode.BOTH) {
-            bytecode.disassemble();
-        }
-        
-        if (mode == CompilationMode.BYTECODE_ONLY) {
-            DebugSystem.info(LOG_TAG, "Bytecode-only compilation complete.");
-            return;
-        }
-
-        // STAGE 4: NATIVE COMPILATION
-        DebugSystem.startTimer("native_compilation");
-        MTOTRegistry.CPUProfile cpu = MTOTRegistry.detectCPU();
-        DebugSystem.info("MTOT", "Detected CPU: " + cpu.architecture);
-        MTOTNativeCompiler nativeCompiler = new MTOTNativeCompiler(cpu);
-
-        for (Map.Entry<String, List<BytecodeInstruction>> entry : bytecode.getMethods().entrySet()) {
-            String methodName = entry.getKey();
-            List<BytecodeInstruction> methodBytecode = entry.getValue();
-            String assembly = nativeCompiler.compileMethodFromBytecode(methodName, methodBytecode);
-            bytecode.addNativeMethod(methodName, assembly);
-        }
-        DebugSystem.stopTimer("native_compilation");
-
-        if (mode == CompilationMode.NATIVE_ONLY || mode == CompilationMode.BOTH) {
-            DebugSystem.info(LOG_TAG, "Writing native assembly to " + config.outputFilename);
-            try (PrintWriter out = new PrintWriter(new FileOutputStream(config.outputFilename))) {
-                for (Map.Entry<String, String> entry : bytecode.getNativeMethods().entrySet()) {
-                    out.println(entry.getValue());
-                }
-            }
+        // STAGE 3: COMPILATION USING COMPILATION ENGINE
+        switch (mode) {
+            case BYTECODE_ONLY:
+                compilationEngine.compileToBytecode(ast, true);
+                break;
+            case NATIVE_ONLY:
+                compilationEngine.compileFullPipeline(ast, config.outputFilename, false);
+                break;
+            case BOTH:
+                compilationEngine.compileFullPipeline(ast, config.outputFilename, true);
+                break;
         }
         
         DebugSystem.info("MTOT", "Full compilation pipeline complete.");

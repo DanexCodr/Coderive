@@ -6,12 +6,19 @@ import cdrv.debug.DebugSystem;
 import cdrv.interpreter.Interpreter;
 
 public class InterpreterRunner extends BaseRunner {
+
+    private final String androidPath = "/storage/emulated/0";
+    private final String definedFilePath = "/JavaNIDE/Programming-Language/Coderive/executables/InteractiveDemo.cdrv";
+    
+    private final Interpreter interpreter;
+    
+    public InterpreterRunner() {
+        this.interpreter = new Interpreter();
+    }
     
     @Override
     public void run(String[] args) throws Exception {
-
-        // Used by the developer directly
-        String defaultFilename = "/storage/emulated/0/JavaNIDE/Programming-Language/Coderive/executables/InteractiveDemo.cdrv";
+        String defaultFilename = androidPath + definedFilePath;
         
         // Process command line arguments with anonymous configuration
         RunnerConfig config = processCommandLineArgs(args, defaultFilename, new Configuration() {
@@ -71,9 +78,8 @@ public class InterpreterRunner extends BaseRunner {
             // Print AST - ONLY AFTER linting is completely finished
             printASTIfEnabled(ast, config);
             
-            // Execute
+            // Execute using Interpreter directly
             DebugSystem.info(LOG_TAG, "Starting program interpretation");
-            Interpreter interpreter = new Interpreter();
             interpreter.run(ast);
             DebugSystem.info(LOG_TAG, "Program interpretation completed");
         }
