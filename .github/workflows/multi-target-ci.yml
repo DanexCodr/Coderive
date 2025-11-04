@@ -37,11 +37,12 @@ jobs:
         done
         echo "Total files: $(find src/main/cdrv -name "*.cdrv" -type f | wc -l)"
     
-    - name: Test CommandRunner functionality
+    - name: Test CommandRunner help functionality
       run: |
         # Test that CommandRunner can be loaded and shows help
-        java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CommandRunner --help || echo "Help test completed"
-        echo "CommandRunner basic functionality test passed"
+        echo "Testing help command..."
+        java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CommandRunner --help
+        echo "CommandRunner help functionality test passed"
     
     - name: Test interpretation on all CDRV files
       run: |
