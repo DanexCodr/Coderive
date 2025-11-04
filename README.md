@@ -1,10 +1,8 @@
-# Coderive v.0.0.4
+a4SZZ# Coderive v.0.0.4
 
 A mobile-first general programming language written primarily in Java 7. The runtime is built in c. It is a dual parser (antlr + manual "recursive backtracking"), dual compilation language (bytecode + native code generation).
 
-###### Development days count:
-
-3 weeks and 2 days
+###### Development days count: 3 weeks and 2 days
 
 ## Vision
 To have the very first filipino-made mobile-first production-ready self-hosting (native) programming language.
