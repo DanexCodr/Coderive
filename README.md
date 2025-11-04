@@ -2,7 +2,7 @@
 
 A mobile-first general programming language written primarily in Java 7. The runtime is built in c. It is a dual parser (antlr + manual "recursive backtracking"), dual compilation language (bytecode + native code generation).
 
-# Development days count:
+###### Development days count:
 
 3 weeks and 2 days
 
