@@ -1,4 +1,4 @@
-a4SZZ# Coderive v.0.0.4
+# Coderive v.0.0.4
 
 A mobile-first general programming language written primarily in Java 7. The runtime is built in c. It is a dual parser (antlr + manual "recursive backtracking"), dual compilation language (bytecode + native code generation).
 
