@@ -1,4 +1,4 @@
-unit sample get {
+unit main.test get {
     cdrv.Math
 }
 
@@ -28,4 +28,3 @@ share ImportTest {
         output "=== TEST COMPLETE ==="
     }
 }
-

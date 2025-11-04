@@ -1,12 +1,13 @@
-unit sample.test get {
+unit sample get {
 cdrv.Math
 }
 
 share SlotTest {
 
-[sum, diff] share compute(int a, int b) {
-sum = a + b
-diff = a - b
+~| sum, diff
+share compute(int a, int b) {
+~sum a + b
+~diff a - b
 }
 
 share main() {

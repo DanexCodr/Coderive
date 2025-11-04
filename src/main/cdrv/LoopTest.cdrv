@@ -12,5 +12,4 @@ output "Result is: " + i
 }
 }
 
-
 }

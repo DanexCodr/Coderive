@@ -324,6 +324,4 @@ local haha(int a) {
         output "=== DEMO COMPLETE ==="
         output "Thank you for using Coderive!"
     }
-
 }
-
