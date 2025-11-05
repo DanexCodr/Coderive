@@ -1,0 +1,34 @@
+name: Rename cdrv folders to cod
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rename-folders:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Rename cdrv directories to cod
+      run: |
+        # Find and rename all directories containing 'cdrv'
+        find . -type d -name "*cdrv*" | while read dir; do
+          if [ -d "$dir" ]; then
+            new_dir=$(echo "$dir" | sed 's/cdrv/cod/g')
+            echo "Renaming $dir to $new_dir"
+            mkdir -p "$(dirname "$new_dir")"
+            git mv "$dir" "$new_dir" 2>/dev/null || mv "$dir" "$new_dir"
+          fi
+        done
+        
+    - name: Commit and push changes
+      run: |
+        git config user.email "action@github.com"
+        git config user.name "GitHub Action"
+        git add -A
+        git commit -m "refactor: rename cdrv directories to cod" || exit 0
+        git push
