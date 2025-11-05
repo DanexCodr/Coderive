@@ -1,13 +1,13 @@
 name: Rename cdrv to cod in Java packages
 
 on:
-  push:
-    branches: [ main, master ]
-  workflow_dispatch: # Allows manual triggering
+  workflow_dispatch: # Manual trigger for safety
 
 jobs:
   rename-packages:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # ← THIS IS THE KEY LINE
     
     steps:
     - name: Checkout repository
@@ -17,7 +17,6 @@ jobs:
         
     - name: Find and replace cdrv with cod in Java files
       run: |
-        # Find all .java files and replace package declarations
         find . -name "*.java" -type f -exec sed -i 's/package\s\+.*\.cdrv\./package cod./g' {} \;
         find . -name "*.java" -type f -exec sed -i 's/package\s\+cdrv\./package cod./g' {} \;
         find . -name "*.java" -type f -exec sed -i 's/import\s\+.*\.cdrv\./import cod./g' {} \;
