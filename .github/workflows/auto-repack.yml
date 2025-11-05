@@ -1,0 +1,42 @@
+name: Rename cdrv to cod in Java packages
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  rename-packages:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Find and replace cdrv with cod in Java files
+      run: |
+        # Find all .java files and replace package declarations
+        find . -name "*.java" -type f -exec sed -i 's/package\s\+.*\.cdrv\./package cod./g' {} \;
+        find . -name "*.java" -type f -exec sed -i 's/package\s\+cdrv\./package cod./g' {} \;
+        find . -name "*.java" -type f -exec sed -i 's/import\s\+.*\.cdrv\./import cod./g' {} \;
+        find . -name "*.java" -type f -exec sed -i 's/import\s\+cdrv\./import cod./g' {} \;
+        
+    - name: Check if changes were made
+      id: check-changes
+      run: |
+        if git diff --quiet; then
+          echo "changes=false" >> $GITHUB_OUTPUT
+        else
+          echo "changes=true" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Commit and push changes
+      if: steps.check-changes.outputs.changes == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add -A
+        git commit -m "refactor: rename package from cdrv to cod"
+        git push
