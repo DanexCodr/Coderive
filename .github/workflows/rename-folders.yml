@@ -1,10 +1,10 @@
-name: Rename cdrv folders to cod
+name: Final rename - .cdrv files to .cod
 
 on:
   workflow_dispatch:
 
 jobs:
-  rename-folders:
+  final-rename:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -13,22 +13,49 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       
-    - name: Rename cdrv directories to cod
+    - name: Rename nested cdrv directories
       run: |
-        # Find and rename all directories containing 'cdrv'
-        find . -type d -name "*cdrv*" | while read dir; do
-          if [ -d "$dir" ]; then
-            new_dir=$(echo "$dir" | sed 's/cdrv/cod/g')
-            echo "Renaming $dir to $new_dir"
-            mkdir -p "$(dirname "$new_dir")"
-            git mv "$dir" "$new_dir" 2>/dev/null || mv "$dir" "$new_dir"
-          fi
+        # Keep finding and renaming until no more cdrv folders exist
+        while find . -type d -name "*cdrv*" | grep -q "cdrv"; do
+          find . -type d -name "*cdrv*" | while read dir; do
+            if [ -d "$dir" ]; then
+              new_dir=$(echo "$dir" | sed 's/cdrv/cod/g')
+              echo "Renaming $dir to $new_dir"
+              mkdir -p "$(dirname "$new_dir")"
+              git mv "$dir" "$new_dir" 2>/dev/null || mv "$dir" "$new_dir"
+            fi
+          done
         done
+        
+    - name: Rename .cdrv files to .cod
+      run: |
+        # Rename ALL files with .cdrv extension to .cod
+        find . -name "*.cdrv" -type f | while read file; do
+          new_file="${file%.cdrv}.cod"
+          echo "Renaming $file to $new_file"
+          git mv "$file" "$new_file" 2>/dev/null || mv "$file" "$new_file"
+        done
+        
+    - name: Update cdrv references in .cod file contents
+      run: |
+        # Replace cdrv with cod in ALL .cod files (which were previously .cdrv)
+        find . -name "*.cod" -type f -exec sed -i 's/cdrv/cod/g' {} \;
+        
+    - name: Verify changes
+      run: |
+        echo "=== Remaining .cdrv files ==="
+        find . -name "*.cdrv" | head -10 || echo "No .cdrv files found!"
+        
+        echo "=== .cod files ==="
+        find . -name "*.cod" | head -10
+        
+        echo "=== Remaining cdrv text in .cod files ==="
+        find . -name "*.cod" -exec grep -l "cdrv" {} \; 2>/dev/null || echo "No cdrv text found!"
         
     - name: Commit and push changes
       run: |
         git config user.email "action@github.com"
         git config user.name "GitHub Action"
         git add -A
-        git commit -m "refactor: rename cdrv directories to cod" || exit 0
+        git commit -m "refactor: complete rename - all .cdrv files to .cod and cdrv to cod in content" || exit 0
         git push
