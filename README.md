@@ -94,10 +94,10 @@ The system demonstrates working register allocation and proper loop execution ac
 
 ```bash
 # Run interpreter
-java -jar coderive.jar program.cdrv
+java -jar coderive.jar program.cod
 
 # Compile to native
-java -jar coderive.jar --native program.cdrv
+java -jar coderive.jar --native program.cod
 ```
 
 ## Notable Features
