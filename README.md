@@ -31,8 +31,8 @@ The developer (DanexCodr) is constrained by only having a phone:
 
 ## Language Example
 ```coderive
-unit demo.program get {
-    cdrv.Math
+unit sample.program get {
+    cod.Math
 }
 
 share interactiveDemo {
