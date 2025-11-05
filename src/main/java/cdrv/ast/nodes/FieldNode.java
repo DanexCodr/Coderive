@@ -1,4 +1,4 @@
-package cdrv.ast.nodes;
+package cod.ast.nodes;
 
 public class FieldNode extends StatementNode {
     public String name;

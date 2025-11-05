@@ -1,6 +1,6 @@
-package cdrv.ast;
+package cod.ast;
 
-import cdrv.ast.nodes.*;
+import cod.ast.nodes.*;
 
 public class ASTPrinter {
 

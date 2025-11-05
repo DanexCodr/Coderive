@@ -1,9 +1,9 @@
-package cdrv.runner;
+package cod.runner;
 
-import cdrv.runner.BaseRunner;
-import cdrv.ast.nodes.*;
-import cdrv.debug.DebugSystem;
-import cdrv.interpreter.Interpreter;
+import cod.runner.BaseRunner;
+import cod.ast.nodes.*;
+import cod.debug.DebugSystem;
+import cod.interpreter.Interpreter;
 
 public class CommandRunner extends BaseRunner {
     

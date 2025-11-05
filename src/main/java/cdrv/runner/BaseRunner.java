@@ -1,9 +1,9 @@
-package cdrv.runner;
+package cod.runner;
 
-import cdrv.ast.*;
-import cdrv.ast.nodes.*;
-import cdrv.debug.DebugSystem;
-import cdrv.ast.ASTPrinter;
+import cod.ast.*;
+import cod.ast.nodes.*;
+import cod.debug.DebugSystem;
+import cod.ast.ASTPrinter;
 import java.io.*;
 import java.util.List;
 
@@ -15,11 +15,11 @@ import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.Recognizer;
 
 // Manual-specific imports
-import cdrv.ast.ManualCoderiveLexer;
-import cdrv.ast.ManualCoderiveParser;
+import cod.ast.ManualCoderiveLexer;
+import cod.ast.ManualCoderiveParser;
 
 // Linter import
-import cdrv.debug.Linter;
+import cod.debug.Linter;
 
 public abstract class BaseRunner {
     

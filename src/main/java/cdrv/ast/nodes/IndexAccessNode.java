@@ -1,4 +1,4 @@
-package cdrv.ast.nodes;
+package cod.ast.nodes;
 
 public class IndexAccessNode extends ExprNode {
     public ExprNode array;

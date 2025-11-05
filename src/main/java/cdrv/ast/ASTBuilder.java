@@ -1,8 +1,8 @@
-package cdrv.ast;
+package cod.ast;
 
 import static cdrv.Constants.*;
-import cdrv.ast.nodes.*;
-import cdrv.debug.DebugSystem;
+import cod.ast.nodes.*;
+import cod.debug.DebugSystem;
 import java.util.*;
 
 public class ASTBuilder {

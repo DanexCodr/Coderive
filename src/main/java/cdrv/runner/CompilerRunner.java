@@ -1,8 +1,8 @@
-package cdrv.runner;
+package cod.runner;
 
-import cdrv.runner.BaseRunner;
-import cdrv.ast.nodes.*;
-import cdrv.debug.DebugSystem;
+import cod.runner.BaseRunner;
+import cod.ast.nodes.*;
+import cod.debug.DebugSystem;
 import java.io.*;
 
 public class CompilerRunner extends BaseRunner {

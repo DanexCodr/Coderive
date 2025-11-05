@@ -1,6 +1,6 @@
-package cdrv.ast.nodes;
+package cod.ast.nodes;
 
-import cdrv.ast.CoderiveParser;
+import cod.ast.CoderiveParser;
 import java.util.List;
 import java.util.ArrayList;
 

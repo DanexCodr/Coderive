@@ -1,12 +1,12 @@
-package cdrv.runner;
+package cod.runner;
 
-import cdrv.ast.ASTFactory;
-import cdrv.ast.ManualCoderiveLexer;
-import cdrv.ast.ManualCoderiveParser;
-import cdrv.ast.nodes.*;
-import cdrv.debug.DebugSystem;
-import cdrv.interpreter.Interpreter;
-import cdrv.interpreter.ObjectInstance;
+import cod.ast.ASTFactory;
+import cod.ast.ManualCoderiveLexer;
+import cod.ast.ManualCoderiveParser;
+import cod.ast.nodes.*;
+import cod.debug.DebugSystem;
+import cod.interpreter.Interpreter;
+import cod.interpreter.ObjectInstance;
 
 import java.util.HashMap;
 import java.util.List;

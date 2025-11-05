@@ -1,7 +1,7 @@
-package cdrv.ast;
+package cod.ast;
 
-import cdrv.ast.nodes.*;
-import cdrv.debug.DebugSystem;
+import cod.ast.nodes.*;
+import cod.debug.DebugSystem;
 import java.util.*;
 import java.io.*;
 import org.antlr.v4.runtime.*;

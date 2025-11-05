@@ -1,6 +1,6 @@
 // Generated from CoderiveParser.g4 by ANTLR 4.13.2
 
-package cdrv.ast;
+package cod.ast;
 
 
 import org.antlr.v4.runtime.ParserRuleContext;

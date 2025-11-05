@@ -1,6 +1,6 @@
-package cdrv.interpreter;
+package cod.interpreter;
 
-import cdrv.ast.nodes.TypeNode;
+import cod.ast.nodes.TypeNode;
 import java.util.HashMap;
 import java.util.Map;
 

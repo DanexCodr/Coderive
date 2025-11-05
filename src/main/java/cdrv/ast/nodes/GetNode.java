@@ -1,6 +1,6 @@
-package cdrv.ast.nodes;
+package cod.ast.nodes;
 
-import cdrv.ast.CoderiveParser;
+import cod.ast.CoderiveParser;
 import java.util.ArrayList;
 import java.util.List;
 import org.antlr.v4.runtime.tree.ParseTree;

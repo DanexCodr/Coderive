@@ -1,4 +1,4 @@
-package cdrv.compiler;
+package cod.compiler;
 
 public class BytecodeInstruction {
     public enum Opcode {

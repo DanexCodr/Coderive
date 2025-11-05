@@ -1,12 +1,12 @@
-package cdrv.runner;
+package cod.runner;
 
-import cdrv.ast.nodes.ProgramNode;
-import cdrv.compiler.BytecodeCompiler;
-import cdrv.compiler.BytecodeProgram;
-import cdrv.compiler.BytecodeInstruction;
-import cdrv.compiler.MTOTNativeCompiler;
-import cdrv.compiler.MTOTRegistry;
-import cdrv.debug.DebugSystem;
+import cod.ast.nodes.ProgramNode;
+import cod.compiler.BytecodeCompiler;
+import cod.compiler.BytecodeProgram;
+import cod.compiler.BytecodeInstruction;
+import cod.compiler.MTOTNativeCompiler;
+import cod.compiler.MTOTRegistry;
+import cod.debug.DebugSystem;
 
 import java.io.*;
 import java.util.List;

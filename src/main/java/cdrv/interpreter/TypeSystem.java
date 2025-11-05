@@ -1,6 +1,6 @@
-package cdrv.interpreter;
+package cod.interpreter;
 
-import cdrv.debug.DebugSystem;
+import cod.debug.DebugSystem;
 import java.util.List;
 
 public class TypeSystem {

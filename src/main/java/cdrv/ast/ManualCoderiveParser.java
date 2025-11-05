@@ -1,9 +1,9 @@
-package cdrv.ast;
+package cod.ast;
 
-import cdrv.ast.nodes.*;
+import cod.ast.nodes.*;
 import java.util.ArrayList;
 import java.util.List;
-import cdrv.ast.ManualCoderiveLexer.Token;
+import cod.ast.ManualCoderiveLexer.Token;
 import static cdrv.Constants.*;
 
 /**

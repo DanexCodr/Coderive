@@ -1,6 +1,6 @@
 // Generated from CoderiveLexer.g4 by ANTLR 4.13.2
 
-package cdrv.ast;
+package cod.ast;
 
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.CharStream;

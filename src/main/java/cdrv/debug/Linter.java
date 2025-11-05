@@ -1,6 +1,6 @@
-package cdrv.debug;
+package cod.debug;
 
-import cdrv.ast.nodes.*;
+import cod.ast.nodes.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
