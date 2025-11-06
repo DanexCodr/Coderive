@@ -1,5 +1,5 @@
-unit sample get {
-    cod.Math
+unit share get {
+    cdrv.Math
 }
 
 share ArrayTest {
