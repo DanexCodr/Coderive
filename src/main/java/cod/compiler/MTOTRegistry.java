@@ -2,8 +2,8 @@ package cod.compiler;
 
 import java.util.*;
 
-import static cdrv.compiler.MTOTRegistry.AArch64Registers.*;
-import static cdrv.compiler.MTOTRegistry.x86_64Registers.*;
+import static cod.compiler.MTOTRegistry.AArch64Registers.*;
+import static cod.compiler.MTOTRegistry.x86_64Registers.*;
 
 public class MTOTRegistry {
 

@@ -1,9 +1,9 @@
 package cod.compiler;
 
 // --- MODIFIED IMPORTS ---
-import static cdrv.compiler.MTOTRegistry.*;
-import static cdrv.compiler.MTOTRegistry.AArch64Registers.*;
-import static cdrv.compiler.MTOTRegistry.x86_64Registers.*; // <-- IMPORT x86 REGS
+import static cod.compiler.MTOTRegistry.*;
+import static cod.compiler.MTOTRegistry.AArch64Registers.*;
+import static cod.compiler.MTOTRegistry.x86_64Registers.*; // <-- IMPORT x86 REGS
 import cod.compiler.BytecodeInstruction.Opcode; // Import Opcode
 // --- END MODIFIED IMPORTS ---
 
