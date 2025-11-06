@@ -1,5 +1,5 @@
-unit main.test get {
-    cdrv.Math
+unit sample get {
+    cod.Math
 }
 
 share ImportTest {
@@ -27,4 +27,5 @@ share ImportTest {
         
         output "=== TEST COMPLETE ==="
     }
+
 }
