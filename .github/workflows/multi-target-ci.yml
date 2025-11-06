@@ -29,63 +29,63 @@ jobs:
         javac -cp "lib/antlr4-runtime-4.13.2.jar" -d target/classes @sources.txt
         echo "Java compiler built successfully"
     
-    - name: List available CDRV test files
+    - name: List available Coderive test files
       run: |
-        echo "Available CDRV test files:"
-        find src/main/cdrv -name "*.cdrv" -type f | while read file; do
+        echo "Available Coderive test files:"
+        find src/main/cod -name "*.cod" -type f | while read file; do
           echo "  - $file"
         done
-        echo "Total files: $(find src/main/cdrv -name "*.cdrv" -type f | wc -l)"
+        echo "Total files: $(find src/main/cod -name "*.cod" -type f | wc -l)"
     
     - name: Test CommandRunner help functionality
       run: |
         # Test that CommandRunner can be loaded and shows help
         echo "Testing help command..."
-        java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CommandRunner --help
+        java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cod.runner.CommandRunner --help
         echo "CommandRunner help functionality test passed"
     
-    - name: Test interpretation on all CDRV files
+    - name: Test interpretation on all Coderive files
       run: |
-        echo "Testing interpretation on all CDRV files with manual parser..."
-        find src/main/cdrv -name "*.cdrv" -type f | while read file; do
+        echo "Testing interpretation on all Coderive files with manual parser..."
+        find src/main/cod -name "*.cod" -type f | while read file; do
           echo "Testing: $file"
-          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CommandRunner "$file" --interpret || echo "Test completed for $file"
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cod.runner.CommandRunner "$file" --interpret || echo "Test completed for $file"
           echo "----------------------------------------"
         done
         echo "All interpretation tests completed"
     
-    - name: Test bytecode compilation on all CDRV files
+    - name: Test bytecode compilation on all Coderive files
       run: |
-        echo "Testing bytecode compilation on all CDRV files..."
-        find src/main/cdrv -name "*.cdrv" -type f | while read file; do
+        echo "Testing bytecode compilation on all Coderive files..."
+        find src/main/cod -name "*.cod" -type f | while read file; do
           echo "Testing bytecode compilation: $file"
-          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CommandRunner "$file" --compile-bytecode || echo "Bytecode test completed for $file"
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cod.runner.CommandRunner "$file" --compile-bytecode || echo "Bytecode test completed for $file"
           echo "----------------------------------------"
         done
         echo "All bytecode compilation tests completed"
     
-    - name: Test native compilation on all CDRV files
+    - name: Test native compilation on all Coderive files
       run: |
         mkdir -p compiled_output
-        echo "Testing native compilation on all CDRV files..."
-        find src/main/cdrv -name "*.cdrv" -type f | while read file; do
-          filename=$(basename "$file" .cdrv)
+        echo "Testing native compilation on all Coderive files..."
+        find src/main/cod -name "*.cod" -type f | while read file; do
+          filename=$(basename "$file" .cod)
           output_file="compiled_output/${filename}.s"
           echo "Testing native compilation: $file -> $output_file"
-          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CommandRunner "$file" --compile -o "$output_file" || echo "Native compilation test completed for $file"
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cod.runner.CommandRunner "$file" --compile -o "$output_file" || echo "Native compilation test completed for $file"
           echo "----------------------------------------"
         done
         echo "All native compilation tests completed"
     
-    - name: Test both compilation modes on all CDRV files
+    - name: Test both compilation modes on all Coderive files
       run: |
         mkdir -p compiled_both
-        echo "Testing both compilation modes on all CDRV files..."
-        find src/main/cdrv -name "*.cdrv" -type f | while read file; do
-          filename=$(basename "$file" .cdrv)
+        echo "Testing both compilation modes on all Coderive files..."
+        find src/main/cod -name "*.cod" -type f | while read file; do
+          filename=$(basename "$file" .cod)
           output_file="compiled_both/${filename}.s"
           echo "Testing both compilation modes: $file -> $output_file"
-          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CommandRunner "$file" --compile-both -o "$output_file" || echo "Both compilation test completed for $file"
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cod.runner.CommandRunner "$file" --compile-both -o "$output_file" || echo "Both compilation test completed for $file"
           echo "----------------------------------------"
         done
         echo "All both compilation tests completed"
@@ -111,21 +111,21 @@ jobs:
           fi
         done
     
-    - name: Test debugging features on sample CDRV files
+    - name: Test debugging features on sample Coderive files
       run: |
-        echo "Testing debugging features on sample CDRV files..."
+        echo "Testing debugging features on sample Coderive files..."
         # Test on first few files to avoid too much output
-        find src/main/cdrv -name "*.cdrv" -type f | head -3 | while read file; do
+        find src/main/cod -name "*.cod" -type f | head -3 | while read file; do
           echo "Testing debug features on: $file"
           
           echo "  - Testing debug output..."
-          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CommandRunner "$file" --interpret --debug || echo "Debug test completed"
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cod.runner.CommandRunner "$file" --interpret --debug || echo "Debug test completed"
           
           echo "  - Testing AST printing..."
-          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CommandRunner "$file" --interpret --print-ast || echo "AST printing test completed"
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cod.runner.CommandRunner "$file" --interpret --print-ast || echo "AST printing test completed"
           
           echo "  - Testing linting control..."
-          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CommandRunner "$file" --interpret --no-lint || echo "Linting control test completed"
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cod.runner.CommandRunner "$file" --interpret --no-lint || echo "Linting control test completed"
           
           echo "----------------------------------------"
         done
@@ -133,16 +133,16 @@ jobs:
     
     - name: Test parser combination options
       run: |
-        echo "Testing parser combination options on sample CDRV files..."
+        echo "Testing parser combination options on sample Coderive files..."
         # Test on first few files
-        find src/main/cdrv -name "*.cdrv" -type f | head -2 | while read file; do
+        find src/main/cod -name "*.cod" -type f | head -2 | while read file; do
           echo "Testing combinations on: $file"
           
           echo "  - Testing manual parser with bytecode compilation..."
-          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CommandRunner "$file" --manual --compile-bytecode || echo "Manual + bytecode test completed"
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cod.runner.CommandRunner "$file" --manual --compile-bytecode || echo "Manual + bytecode test completed"
           
           echo "  - Testing trace debugging..."
-          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cdrv.runner.CommandRunner "$file" --interpret --trace || echo "Trace debugging test completed"
+          java -cp "target/classes:lib/antlr4-runtime-4.13.2.jar" cod.runner.CommandRunner "$file" --interpret --trace || echo "Trace debugging test completed"
           
           echo "----------------------------------------"
         done
@@ -155,11 +155,11 @@ jobs:
     
     - name: Summary
       run: |
-        total_files=$(find src/main/cdrv -name "*.cdrv" -type f | wc -l)
+        total_files=$(find src/main/cod -name "*.cod" -type f | wc -l)
         echo "✅ All CommandRunner tests completed successfully"
-        echo "✅ Tested $total_files CDRV files from src/main/cdrv/"
+        echo "✅ Tested $total_files Coderive files from src/main/cod/"
         echo "✅ Manual parser mode tested on all files"
         echo "✅ All execution modes verified (interpret, bytecode, native, both)"
         echo "✅ Compilation pipeline working across all test files"
         echo "✅ Debug and analysis features functional"
-        echo "📝 Using real CDRV test files from repository"
+        echo "📝 Using real Coderive test files from repository"
