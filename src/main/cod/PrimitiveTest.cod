@@ -1,5 +1,5 @@
 unit sample get {
-    cdrv.Math
+    cod.Math
 }
 
 share PrimitiveTest {
