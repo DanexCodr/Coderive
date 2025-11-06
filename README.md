@@ -63,7 +63,7 @@ share interactiveDemo {
 
 ```
 [20:26:28.018] [INFO] RUNNER: Starting MTOT compilation pipeline
-[20:26:28.021] [INFO] RUNNER: Input file: interactiveDemo.cdrv
+[20:26:28.021] [INFO] RUNNER: Input file: InteractiveDemo.cod
 [20:26:28.056] [INFO] RUNNER: AST built successfully
 [20:26:28.068] [INFO] BYTECODE: Compilation complete: 1076 instructions across 9 methods
 [20:26:28.071] [INFO] MTOT: Detected CPU: aarch64
