@@ -5,7 +5,6 @@ import cod.debug.DebugSystem;
 import java.util.*;
 import java.io.*;
 import org.antlr.v4.runtime.*;
-import org.antlr.v4.runtime.tree.*;
 
 public class ImportResolver {
     private Map<String, ProgramNode> importedUnits = new HashMap<>();
@@ -77,18 +76,18 @@ public class ImportResolver {
         // Try different file paths and extensions
         String[] basePaths = {
             "",  // current directory
-            "cdrv/",
-            "src/cdrv/",
-            "../cdrv/"
+            "cod/",
+            "src/cod/",
+            "../cod/"
         };
         
         String[] extensions = {
-            ".cdrv",
+            ".cod",
             ".txt",
             ""
         };
         
-        // Convert import name to file path (e.g., "cdrv.Math" -> "cdrv/Math")
+        // Convert import name to file path (e.g., "cod.Math" -> "cod/Math")
         String filePath = importName.replace('.', '/');
         
         for (String basePath : basePaths) {
@@ -181,50 +180,10 @@ public class ImportResolver {
         }
     }
 
-    private String findImportFile(String qualifiedName) {
-        String fileName = qualifiedName.replace('.', '/') + ".cdrv";
-        DebugSystem.debug("IMPORTS", "Looking for file: " + fileName);
-        DebugSystem.debug("IMPORTS", "Search paths: " + importPaths);
-
-        for (String basePath : importPaths) {
-            File file = new File(basePath, fileName);
-            DebugSystem.debug(
-                    "IMPORTS",
-                    "Checking path: "
-                            + file.getAbsolutePath()
-                            + " [exists: "
-                            + file.exists()
-                            + "]");
-            if (file.exists() && file.isFile()) {
-                DebugSystem.debug("IMPORTS", "Found file at: " + file.getAbsolutePath());
-                return file.getAbsolutePath();
-            }
-
-            // Also try without subdirectory for top-level files
-            file = new File(basePath, qualifiedName + ".cdrv");
-            DebugSystem.debug(
-                    "IMPORTS",
-                    "Checking alternative path: "
-                            + file.getAbsolutePath()
-                            + " [exists: "
-                            + file.exists()
-                            + "]");
-            if (file.exists() && file.isFile()) {
-                DebugSystem.debug("IMPORTS", "Found file at: " + file.getAbsolutePath());
-                return file.getAbsolutePath();
-            }
-        }
-
-        DebugSystem.warn("IMPORTS", "Import file not found for: " + qualifiedName);
-        return null;
-    }
-
-    // In ImportResolver.java - Update the findMethod method
-
 public MethodNode findMethod(String qualifiedMethodName) {
     DebugSystem.debug("IMPORTS", "findMethod called for: " + qualifiedMethodName);
     
-    // Handle the case where qualifiedMethodName is exactly "cdrv.Math.sqrt"
+    // Handle the case where qualifiedMethodName is exactly "cod.Math.sqrt"
     String importName = extractImportName(qualifiedMethodName);
     String methodName = extractMethodName(qualifiedMethodName);
     
@@ -252,7 +211,7 @@ public MethodNode findMethod(String qualifiedMethodName) {
         DebugSystem.debug("IMPORTS", "Import not loaded, trying direct file resolution: " + importName);
         try {
             // Convert import name to file path
-            String filePath = importName.replace('.', '/') + ".cdrv";
+            String filePath = importName.replace('.', '/') + ".cod";
             DebugSystem.debug("IMPORTS", "Looking for file: " + filePath);
             
             // Try all import paths
@@ -324,7 +283,7 @@ public MethodNode findMethod(String qualifiedMethodName) {
 public void debugFileSystem(String importName) {
     DebugSystem.debug("FILE_SYSTEM", "=== FILE SYSTEM DEBUG for: " + importName + " ===");
     
-    String filePath = importName.replace('.', '/') + ".cdrv";
+    String filePath = importName.replace('.', '/') + ".cod";
     DebugSystem.debug("FILE_SYSTEM", "Looking for: " + filePath);
     DebugSystem.debug("FILE_SYSTEM", "Import paths: " + importPaths);
     

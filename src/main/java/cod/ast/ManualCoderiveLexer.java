@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static cdrv.Constants.*;
+import static cod.Constants.*;
 
 /**
  * A self-contained, ANTLR-free lexer for the Coderive language. Contains the nested static Token

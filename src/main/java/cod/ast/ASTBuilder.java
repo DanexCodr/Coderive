@@ -1,6 +1,6 @@
 package cod.ast;
 
-import static cdrv.Constants.*;
+import static cod.Constants.*;
 import cod.ast.nodes.*;
 import cod.debug.DebugSystem;
 import java.util.*;

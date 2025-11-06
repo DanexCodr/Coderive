@@ -4,7 +4,7 @@ import cod.ast.nodes.*;
 import java.util.ArrayList;
 import java.util.List;
 import cod.ast.ManualCoderiveLexer.Token;
-import static cdrv.Constants.*;
+import static cod.Constants.*;
 
 /**
  * A self-contained, ANTLR-free recursive descent parser.
