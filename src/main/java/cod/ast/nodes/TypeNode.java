@@ -1,10 +1,9 @@
 package cod.ast.nodes;
 
-import cod.ast.CoderiveParser;
 import java.util.List;
 import java.util.ArrayList;
 
-import static cdrv.Constants.*;
+import static cod.Constants.*;
 
 public class TypeNode extends ASTNode {
     public String name;
