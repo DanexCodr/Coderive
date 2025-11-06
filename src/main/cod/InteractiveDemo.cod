@@ -1,5 +1,5 @@
 unit sample get {
-    cdrv.Math
+    cod.Math
 }
 
 share InteractiveDemo {
@@ -324,4 +324,5 @@ local haha(int a) {
         output "=== DEMO COMPLETE ==="
         output "Thank you for using Coderive!"
     }
+
 }
