@@ -70,7 +70,7 @@ share interactiveDemo {
 
 ## Compilation Output
 
-```
+```json
 [20:26:28.018] [INFO] RUNNER: Starting MTOT compilation pipeline
 [20:26:28.021] [INFO] RUNNER: Input file: InteractiveDemo.cod
 [20:26:28.056] [INFO] RUNNER: AST built successfully
