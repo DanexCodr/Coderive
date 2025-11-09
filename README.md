@@ -8,7 +8,7 @@
 ![Java](https://img.shields.io/badge/Java-7-yellow)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 ![Built On](https://img.shields.io/badge/Built%20On-Phone-purple)
-[![GitHub Stars](https://img.shields.io/github/stars/Danexcodr/Coderive.svg)](https://github.com/Danexcodr/Coderive/stargazers)
+[![GitHub Stars](https://img.shields.io/github/stars/DanexCodr/Coderive.svg)](https://github.com/DanexCodr/Coderive/stargazers)
 
 A mobile-first general programming language written primarily in Java 7. The runtime is built in c. It is a dual parser (antlr + manual "recursive backtracking"), dual compilation language (bytecode + native code generation).
 
