@@ -136,6 +136,13 @@ java -jar coderive.jar --native program.cod
 
 · 🔧 Enhanced type system in development
 
+## 💬 Join the Discussion
+
+Have questions, ideas, or want to share your projects? Join our community!
+
+[GitHub Discussions](https://github.com/DanexCodr/Coderive/discussions) - Ask questions, suggest features, share projects
+[Issues](https://github.com/DanexCodr/Coderive/issues) - Report bugs and problems
+
 ## Contributing
 
 This project proves great software can come from anywhere. We welcome contributions from developers of all backgrounds!
