@@ -39,7 +39,7 @@ The developer (DanexCodr) is constrained by only having a phone:
 - Multi-target code generation (ARM64/x86_64)
 
 ## Language Example
-```kotlin
+```java
 unit sample.program get {
     cod.Math
 }
