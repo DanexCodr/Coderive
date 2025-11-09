@@ -6,7 +6,6 @@
 # Coderive v.0.0.4
 
 ![Java](https://img.shields.io/badge/Java-7-yellow)
-![Platform](https://img.shields.io/badge/Platform-Android-green)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 ![Built On](https://img.shields.io/badge/Built%20On-Mobile-purple)
 
