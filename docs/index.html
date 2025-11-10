@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coderive - Modern Programming Language</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --accent: #e74c3c;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --code-bg: #1e1e1e;
+            --code-text: #d4d4d4;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            background-color: var(--light);
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 2rem 1rem;
+            text-align: center;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .tagline {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            font-weight: 300;
+        }
+        
+        .btn {
+            display: inline-block;
+            background-color: var(--accent);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin: 0.5rem;
+        }
+        
+        .btn:hover {
+            background-color: #c0392b;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background-color: transparent;
+            border: 2px solid white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        section {
+            padding: 4rem 1rem;
+        }
+        
+        .section-title {
+            text-align: center;
+            margin-bottom: 3rem;
+            color: var(--primary);
+            position: relative;
+        }
+        
+        .section-title::after {
+            content: '';
+            display: block;
+            width: 80px;
+            height: 4px;
+            background-color: var(--secondary);
+            margin: 0.5rem auto;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+        
+        .feature-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .feature-icon {
+            font-size: 2.5rem;
+            color: var(--secondary);
+            margin-bottom: 1rem;
+        }
+        
+        .feature-card h3 {
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+        
+        .code-example {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        
+        .code-keyword {
+            color: #569cd6;
+        }
+        
+        .code-string {
+            color: #ce9178;
+        }
+        
+        .code-number {
+            color: #b5cea8;
+        }
+        
+        .code-comment {
+            color: #6a9955;
+        }
+        
+        .runners {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            justify-content: center;
+        }
+        
+        .runner-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            flex: 1 1 300px;
+            max-width: 350px;
+        }
+        
+        .runner-card h3 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .runner-card h3::before {
+            content: '▶';
+            margin-right: 0.5rem;
+            color: var(--success);
+        }
+        
+        .runner-card ul {
+            list-style-type: none;
+            margin-left: 1rem;
+        }
+        
+        .runner-card li {
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+        
+        .runner-card li::before {
+            content: '•';
+            color: var(--secondary);
+            position: absolute;
+            left: -1rem;
+        }
+        
+        .command {
+            background-color: #f8f9fa;
+            border-left: 4px solid var(--secondary);
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            font-family: 'Courier New', Courier, monospace;
+            border-radius: 0 4px 4px 0;
+        }
+        
+        footer {
+            background-color: var(--primary);
+            color: white;
+            text-align: center;
+            padding: 2rem 1rem;
+        }
+        
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin: 1rem 0;
+        }
+        
+        .footer-links a {
+            color: white;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        
+        .footer-links a:hover {
+            color: var(--secondary);
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+            
+            .tagline {
+                font-size: 1.2rem;
+            }
+            
+            section {
+                padding: 2rem 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Coderive</h1>
+            <p class="tagline">A modern, expressive programming language with interpreter and compiler capabilities</p>
+            <div class="cta-buttons">
+                <a href="#getting-started" class="btn">Get Started</a>
+                <a href="https://github.com/your-username/coderive" class="btn btn-secondary">View on GitHub</a>
+            </div>
+        </div>
+    </header>
+    
+    <section id="features">
+        <div class="container">
+            <h2 class="section-title">Key Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">⚙️</div>
+                    <h3>Dual Execution Modes</h3>
+                    <p>Run code immediately with the interpreter or compile to bytecode and native assembly for performance.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h3>Advanced Linting</h3>
+                    <p>Built-in static analysis to catch potential issues before execution with configurable linting rules.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💬</div>
+                    <h3>Interactive REPL</h3>
+                    <p>Experiment with code in real-time using the interactive Read-Eval-Print-Loop environment.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔧</div>
+                    <h3>Flexible Parser Options</h3>
+                    <p>Choose between ANTLR-based parsing or the custom manual parser for different use cases.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Performance Optimized</h3>
+                    <p>MTOT (Multi-Target Optimization Technology) compilation for efficient native code generation.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3>Android Compatible</h3>
+                    <p>Designed with Android environments in mind, with configurable paths for mobile development.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <section id="code-examples" style="background-color: #f8f9fa;">
+        <div class="container">
+            <h2 class="section-title">Code Examples</h2>
+            <div class="code-example">
+                <pre><code><span class="code-comment">// Simple variable assignment and output</span>
+name = <span class="code-string">"Coderive"</span>
+version = <span class="code-number">1.0</span>
+output <span class="code-string">"Welcome to "</span> + name + <span class="code-string">" v"</span> + version
+
+<span class="code-comment">// Conditional logic</span>
+x = <span class="code-number">10</span>
+<span class="code-keyword">if</span> x > <span class="code-number">5</span> {
+    output <span class="code-string">"x is greater than 5"</span>
+} <span class="code-keyword">else</span> {
+    output <span class="code-string">"x is 5 or less"</span>
+}
+
+<span class="code-comment">// Looping constructs</span>
+<span class="code-keyword">for</span> i <span class="code-keyword">in</span> <span class="code-number">1</span> <span class="code-keyword">to</span> <span class="code-number">5</span> {
+    output <span class="code-string">"Iteration: "</span> + i
+}
+
+<span class="code-comment">// Using slots for data storage</span>
+~ result <span class="code-number">42</span>
+output <span class="code-string">"The answer is: "</span> + ~result</code></pre>
+            </div>
+        </div>
+    </section>
+    
+    <section id="runners">
+        <div class="container">
+            <h2 class="section-title">Execution Runners</h2>
+            <div class="runners">
+                <div class="runner-card">
+                    <h3>InterpreterRunner</h3>
+                    <p>Execute Coderive code directly with the interpreter for fast development cycles.</p>
+                    <ul>
+                        <li>Immediate code execution</li>
+                        <li>Built-in debugging support</li>
+                        <li>AST visualization option</li>
+                    </ul>
+                    <div class="command">java -cp coderive.jar cod.runner.InterpreterRunner program.cod</div>
+                </div>
+                <div class="runner-card">
+                    <h3>CompilerRunner</h3>
+                    <p>Compile Coderive code to bytecode or native assembly for deployment.</p>
+                    <ul>
+                        <li>Bytecode compilation</li>
+                        <li>Native assembly output</li>
+                        <li>MTOT optimization</li>
+                    </ul>
+                    <div class="command">java -cp coderive.jar cod.runner.CompilerRunner --native program.cod</div>
+                </div>
+                <div class="runner-card">
+                    <h3>CommandRunner</h3>
+                    <p>Unified runner with multiple execution modes in a single command.</p>
+                    <ul>
+                        <li>Interpret or compile</li>
+                        <li>Flexible output options</li>
+                        <li>All features in one tool</li>
+                    </ul>
+                    <div class="command">java -cp coderive.jar cod.runner.CommandRunner -c program.cod</div>
+                </div>
+                <div class="runner-card">
+                    <h3>CoderiveREPL</h3>
+                    <p>Interactive environment for experimenting with Coderive code.</p>
+                    <ul>
+                        <li>Real-time evaluation</li>
+                        <li>Multi-line input support</li>
+                        <li>State management</li>
+                    </ul>
+                    <div class="command">java -cp coderive.jar cod.runner.CoderiveREPL</div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <section id="getting-started" style="background-color: #f8f9fa;">
+        <div class="container">
+            <h2 class="section-title">Getting Started</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>1. Installation</h3>
+                    <p>Clone the repository and build the project:</p>
+                    <div class="command">git clone https://github.com/your-username/coderive.git
+cd coderive
+./gradlew build</div>
+                </div>
+                <div class="feature-card">
+                    <h3>2. Write Your First Program</h3>
+                    <p>Create a simple Coderive program:</p>
+                    <div class="command">output "Hello, Coderive!"</div>
+                </div>
+                <div class="feature-card">
+                    <h3>3. Run Your Code</h3>
+                    <p>Execute your program with the interpreter:</p>
+                    <div class="command">java -cp build/libs/coderive.jar cod.runner.InterpreterRunner hello.cod</div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <footer>
+        <div class="container">
+            <p>Coderive - Modern Programming Language</p>
+            <div class="footer-links">
+                <a href="https://github.com/your-username/coderive">GitHub</a>
+                <a href="#features">Features</a>
+                <a href="#getting-started">Documentation</a>
+                <a href="mailto:contact@coderive.org">Contact</a>
+            </div>
+            <p>&copy; 2023 Coderive Project. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>
