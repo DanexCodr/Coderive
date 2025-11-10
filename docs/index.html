@@ -6,15 +6,14 @@
     <title>Coderive - Modern Programming Language</title>
     <style>
         :root {
-            --primary: #2c3e50;
-            --secondary: #3498db;
-            --accent: #e74c3c;
-            --light: #ecf0f1;
-            --dark: #2c3e50;
-            --success: #27ae60;
-            --warning: #f39c12;
-            --code-bg: #1e1e1e;
-            --code-text: #d4d4d4;
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-tertiary: #2d2d30;
+            --accent-primary: #007acc;
+            --accent-hover: #005a9e;
+            --text-primary: #ffffff;
+            --text-secondary: #858585;
+            --border-color: #333;
         }
         
         * {
@@ -26,15 +25,17 @@
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
-            color: var(--dark);
-            background-color: var(--light);
+            color: var(--text-primary);
+            background-color: var(--bg-primary);
+            min-height: 100vh;
         }
         
         header {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
             padding: 2rem 1rem;
             text-align: center;
+            border-bottom: 1px solid var(--border-color);
         }
         
         .container {
@@ -46,48 +47,54 @@
         h1 {
             font-size: 3rem;
             margin-bottom: 0.5rem;
+            color: var(--text-primary);
         }
         
         .tagline {
             font-size: 1.5rem;
             margin-bottom: 1.5rem;
             font-weight: 300;
+            color: var(--text-secondary);
         }
         
         .btn {
             display: inline-block;
-            background-color: var(--accent);
-            color: white;
+            background-color: var(--accent-primary);
+            color: var(--text-primary);
             padding: 0.75rem 1.5rem;
             border-radius: 4px;
             text-decoration: none;
             font-weight: bold;
             transition: all 0.3s ease;
             margin: 0.5rem;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
         }
         
         .btn:hover {
-            background-color: #c0392b;
+            background-color: var(--accent-hover);
             transform: translateY(-2px);
         }
         
         .btn-secondary {
             background-color: transparent;
-            border: 2px solid white;
+            border: 2px solid var(--accent-primary);
         }
         
         .btn-secondary:hover {
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: rgba(0, 122, 204, 0.1);
         }
         
         section {
             padding: 4rem 1rem;
+            border-bottom: 1px solid var(--border-color);
         }
         
         .section-title {
             text-align: center;
             margin-bottom: 3rem;
-            color: var(--primary);
+            color: var(--text-primary);
             position: relative;
         }
         
@@ -96,7 +103,7 @@
             display: block;
             width: 80px;
             height: 4px;
-            background-color: var(--secondary);
+            background-color: var(--accent-primary);
             margin: 0.5rem auto;
         }
         
@@ -107,11 +114,12 @@
         }
         
         .feature-card {
-            background-color: white;
+            background-color: var(--bg-secondary);
             border-radius: 8px;
             padding: 2rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
             transition: transform 0.3s ease;
+            border: 1px solid var(--border-color);
         }
         
         .feature-card:hover {
@@ -120,39 +128,28 @@
         
         .feature-icon {
             font-size: 2.5rem;
-            color: var(--secondary);
+            color: var(--accent-primary);
             margin-bottom: 1rem;
         }
         
         .feature-card h3 {
             margin-bottom: 1rem;
-            color: var(--primary);
+            color: var(--text-primary);
+        }
+        
+        .feature-card p {
+            color: var(--text-secondary);
         }
         
         .code-example {
-            background-color: var(--code-bg);
-            color: var(--code-text);
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
             border-radius: 8px;
             padding: 1.5rem;
             margin: 1.5rem 0;
             overflow-x: auto;
             font-family: 'Courier New', Courier, monospace;
-        }
-        
-        .code-keyword {
-            color: #569cd6;
-        }
-        
-        .code-string {
-            color: #ce9178;
-        }
-        
-        .code-number {
-            color: #b5cea8;
-        }
-        
-        .code-comment {
-            color: #6a9955;
+            border: 1px solid var(--border-color);
         }
         
         .runners {
@@ -163,16 +160,17 @@
         }
         
         .runner-card {
-            background-color: white;
+            background-color: var(--bg-secondary);
             border-radius: 8px;
             padding: 1.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
             flex: 1 1 300px;
             max-width: 350px;
+            border: 1px solid var(--border-color);
         }
         
         .runner-card h3 {
-            color: var(--primary);
+            color: var(--text-primary);
             margin-bottom: 1rem;
             display: flex;
             align-items: center;
@@ -181,7 +179,12 @@
         .runner-card h3::before {
             content: '▶';
             margin-right: 0.5rem;
-            color: var(--success);
+            color: #27ae60;
+        }
+        
+        .runner-card p {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
         }
         
         .runner-card ul {
@@ -192,29 +195,50 @@
         .runner-card li {
             margin-bottom: 0.5rem;
             position: relative;
+            color: var(--text-secondary);
         }
         
         .runner-card li::before {
             content: '•';
-            color: var(--secondary);
+            color: var(--accent-primary);
             position: absolute;
             left: -1rem;
         }
         
         .command {
-            background-color: #f8f9fa;
-            border-left: 4px solid var(--secondary);
+            background-color: var(--bg-primary);
+            border-left: 4px solid var(--accent-primary);
             padding: 0.75rem;
             margin: 0.5rem 0;
             font-family: 'Courier New', Courier, monospace;
             border-radius: 0 4px 4px 0;
+            color: var(--text-primary);
+        }
+        
+        .try-editor {
+            text-align: center;
+            background: var(--bg-secondary);
+            padding: 3rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .try-editor h2 {
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+        
+        .try-editor p {
+            margin-bottom: 2rem;
+            color: var(--text-secondary);
         }
         
         footer {
-            background-color: var(--primary);
-            color: white;
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
             text-align: center;
             padding: 2rem 1rem;
+            border-top: 1px solid var(--border-color);
         }
         
         .footer-links {
@@ -225,13 +249,13 @@
         }
         
         .footer-links a {
-            color: white;
+            color: var(--text-primary);
             text-decoration: none;
             transition: color 0.3s ease;
         }
         
         .footer-links a:hover {
-            color: var(--secondary);
+            color: var(--accent-primary);
         }
         
         @media (max-width: 768px) {
@@ -256,7 +280,8 @@
             <p class="tagline">A modern, expressive programming language with interpreter and compiler capabilities</p>
             <div class="cta-buttons">
                 <a href="#getting-started" class="btn">Get Started</a>
-                <a href="https://github.com/your-username/coderive" class="btn btn-secondary">View on GitHub</a>
+                <a href="editor.html" class="btn btn-secondary">Try Online Editor</a>
+                <a href="https://github.com/DanexCodr/Coderive" class="btn btn-secondary">View on GitHub</a>
             </div>
         </div>
     </header>
@@ -299,31 +324,31 @@
         </div>
     </section>
     
-    <section id="code-examples" style="background-color: #f8f9fa;">
+    <section id="code-examples">
         <div class="container">
             <h2 class="section-title">Code Examples</h2>
             <div class="code-example">
-                <pre><code><span class="code-comment">// Simple variable assignment and output</span>
-name = <span class="code-string">"Coderive"</span>
-version = <span class="code-number">1.0</span>
-output <span class="code-string">"Welcome to "</span> + name + <span class="code-string">" v"</span> + version
+                <pre><code>// Simple variable assignment and output
+name = "Coderive"
+version = 1.0
+output "Welcome to " + name + " v" + version
 
-<span class="code-comment">// Conditional logic</span>
-x = <span class="code-number">10</span>
-<span class="code-keyword">if</span> x > <span class="code-number">5</span> {
-    output <span class="code-string">"x is greater than 5"</span>
-} <span class="code-keyword">else</span> {
-    output <span class="code-string">"x is 5 or less"</span>
+// Conditional logic
+x = 10
+if x > 5 {
+    output "x is greater than 5"
+} else {
+    output "x is 5 or less"
 }
 
-<span class="code-comment">// Looping constructs</span>
-<span class="code-keyword">for</span> i <span class="code-keyword">in</span> <span class="code-number">1</span> <span class="code-keyword">to</span> <span class="code-number">5</span> {
-    output <span class="code-string">"Iteration: "</span> + i
+// Looping constructs
+for i in 1 to 5 {
+    output "Iteration: " + i
 }
 
-<span class="code-comment">// Using slots for data storage</span>
-~ result <span class="code-number">42</span>
-output <span class="code-string">"The answer is: "</span> + ~result</code></pre>
+// Using slots for data storage
+~ result 42
+output "The answer is: " + ~result</code></pre>
             </div>
         </div>
     </section>
@@ -376,15 +401,25 @@ output <span class="code-string">"The answer is: "</span> + ~result</code></pre>
         </div>
     </section>
     
-    <section id="getting-started" style="background-color: #f8f9fa;">
+    <section id="try-online">
+        <div class="container">
+            <div class="try-editor">
+                <h2>Try Coderive Online</h2>
+                <p>Experience Coderive right in your browser with our online editor. No installation required.</p>
+                <a href="editor.html" class="btn">Open Online Editor</a>
+            </div>
+        </div>
+    </section>
+    
+    <section id="getting-started">
         <div class="container">
             <h2 class="section-title">Getting Started</h2>
             <div class="features-grid">
                 <div class="feature-card">
                     <h3>1. Installation</h3>
                     <p>Clone the repository and build the project:</p>
-                    <div class="command">git clone https://github.com/your-username/coderive.git
-cd coderive
+                    <div class="command">git clone https://github.com/DanexCodr/Coderive.git
+cd Coderive
 ./gradlew build</div>
                 </div>
                 <div class="feature-card">
@@ -408,7 +443,7 @@ cd coderive
                 <a href="https://github.com/DanexCodr/Coderive">GitHub</a>
                 <a href="#features">Features</a>
                 <a href="#getting-started">Documentation</a>
-                <a href="danisonnunez001@gmail.com">Contact</a>
+                <a href="mailto:danisonnunez001@gmail.com">Contact</a>
             </div>
             <p>&copy; 2025 Coderive Project. All rights reserved.</p>
         </div>
