@@ -14,6 +14,8 @@
             --text-primary: #ffffff;
             --text-secondary: #858585;
             --border-color: #333;
+            --code-bg: #0d1117;
+            --code-accent: #58a6ff;
         }
         
         * {
@@ -142,14 +144,44 @@
         }
         
         .code-example {
-            background-color: var(--bg-secondary);
+            background-color: var(--code-bg);
             color: var(--text-primary);
             border-radius: 8px;
             padding: 1.5rem;
             margin: 1.5rem 0;
             overflow-x: auto;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Fira Code', 'Courier New', monospace;
             border: 1px solid var(--border-color);
+            position: relative;
+        }
+        
+        .code-example pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+        
+        .code-keyword {
+            color: #ff7b72;
+        }
+        
+        .code-function {
+            color: #d2a8ff;
+        }
+        
+        .code-string {
+            color: #a5d6ff;
+        }
+        
+        .code-comment {
+            color: #8b949e;
+        }
+        
+        .code-operator {
+            color: #79c0ff;
+        }
+        
+        .code-slot {
+            color: #7ee787;
         }
         
         .runners {
@@ -233,6 +265,30 @@
             color: var(--text-secondary);
         }
         
+        .language-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .feature-item {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .feature-item h4 {
+            color: var(--accent-primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .feature-item p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
         footer {
             background-color: var(--bg-tertiary);
             color: var(--text-primary);
@@ -269,6 +325,15 @@
             
             section {
                 padding: 2rem 1rem;
+            }
+            
+            .runners {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .runner-card {
+                max-width: 100%;
             }
         }
     </style>
@@ -317,8 +382,8 @@
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">📱</div>
-                    <h3>Android Compatible</h3>
-                    <p>Designed with Android environments in mind, with configurable paths for mobile development.</p>
+                    <h3>Mobile-First Development</h3>
+                    <p>Built entirely on mobile devices, proving serious development can happen anywhere.</p>
                 </div>
             </div>
         </div>
@@ -326,29 +391,82 @@
     
     <section id="code-examples">
         <div class="container">
-            <h2 class="section-title">Code Examples</h2>
+            <h2 class="section-title">Language Examples</h2>
+            
+            <h3 style="color: var(--text-primary); margin-bottom: 1rem;">Interactive Demo with Multi-Return Slots</h3>
             <div class="code-example">
-                <pre><code>// Simple variable assignment and output
-name = "Coderive"
-version = 1.0
-output "Welcome to " + name + " v" + version
-
-// Conditional logic
-x = 10
-if x > 5 {
-    output "x is greater than 5"
-} else {
-    output "x is 5 or less"
+                <pre><code><span class="code-keyword">unit</span> sample <span class="code-keyword">get</span> {
+    cod.Math
 }
 
-// Looping constructs
-for i in 1 to 5 {
-    output "Iteration: " + i
-}
+<span class="code-keyword">share</span> InteractiveDemo {
+    
+    <span class="code-comment">// Multi-return slot declaration</span>
+    <span class="code-slot">~|</span> formula, operation
+    <span class="code-keyword">local</span> <span class="code-function">calculate</span>(<span class="code-keyword">int</span> a, <span class="code-keyword">int</span> b, <span class="code-keyword">string</span> op) {  
+        <span class="code-keyword">if</span> op == <span class="code-string">"+"</span> {
+            <span class="code-slot">~</span> formula a <span class="code-operator">+</span> b
+            <span class="code-slot">~</span> operation <span class="code-string">"addition"</span>
+        } <span class="code-keyword">else if</span> op == <span class="code-string">"-"</span> {
+            <span class="code-slot">~</span> formula a <span class="code-operator">-</span> b  
+            <span class="code-slot">~</span> operation <span class="code-string">"subtraction"</span>
+        }
+    }
+    
+    <span class="code-keyword">share</span> <span class="code-function">main</span>() {
+        <span class="code-function">output</span> <span class="code-string">"=== CODERIVE INTERACTIVE DEMO ==="</span>
+        
+        <span class="code-comment">// Using multi-return values</span>
+        result, operationType = [formula, operation]:<span class="code-function">calculate</span>(<span class="code-number">10</span>, <span class="code-number">5</span>, <span class="code-string">"+"</span>)
+        <span class="code-function">output</span> <span class="code-string">"Result:"</span> <span class="code-operator">+</span> result <span class="code-operator">+</span> <span class="code-string">", Operation:"</span> <span class="code-operator">+</span> operationType
+    }
+}</code></pre>
+            </div>
 
-// Using slots for data storage
-~ result 42
-output "The answer is: " + ~result</code></pre>
+            <h3 style="color: var(--text-primary); margin-top: 3rem; margin-bottom: 1rem;">Smart For-Loops with Complex Steps</h3>
+            <div class="code-example">
+                <pre><code><span class="code-keyword">share</span> <span class="code-function">numberSeries</span>() {
+    <span class="code-function">output</span> <span class="code-string">"=== Smart For-Loops ==="</span>
+    
+    <span class="code-comment">// Multiplicative steps</span>
+    <span class="code-keyword">for</span> i <span class="code-keyword">by</span> <span class="code-operator">*2</span> <span class="code-keyword">in</span> <span class="code-number">1</span> <span class="code-keyword">to</span> <span class="code-number">32</span> {
+        <span class="code-function">output</span> <span class="code-string">"Doubling:"</span> <span class="code-operator">+</span> i  <span class="code-comment">// 1, 2, 4, 8, 16, 32</span>
+    }
+    
+    <span class="code-comment">// Compound assignment steps</span>
+    <span class="code-keyword">for</span> i <span class="code-keyword">by</span> i <span class="code-operator">+=</span> <span class="code-number">2</span> <span class="code-keyword">in</span> <span class="code-number">1</span> <span class="code-keyword">to</span> <span class="code-number">10</span> {
+        <span class="code-function">output</span> <span class="code-string">"Step +2:"</span> <span class="code-operator">+</span> i  <span class="code-comment">// 1, 3, 5, 7, 9</span>
+    }
+    
+    <span class="code-comment">// Division steps</span>
+    <span class="code-keyword">for</span> i <span class="code-keyword">by</span> <span class="code-operator">/2</span> <span class="code-keyword">in</span> <span class="code-number">64</span> <span class="code-keyword">to</span> <span class="code-number">2</span> {
+        <span class="code-function">output</span> <span class="code-string">"Halving:"</span> <span class="code-operator">+</span> i  <span class="code-comment">// 64, 32, 16, 8, 4, 2</span>
+    }
+    
+    <span class="code-comment">// Complex patterns</span>
+    <span class="code-keyword">for</span> i <span class="code-keyword">by</span> <span class="code-operator">*2 + 1</span> <span class="code-keyword">in</span> <span class="code-number">1</span> <span class="code-keyword">to</span> <span class="code-number">50</span> {
+        <span class="code-function">output</span> <span class="code-string">"Complex:"</span> <span class="code-operator">+</span> i
+    }
+}</code></pre>
+            </div>
+
+            <div class="language-features">
+                <div class="feature-item">
+                    <h4>Multi-Return Slots</h4>
+                    <p>Declare multiple return values with ~| syntax and assign with ~ operator</p>
+                </div>
+                <div class="feature-item">
+                    <h4>Smart For-Loops</h4>
+                    <p>Support for multiplicative (*2), divisive (/2), and compound (i+=1) steps</p>
+                </div>
+                <div class="feature-item">
+                    <h4>Flexible Control Flow</h4>
+                    <p>Support for both else-if and elif syntax with clean block structure</p>
+                </div>
+                <div class="feature-item">
+                    <h4>Array Support</h4>
+                    <p>Native array literals with indexing and modification capabilities</p>
+                </div>
             </div>
         </div>
     </section>
@@ -401,6 +519,30 @@ output "The answer is: " + ~result</code></pre>
         </div>
     </section>
     
+    <section id="technical">
+        <div class="container">
+            <h2 class="section-title">Technical Innovations</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>Mobile-First Architecture</h3>
+                    <p>Built entirely on Android devices using Java NIDE, Quickedit, and Termux, proving serious development can happen outside traditional environments.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Dual Parser System</h3>
+                    <p>Both ANTLR-based grammar parsing and custom recursive descent parser for robust language processing and error recovery.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Advanced Register Allocation</h3>
+                    <p>Hybrid "future-cost" spilling algorithm that predicts register usage patterns for optimal performance.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Multi-Target Compilation</h3>
+                    <p>Generate native assembly for both ARM64 and x86_64 architectures from a single Java codebase.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
     <section id="try-online">
         <div class="container">
             <div class="try-editor">
@@ -425,7 +567,9 @@ cd Coderive
                 <div class="feature-card">
                     <h3>2. Write Your First Program</h3>
                     <p>Create a simple Coderive program:</p>
-                    <div class="command">output "Hello, Coderive!"</div>
+                    <div class="code-example" style="margin: 1rem 0; padding: 1rem;">
+                        <pre><code><span class="code-function">output</span> <span class="code-string">"Hello, Coderive!"</span></code></pre>
+                    </div>
                 </div>
                 <div class="feature-card">
                     <h3>3. Run Your Code</h3>
@@ -446,6 +590,9 @@ cd Coderive
                 <a href="mailto:danisonnunez001@gmail.com">Contact</a>
             </div>
             <p>&copy; 2025 Coderive Project. All rights reserved.</p>
+            <p style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+                Built with passion and persistence on mobile devices — proving that innovation knows no hardware boundaries.
+            </p>
         </div>
     </footer>
 </body>
