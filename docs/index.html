@@ -39,6 +39,15 @@
             padding: clamp(1.5rem, 5vw, 2rem) 1rem;
             text-align: center;
             border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40vh;
+        }
+        
+        .header-content {
+            max-width: 800px;
+            width: 100%;
         }
         
         .container {
@@ -64,7 +73,9 @@
         }
         
         .btn {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             background-color: var(--accent-primary);
             color: var(--text-primary);
             padding: clamp(0.5rem, 3vw, 0.75rem) clamp(1rem, 4vw, 1.5rem);
@@ -78,6 +89,7 @@
             font-family: inherit;
             font-size: clamp(0.9rem, 3vw, 1rem);
             white-space: nowrap;
+            min-height: 44px;
         }
         
         .btn:hover {
@@ -267,18 +279,52 @@
             left: -1rem;
         }
         
-        .command {
+        .command-container {
+            position: relative;
             background-color: var(--bg-primary);
             border-left: 4px solid var(--accent-primary);
-            padding: clamp(0.5rem, 2vw, 0.75rem);
-            margin: 0.5rem 0;
-            font-family: 'Courier New', Courier, monospace;
             border-radius: 0 4px 4px 0;
+            margin: 0.5rem 0;
+            overflow: hidden;
+        }
+        
+        .command {
+            padding: clamp(0.5rem, 2vw, 0.75rem);
+            padding-right: 3rem;
+            font-family: 'Courier New', Courier, monospace;
             color: var(--text-primary);
             font-size: clamp(0.8rem, 3vw, 0.9rem);
             overflow-x: auto;
             white-space: nowrap;
             -webkit-overflow-scrolling: touch;
+            background-color: var(--bg-primary);
+        }
+        
+        .copy-btn {
+            position: absolute;
+            right: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--accent-primary);
+            border: none;
+            color: white;
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            opacity: 0.8;
+        }
+        
+        .copy-btn:hover {
+            opacity: 1;
+            background: var(--accent-hover);
+        }
+        
+        .copy-btn.copied {
+            background: #27ae60;
+            opacity: 1;
         }
         
         .try-editor {
@@ -332,6 +378,7 @@
             flex-wrap: wrap;
             justify-content: center;
             gap: clamp(0.5rem, 2vw, 1rem);
+            align-items: center;
         }
         
         footer {
@@ -363,6 +410,11 @@
         
         /* Landscape orientation optimizations */
         @media (orientation: landscape) and (max-height: 600px) {
+            header {
+                min-height: 60vh;
+                padding: 1rem;
+            }
+            
             section {
                 padding: 1.5rem 1rem;
             }
@@ -392,10 +444,16 @@
             .btn {
                 padding: 0.4rem 0.8rem;
                 font-size: 0.8rem;
+                min-height: 40px;
             }
             
             .feature-card, .runner-card {
                 padding: 0.75rem;
+            }
+            
+            .copy-btn {
+                padding: 0.3rem 0.6rem;
+                font-size: 0.7rem;
             }
         }
         
@@ -404,11 +462,15 @@
             .container {
                 padding: 0 2rem;
             }
+            
+            header {
+                min-height: 50vh;
+            }
         }
         
         /* Print styles */
         @media print {
-            .btn {
+            .btn, .copy-btn {
                 display: none;
             }
             
@@ -416,11 +478,16 @@
                 transform: none;
             }
         }
+        
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
     </style>
 </head>
 <body>
     <header>
-        <div class="container">
+        <div class="header-content">
             <h1>Coderive</h1>
             <p class="tagline">A modern, expressive programming language with interpreter and compiler capabilities</p>
             <div class="cta-buttons">
@@ -558,7 +625,10 @@
                         <li>Built-in debugging support</li>
                         <li>AST visualization option</li>
                     </ul>
-                    <div class="command">java -cp coderive.jar cod.runner.InterpreterRunner program.cod</div>
+                    <div class="command-container">
+                        <div class="command">java -cp coderive.jar cod.runner.InterpreterRunner program.cod</div>
+                        <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
                 </div>
                 <div class="runner-card">
                     <h3>CompilerRunner</h3>
@@ -568,7 +638,10 @@
                         <li>Native assembly output</li>
                         <li>MTOT optimization</li>
                     </ul>
-                    <div class="command">java -cp coderive.jar cod.runner.CompilerRunner --native program.cod</div>
+                    <div class="command-container">
+                        <div class="command">java -cp coderive.jar cod.runner.CompilerRunner --native program.cod</div>
+                        <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
                 </div>
                 <div class="runner-card">
                     <h3>CommandRunner</h3>
@@ -578,7 +651,10 @@
                         <li>Flexible output options</li>
                         <li>All features in one tool</li>
                     </ul>
-                    <div class="command">java -cp coderive.jar cod.runner.CommandRunner -c program.cod</div>
+                    <div class="command-container">
+                        <div class="command">java -cp coderive.jar cod.runner.CommandRunner -c program.cod</div>
+                        <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
                 </div>
                 <div class="runner-card">
                     <h3>CoderiveREPL</h3>
@@ -588,7 +664,10 @@
                         <li>Multi-line input support</li>
                         <li>State management</li>
                     </ul>
-                    <div class="command">java -cp coderive.jar cod.runner.CoderiveREPL</div>
+                    <div class="command-container">
+                        <div class="command">java -cp coderive.jar cod.runner.CoderiveREPL</div>
+                        <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -635,9 +714,12 @@
                 <div class="feature-card">
                     <h3>1. Installation</h3>
                     <p>Clone the repository and build the project:</p>
-                    <div class="command">git clone https://github.com/DanexCodr/Coderive.git
+                    <div class="command-container">
+                        <div class="command">git clone https://github.com/DanexCodr/Coderive.git
 cd Coderive
 ./gradlew build</div>
+                        <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
                 </div>
                 <div class="feature-card">
                     <h3>2. Write Your First Program</h3>
@@ -649,7 +731,10 @@ cd Coderive
                 <div class="feature-card">
                     <h3>3. Run Your Code</h3>
                     <p>Execute your program with the interpreter:</p>
-                    <div class="command">java -cp build/libs/coderive.jar cod.runner.InterpreterRunner hello.cod</div>
+                    <div class="command-container">
+                        <div class="command">java -cp build/libs/coderive.jar cod.runner.InterpreterRunner hello.cod</div>
+                        <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -701,6 +786,54 @@ cd Coderive
             }
             lastTouchEnd = now;
         }, false);
+
+        // Copy to clipboard function
+        function copyToClipboard(button) {
+            const commandContainer = button.parentElement;
+            const commandElement = commandContainer.querySelector('.command');
+            const textToCopy = commandElement.textContent || commandElement.innerText;
+            
+            // Create a temporary textarea element
+            const textarea = document.createElement('textarea');
+            textarea.value = textToCopy;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            
+            // Select and copy the text
+            textarea.select();
+            textarea.setSelectionRange(0, 99999); // For mobile devices
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    // Show success feedback
+                    const originalText = button.textContent;
+                    button.textContent = 'Copied!';
+                    button.classList.add('copied');
+                    
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.classList.remove('copied');
+                    }, 2000);
+                }
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+            }
+            
+            // Clean up
+            document.body.removeChild(textarea);
+        }
+
+        // Add click handlers to all copy buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            const copyButtons = document.querySelectorAll('.copy-btn');
+            copyButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    copyToClipboard(this);
+                });
+            });
+        });
     </script>
 </body>
 </html>
