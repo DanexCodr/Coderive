@@ -290,7 +290,7 @@
         
         .command {
             padding: clamp(0.5rem, 2vw, 0.75rem);
-            padding-right: 3rem;
+            padding-right: 4.5rem;
             font-family: 'Courier New', Courier, monospace;
             color: var(--text-primary);
             font-size: clamp(0.8rem, 3vw, 0.9rem);
@@ -302,19 +302,22 @@
         
         .copy-btn {
             position: absolute;
-            right: 0.5rem;
-            top: 50%;
-            transform: translateY(-50%);
+            right: 0;
+            top: 0;
+            bottom: 0;
             background: var(--accent-primary);
             border: none;
             color: white;
-            padding: 0.4rem 0.8rem;
-            border-radius: 4px;
+            padding: 0 1rem;
             cursor: pointer;
             font-size: 0.8rem;
             font-family: inherit;
             transition: all 0.3s ease;
             opacity: 0.8;
+            min-width: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .copy-btn:hover {
@@ -452,8 +455,13 @@
             }
             
             .copy-btn {
-                padding: 0.3rem 0.6rem;
+                padding: 0 0.75rem;
                 font-size: 0.7rem;
+                min-width: 50px;
+            }
+            
+            .command {
+                padding-right: 3.5rem;
             }
         }
         
@@ -627,7 +635,7 @@
                     </ul>
                     <div class="command-container">
                         <div class="command">java -cp coderive.jar cod.runner.InterpreterRunner program.cod</div>
-                        <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                        <button class="copy-btn">Copy</button>
                     </div>
                 </div>
                 <div class="runner-card">
@@ -640,7 +648,7 @@
                     </ul>
                     <div class="command-container">
                         <div class="command">java -cp coderive.jar cod.runner.CompilerRunner --native program.cod</div>
-                        <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                        <button class="copy-btn">Copy</button>
                     </div>
                 </div>
                 <div class="runner-card">
@@ -653,7 +661,7 @@
                     </ul>
                     <div class="command-container">
                         <div class="command">java -cp coderive.jar cod.runner.CommandRunner -c program.cod</div>
-                        <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                        <button class="copy-btn">Copy</button>
                     </div>
                 </div>
                 <div class="runner-card">
@@ -666,7 +674,7 @@
                     </ul>
                     <div class="command-container">
                         <div class="command">java -cp coderive.jar cod.runner.CoderiveREPL</div>
-                        <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                        <button class="copy-btn">Copy</button>
                     </div>
                 </div>
             </div>
@@ -718,7 +726,7 @@
                         <div class="command">git clone https://github.com/DanexCodr/Coderive.git
 cd Coderive
 ./gradlew build</div>
-                        <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                        <button class="copy-btn">Copy</button>
                     </div>
                 </div>
                 <div class="feature-card">
@@ -733,7 +741,7 @@ cd Coderive
                     <p>Execute your program with the interpreter:</p>
                     <div class="command-container">
                         <div class="command">java -cp build/libs/coderive.jar cod.runner.InterpreterRunner hello.cod</div>
-                        <button class="copy-btn" onclick="copyToClipboard(this)">Copy</button>
+                        <button class="copy-btn">Copy</button>
                     </div>
                 </div>
             </div>
@@ -812,6 +820,7 @@ cd Coderive
                     button.textContent = 'Copied!';
                     button.classList.add('copied');
                     
+                    // Revert back after 2 seconds
                     setTimeout(() => {
                         button.textContent = originalText;
                         button.classList.remove('copied');
