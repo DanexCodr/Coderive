@@ -1,0 +1,457 @@
+:root {
+    --overlay-opacity: 0;
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-tertiary: #2d2d30;
+    --accent-primary: #007acc;
+    --accent-hover: #005a9e;
+    --text-primary: #ffffff;
+    --text-secondary: #858585;
+    --border-color: #333;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    position: fixed;
+    width: 100%;
+}
+
+.side-panel {
+    position: fixed;
+    top: 0;
+    left: -70%;
+    width: 70%;
+    height: 100vh;
+    background-color: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    z-index: 1000;
+    overflow-y: auto;
+    box-sizing: border-box;
+    transition: left 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.side-panel.open {
+    left: 0;
+}
+
+/* Landscape mode styles */
+body.landscape-mode .side-panel {
+    left: 0 !important;
+    width: 35% !important;
+    z-index: 1;
+}
+
+/* Disable transition during drag for smooth dragging */
+.side-panel.dragging {
+    transition: none;
+}
+
+.side-panel-toggle {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: var(--accent-primary);
+    color: var(--text-primary);
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    z-index: 1001;
+    transition: none !important;
+}
+
+/* Hide menu button in landscape mode */
+body.landscape-mode .side-panel-toggle {
+    display: none !important;
+}
+
+.side-panel-toggle:hover {
+    background: var(--accent-hover);
+}
+
+.side-panel-content {
+    padding: 15px;
+    margin-top: 50px;
+}
+
+.side-panel-section {
+    margin-bottom: 20px;
+}
+
+.side-panel-section h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: var(--accent-primary);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 5px;
+}
+
+.side-panel-section ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.side-panel-section li {
+    padding: 8px 0;
+    cursor: pointer;
+    border-radius: 4px;
+    padding-left: 10px;
+    transition: background-color 0.2s;
+    color: var(--text-secondary);
+}
+
+.side-panel-section li:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.main-content {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), left 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+    z-index: 2;
+    background-color: var(--bg-primary);
+}
+
+/* Landscape mode main content */
+body.landscape-mode .main-content {
+    transform: none !important;
+    width: 65% !important;
+    left: 35% !important;
+}
+
+/* Disable transition during drag for smooth dragging */
+.main-content.dragging {
+    transition: none;
+}
+
+body.panel-open .main-content {
+    transform: translateX(70%);
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
+}
+
+/* Dark overlay when side panel is open */
+.main-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    opacity: var(--overlay-opacity);
+    visibility: visible;
+    pointer-events: none;
+}
+
+/* No overlay in landscape mode */
+body.landscape-mode .main-content::before {
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+body.panel-open .main-content::before {
+    opacity: 0.5;
+}
+
+/* Button container - glued buttons */
+.button-container {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    position: relative;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--accent-primary);
+    background: transparent;
+    margin-right: 0;
+    width: 120px;
+}
+
+.button-slider {
+    position: absolute;
+    background: var(--accent-primary);
+    height: 100%;
+    top: 0;
+    border-radius: 0;
+    transition: all 0.3s ease;
+    z-index: 0;
+    width: 60px !important;
+}
+
+/* Button slider positions */
+.button-slider.code-active {
+    left: 0 !important;
+}
+
+.button-slider.output-active {
+    left: 50% !important;
+}
+
+.tab-button {
+    background: transparent;
+    color: var(--accent-primary);
+    border: none;
+    padding: 8px 12px;
+    display: inline-block;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    border-radius: 0;
+    position: relative;
+    z-index: 1;
+    transition: color 0.3s ease;
+    min-width: 60px;
+    text-align: center;
+    box-sizing: border-box;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+}
+
+/* Remove any gaps between buttons */
+.tab-button:first-child {
+    border-right: 1px solid var(--accent-primary);
+}
+
+.tab-button:last-child {
+    border-left: none;
+}
+
+/* Ensure button text colors work properly */
+.tab-button.active {
+    color: var(--text-primary) !important;
+}
+
+.tab-button.inactive {
+    color: var(--accent-primary) !important;
+}
+
+/* Make sure buttons have consistent sizing */
+.tab-button {
+    flex: 1;
+    min-width: 60px;
+    width: 50%;
+    box-sizing: border-box;
+}
+
+.code-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease;
+    top: 0;
+    transform: translateY(0) !important;
+}
+
+.code-container:focus-within {
+    border-color: var(--accent-primary);
+}
+
+.line-numbers-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 40px;
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 21px;
+    text-align: center;
+    border-right: 1px solid var(--border-color);
+    overflow: hidden;
+    user-select: none;
+    box-sizing: border-box;
+    border-radius: 8px 0 0 8px;
+    z-index: 1;
+    padding-top: 15px;
+}
+
+.line-numbers {
+    position: absolute;
+    width: 100%;
+    top: 0;
+    left: 0;
+    padding-top: 15px;
+}
+
+.line-numbers div {
+    height: 21px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: monospace;
+    font-size: 14px;
+}
+
+.content-cell {
+    height: calc(100vh - 50px);
+    padding: 15px;
+    box-sizing: border-box;
+    position: relative;
+    vertical-align: top !important;
+}
+
+/* Adjust content cell for landscape mode */
+body.landscape-mode .content-cell {
+    padding: 15px;
+    width: 100%;
+}
+
+/* Editor wrapper for proper positioning */
+.editor-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+#code {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    color: var(--text-primary);
+    font-family: monospace;
+    padding: 15px 15px 15px 55px;
+    border: none;
+    outline: none;
+    box-sizing: border-box;
+    font-size: 14px;
+    line-height: 21px;
+    resize: none;
+    z-index: 2;
+    position: relative;
+    overflow-y: auto;
+    min-height: 200px;
+    tab-size: 4;
+    transition: opacity 0.3s ease, cursor 0.3s ease;
+}
+
+/* Disabled state styling for textarea */
+#code:disabled {
+    opacity: 0.7;
+    cursor: default;
+}
+
+.current-line {
+    position: absolute;
+    background-color: rgba(85, 85, 85, 0.3);
+    left: 40px;
+    right: 0;
+    height: 21px;
+    pointer-events: none;
+    z-index: 0;
+    top: 0;
+}
+
+table {
+    width: 100%;
+    height: 100vh;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.header-row {
+    height: 50px;
+    background-color: var(--bg-tertiary);
+    position: relative;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Fix table cell widths for proper button positioning */
+.header-row td:first-child {
+    width: auto;
+    padding-left: 15px;
+}
+
+.header-row td:last-child {
+    width: 140px;
+    padding-right: 15px;
+    max-width: 140px;
+    min-width: 140px;
+}
+
+/* Fix table cell widths for landscape mode */
+body.landscape-mode .header-row td:first-child {
+    width: auto;
+    padding-left: 15px;
+}
+
+body.landscape-mode .header-row td:last-child {
+    width: 140px;
+    padding-right: 15px;
+    max-width: 140px;
+    min-width: 140px;
+}
+
+tr:last-child {
+    vertical-align: top;
+}
+
+.header-title {
+    padding-left: 45px;
+    color: var(--text-primary);
+}
+
+/* Adjust header title for landscape mode */
+body.landscape-mode .header-title {
+    padding-left: 0;
+}
+
+.edge-swipe-area {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 20px;
+    height: 100%;
+    z-index: 998;
+}
+
+/* Hide edge swipe area in landscape mode */
+body.landscape-mode .edge-swipe-area {
+    display: none !important;
+}
+
+/* Make sure line numbers and textarea align properly */
+.line-numbers-container, #code {
+    line-height: 21px !important;
+    font-size: 14px !important;
+    font-family: monospace !important;
+}
+
+/* Back to main page link */
+.back-to-main {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: var(--accent-primary);
+    color: var(--text-primary);
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    z-index: 1001;
+    text-decoration: none;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+}
+
+.back-to-main:hover {
+    background: var(--accent-hover);
+}
