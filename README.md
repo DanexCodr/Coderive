@@ -12,7 +12,7 @@
 
 A mobile-first general programming language written primarily in Java 7. The runtime is built in c. It is a dual parser (antlr + manual "recursive backtracking"), dual compilation language (bytecode + native code generation).
 
-###### **Development period:** 3 weeks and 2 days
+###### **Development period:** 1 month old
 
 ## Vision
 To have the very first filipino-made mobile-first production-ready self-hosting (native) programming language.
