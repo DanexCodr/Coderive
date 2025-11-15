@@ -104,7 +104,7 @@ public class ManualCoderiveLexer {
             DIV_ASSIGN = 53,
             // --- NEW TOKENS ---
             TILDE_BAR = 54,
-            TILDE = 55,
+            TILDE_ARROW = 55,
             // ---
             INVALID = -2;
 
@@ -189,7 +189,7 @@ public class ManualCoderiveLexer {
         TOKEN_NAMES.put(DIV_ASSIGN, _div_assign);
         // --- NEW TOKEN NAMES ---
         TOKEN_NAMES.put(TILDE_BAR, "TILDE_BAR");
-        TOKEN_NAMES.put(TILDE, "TILDE");
+        TOKEN_NAMES.put(TILDE_ARROW, "TILDE_ARROW");
         // ---
         TOKEN_NAMES.put(INVALID, _invalid);
     }
@@ -358,8 +358,11 @@ private Token readNumber(int startLine, int startColumn) {
                 if (peek() == '|') {
                     consume();
                     return new Token(TILDE_BAR, "~|", startLine, startColumn);
+                } else if (peek() == '>') {
+                    consume();
+                    return new Token(TILDE_ARROW, "~>", startLine, startColumn);
                 } else {
-                    return new Token(TILDE, "~", startLine, startColumn);
+                    return new Token(INVALID, "~", startLine, startColumn);
                 }
             // --- END NEW SYMBOL LOGIC ---
             case '%':

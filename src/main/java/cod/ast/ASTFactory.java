@@ -163,6 +163,13 @@ public static AssignmentNode createAssignment(ExprNode target, ExprNode value) {
         return node;
     }
     
+public static SlotAssignmentNode createImplicitReturn(ExprNode returnExpr) {
+    SlotAssignmentNode returnStmt = new SlotAssignmentNode();
+    returnStmt.slotName = "return";
+    returnStmt.value = returnExpr;
+    return returnStmt;
+}
+    
     // Method call creation
     public static MethodCallNode createMethodCall(String name, String qualifiedName) {
         MethodCallNode call = new MethodCallNode();
@@ -275,4 +282,10 @@ public static AssignmentNode createAssignment(ExprNode target, ExprNode value) {
         node.value = value;
         return node;
     }
+    
+    public static MultipleSlotAssignmentNode createMultipleSlotAssignment(List<SlotAssignmentNode> assignments) {
+    MultipleSlotAssignmentNode node = new MultipleSlotAssignmentNode();
+    node.assignments = assignments;
+    return node;
+}
 }

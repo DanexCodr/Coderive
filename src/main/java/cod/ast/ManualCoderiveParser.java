@@ -139,43 +139,55 @@ public class ManualCoderiveParser {
 
 
     private MethodNode parseMethod() {
-        Token startToken = currentToken();
-        
-        // --- MODIFICATION: Parse "annotation-style" slot declaration ---
-        List<String> returnSlots = null;
-        if (isSlotDeclaration()) {
-            consume(ManualCoderiveLexer.TILDE_BAR);
-            returnSlots = parseIdList();
-        }
-        // --- END MODIFICATION ---
+    Token startToken = currentToken();
+    
+    // --- MODIFICATION: Parse "annotation-style" slot declaration ---
+    List<String> returnSlots = null;
+    if (isSlotDeclaration()) {
+        consume(ManualCoderiveLexer.TILDE_BAR);
+        returnSlots = parseIdList();
+    }
+    // --- END MODIFICATION ---
 
-        String visibility = share;
-        if (isVisibilityModifier()) {
-             visibility = consume().text;
-        }
-        String methodName = consume(ManualCoderiveLexer.ID).text;
+    String visibility = share;
+    if (isVisibilityModifier()) {
+         visibility = consume().text;
+    }
+    String methodName = consume(ManualCoderiveLexer.ID).text;
 
-        // --- MODIFICATION: Pass parsed slots to factory ---
-        MethodNode method = ASTFactory.createMethod(methodName, visibility, returnSlots);
-        setNodePosition(method, startToken);
-        // --- END MODIFICATION ---
+    // --- MODIFICATION: Pass parsed slots to factory ---
+    MethodNode method = ASTFactory.createMethod(methodName, visibility, returnSlots);
+    setNodePosition(method, startToken);
+    // --- END MODIFICATION ---
 
-        consume(ManualCoderiveLexer.LPAREN);
-        if (!match(ManualCoderiveLexer.RPAREN)) {
+    consume(ManualCoderiveLexer.LPAREN);
+    if (!match(ManualCoderiveLexer.RPAREN)) {
+        method.parameters.add(parseParameter());
+        while (tryConsume(ManualCoderiveLexer.COMMA)) {
             method.parameters.add(parseParameter());
-            while (tryConsume(ManualCoderiveLexer.COMMA)) {
-                method.parameters.add(parseParameter());
-            }
         }
-        consume(ManualCoderiveLexer.RPAREN);
+    }
+    consume(ManualCoderiveLexer.RPAREN);
 
+    // --- NEW: Check for single expression method syntax (~> expr) ---
+    if (match(ManualCoderiveLexer.TILDE_ARROW)) {
+        consume(ManualCoderiveLexer.TILDE_ARROW);
+        ExprNode returnExpr = parseExpression();
+        
+        // Create an implicit return statement
+        SlotAssignmentNode returnStmt = ASTFactory.createSlotAssignment("return", returnExpr);
+        method.body.add(returnStmt);
+    } else {
+        // Traditional block syntax
         consume(ManualCoderiveLexer.LBRACE);
         while (!match(ManualCoderiveLexer.RBRACE)) {
             method.body.add(parseStatement());
         }
         consume(ManualCoderiveLexer.RBRACE);
-        return method;
     }
+    
+    return method;
+}
 
 
     private FieldNode parseField() {
@@ -193,7 +205,6 @@ public class ManualCoderiveParser {
 
     // --- Statement Parsers ---
 
-// --- REVISED Statement Parser Order ---
 private StatementNode parseStatement() {
     return parseStatement(null);
 }
@@ -206,40 +217,97 @@ private StatementNode parseStatement(Boolean inheritedStyle) {
     if (match(ManualCoderiveLexer.FOR)) return parseForStatement();
     if (match(ManualCoderiveLexer.OUTPUT)) return parseOutputStatement();
 
-    // --- MODIFICATION: Slot *declaration* removed, *assignment* remains ---
-    // if (isSlotDeclaration()) return parseSlotDeclaration(); // REMOVED
+    // 2. Slot Assignment (NEW: Check for ~> before variable declarations)
     if (isSlotAssignment()) return parseSlotAssignment();
-    // --- END MODIFICATION ---
 
-    // 2. Variable Declaration (Check using predicate AFTER keywords)
+    // 3. Variable Declaration (Check using predicate AFTER keywords)
     if (isVariableDeclaration()) return parseVariableDeclaration();
 
-    // 3. Assignments (check specific cases using predicates before general expression)
+    // 4. Assignments (check specific cases using predicates before general expression)
     if (isInputAssignment()) return parseInputAssignment();
     if (isReturnSlotAssignment()) return parseReturnSlotAssignment();
     if (isIndexAssignment()) return parseIndexAssignment();
-    if (isSimpleAssignment()) return parseSimpleAssignment(); // <-- Fix applied in predicate
+    if (isSimpleAssignment()) return parseSimpleAssignment();
 
-    // 4. Method Call Statement (Check before general expression)
+    // 5. Method Call Statement (Check before general expression)
     if (isMethodCallStatement()) {
         return parseMethodCallStatement();
     }
 
-    // 5. Fallback: Other Expression Statements (if allowed)
+    // 6. Fallback: Other Expression Statements (if allowed)
     return parseExpressionStatement();
 }
 
-    // --- MODIFICATION: Removed parseSlotDeclaration ---
+private List<SlotAssignmentNode> parseMultipleSlotAssignments() {
+    List<SlotAssignmentNode> assignments = new ArrayList<SlotAssignmentNode>();
     
-    private StatementNode parseSlotAssignment() {
-        Token startToken = currentToken();
-        consume(ManualCoderiveLexer.TILDE);
-        String slotName = consume(ManualCoderiveLexer.ID).text;
-        ExprNode value = parseExpression(); // Parses the 'a + b' part
-        SlotAssignmentNode assignment = ASTFactory.createSlotAssignment(slotName, value);
+    // Parse first assignment
+    assignments.add(parseSingleSlotAssignment());
+    
+    // Parse additional comma-separated assignments
+    while (tryConsume(ManualCoderiveLexer.COMMA)) {
+        assignments.add(parseSingleSlotAssignment());
+    }
+    
+    return assignments;
+}
+
+private SlotAssignmentNode parseSingleSlotAssignment() {
+    Token startToken = currentToken();
+    
+    // Check if this is a named assignment (slotName expr) or unnamed (expr)
+    String slotName = null;
+    ExprNode value;
+    
+    // Simple heuristic: if we have ID followed by something that looks like an expression start
+    if (peek(0).type == ManualCoderiveLexer.ID && 
+        (peek(1).type == ManualCoderiveLexer.ID || 
+         peek(1).type == ManualCoderiveLexer.INT_LIT ||
+         peek(1).type == ManualCoderiveLexer.FLOAT_LIT ||
+         peek(1).type == ManualCoderiveLexer.STRING_LIT ||
+         peek(1).type == ManualCoderiveLexer.BOOL_LIT ||
+         peek(1).type == ManualCoderiveLexer.LPAREN)) {
+        // This looks like a named assignment: slotName expr
+        slotName = consume(ManualCoderiveLexer.ID).text;
+        value = parseExpression();
+    } else {
+        // Unnamed assignment: just expr
+        value = parseExpression();
+    }
+    
+    SlotAssignmentNode assignment = ASTFactory.createSlotAssignment(slotName, value);
+    setNodePosition(assignment, startToken);
+    return assignment;
+}
+
+private StatementNode parseSlotAssignment() {
+    Token startToken = currentToken();
+    consume(ManualCoderiveLexer.TILDE_ARROW);  // Consume ~>
+    
+    // Check if this is a multiple assignment by looking ahead for comma
+    // We need to parse the first element and THEN check if there's a comma
+    List<SlotAssignmentNode> assignments = new ArrayList<SlotAssignmentNode>();
+    
+    // Parse first assignment
+    assignments.add(parseSingleSlotAssignment());
+    
+    // Now check if there are more comma-separated assignments
+    if (match(ManualCoderiveLexer.COMMA)) {
+        // Parse the rest of the assignments
+        while (tryConsume(ManualCoderiveLexer.COMMA)) {
+            assignments.add(parseSingleSlotAssignment());
+        }
+        
+        MultipleSlotAssignmentNode multiAssign = ASTFactory.createMultipleSlotAssignment(assignments);
+        setNodePosition(multiAssign, startToken);
+        return multiAssign;
+    } else {
+        // Single assignment - return the first one we parsed
+        SlotAssignmentNode assignment = assignments.get(0);
         setNodePosition(assignment, startToken);
         return assignment;
     }
+}
 
     private StatementNode parseSimpleAssignment() {
         Token startToken = currentToken();
@@ -718,36 +786,75 @@ private StatementNode parseIfStatement(Boolean inheritedStyle) {
     }
 
     private boolean isSlotAssignment() {
-        try {
-            // Must be just '~' followed by an ID and then not an assignment operator
-            // This distinguishes `~ result a + b` from `~|`
-            if (tokens.get(position).type != ManualCoderiveLexer.TILDE) return false;
-            if (position + 1 >= tokens.size()) return false;
-            return tokens.get(position + 1).type == ManualCoderiveLexer.ID;
-        } catch (IndexOutOfBoundsException e) {
-            return false;
-        }
+    try {
+        // Must be '~>' followed by something valid
+        if (tokens.get(position).type != ManualCoderiveLexer.TILDE_ARROW) return false;
+        if (position + 1 >= tokens.size()) return false;
+        
+        // Check if followed by ID or expression start
+        int nextPos = position + 1;
+        Token nextToken = tokens.get(nextPos);
+        
+        // Valid if followed by ID, literal, or expression start
+        return nextToken.type == ManualCoderiveLexer.ID || 
+               nextToken.type == ManualCoderiveLexer.INT_LIT ||
+               nextToken.type == ManualCoderiveLexer.FLOAT_LIT ||
+               nextToken.type == ManualCoderiveLexer.STRING_LIT ||
+               nextToken.type == ManualCoderiveLexer.BOOL_LIT ||
+               nextToken.type == ManualCoderiveLexer.LPAREN ||
+               nextToken.type == ManualCoderiveLexer.LBRACKET ||
+               nextToken.type == ManualCoderiveLexer.PLUS ||
+               nextToken.type == ManualCoderiveLexer.MINUS;
+    } catch (IndexOutOfBoundsException e) {
+        return false;
     }
-    // --- END PREDICATES MODIFIED ---
+}
 
     private boolean isTypeCast() {
         int p = position; try { if (tokens.get(p++).type != ManualCoderiveLexer.LPAREN) return false; if (!isTypeStart(tokens.get(p))) return false; p++; while (p < tokens.size() && tokens.get(p).type == ManualCoderiveLexer.LBRACKET) { if (p + 1 < tokens.size() && tokens.get(p + 1).type == ManualCoderiveLexer.RBRACKET) { p += 2; } else { return false; } } if (p >= tokens.size() || tokens.get(p++).type != ManualCoderiveLexer.RPAREN) return false; if (p >= tokens.size()) return false; int nt = tokens.get(p).type; return nt == ManualCoderiveLexer.LBRACKET || nt == ManualCoderiveLexer.INT_LIT || nt == ManualCoderiveLexer.FLOAT_LIT || nt == ManualCoderiveLexer.STRING_LIT || nt == ManualCoderiveLexer.BOOL_LIT || nt == ManualCoderiveLexer.ID || nt == ManualCoderiveLexer.LPAREN || nt == ManualCoderiveLexer.PLUS || nt == ManualCoderiveLexer.MINUS; } catch (IndexOutOfBoundsException e) { return false; }
     }
     private boolean isMethodDeclaration() {
-        int p = position; try { 
-            // --- MODIFIED PREDICATE: Now checks for slot decl OR visibility ---
-            if (tokens.get(p).type == ManualCoderiveLexer.TILDE_BAR) { 
-                p++; // Skip past ~|
-                while(p < tokens.size() && (tokens.get(p).type == ManualCoderiveLexer.ID || tokens.get(p).type == ManualCoderiveLexer.COMMA)) {
-                    p++; // Skip past id list
-                }
+    int p = position; 
+    try { 
+        // Check for slot declaration (~|)
+        if (tokens.get(p).type == ManualCoderiveLexer.TILDE_BAR) { 
+            p++; // Skip past ~|
+            while(p < tokens.size() && (tokens.get(p).type == ManualCoderiveLexer.ID || tokens.get(p).type == ManualCoderiveLexer.COMMA)) {
+                p++; // Skip past id list
             }
-            // ---
-            if (isVisibilityModifier(tokens.get(p))) p++; 
-            if (p >= tokens.size() || tokens.get(p).type != ManualCoderiveLexer.ID) return false; p++; 
-            return p < tokens.size() && tokens.get(p).type == ManualCoderiveLexer.LPAREN; 
-        } catch (IndexOutOfBoundsException e) { return false; }
+        }
+        
+        // Check for visibility modifier
+        if (isVisibilityModifier(tokens.get(p))) p++; 
+        
+        // Must have ID (method name)
+        if (p >= tokens.size() || tokens.get(p).type != ManualCoderiveLexer.ID) return false; 
+        p++; 
+        
+        // Must have LPAREN for parameters
+        if (p >= tokens.size() || tokens.get(p).type != ManualCoderiveLexer.LPAREN) return false;
+        p++;
+        
+        // After parameters, must have either TILDE_ARROW or LBRACE
+        // Skip parameters and RPAREN
+        int parenDepth = 1;
+        while (p < tokens.size() && parenDepth > 0) {
+            if (tokens.get(p).type == ManualCoderiveLexer.LPAREN) parenDepth++;
+            else if (tokens.get(p).type == ManualCoderiveLexer.RPAREN) parenDepth--;
+            p++;
+        }
+        
+        // Now check what comes after parameters
+        if (p >= tokens.size()) return false;
+        
+        // Valid if followed by ~> (single expression) or { (block)
+        return tokens.get(p).type == ManualCoderiveLexer.TILDE_ARROW || 
+               tokens.get(p).type == ManualCoderiveLexer.LBRACE;
+    } catch (IndexOutOfBoundsException e) { 
+        return false; 
     }
+}
+
     private boolean isFieldDeclaration() {
         int p = position; try { if (!isTypeStart(tokens.get(p))) return false; p++; while (p < tokens.size() && tokens.get(p).type == ManualCoderiveLexer.LBRACKET) { if (p + 1 < tokens.size() && tokens.get(p + 1).type == ManualCoderiveLexer.RBRACKET) { p += 2; } else { return false; } } if (p >= tokens.size() || tokens.get(p).type != ManualCoderiveLexer.ID) return false; p++; return p >= tokens.size() || tokens.get(p).type != ManualCoderiveLexer.LPAREN; } catch (IndexOutOfBoundsException e) { return false; }
     }
