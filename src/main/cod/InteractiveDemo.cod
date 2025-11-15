@@ -8,27 +8,26 @@ share InteractiveDemo {
     ~| formula, operation
     local calculate(int a, int b, string op) {  
     if op == "+" {
-        ~ formula a + b
-        ~ operation "addition"
+         // Separate return assignments
+        ~> formula a + b
+        ~> operation "addition"
     } else if op == "-" {
-        ~ formula a - b  
-        ~ operation "subtraction"
+       // One line return assignments
+        ~> formula a - b, operation "subtraction"
     } else if op == "*" {
-        ~ formula a * b
-        ~operation "multiplication"
+       // implicit one line return assignments
+        ~> a * b, "multiplication"
     } else if op == "/" {
-        ~ formula a / b
-        ~operation "division"
+       // mixed one line return assignments
+        ~> formula a / b, "division"
     } else {
-        ~formula 0
-        ~operation "unknown"
+        ~> formula 0
+        ~> operation "unknown"
     }
 }
 
-~| return
-local add(int a, int b) {
-~return a + b
-}
+// Method with single expression
+local add(int a, int b) ~> a + b
 
 ~| x, y
 local haha(int a) {
@@ -324,5 +323,4 @@ local haha(int a) {
         output "=== DEMO COMPLETE ==="
         output "Thank you for using Coderive!"
     }
-
 }

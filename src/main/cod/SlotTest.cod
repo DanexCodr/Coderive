@@ -5,10 +5,7 @@ cod.Math
 share SlotTest {
 
 ~| sum, diff
-share compute(int a, int b) {
-~sum a + b
-~diff a - b
-}
+share compute(int a, int b) ~> a + b, a - b
 
 share main() {
 output [sum]:compute(2, 1)

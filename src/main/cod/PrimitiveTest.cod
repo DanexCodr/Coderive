@@ -39,10 +39,7 @@ share PrimitiveTest {
     
     // Test multiple return values
         ~|intResult, stringResult
-        share testMultiReturn(int inputInteger) {
-        ~ intResult inputInteger * 2
-        ~ stringResult "Processed: " + inputInteger
-    }
+        share testMultiReturn(int inputInteger) ~> inputInteger * 2, "Processed: " + inputInteger
     
     share main() {
         output "=== COMPREHENSIVE TESTS ==="
