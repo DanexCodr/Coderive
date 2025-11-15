@@ -418,44 +418,138 @@ public class StatementEvaluator {
                 }
             }
             return result; // Statement calls still return a value, even if unused
+    } else if (stmt instanceof ReturnSlotAssignmentNode) {
+     ReturnSlotAssignmentNode assignment = (ReturnSlotAssignmentNode) stmt;
 
-        } else if (stmt instanceof ReturnSlotAssignmentNode) {
-             // ... (ReturnSlotAssignmentNode logic remains the same) ...
-            ReturnSlotAssignmentNode assignment = (ReturnSlotAssignmentNode) stmt;
+    Object result = interpreter.evalMethodCall(assignment.methodCall, obj, locals);
 
-            Object result = interpreter.evalMethodCall(assignment.methodCall, obj, locals);
+    if (result instanceof Map) {
+        Map<String, Object> slotReturns = (Map<String, Object>) result;
 
-            if (result instanceof Map) {
-                Map<String, Object> slotReturns = (Map<String, Object>) result;
+        for (int i = 0; i < assignment.variableNames.size(); i++) {
+            String varName = assignment.variableNames.get(i);
+            String slotName = assignment.methodCall.slotNames.get(i);
 
-                for (int i = 0; i < assignment.variableNames.size(); i++) {
-                    String varName = assignment.variableNames.get(i);
-                    String slotName = assignment.methodCall.slotNames.get(i);
-
-                    if (slotReturns.containsKey(slotName)) {
-                        Object slotValue = slotReturns.get(slotName);
-                        
-                        // --- Enforce ~ for slots (NO CHANGE) ---
-                        if (slotValues != null && slotValues.containsKey(varName)) {
-                             throw new RuntimeException("Cannot assign to variable '" + varName + "' because it conflicts with a return slot.");
-                        }
-                        // --- END ---
-
-                        // Check if var already exists before putting it in locals
-                        if (locals.containsKey(varName)) {
-                           DebugSystem.warn("SCOPE", "Variable '" + varName + "' from slot assignment is shadowing/reassigning existing local.");
-                        }
-                        locals.put(varName, slotValue);
-                        DebugSystem.debug("SLOTS", "Assigned slot '" + slotName + "' to local '" + varName + "' = " + slotValue);
-                    } else {
-                        DebugSystem.warn("SLOTS", "Slot '" + slotName + "' not found in method return for assignment to '" + varName + "'.");
-                        locals.put(varName, null); // Assign null if slot missing
-                    }
+            if (slotReturns.containsKey(slotName)) {
+                Object slotValue = slotReturns.get(slotName);
+                
+                if (slotValues != null && slotValues.containsKey(varName)) {
+                     throw new RuntimeException("Cannot assign to variable '" + varName + "' because it conflicts with a return slot.");
                 }
-            }
-            return result; // Return the full slot map
 
-        } else if (stmt instanceof ExprNode) {
+                if (locals.containsKey(varName)) {
+                   DebugSystem.warn("SCOPE", "Variable '" + varName + "' from slot assignment is shadowing/reassigning existing local.");
+                }
+                locals.put(varName, slotValue);
+                DebugSystem.debug("SLOTS", "Assigned slot '" + slotName + "' to local '" + varName + "' = " + slotValue);
+            } else {
+                DebugSystem.warn("SLOTS", "Slot '" + slotName + "' not found in method return for assignment to '" + varName + "'.");
+                locals.put(varName, null);
+            }
+        }
+    }
+    return result;
+    }else if (stmt instanceof SlotAssignmentNode) {
+    SlotAssignmentNode assign = (SlotAssignmentNode) stmt;
+    Object value = exprEvaluator.evaluate(assign.value, obj, locals);
+    String varName = assign.slotName;
+
+    // --- NEW: Handle implicit returns ---
+    if ("return".equals(varName)) {
+        // This is an implicit return from a single-expression method
+        if (slotValues != null && !slotValues.isEmpty()) {
+            // Assign to the first declared slot (most common case for single return)
+            String firstSlot = slotValues.keySet().iterator().next();
+            Object oldValue = slotValues.get(firstSlot);
+            slotValues.put(firstSlot, value);
+            DebugSystem.slotUpdate(firstSlot, oldValue, value);
+            DebugSystem.debug("RETURN", "Implicit return assigned to slot: " + firstSlot + " = " + value);
+        } else {
+            DebugSystem.warn("RETURN", "Implicit return ignored - no slots declared");
+        }
+        return value;
+    }
+    
+    // Regular slot assignment
+    if (slotValues != null && slotValues.containsKey(varName)) {
+        Object oldValue = slotValues.get(varName);
+        slotValues.put(varName, value);
+        DebugSystem.slotUpdate(varName, oldValue, value);
+    } else {
+         DebugSystem.warn("SLOTS", "Assignment to '" + varName + "' ignored (not a declared slot).");
+    }
+    return value;
+} else if (stmt instanceof MultipleSlotAssignmentNode) {
+    MultipleSlotAssignmentNode multiAssign = (MultipleSlotAssignmentNode) stmt;
+    
+    // Validate assignment count matches declared slots
+    List<String> declaredSlots = new ArrayList<String>();
+    if (slotValues != null) {
+        declaredSlots.addAll(slotValues.keySet());
+    }
+    
+    if (multiAssign.assignments.size() != declaredSlots.size()) {
+        throw new RuntimeException("Return assignment count mismatch: declared " + 
+                                  declaredSlots.size() + " slots but assigned " + 
+                                  multiAssign.assignments.size() + " values");
+    }
+    
+    // Count named assignments and validate
+    int namedCount = 0;
+    List<String> assignedNames = new ArrayList<String>();
+    for (SlotAssignmentNode assign : multiAssign.assignments) {
+        if (assign.slotName != null) {
+            namedCount++;
+            assignedNames.add(assign.slotName);
+        }
+    }
+    
+    // If mixed assignments, validate names match declared slots
+    if (namedCount > 0 && namedCount < multiAssign.assignments.size()) {
+        throw new RuntimeException("Mixed named and unnamed assignments not allowed");
+    }
+    
+    // If all named, validate names match declared slots
+    if (namedCount == multiAssign.assignments.size()) {
+        for (String assignedName : assignedNames) {
+            if (!declaredSlots.contains(assignedName)) {
+                throw new RuntimeException("Assignment to undeclared slot: " + assignedName);
+            }
+        }
+    }
+    
+    // Execute assignments
+    Object lastValue = null;
+    if (namedCount == 0) {
+        // All unnamed - assign in declaration order
+        for (int i = 0; i < multiAssign.assignments.size(); i++) {
+            SlotAssignmentNode assign = multiAssign.assignments.get(i);
+            String slotName = declaredSlots.get(i);
+            Object value = exprEvaluator.evaluate(assign.value, obj, locals);
+            
+            if (slotValues != null && slotValues.containsKey(slotName)) {
+                Object oldValue = slotValues.get(slotName);
+                slotValues.put(slotName, value);
+                DebugSystem.slotUpdate(slotName, oldValue, value);
+            }
+            lastValue = value;
+        }
+    } else {
+        // All named - assign by name
+        for (SlotAssignmentNode assign : multiAssign.assignments) {
+            Object value = exprEvaluator.evaluate(assign.value, obj, locals);
+            
+            if (slotValues != null && slotValues.containsKey(assign.slotName)) {
+                Object oldValue = slotValues.get(assign.slotName);
+                slotValues.put(assign.slotName, value);
+                DebugSystem.slotUpdate(assign.slotName, oldValue, value);
+            }
+            lastValue = value;
+        }
+    }
+    
+    return lastValue;
+    } else if (stmt instanceof ExprNode) {
              // Evaluate expression as a statement (value discarded unless it's a method call)
             return exprEvaluator.evaluate((ExprNode) stmt, obj, locals);
         }

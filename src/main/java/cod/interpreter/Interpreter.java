@@ -5,11 +5,9 @@ import cod.ast.ImportResolver;
 import cod.debug.DebugSystem;
 import java.util.*;
 import java.io.File;
-import cod.ast.ASTFactory; // Keep this import
 
 public class Interpreter {
 
-    private Map<String, ObjectInstance> heap = new HashMap<String, ObjectInstance>();
     Map<String, Object> currentSlots =
             null; // CHANGED: package-private for ExpressionEvaluator access
     Set<String> slotsInCurrentPath =
@@ -126,8 +124,8 @@ public class Interpreter {
 
     // Add this temporary method to InterpreterRunner.java before interpreter.run(ast)
     private static void debugFileExists(String basePath, String importName) {
-        String fileName1 = importName.replace('.', '/') + ".cdrv";
-        String fileName2 = importName + ".cdrv";
+        String fileName1 = importName.replace('.', '/') + ".cod";
+        String fileName2 = importName + ".cod";
 
         File file1 = new File(basePath, fileName1);
         File file2 = new File(basePath, fileName2);
@@ -140,7 +138,7 @@ public class Interpreter {
                 "Checking file: " + file2.getAbsolutePath() + " [exists: " + file2.exists() + "]");
 
         // Also check if the directory exists
-        File dir = new File(basePath, "cdrv");
+        File dir = new File(basePath, "cod");
         DebugSystem.debug(
                 "FILE_CHECK",
                 "Checking directory: "
@@ -154,7 +152,7 @@ public class Interpreter {
         if (dir.exists() && dir.isDirectory()) {
             String[] files = dir.list();
             if (files != null) {
-                DebugSystem.debug("FILE_CHECK", "Files in cdrv directory:");
+                DebugSystem.debug("FILE_CHECK", "Files in cod directory:");
                 for (String file : files) {
                     DebugSystem.debug("FILE_CHECK", "  - " + file);
                 }
@@ -195,7 +193,11 @@ public class Interpreter {
             slotValues.put(s.name, null);
             DebugSystem.debug("SLOTS", "Initialized slot: " + s.name + " = null");
         }
-        // --- END MODIFICATION (REMOVED PRE-SCAN LOOP) ---
+List<String> returnSlotNames = new ArrayList<String>();
+for (SlotNode slot : method.returnSlots) {
+    returnSlotNames.add(slot.name);
+}
+DebugSystem.debug("METHODS", "Method " + method.name + " has " + method.returnSlots.size() + " return slots: " + returnSlotNames);
 
         // Keep track of "current method slots" for nested calls
         Map<String, Object> previousSlots = currentSlots;
