@@ -49,11 +49,9 @@ share interactiveDemo {
     ~| formula, operation
     local calculate(int a, int b, string op) {
         if op == "+" {
-            ~ formula a + b
-            ~ operation "addition"
+            ~> a + b, "addition"
         } else if op == "-" {
-            ~ formula a - b
-            ~ operation "subtraction"
+            ~> a - b, "subtraction"
         }
         // ... more code
     }
