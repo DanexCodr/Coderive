@@ -41,7 +41,9 @@ The developer (DanexCodr) is constrained by only having a phone:
 
 ## Language Example
 ```python
-unit sample.program get {
+unit sample.program
+
+get {
     cod.Math
 }
 
