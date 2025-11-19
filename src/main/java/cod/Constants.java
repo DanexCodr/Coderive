@@ -42,7 +42,9 @@ public class Constants {
             float_ = "float",
             bool = "bool",
             true_ = "true",
-            false_ = "false"
+            false_ = "false",
+            builtin = "builtin",
+            native_ = "native"
             ;
     
     // For upper case
@@ -102,6 +104,8 @@ public class Constants {
             _minus_assign = "MINUS_ASSIGN",
             _mul_assign = "MUL_ASSIGN",
             _div_assign = "DIV_ASSIGN",
+            _builtin = "BUILTIN",
+            _native = "NATIVE",
             _invalid = "INVALID"
             ;
 
