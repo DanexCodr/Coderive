@@ -91,34 +91,55 @@ public class BytecodeCompiler {
         }
     }
 
-    private void compileMethod(MethodNode method, BytecodeProgram program) {
-        DebugSystem.debug("BYTECODE", "=== COMPILING METHOD: " + method.name + " ===");
-        code.clear();
-        variableSlots.clear();
-        nextSlot = 0;
-        labelCounter = 0;
+ private void compileMethod(MethodNode method, BytecodeProgram program) {
+    DebugSystem.debug("BYTECODE", "=== COMPILING METHOD: " + method.name + " ===");
+    code.clear();
+    variableSlots.clear();
+    nextSlot = 0;
+    labelCounter = 0;
 
-        for (ParamNode param : method.parameters) {
-            allocateVariableSlot(param.name);
-             DebugSystem.debug("BYTECODE_VARS", "Allocated slot " + (nextSlot - 1) + " for param: " + param.name);
-        }
-        for (SlotNode slot : method.returnSlots) {
-            allocateVariableSlot(slot.name);
-             DebugSystem.debug("BYTECODE_VARS", "Allocated slot " + (nextSlot - 1) + " for return slot: " + slot.name);
-        }
-        for (StatementNode stmt : method.body) {
-            compileStatement(stmt);
-        }
-        if (method.returnSlots.isEmpty()) {
-            code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_NULL));
-        } else {
-             code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_NULL)); // Placeholder
-             DebugSystem.warn("BYTECODE", "Slot return value mechanism not fully implemented in bytecode for method: " + method.name);
-        }
-        code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.RET));
-        program.addMethod(method.name, new ArrayList<BytecodeInstruction>(code));
-         DebugSystem.debug("BYTECODE", "=== FINISHED METHOD: " + method.name + " (" + code.size() + " instructions) ===");
+    // Allocate slots for parameters
+    for (ParamNode param : method.parameters) {
+        allocateVariableSlot(param.name);
+        DebugSystem.debug("BYTECODE_VARS", "Allocated slot " + (nextSlot - 1) + " for param: " + param.name);
     }
+    
+    // Allocate slots for return values
+    for (SlotNode slot : method.returnSlots) {
+        allocateVariableSlot(slot.name);
+        DebugSystem.debug("BYTECODE_VARS", "Allocated slot " + (nextSlot - 1) + " for return slot: " + slot.name);
+    }
+    
+    // Compile method body
+    for (StatementNode stmt : method.body) {
+        compileStatement(stmt);
+    }
+    
+    // FIXED: Proper return slot handling
+    if (method.returnSlots.isEmpty()) {
+        // No return slots - push null
+        code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_NULL));
+    } else {
+        // Return values from slots
+        // Push return values in reverse order (for multiple return values)
+        for (int i = method.returnSlots.size() - 1; i >= 0; i--) {
+            String slotName = method.returnSlots.get(i).name;
+            Integer slotIndex = variableSlots.get(slotName);
+            if (slotIndex != null) {
+                code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.LOAD_LOCAL, slotIndex));
+                DebugSystem.debug("BYTECODE", "Loading return slot '" + slotName + "' from slot " + slotIndex);
+            } else {
+                DebugSystem.error("BYTECODE", "Return slot '" + slotName + "' not found in variable slots!");
+                code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_NULL));
+            }
+        }
+        DebugSystem.debug("BYTECODE", "Method " + method.name + " returning " + method.returnSlots.size() + " slot values");
+    }
+    
+    code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.RET));
+    program.addMethod(method.name, new ArrayList<BytecodeInstruction>(code));
+    DebugSystem.debug("BYTECODE", "=== FINISHED METHOD: " + method.name + " (" + code.size() + " instructions) ===");
+}
 
      private void compileStatement(StatementNode stmt) {
         if (stmt instanceof VarNode) { compileVariableDeclaration((VarNode) stmt); }
@@ -381,11 +402,26 @@ private void compileStepRHS(ExprNode expr, int iteratorSlot) {
     }
 
     private void compileReturnSlotAssignment(ReturnSlotAssignmentNode assignment) {
-         for (ExprNode arg : assignment.methodCall.arguments) { compileExpression(arg); }
-         int numSlotsToReceive = assignment.variableNames.size(); String methodName = assignment.methodCall.qualifiedName; Object[] callOperand = new Object[] { methodName, numSlotsToReceive }; code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CALL_SLOTS, callOperand));
-         for (int i = numSlotsToReceive - 1; i >= 0; i--) { String varName = assignment.variableNames.get(i); int slot = getOrAllocateVariableSlot(varName); code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.STORE_LOCAL, slot)); }
-         DebugSystem.debug("BYTECODE", "Compiled ReturnSlotAssignment for " + numSlotsToReceive + " slots from " + methodName);
+    // Compile method call arguments
+    for (ExprNode arg : assignment.methodCall.arguments) { 
+        compileExpression(arg); 
     }
+    
+    int numSlotsToReceive = assignment.variableNames.size(); 
+    String methodName = assignment.methodCall.qualifiedName; 
+    Object[] callOperand = new Object[] { methodName, numSlotsToReceive }; 
+    
+    code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CALL_SLOTS, callOperand));
+    
+    // Store returned values to target variables
+    for (int i = numSlotsToReceive - 1; i >= 0; i--) { 
+        String varName = assignment.variableNames.get(i); 
+        int slot = getOrAllocateVariableSlot(varName); 
+        code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.STORE_LOCAL, slot)); 
+    }
+    
+    DebugSystem.debug("BYTECODE", "Compiled ReturnSlotAssignment for " + numSlotsToReceive + " slots from " + methodName);
+}
 
     private void compileInput(InputNode input) {
          code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.READ_INPUT, input.targetType)); int slot = getOrAllocateVariableSlot(input.variableName); code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.STORE_LOCAL, slot));
@@ -393,26 +429,25 @@ private void compileStepRHS(ExprNode expr, int iteratorSlot) {
     }
 
     private void compileExpression(ExprNode expr) {
-        if (expr == null) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_NULL)); return; }
-        if (expr instanceof UnaryNode) { compileUnary((UnaryNode) expr); }
-        else if (expr instanceof BinaryOpNode) { compileBinaryOperation((BinaryOpNode) expr); }
-        else if (expr instanceof ArrayNode) { compileArrayLiteral((ArrayNode) expr); }
-        else if (expr instanceof IndexAccessNode) { compileArrayAccess((IndexAccessNode) expr); }
-        else if (expr instanceof MethodCallNode) { compileMethodCall((MethodCallNode) expr); }
-        else if (expr instanceof TypeCastNode) { compileTypeCast((TypeCastNode) expr); }
-        else if (expr.name != null) {
-            // Generic expression compiler ONLY understands variables.
-            Integer slot = variableSlots.get(expr.name);
-            if (slot != null) {
-                code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.LOAD_LOCAL, slot));
-            } else {
-                DebugSystem.warn("BYTECODE", "Loading unknown name potentially as field: " + expr.name);
-                code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.LOAD_FIELD, expr.name));
-            }
+    if (expr == null) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_NULL)); return; }
+    if (expr instanceof UnaryNode) { compileUnary((UnaryNode) expr); }
+    else if (expr instanceof BinaryOpNode) { compileBinaryOperation((BinaryOpNode) expr); }
+    else if (expr instanceof ArrayNode) { compileArrayLiteral((ArrayNode) expr); }
+    else if (expr instanceof IndexAccessNode) { compileArrayAccess((IndexAccessNode) expr); }
+    else if (expr instanceof MethodCallNode) { compileMethodCall((MethodCallNode) expr); }
+    else if (expr instanceof TypeCastNode) { compileTypeCast((TypeCastNode) expr); }
+    else if (expr.name != null) {
+        Integer slot = variableSlots.get(expr.name);
+        if (slot != null) {
+            code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.LOAD_LOCAL, slot));
+        } else {
+            DebugSystem.warn("BYTECODE", "Loading unknown name potentially as field: " + expr.name);
+            code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.LOAD_FIELD, expr.name));
         }
-        else if (expr.value != null) { if (expr.value instanceof Integer) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_INT, expr.value)); } else if (expr.value instanceof Float) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_FLOAT, expr.value)); } else if (expr.value instanceof String) { String str = (String) expr.value; if (str.length() >= 2 && str.startsWith("\"") && str.endsWith("\"")) { str = str.substring(1, str.length() - 1); } code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_STRING, str)); } else if (expr.value instanceof Boolean) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_BOOL, expr.value)); } else { DebugSystem.warn("BYTECODE", "Unhandled literal type: " + expr.value.getClass().getName()); code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_NULL)); } }
-        else { DebugSystem.warn("BYTECODE", "Unhandled expression type: " + expr.getClass().getSimpleName()); code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_NULL)); }
     }
+    else if (expr.value != null) { if (expr.value instanceof Integer) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_INT, expr.value)); } else if (expr.value instanceof Float) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_FLOAT, expr.value)); } else if (expr.value instanceof String) { String str = (String) expr.value; if (str.length() >= 2 && str.startsWith("\"") && str.endsWith("\"")) { str = str.substring(1, str.length() - 1); } code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_STRING, str)); } else if (expr.value instanceof Boolean) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_BOOL, expr.value)); } else { DebugSystem.warn("BYTECODE", "Unhandled literal type: " + expr.value.getClass().getName()); code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_NULL)); } }
+    else { DebugSystem.warn("BYTECODE", "Unhandled expression type: " + expr.getClass().getSimpleName()); code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_NULL)); }
+}
 
     private void compileUnary(UnaryNode unary) {
          compileExpression(unary.operand);
@@ -427,80 +462,94 @@ private void compileStepRHS(ExprNode expr, int iteratorSlot) {
          compileExpression(cast.expression); DebugSystem.warn("BYTECODE", "CAST instruction bytecode generation not implemented.");
     }
 
-    private void compileArrayLiteral(ArrayNode literal) {
-        int size = literal.elements.size();
-        code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_INT, size));
-        code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.ARRAY_NEW));
-        for (int i = 0; i < size; i++) {
-            code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.DUP));
-            code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_INT, i));
-            compileExpression(literal.elements.get(i));
-            code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.ARRAY_STORE));
-        }
-    }
-
-
     private void compileArrayAccess(IndexAccessNode access) {
-        compileExpression(access.array); compileExpression(access.index); code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.ARRAY_LOAD));
+    DebugSystem.debug("BYTECODE_ARRAY", "Compiling array access: " + access.array + "[" + access.index + "]");
+    compileExpression(access.array); 
+    compileExpression(access.index); 
+    code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.ARRAY_LOAD));
+}
+
+private void compileArrayLiteral(ArrayNode literal) {
+    int size = literal.elements.size();
+    DebugSystem.debug("BYTECODE_ARRAY", "Compiling array literal with " + size + " elements");
+    code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_INT, size));
+    code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.ARRAY_NEW));
+    for (int i = 0; i < size; i++) {
+        code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.DUP));
+        code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_INT, i));
+        compileExpression(literal.elements.get(i));
+        code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.ARRAY_STORE));
     }
+}
 
     private void compileBinaryOperation(BinaryOpNode binOp) {
-        String op = binOp.op;
+    String op = binOp.op;
 
-        // --- '+' is special for strings ---
-        if ("+".equals(op)) {
-            compileExpression(binOp.left);
-            boolean leftIsString = expressionMightBeString(binOp.left);
-
-            compileExpression(binOp.right);
-            boolean rightIsString = expressionMightBeString(binOp.right);
-
-            if (leftIsString && rightIsString) {
-                code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CONCAT_STRING));
-            } else if (leftIsString && !rightIsString) {
-                // Convert right (int/float/bool) to string
-                code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.INT_TO_STRING)); // Needs type check for non-int
-                code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CONCAT_STRING));
-            } else if (!leftIsString && rightIsString) {
-                // Convert left (int/float/bool) to string
-                code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.SWAP));
-                code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.INT_TO_STRING)); // Needs type check for non-int
-                code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CONCAT_STRING));
-            } else {
-                // Both numeric
-                code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.ADD_INT)); // Needs float support
-            }
-            return;
-        }
-
-        // --- All other operators are numeric (for now) ---
+    if ("+".equals(op)) {
         compileExpression(binOp.left);
-        compileExpression(binOp.right);
+        boolean leftIsString = expressionMightBeString(binOp.left);
 
-        if ("-".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.SUB_INT)); }
-        else if ("*".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.MUL_INT)); }
-        else if ("/".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.DIV_INT)); }
-        else if ("%".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.MOD_INT)); }
-        else if ("==".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CMP_EQ_INT)); }
-        else if ("!=".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CMP_NE_INT)); }
-        else if ("<".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CMP_LT_INT)); }
-        else if ("<=".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CMP_LE_INT)); }
-        else if (">".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CMP_GT_INT)); }
-        else if (">=".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CMP_GE_INT)); }
-        else { DebugSystem.warn("BYTECODE", "Unhandled binary operator: " + op); code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.POP)); code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.POP)); code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_NULL)); }
+        compileExpression(binOp.right);
+        boolean rightIsString = expressionMightBeString(binOp.right);
+
+        if (leftIsString && rightIsString) {
+            code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CONCAT_STRING));
+        } else if (leftIsString && !rightIsString) {
+            code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.INT_TO_STRING));
+            code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CONCAT_STRING));
+        } else if (!leftIsString && rightIsString) {
+            code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.SWAP));
+            code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.INT_TO_STRING));
+            code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CONCAT_STRING));
+        } else {
+            code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.ADD_INT));
+        }
+        return;
     }
+
+    compileExpression(binOp.left);
+    compileExpression(binOp.right);
+
+    if ("-".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.SUB_INT)); }
+    else if ("*".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.MUL_INT)); }
+    else if ("/".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.DIV_INT)); }
+    else if ("%".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.MOD_INT)); }
+    else if ("==".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CMP_EQ_INT)); }
+    else if ("!=".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CMP_NE_INT)); }
+    else if ("<".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CMP_LT_INT)); }
+    else if ("<=".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CMP_LE_INT)); }
+    else if (">".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CMP_GT_INT)); }
+    else if (">=".equals(op)) { code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.CMP_GE_INT)); }
+    else { DebugSystem.warn("BYTECODE", "Unhandled binary operator: " + op); code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.POP)); code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.POP)); code.add(new BytecodeInstruction(BytecodeInstruction.Opcode.PUSH_NULL)); }
+}
 
 
     private boolean expressionMightBeString(ExprNode expr) {
-        // Basic check, needs type inference for accuracy
-        if (expr == null) return false;
-        if (expr.value instanceof String) return true;
-        if (expr instanceof BinaryOpNode && "+".equals(((BinaryOpNode)expr).op)) return true; // '+' often means concat
-        if (expr instanceof MethodCallNode) return true; // Assume methods might return strings
-        if (expr instanceof TypeCastNode && "string".equals(((TypeCastNode)expr).targetType)) return true;
-        // Check if variable is known to be string (requires symbol table)
-        return false;
+    if (expr == null) return false;
+    if (expr.value instanceof String) return true;
+    if (expr instanceof BinaryOpNode && "+".equals(((BinaryOpNode)expr).op)) return true;
+    if (expr instanceof MethodCallNode) return true;
+    if (expr instanceof TypeCastNode && "string".equals(((TypeCastNode)expr).targetType)) return true;
+    
+    // Handle variable names
+    if (expr.name != null) {
+        String name = expr.name;
+        System.out.println("DEBUG STRING_CHECK: Checking if '" + name + "' might be string");
+        
+        if (name.equals("name") || name.equals("op") || name.equals("operation") ||
+            name.equals("formula") || name.equals("targetType") ||
+            name.contains("str") || name.contains("text") || name.contains("msg") ||
+            name.contains("label") || name.contains("type") || name.contains("Type") ||
+            name.contains("input") || name.contains("Output")) {
+            System.out.println("DEBUG STRING_CHECK: '" + name + "' -> TRUE");
+            return true;
+        } else {
+            System.out.println("DEBUG STRING_CHECK: '" + name + "' -> FALSE");
+        }
     }
+    
+    return false;
+}
 
 
     private int allocateVariableSlot(String name) {
