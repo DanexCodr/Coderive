@@ -9,4 +9,5 @@ public class MethodNode extends ASTNode {
     public List<SlotNode> returnSlots = new ArrayList<SlotNode>();
     public List<ParamNode> parameters = new ArrayList<ParamNode>();
     public List<StatementNode> body = new ArrayList<StatementNode>();
+    public boolean isBuiltin = false;
 }
