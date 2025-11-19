@@ -1,0 +1,12 @@
+unit cod
+
+share Sys {
+
+// auto in-between spacing between each + and any other concats
+builtin outa(string inp) {}
+
+share outln(string inp) {
+output inp + "\n"
+}
+
+}
