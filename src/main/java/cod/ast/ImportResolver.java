@@ -4,7 +4,6 @@ import cod.ast.nodes.*;
 import cod.debug.DebugSystem;
 import java.util.*;
 import java.io.*;
-import org.antlr.v4.runtime.*;
 
 public class ImportResolver {
     private Map<String, ProgramNode> importedUnits = new HashMap<>();
@@ -50,11 +49,11 @@ public class ImportResolver {
     }
 
     public ProgramNode resolveImport(String importName) throws Exception {
-    DebugSystem.debug("IMPORTS", "resolveImport called for: " + importName);
-    
-    // Debug file system first
-    debugFileSystem(importName);
-    
+        DebugSystem.debug("IMPORTS", "resolveImport called for: " + importName);
+        
+        // Debug file system first
+        debugFileSystem(importName);
+        
         // Check if already loaded
         if (loadedPrograms.containsKey(importName)) {
             DebugSystem.debug("IMPORTS", "Import already loaded: " + importName);
@@ -78,7 +77,8 @@ public class ImportResolver {
             "",  // current directory
             "cod/",
             "src/cod/",
-            "../cod/"
+            "../cod/",
+            "/storage/emulated/0/JavaNIDE/Programming-Language/Coderive/executables/"
         };
         
         String[] extensions = {
@@ -87,7 +87,7 @@ public class ImportResolver {
             ""
         };
         
-        // Convert import name to file path (e.g., "cod.Math" -> "cod/Math")
+        // Convert import name to file path (e.g., "cod.Sys" -> "cod/Sys")
         String filePath = importName.replace('.', '/');
         
         for (String basePath : basePaths) {
@@ -105,7 +105,7 @@ public class ImportResolver {
                         return program;
                     }
                 } catch (Exception e) {
-                    DebugSystem.trace("IMPORTS", "Failed to load from " + fullPath + ": " + e.getMessage());
+                    DebugSystem.debug("IMPORTS", "Failed to load from " + fullPath + ": " + e.getMessage());
                     // Continue to next path
                 }
             }
@@ -131,181 +131,158 @@ public class ImportResolver {
         DebugSystem.debug("IMPORTS", "Loading import from file: " + filePath);
         
         try {
-            InputStream is = new FileInputStream(file);
-            ANTLRInputStream input = new ANTLRInputStream(is);
-            CoderiveLexer lexer = new CoderiveLexer(input);
-            CommonTokenStream tokens = new CommonTokenStream(lexer);
-            CoderiveParser parser = new CoderiveParser(tokens);
-
-            // Add error listener for better error reporting
-            parser.removeErrorListeners();
-            parser.addErrorListener(
-                    new BaseErrorListener() {
-                        @Override
-                        public void syntaxError(
-                                Recognizer<?, ?> recognizer,
-                                Object offendingSymbol,
-                                int line,
-                                int charPositionInLine,
-                                String msg,
-                                RecognitionException e) {
-                            DebugSystem.error(
-                                    "PARSER",
-                                    "Syntax error in import at line "
-                                            + line
-                                            + ":"
-                                            + charPositionInLine
-                                            + " - "
-                                            + msg);
-                            throw new RuntimeException(
-                                    "Syntax error in import at line "
-                                            + line
-                                            + ":"
-                                            + charPositionInLine
-                                            + " - "
-                                            + msg);
-                        }
-                    });
-
-            CoderiveParser.ProgramContext programContext = parser.program();
-            ASTBuilder builder = new ASTBuilder();
-            ProgramNode program = builder.build(programContext);
-
-            DebugSystem.debug("IMPORTS", "Successfully parsed import file: " + filePath);
+            // Read the file content
+            StringBuilder content = new StringBuilder();
+            BufferedReader reader = new BufferedReader(new FileReader(file));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                content.append(line).append("\n");
+            }
+            reader.close();
+            
+            DebugSystem.debug("IMPORTS", "File content length: " + content.length() + " characters");
+            
+            // Use the SAME MANUAL parser that we use for the main file
+            ManualCoderiveLexer lexer = new ManualCoderiveLexer(content.toString());
+            List<ManualCoderiveLexer.Token> tokens = lexer.tokenize();
+            
+            DebugSystem.debug("IMPORTS", "Generated " + tokens.size() + " tokens");
+            
+            ManualCoderiveParser parser = new ManualCoderiveParser(tokens);
+            ProgramNode program = parser.parseProgram();
+            
+            DebugSystem.debug("IMPORTS", "Successfully parsed import file using manual parser: " + filePath);
             return program;
 
         } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to parse import file: " + filePath + " - " + e.getMessage(), e);
+            DebugSystem.error("IMPORTS", "Failed to parse import file: " + filePath + " - " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to parse import file: " + filePath + " - " + e.getMessage(), e);
         }
     }
 
-public MethodNode findMethod(String qualifiedMethodName) {
-    DebugSystem.debug("IMPORTS", "findMethod called for: " + qualifiedMethodName);
-    
-    // Handle the case where qualifiedMethodName is exactly "cod.Math.sqrt"
-    String importName = extractImportName(qualifiedMethodName);
-    String methodName = extractMethodName(qualifiedMethodName);
-    
-    DebugSystem.debug("IMPORTS", "Extracted import: '" + importName + "', method: '" + methodName + "'");
-    
-    // FIRST: Try to resolve the import if it's registered but not loaded
-    if (registeredImports.contains(importName) && !loadedPrograms.containsKey(importName)) {
-        DebugSystem.debug("IMPORTS", "Attempting lazy resolution for: " + importName);
-        try {
-            ProgramNode program = resolveImport(importName);
-            if (program != null) {
-                loadedPrograms.put(importName, program);
-                importedUnits.put(importName, program);
-                registeredImports.remove(importName);
-                DebugSystem.debug("IMPORTS", "Successfully loaded import: " + importName);
-            }
-        } catch (Exception e) {
-            DebugSystem.error("IMPORTS", "Failed to load import " + importName + ": " + e.getMessage());
-            // Don't remove from registered imports so we can try again with different paths
+    public MethodNode findMethod(String qualifiedMethodName) {
+        DebugSystem.debug("IMPORTS", "findMethod called for: " + qualifiedMethodName);
+        
+        // Extract method name and potential import name
+        int lastDot = qualifiedMethodName.lastIndexOf('.');
+        if (lastDot == -1) {
+            DebugSystem.debug("IMPORTS", "No dots in method name, not an imported method");
+            return null; // Not an imported method
         }
-    }
-    
-    // SECOND: If the import is still not loaded, try direct file loading
-    if (!loadedPrograms.containsKey(importName)) {
-        DebugSystem.debug("IMPORTS", "Import not loaded, trying direct file resolution: " + importName);
-        try {
-            // Convert import name to file path
-            String filePath = importName.replace('.', '/') + ".cod";
-            DebugSystem.debug("IMPORTS", "Looking for file: " + filePath);
+        
+        String methodName = qualifiedMethodName.substring(lastDot + 1);
+        String calledImport = qualifiedMethodName.substring(0, lastDot); // This is "Sys" from "Sys.outln"
+        
+        DebugSystem.debug("IMPORTS", "Called import part: '" + calledImport + "', method: '" + methodName + "'");
+        
+        // FIX: First check if we already have a loaded import that matches
+        String actualImportName = null;
+        
+        // Check loaded imports first
+        for (String loadedImport : loadedPrograms.keySet()) {
+            DebugSystem.debug("IMPORTS", "Checking loaded import: " + loadedImport);
             
-            // Try all import paths
-            for (String basePath : importPaths) {
-                File file = new File(basePath, filePath);
-                DebugSystem.debug("IMPORTS", "Checking: " + file.getAbsolutePath());
+            // Check if loaded import ends with the called import
+            // e.g., "cod.Sys" ends with ".Sys" and calledImport is "Sys"
+            if (loadedImport.endsWith("." + calledImport) || loadedImport.equals(calledImport)) {
+                actualImportName = loadedImport;
+                DebugSystem.debug("IMPORTS", "Found matching loaded import: " + actualImportName);
+                break;
+            }
+        }
+        
+        // If not found in loaded imports, check registered imports
+        if (actualImportName == null) {
+            for (String registeredImport : registeredImports) {
+                DebugSystem.debug("IMPORTS", "Checking registered import: " + registeredImport);
                 
-                if (file.exists() && file.isFile()) {
-                    DebugSystem.debug("IMPORTS", "Found file, attempting to load: " + file.getAbsolutePath());
-                    try {
-                        ProgramNode program = loadImportFromFile(file.getAbsolutePath());
-                        if (program != null) {
-                            loadedPrograms.put(importName, program);
-                            importedUnits.put(importName, program);
-                            DebugSystem.debug("IMPORTS", "Successfully loaded from file: " + importName);
-                            break;
-                        }
-                    } catch (Exception e) {
-                        DebugSystem.error("IMPORTS", "Error loading file: " + e.getMessage());
-                    }
-                }
-            }
-        } catch (Exception e) {
-            DebugSystem.error("IMPORTS", "Error in direct file resolution: " + e.getMessage());
-        }
-    }
-    
-    // THIRD: Search through all loaded programs for the method
-    DebugSystem.debug("IMPORTS", "Searching for method '" + methodName + "' in " + loadedPrograms.size() + " loaded programs");
-    
-    for (Map.Entry<String, ProgramNode> entry : loadedPrograms.entrySet()) {
-        String loadedImportName = entry.getKey();
-        ProgramNode program = entry.getValue();
-        
-        DebugSystem.debug("IMPORTS", "Checking program: " + loadedImportName);
-        
-        // Check if this program contains our import (exact match or hierarchical)
-        boolean importMatches = loadedImportName.equals(importName) || 
-                               importName.startsWith(loadedImportName + ".") ||
-                               loadedImportName.startsWith(importName + ".");
-        
-        if (importMatches) {
-            DebugSystem.debug("IMPORTS", "Import matches! Searching for method: " + methodName);
-            
-            if (program.unit != null && program.unit.types != null) {
-                for (TypeNode type : program.unit.types) {
-                    DebugSystem.debug("IMPORTS", "  Searching in type: " + type.name);
-                    
-                    for (MethodNode method : type.methods) {
-                        DebugSystem.debug("IMPORTS", "    Checking method: " + method.name);
-                        if (method.name.equals(methodName)) {
-                            DebugSystem.debug("IMPORTS", "    *** FOUND METHOD: " + method.name + " ***");
-                            return method;
-                        }
-                    }
+                // Check if registered import ends with the called import
+                if (registeredImport.endsWith("." + calledImport) || registeredImport.equals(calledImport)) {
+                    actualImportName = registeredImport;
+                    DebugSystem.debug("IMPORTS", "Found matching registered import: " + actualImportName);
+                    break;
                 }
             }
         }
+        
+        // If still not found, use the called import as-is
+        if (actualImportName == null) {
+            actualImportName = calledImport;
+            DebugSystem.debug("IMPORTS", "No import matched, using: " + actualImportName);
+        }
+        
+        DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', method: '" + methodName + "'");
+        
+        // Try to resolve the import if not already loaded
+        if (!loadedPrograms.containsKey(actualImportName)) {
+            DebugSystem.debug("IMPORTS", "Import not loaded, trying to resolve: " + actualImportName);
+            try {
+                ProgramNode program = resolveImport(actualImportName);
+                if (program != null) {
+                    loadedPrograms.put(actualImportName, program);
+                    importedUnits.put(actualImportName, program);
+                    registeredImports.remove(actualImportName);
+                    DebugSystem.debug("IMPORTS", "Successfully loaded import: " + actualImportName);
+                }
+            } catch (Exception e) {
+                DebugSystem.error("IMPORTS", "Failed to load import " + actualImportName + ": " + e.getMessage());
+                return null;
+            }
+        }
+        
+        // Search through loaded programs for the method
+        DebugSystem.debug("IMPORTS", "Searching for method '" + methodName + "' in loaded program: " + actualImportName);
+        
+        ProgramNode program = loadedPrograms.get(actualImportName);
+        if (program != null && program.unit != null && program.unit.types != null) {
+            for (TypeNode type : program.unit.types) {
+                DebugSystem.debug("IMPORTS", "  Searching in type: " + type.name);
+                
+                for (MethodNode method : type.methods) {
+                    DebugSystem.debug("IMPORTS", "    Checking method: " + method.name);
+                    if (method.name.equals(methodName)) {
+                        DebugSystem.debug("IMPORTS", "    *** FOUND METHOD: " + method.name + " ***");
+                        return method;
+                    }
+                }
+            }
+        }
+        
+        // Method not found
+        DebugSystem.error("IMPORTS", "*** METHOD NOT FOUND: " + qualifiedMethodName + " ***");
+        DebugSystem.debug("IMPORTS", "Loaded imports: " + loadedPrograms.keySet());
+        DebugSystem.debug("IMPORTS", "Registered imports: " + registeredImports);
+        
+        return null;
     }
-    
-    // FINAL: Method not found - provide detailed diagnostics
-    DebugSystem.error("IMPORTS", "*** METHOD NOT FOUND: " + qualifiedMethodName + " ***");
-    debugImportStatus();
-    
-    return null;
-}
 
-// Add to ImportResolver.java
-public void debugFileSystem(String importName) {
-    DebugSystem.debug("FILE_SYSTEM", "=== FILE SYSTEM DEBUG for: " + importName + " ===");
-    
-    String filePath = importName.replace('.', '/') + ".cod";
-    DebugSystem.debug("FILE_SYSTEM", "Looking for: " + filePath);
-    DebugSystem.debug("FILE_SYSTEM", "Import paths: " + importPaths);
-    
-    for (String basePath : importPaths) {
-        File file = new File(basePath, filePath);
-        DebugSystem.debug("FILE_SYSTEM", "Path: " + file.getAbsolutePath() + 
-                         " [exists: " + file.exists() + ", isFile: " + file.isFile() + "]");
+    public void debugFileSystem(String importName) {
+        DebugSystem.debug("FILE_SYSTEM", "=== FILE SYSTEM DEBUG for: " + importName + " ===");
         
-        // Also check the directory
-        File dir = file.getParentFile();
-        if (dir != null && dir.exists()) {
-            DebugSystem.debug("FILE_SYSTEM", "Directory contents of " + dir.getAbsolutePath() + ":");
-            String[] files = dir.list();
-            if (files != null) {
-                for (String f : files) {
-                    DebugSystem.debug("FILE_SYSTEM", "  - " + f);
+        String filePath = importName.replace('.', '/') + ".cod";
+        DebugSystem.debug("FILE_SYSTEM", "Looking for: " + filePath);
+        DebugSystem.debug("FILE_SYSTEM", "Import paths: " + importPaths);
+        
+        for (String basePath : importPaths) {
+            File file = new File(basePath, filePath);
+            DebugSystem.debug("FILE_SYSTEM", "Path: " + file.getAbsolutePath() + 
+                             " [exists: " + file.exists() + ", isFile: " + file.isFile() + "]");
+            
+            // Also check the directory
+            File dir = file.getParentFile();
+            if (dir != null && dir.exists()) {
+                DebugSystem.debug("FILE_SYSTEM", "Directory contents of " + dir.getAbsolutePath() + ":");
+                String[] files = dir.list();
+                if (files != null) {
+                    for (String f : files) {
+                        DebugSystem.debug("FILE_SYSTEM", "  - " + f);
+                    }
                 }
             }
         }
+        DebugSystem.debug("FILE_SYSTEM", "=== END FILE SYSTEM DEBUG ===");
     }
-    DebugSystem.debug("FILE_SYSTEM", "=== END FILE SYSTEM DEBUG ===");
-}
 
     public void debugImportStatus() {
         DebugSystem.debug("IMPORTS", "=== IMPORT RESOLVER STATUS ===");

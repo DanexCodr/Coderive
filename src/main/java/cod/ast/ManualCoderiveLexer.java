@@ -36,7 +36,7 @@ public class ManualCoderiveLexer {
         public String toString() {
             return "Token{"
                     + "type="
-                    + getTypeName(type)
+                    + TokenType.getName(type)
                     + ", text='"
                     + text
                     + '\''
@@ -48,154 +48,172 @@ public class ManualCoderiveLexer {
         }
     }
 
-    // Token type constants
-    public static final int SHARE = 1,
-            LOCAL = 2,
-            UNIT = 3,
-            GET = 4,
-            EXTEND = 5,
-            THIS = 6,
-            VAR = 7,
-            OUTPUT = 8,
-            INPUT = 9,
-            IF = 10,
-            ELSE = 11,
-            ELIF = 12,
-            FOR = 13,
-            IN = 14,
-            TO = 15,
-            BY = 16,
-            INT = 17,
-            STRING = 18,
-            FLOAT = 19,
-            BOOL = 20,
-            INT_LIT = 21,
-            FLOAT_LIT = 22,
-            STRING_LIT = 23,
-            BOOL_LIT = 24,
-            ID = 25,
-            ASSIGN = 26,
-            PLUS = 27,
-            MINUS = 28,
-            MUL = 29,
-            DIV = 30,
-            MOD = 31,
-            COLON = 32,
-            GT = 33,
-            LT = 34,
-            GTE = 35,
-            LTE = 36,
-            EQ = 37,
-            NEQ = 38,
-            DOT = 39,
-            COMMA = 40,
-            LPAREN = 41,
-            RPAREN = 42,
-            LBRACE = 43,
-            RBRACE = 44,
-            LBRACKET = 45,
-            RBRACKET = 46,
-            LINE_COMMENT = 47,
-            BLOCK_COMMENT = 48,
-            WS = 49,
-            PLUS_ASSIGN = 50,
-            MINUS_ASSIGN = 51,
-            MUL_ASSIGN = 52,
-            DIV_ASSIGN = 53,
-            // --- NEW TOKENS ---
-            TILDE_BAR = 54,
-            TILDE_ARROW = 55,
-            // ---
-            INVALID = -2;
+    /**
+     * Self-contained token type constants with their names.
+     */
+    public static class TokenType {
+        // Token type constants
+        public static final int SHARE = 1,
+                LOCAL = 2,
+                UNIT = 3,
+                GET = 4,
+                EXTEND = 5,
+                THIS = 6,
+                VAR = 7,
+                OUTPUT = 8,
+                INPUT = 9,
+                IF = 10,
+                ELSE = 11,
+                ELIF = 12,
+                FOR = 13,
+                IN = 14,
+                TO = 15,
+                BY = 16,
+                INT = 17,
+                STRING = 18,
+                FLOAT = 19,
+                BOOL = 20,
+                INT_LIT = 21,
+                FLOAT_LIT = 22,
+                STRING_LIT = 23,
+                BOOL_LIT = 24,
+                ID = 25,
+                ASSIGN = 26,
+                PLUS = 27,
+                MINUS = 28,
+                MUL = 29,
+                DIV = 30,
+                MOD = 31,
+                COLON = 32,
+                GT = 33,
+                LT = 34,
+                GTE = 35,
+                LTE = 36,
+                EQ = 37,
+                NEQ = 38,
+                DOT = 39,
+                COMMA = 40,
+                LPAREN = 41,
+                RPAREN = 42,
+                LBRACE = 43,
+                RBRACE = 44,
+                LBRACKET = 45,
+                RBRACKET = 46,
+                LINE_COMMENT = 47,
+                BLOCK_COMMENT = 48,
+                WS = 49,
+                PLUS_ASSIGN = 50,
+                MINUS_ASSIGN = 51,
+                MUL_ASSIGN = 52,
+                DIV_ASSIGN = 53,
+                TILDE_BAR = 54,
+                TILDE_ARROW = 55,
+                BUILTIN = 56,
+                INVALID = -2;
+        
+        private static final Map<Integer, String> NAMES = new HashMap<Integer, String>();
+        
+        static {
+            // Keywords
+            NAMES.put(SHARE, "SHARE");
+            NAMES.put(LOCAL, "LOCAL");
+            NAMES.put(UNIT, "UNIT");
+            NAMES.put(GET, "GET");
+            NAMES.put(EXTEND, "EXTEND");
+            NAMES.put(THIS, "THIS");
+            NAMES.put(VAR, "VAR");
+            NAMES.put(OUTPUT, "OUTPUT");
+            NAMES.put(INPUT, "INPUT");
+            NAMES.put(IF, "IF");
+            NAMES.put(ELSE, "ELSE");
+            NAMES.put(ELIF, "ELIF");
+            NAMES.put(FOR, "FOR");
+            NAMES.put(IN, "IN");
+            NAMES.put(TO, "TO");
+            NAMES.put(BY, "BY");
+            NAMES.put(INT, "INT");
+            NAMES.put(STRING, "STRING");
+            NAMES.put(FLOAT, "FLOAT");
+            NAMES.put(BOOL, "BOOL");
+            NAMES.put(BUILTIN, "BUILTIN");
+            
+            // Literals
+            NAMES.put(INT_LIT, "INT_LIT");
+            NAMES.put(FLOAT_LIT, "FLOAT_LIT");
+            NAMES.put(STRING_LIT, "STRING_LIT");
+            NAMES.put(BOOL_LIT, "BOOL_LIT");
+            NAMES.put(ID, "ID");
+            
+            // Operators and symbols
+            NAMES.put(ASSIGN, "ASSIGN");
+            NAMES.put(PLUS, "PLUS");
+            NAMES.put(MINUS, "MINUS");
+            NAMES.put(MUL, "MUL");
+            NAMES.put(DIV, "DIV");
+            NAMES.put(MOD, "MOD");
+            NAMES.put(COLON, "COLON");
+            NAMES.put(GT, "GT");
+            NAMES.put(LT, "LT");
+            NAMES.put(GTE, "GTE");
+            NAMES.put(LTE, "LTE");
+            NAMES.put(EQ, "EQ");
+            NAMES.put(NEQ, "NEQ");
+            NAMES.put(DOT, "DOT");
+            NAMES.put(COMMA, "COMMA");
+            NAMES.put(LPAREN, "LPAREN");
+            NAMES.put(RPAREN, "RPAREN");
+            NAMES.put(LBRACE, "LBRACE");
+            NAMES.put(RBRACE, "RBRACE");
+            NAMES.put(LBRACKET, "LBRACKET");
+            NAMES.put(RBRACKET, "RBRACKET");
+            NAMES.put(PLUS_ASSIGN, "PLUS_ASSIGN");
+            NAMES.put(MINUS_ASSIGN, "MINUS_ASSIGN");
+            NAMES.put(MUL_ASSIGN, "MUL_ASSIGN");
+            NAMES.put(DIV_ASSIGN, "DIV_ASSIGN");
+            NAMES.put(TILDE_BAR, "TILDE_BAR");
+            NAMES.put(TILDE_ARROW, "TILDE_ARROW");
+            
+            // Special tokens
+            NAMES.put(Token.EOF, "EOF");
+            NAMES.put(INVALID, "INVALID");
+            NAMES.put(LINE_COMMENT, "LINE_COMMENT");
+            NAMES.put(BLOCK_COMMENT, "BLOCK_COMMENT");
+            NAMES.put(WS, "WS");
+        }
+        
+        public static String getName(int type) {
+            String name = NAMES.get(type);
+            return name != null ? name : "UNKNOWN(" + type + ")";
+        }
+    }
 
-    private static final Map<Integer, String> TOKEN_NAMES = new HashMap<Integer, String>();
     private static final Map<String, Integer> KEYWORDS = new HashMap<String, Integer>();
 
     static {
-        // Bi-directional mapping for keywords and their names for debugging.
-        KEYWORDS.put(share, SHARE);
-        TOKEN_NAMES.put(SHARE, _share);
-        KEYWORDS.put(local, LOCAL);
-        TOKEN_NAMES.put(LOCAL, _local);
-        KEYWORDS.put(unit, UNIT);
-        TOKEN_NAMES.put(UNIT, _unit);
-        KEYWORDS.put(get, GET);
-        TOKEN_NAMES.put(GET, _get);
-        KEYWORDS.put(extend, EXTEND);
-        TOKEN_NAMES.put(EXTEND, _extend);
-        KEYWORDS.put(this_, THIS);
-        TOKEN_NAMES.put(THIS, _this);
-        KEYWORDS.put(var, VAR);
-        TOKEN_NAMES.put(VAR, _var);
-        KEYWORDS.put(output, OUTPUT);
-        TOKEN_NAMES.put(OUTPUT, _output);
-        KEYWORDS.put(input_, INPUT);
-        TOKEN_NAMES.put(INPUT, _input);
-        KEYWORDS.put(if_, IF);
-        TOKEN_NAMES.put(IF, _if);
-        KEYWORDS.put(else_, ELSE);
-        TOKEN_NAMES.put(ELSE, _else);
-        KEYWORDS.put(elif_, ELIF);
-        TOKEN_NAMES.put(ELIF, _elif);
-        KEYWORDS.put(for_, FOR);
-        TOKEN_NAMES.put(FOR, _for);
-        KEYWORDS.put(in_, IN);
-        TOKEN_NAMES.put(IN, _in);
-        KEYWORDS.put(to_, TO);
-        TOKEN_NAMES.put(TO, _to);
-        KEYWORDS.put(by_, BY);
-        TOKEN_NAMES.put(BY, _by);
-        KEYWORDS.put(int_, INT);
-        TOKEN_NAMES.put(INT, _int);
-        KEYWORDS.put(string, STRING);
-        TOKEN_NAMES.put(STRING, _string);
-        KEYWORDS.put(float_, FLOAT);
-        TOKEN_NAMES.put(FLOAT, _float);
-        KEYWORDS.put(bool, BOOL);
-        TOKEN_NAMES.put(BOOL, _bool);
-        KEYWORDS.put(true_, BOOL_LIT);
-        KEYWORDS.put(false_, BOOL_LIT);
-
-        TOKEN_NAMES.put(Token.EOF, _eof);
-        TOKEN_NAMES.put(INT_LIT, _int_lit);
-        TOKEN_NAMES.put(FLOAT_LIT, _float_lit);
-        TOKEN_NAMES.put(STRING_LIT, _string_lit);
-        TOKEN_NAMES.put(BOOL_LIT, _bool_lit);
-        TOKEN_NAMES.put(ID, _id);
-        TOKEN_NAMES.put(ASSIGN, _assign);
-        TOKEN_NAMES.put(PLUS, _plus);
-        TOKEN_NAMES.put(MINUS, _minus);
-        TOKEN_NAMES.put(MUL, _mul);
-        TOKEN_NAMES.put(DIV, _div);
-        TOKEN_NAMES.put(MOD, _mod);
-        TOKEN_NAMES.put(COLON, _colon);
-        TOKEN_NAMES.put(GT, _gt);
-        TOKEN_NAMES.put(LT, _lt);
-        TOKEN_NAMES.put(GTE, _gte);
-        TOKEN_NAMES.put(LTE, _lte);
-        TOKEN_NAMES.put(EQ, _eq);
-        TOKEN_NAMES.put(NEQ, _neq);
-        TOKEN_NAMES.put(DOT, _dot);
-        TOKEN_NAMES.put(COMMA, _comma);
-        TOKEN_NAMES.put(LPAREN, _lparen);
-        TOKEN_NAMES.put(RPAREN, _rparen);
-        TOKEN_NAMES.put(LBRACE, _lbrace);
-        TOKEN_NAMES.put(RBRACE, _rbrace);
-        TOKEN_NAMES.put(LBRACKET, _lbracket);
-        TOKEN_NAMES.put(RBRACKET, _rbracket);
-        TOKEN_NAMES.put(PLUS_ASSIGN, _plus_assign);
-        TOKEN_NAMES.put(MINUS_ASSIGN, _minus_assign);
-        TOKEN_NAMES.put(MUL_ASSIGN, _mul_assign);
-        TOKEN_NAMES.put(DIV_ASSIGN, _div_assign);
-        // --- NEW TOKEN NAMES ---
-        TOKEN_NAMES.put(TILDE_BAR, "TILDE_BAR");
-        TOKEN_NAMES.put(TILDE_ARROW, "TILDE_ARROW");
-        // ---
-        TOKEN_NAMES.put(INVALID, _invalid);
-    }
-
-    public static String getTypeName(int type) {
-        return TOKEN_NAMES.get(type);
+        // Keywords mapping
+        KEYWORDS.put(share, TokenType.SHARE);
+        KEYWORDS.put(local, TokenType.LOCAL);
+        KEYWORDS.put(unit, TokenType.UNIT);
+        KEYWORDS.put(get, TokenType.GET);
+        KEYWORDS.put(extend, TokenType.EXTEND);
+        KEYWORDS.put(this_, TokenType.THIS);
+        KEYWORDS.put(var, TokenType.VAR);
+        KEYWORDS.put(output, TokenType.OUTPUT);
+        KEYWORDS.put(input_, TokenType.INPUT);
+        KEYWORDS.put(if_, TokenType.IF);
+        KEYWORDS.put(else_, TokenType.ELSE);
+        KEYWORDS.put(elif_, TokenType.ELIF);
+        KEYWORDS.put(for_, TokenType.FOR);
+        KEYWORDS.put(in_, TokenType.IN);
+        KEYWORDS.put(to_, TokenType.TO);
+        KEYWORDS.put(by_, TokenType.BY);
+        KEYWORDS.put(int_, TokenType.INT);
+        KEYWORDS.put(string, TokenType.STRING);
+        KEYWORDS.put(float_, TokenType.FLOAT);
+        KEYWORDS.put(builtin, TokenType.BUILTIN);
+        KEYWORDS.put(bool, TokenType.BOOL);
+        KEYWORDS.put(true_, TokenType.BOOL_LIT);
+        KEYWORDS.put(false_, TokenType.BOOL_LIT);
     }
 
     private final String input;
@@ -253,10 +271,10 @@ public class ManualCoderiveLexer {
         }
         String text = sb.toString();
         Integer type = KEYWORDS.get(text);
-        return new Token(type != null ? type : ID, text, startLine, startColumn);
+        return new Token(type != null ? type : TokenType.ID, text, startLine, startColumn);
     }
 
-private Token readNumber(int startLine, int startColumn) {
+    private Token readNumber(int startLine, int startColumn) {
         StringBuilder sb = new StringBuilder();
         boolean isFloat = false;
         while (position < input.length() && Character.isDigit(peek())) {
@@ -269,7 +287,7 @@ private Token readNumber(int startLine, int startColumn) {
                 sb.append(consume());
             }
         }
-        return new Token(isFloat ? FLOAT_LIT : INT_LIT, sb.toString(), startLine, startColumn);
+        return new Token(isFloat ? TokenType.FLOAT_LIT : TokenType.INT_LIT, sb.toString(), startLine, startColumn);
     }
 
     private Token readString(int startLine, int startColumn) {
@@ -277,14 +295,22 @@ private Token readNumber(int startLine, int startColumn) {
         consume(); // Consume opening quote
         while (position < input.length() && peek() != '"') {
             if (peek() == '\\') {
-                consume();
-                if (position < input.length()) sb.append(consume());
+                consume(); // consume the backslash
+                char escaped = consume();
+                switch (escaped) {
+                    case 'n': sb.append('\n'); break;
+                    case 't': sb.append('\t'); break;
+                    case 'r': sb.append('\r'); break;
+                    case '\\': sb.append('\\'); break;
+                    case '"': sb.append('"'); break;
+                    default: sb.append('\\').append(escaped); break;
+                }
             } else {
                 sb.append(consume());
             }
         }
         if (position < input.length()) consume(); // Consume closing quote
-        return new Token(STRING_LIT, sb.toString(), startLine, startColumn);
+        return new Token(TokenType.STRING_LIT, sb.toString(), startLine, startColumn);
     }
 
     private Token readSymbol(int startLine, int startColumn) {
@@ -293,100 +319,91 @@ private Token readNumber(int startLine, int startColumn) {
             case '=':
                 if (peek() == '=') {
                     consume();
-                    return new Token(EQ, "==", startLine, startColumn);
+                    return new Token(TokenType.EQ, "==", startLine, startColumn);
                 } else {
-                    return new Token(ASSIGN, "=", startLine, startColumn);
+                    return new Token(TokenType.ASSIGN, "=", startLine, startColumn);
                 }
             case '>':
-                return (peek() == '=')
-                        ? new Token(GTE, ">=", startLine, startColumn) {
-                            {
-                                consume();
-                            }
-                        }
-                        : new Token(GT, ">", startLine, startColumn);
+                if (peek() == '=') {
+                    consume();
+                    return new Token(TokenType.GTE, ">=", startLine, startColumn);
+                } else {
+                    return new Token(TokenType.GT, ">", startLine, startColumn);
+                }
             case '<':
-                return (peek() == '=')
-                        ? new Token(LTE, "<=", startLine, startColumn) {
-                            {
-                                consume();
-                            }
-                        }
-                        : new Token(LT, "<", startLine, startColumn);
+                if (peek() == '=') {
+                    consume();
+                    return new Token(TokenType.LTE, "<=", startLine, startColumn);
+                } else {
+                    return new Token(TokenType.LT, "<", startLine, startColumn);
+                }
             case '!':
-                return (peek() == '=')
-                        ? new Token(NEQ, "!=", startLine, startColumn) {
-                            {
-                                consume();
-                            }
-                        }
-                        : new Token(INVALID, "!", startLine, startColumn);
+                if (peek() == '=') {
+                    consume();
+                    return new Token(TokenType.NEQ, "!=", startLine, startColumn);
+                } else {
+                    return new Token(TokenType.INVALID, "!", startLine, startColumn);
+                }
             case '+':
-                return (peek() == '=')
-                        ? new Token(PLUS_ASSIGN, "+=", startLine, startColumn) {
-                            {
-                                consume();
-                            }
-                        }
-                        : new Token(PLUS, "+", startLine, startColumn);
+                if (peek() == '=') {
+                    consume();
+                    return new Token(TokenType.PLUS_ASSIGN, "+=", startLine, startColumn);
+                } else {
+                    return new Token(TokenType.PLUS, "+", startLine, startColumn);
+                }
             case '-':
-                return (peek() == '=')
-                        ? new Token(MINUS_ASSIGN, "-=", startLine, startColumn) {
-                            {
-                                consume();
-                            }
-                        }
-                        : new Token(MINUS, "-", startLine, startColumn);
+                if (peek() == '=') {
+                    consume();
+                    return new Token(TokenType.MINUS_ASSIGN, "-=", startLine, startColumn);
+                } else {
+                    return new Token(TokenType.MINUS, "-", startLine, startColumn);
+                }
             case '*':
-                return (peek() == '=')
-                        ? new Token(MUL_ASSIGN, "*=", startLine, startColumn) {
-                            {
-                                consume();
-                            }
-                        }
-                        : new Token(MUL, "*", startLine, startColumn);
+                if (peek() == '=') {
+                    consume();
+                    return new Token(TokenType.MUL_ASSIGN, "*=", startLine, startColumn);
+                } else {
+                    return new Token(TokenType.MUL, "*", startLine, startColumn);
+                }
             case '/':
-                return (peek() == '=')
-                        ? new Token(DIV_ASSIGN, "/=", startLine, startColumn) {
-                            {
-                                consume();
-                            }
-                        }
-                        : new Token(DIV, "/", startLine, startColumn);
-            // --- NEW SYMBOL LOGIC ---
+                if (peek() == '=') {
+                    consume();
+                    return new Token(TokenType.DIV_ASSIGN, "/=", startLine, startColumn);
+                } else {
+                    return new Token(TokenType.DIV, "/", startLine, startColumn);
+                }
             case '~':
                 if (peek() == '|') {
                     consume();
-                    return new Token(TILDE_BAR, "~|", startLine, startColumn);
+                    return new Token(TokenType.TILDE_BAR, "~|", startLine, startColumn);
                 } else if (peek() == '>') {
                     consume();
-                    return new Token(TILDE_ARROW, "~>", startLine, startColumn);
+                    return new Token(TokenType.TILDE_ARROW, "~>", startLine, startColumn);
                 } else {
-                    return new Token(INVALID, "~", startLine, startColumn);
+                    return new Token(TokenType.INVALID, "~", startLine, startColumn);
                 }
-            // --- END NEW SYMBOL LOGIC ---
             case '%':
-                return new Token(MOD, "%", startLine, startColumn);
+                return new Token(TokenType.MOD, "%", startLine, startColumn);
             case ':':
-                return new Token(COLON, ":", startLine, startColumn);
+                return new Token(TokenType.COLON, ":", startLine, startColumn);
             case '.':
-                return new Token(DOT, ".", startLine, startColumn);
+                return new Token(TokenType.DOT, ".", startLine, startColumn);
             case ',':
-                return new Token(COMMA, ",", startLine, startColumn);
+                return new Token(TokenType.COMMA, ",", startLine, startColumn);
             case '(':
-                return new Token(LPAREN, "(", startLine, startColumn);
+                return new Token(TokenType.LPAREN, "(", startLine, startColumn);
             case ')':
-                return new Token(RPAREN, ")", startLine, startColumn);
+                return new Token(TokenType.RPAREN, ")", startLine, startColumn);
             case '{':
-                return new Token(LBRACE, "{", startLine, startColumn);
+                return new Token(TokenType.LBRACE, "{", startLine, startColumn);
             case '}':
-                return new Token(RBRACE, "}", startLine, startColumn);
+                return new Token(TokenType.RBRACE, "}", startLine, startColumn);
             case '[':
-                return new Token(LBRACKET, "[", startLine, startColumn);
+                return new Token(TokenType.LBRACKET, "[", startLine, startColumn);
             case ']':
-                return new Token(RBRACKET, "]", startLine, startColumn);
+                return new Token(TokenType.RBRACKET, "]", startLine, startColumn);
             default:
-                return new Token(INVALID, String.valueOf(c1), startLine, startColumn);
+                return new Token(TokenType.INVALID, String.valueOf(c1), startLine, startColumn);
         }
     }
 
