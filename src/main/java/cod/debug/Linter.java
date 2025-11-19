@@ -1,5 +1,6 @@
 package cod.debug;
 
+import cod.ast.NamingValidator;
 import cod.ast.nodes.*;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -44,6 +45,34 @@ public class Linter {
         }
         return warnings;
     }
+    
+    private void checkNamingConventions(TypeNode type) {
+    // Check type name
+    if (!NamingValidator.isPascalCase(type.name)) {
+        addWarning(type.name, "TYPE", "Type name '" + type.name + "' should use PascalCase");
+    }
+    
+    // Check method names
+    for (MethodNode method : type.methods) {
+        if (!NamingValidator.startsWithLowerCase(method.name)) {
+            addWarning(type.name, method.name, "Method '" + method.name + "' should start with lowercase letter");
+        }
+    }
+    
+    // Check field names
+    for (FieldNode field : type.fields) {
+        if (NamingValidator.isPascalCase(field.name)) {
+            addWarning(type.name, "FIELD", "Field '" + field.name + "' should not use PascalCase (reserved for classes)");
+        }
+    }
+    
+    // Check for ALL_CAPS fields that aren't actually constants
+    for (FieldNode field : type.fields) {
+        if (NamingValidator.isAllCaps(field.name) && field.value == null) {
+            addWarning(type.name, "FIELD", "Field '" + field.name + "' uses ALL_CAPS but has no initial value - is this meant to be a constant?");
+        }
+    }
+}
 
     private void visitUnit(UnitNode unit) {
         for (TypeNode type : unit.types) {
@@ -52,42 +81,44 @@ public class Linter {
     }
 
     private void visitType(TypeNode type) {
-        // Initialize sets for this type
-        this.definedMethods = new HashSet<String>();
-        this.calledMethods = new HashSet<String>();
-        this.methodMap = new HashMap<String, MethodNode>();
+    // Initialize sets for this type
+    this.definedMethods = new HashSet<String>();
+    this.calledMethods = new HashSet<String>();
+    this.methodMap = new HashMap<String, MethodNode>();
 
-        // First pass: Find all defined methods in this type
-        for (MethodNode method : type.methods) {
-            definedMethods.add(method.name);
-            methodMap.put(method.name, method);
-        }
-        
-        // "main" is a special entry point, so it's always considered "used"
-        if (definedMethods.contains("main")) {
-            calledMethods.add("main");
-        }
+    // ADD THIS LINE: Check naming conventions
+    checkNamingConventions(type);
 
-        // Second pass: Visit all methods to find calls and analyze bodies
-        for (MethodNode method : type.methods) {
-            visitMethod(method, type.name);
-        }
+    // First pass: Find all defined methods in this type
+    for (MethodNode method : type.methods) {
+        definedMethods.add(method.name);
+        methodMap.put(method.name, method);
+    }
+    
+    // "main" is a special entry point, so it's always considered "used"
+    if (definedMethods.contains("main")) {
+        calledMethods.add("main");
+    }
 
-        // Third pass: Analyze the results for this type
-        for (String methodName : definedMethods) {
-            if (!calledMethods.contains(methodName)) {
-                MethodNode method = methodMap.get(methodName);
-                // Only warn if the method is "local" (private)
-                if ("local".equals(method.visibility)) {
-                    addWarning(
-                        type.name, 
-                        methodName, 
-                        "Method '" + methodName + "' is 'local' and is never called."
-                    );
-                }
+    // Second pass: Visit all methods to find calls and analyze bodies
+    for (MethodNode method : type.methods) {
+        visitMethod(method, type.name);
+    }
+
+    // Third pass: Analyze the results for this type
+    for (String methodName : definedMethods) {
+        if (!calledMethods.contains(methodName)) {
+            MethodNode method = methodMap.get(methodName);
+            if ("local".equals(method.visibility)) {
+                addWarning(
+                    type.name, 
+                    methodName, 
+                    "Method '" + methodName + "' is 'local' and is never called."
+                );
             }
         }
     }
+}
 
     private void visitMethod(MethodNode method, String typeName) {
         // Initialize sets for this method
