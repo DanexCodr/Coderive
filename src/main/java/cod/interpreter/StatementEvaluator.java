@@ -44,7 +44,7 @@ public class StatementEvaluator {
 
             // --- Enforce ~ for slots (NO CHANGE) ---
             if (slotValues != null && slotValues.containsKey(input.variableName)) {
-                 throw new RuntimeException("Cannot assign to slot '" + input.variableName + "' using '=' (from input). Use '~ " + input.variableName + " ...' syntax instead.");
+                 throw new RuntimeException("Cannot assign to slot '" + input.variableName + "' using '=' (from input). Use '~> " + input.variableName + " ...' syntax instead.");
             } else {
                 obj.fields.put(input.variableName, inputValue);
                 DebugSystem.fieldUpdate(input.variableName, inputValue);
@@ -135,7 +135,7 @@ public class StatementEvaluator {
 
             // --- Enforce ~ for slots (NO CHANGE) ---
             if (slotValues != null && slotValues.containsKey(f.name)) {
-                 throw new RuntimeException("Cannot assign to slot '" + f.name + "' using '=' (in field declaration). Use '~ " + f.name + " ...' syntax instead.");
+                 throw new RuntimeException("Cannot assign to slot '" + f.name + "' using '=' (in field declaration). Use '~> " + f.name + " ...' syntax instead.");
             } else {
                 obj.fields.put(f.name, val);
                 DebugSystem.fieldUpdate(f.name, val);
@@ -160,7 +160,7 @@ public class StatementEvaluator {
              
             // --- Enforce ~ for slots (NO CHANGE) ---
             if (slotValues != null && slotValues.containsKey(var.name)) {
-                throw new RuntimeException("Cannot declare variable '" + var.name + "' because it conflicts with a return slot. Use '~ " + var.name + " ...' to assign to the slot.");
+                throw new RuntimeException("Cannot declare variable '" + var.name + "' because it conflicts with a return slot. Use '~> " + var.name + " ...' to assign to the slot.");
             }
             // --- END ---
 
@@ -494,7 +494,7 @@ public class StatementEvaluator {
                                   multiAssign.assignments.size() + " values");
     }
     
-    // Count named assignments and validate
+    // Count named assignments
     int namedCount = 0;
     List<String> assignedNames = new ArrayList<String>();
     for (SlotAssignmentNode assign : multiAssign.assignments) {
@@ -504,21 +504,56 @@ public class StatementEvaluator {
         }
     }
     
-    // If mixed assignments, validate names match declared slots
+    // Handle mixed assignments - validate names match declared slots
     if (namedCount > 0 && namedCount < multiAssign.assignments.size()) {
-        throw new RuntimeException("Mixed named and unnamed assignments not allowed");
-    }
-    
-    // If all named, validate names match declared slots
-    if (namedCount == multiAssign.assignments.size()) {
+        // Mixed assignments - validate all named ones match declared slots
         for (String assignedName : assignedNames) {
             if (!declaredSlots.contains(assignedName)) {
                 throw new RuntimeException("Assignment to undeclared slot: " + assignedName);
             }
         }
+        
+        // Execute mixed assignments - named ones by name, unnamed ones by position
+        Object lastValue = null;
+        int unnamedIndex = 0;
+        
+        for (SlotAssignmentNode assign : multiAssign.assignments) {
+            Object value = exprEvaluator.evaluate(assign.value, obj, locals);
+            
+            if (assign.slotName != null) {
+                // Named assignment
+                if (slotValues != null && slotValues.containsKey(assign.slotName)) {
+                    Object oldValue = slotValues.get(assign.slotName);
+                    slotValues.put(assign.slotName, value);
+                    DebugSystem.slotUpdate(assign.slotName, oldValue, value);
+                }
+            } else {
+                // Unnamed assignment - assign by position
+                if (unnamedIndex < declaredSlots.size()) {
+                    String slotName = declaredSlots.get(unnamedIndex);
+                    // Skip if this slot was already assigned by name
+                    while (unnamedIndex < declaredSlots.size() && 
+                           assignedNames.contains(declaredSlots.get(unnamedIndex))) {
+                        unnamedIndex++;
+                    }
+                    if (unnamedIndex < declaredSlots.size()) {
+                        slotName = declaredSlots.get(unnamedIndex);
+                        if (slotValues != null && slotValues.containsKey(slotName)) {
+                            Object oldValue = slotValues.get(slotName);
+                            slotValues.put(slotName, value);
+                            DebugSystem.slotUpdate(slotName, oldValue, value);
+                        }
+                        unnamedIndex++;
+                    }
+                }
+            }
+            lastValue = value;
+        }
+        
+        return lastValue;
     }
     
-    // Execute assignments
+    // Original logic for all-named or all-unnamed assignments
     Object lastValue = null;
     if (namedCount == 0) {
         // All unnamed - assign in declaration order

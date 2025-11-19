@@ -97,11 +97,8 @@ public class Interpreter {
     DebugSystem.debug("IMPORTS", "Initializing import resolver for unit: " + unit.name);
 
     // UPDATED: Only pre-load imports that were already resolved during AST building
-    // Don't try to resolve new imports here - do it lazily when needed
     if (unit.resolvedImports != null && !unit.resolvedImports.isEmpty()) {
-        DebugSystem.debug(
-                "IMPORTS",
-                "Pre-loading " + unit.resolvedImports.size() + " resolved imports from AST");
+        DebugSystem.debug("IMPORTS", "Pre-loading " + unit.resolvedImports.size() + " resolved imports from AST");
         for (Map.Entry<String, ProgramNode> entry : unit.resolvedImports.entrySet()) {
             String importName = entry.getKey();
             ProgramNode importedProgram = entry.getValue();
@@ -258,27 +255,15 @@ DebugSystem.debug("METHODS", "Method " + method.name + " has " + method.returnSl
         return true; // All slots in current path are assigned
     }
 
-    public Object evalMethodCall(
-        MethodCallNode call,
-        ObjectInstance obj,
-        Map<String, Object> locals) {
-    DebugSystem.methodEntry("call:" + call.name, emptyParamMap());
-    
-    // ADDED: Detailed debugging for method call
-    DebugSystem.debug("METHOD_CALL", "=== METHOD CALL ENTERED ===");
+    public Object evalMethodCall(MethodCallNode call, ObjectInstance obj, Map<String, Object> locals) {
+    DebugSystem.debug("METHOD_CALL", "=== METHOD CALL DEBUG ===");
     DebugSystem.debug("METHOD_CALL", "call.name: " + call.name);
     DebugSystem.debug("METHOD_CALL", "call.qualifiedName: " + call.qualifiedName);
     DebugSystem.debug("METHOD_CALL", "call.slotNames: " + call.slotNames);
-    DebugSystem.debug("METHOD_CALL", "call.arguments: " + call.arguments.size());
-    for (int i = 0; i < call.arguments.size(); i++) {
-        DebugSystem.debug("METHOD_CALL", "  arg[" + i + "]: " + call.arguments.get(i).getClass().getSimpleName());
-    }
     DebugSystem.debug("METHOD_CALL", "Current object type: " + obj.type.name);
-    DebugSystem.debug("METHOD_CALL", "Current object fields: " + obj.fields.keySet());
-
+    
     MethodNode method = null;
 
-    // First, try to find method in current type
     DebugSystem.debug("METHOD_CALL", "Searching for local method: '" + call.name + "'");
     for (int i = 0; i < obj.type.methods.size(); i++) {
         MethodNode candidate = obj.type.methods.get(i);
@@ -290,19 +275,15 @@ DebugSystem.debug("METHODS", "Method " + method.name + " has " + method.returnSl
         }
     }
 
-    // If not found locally, try to resolve as imported method
     if (method == null) {
         DebugSystem.debug("METHOD_CALL", "Method not found locally, attempting import resolution");
         
-        // FIX: Handle cases where the method name itself might be qualified
         String qualifiedMethodName = call.qualifiedName;
         
-        // If qualifiedName is null but call.name contains dots, use call.name as qualified
         if (qualifiedMethodName == null && call.name.contains(".")) {
             qualifiedMethodName = call.name;
             DebugSystem.debug("IMPORTS", "Using call.name as qualified name: " + qualifiedMethodName);
         } else if (qualifiedMethodName == null) {
-            // Fallback: just use the simple name
             qualifiedMethodName = call.name;
             DebugSystem.debug("IMPORTS", "Using simple name as qualified name: " + qualifiedMethodName);
         } else if (qualifiedMethodName != null) {
@@ -314,49 +295,34 @@ DebugSystem.debug("METHODS", "Method " + method.name + " has " + method.returnSl
         
         if (method != null) {
             DebugSystem.debug("IMPORTS", "Successfully resolved imported method: " + qualifiedMethodName);
-            DebugSystem.debug("IMPORTS", "Resolved method details - name: " + method.name + 
-                             ", params: " + method.parameters.size() + 
-                             ", slots: " + method.returnSlots.size()); // This works again!
         } else {
             DebugSystem.warn("IMPORTS", "Failed to resolve imported method: " + qualifiedMethodName);
-            
-            // Additional debugging: show what imports are available
-            Set<String> availableImports = importResolver.getLoadedImports();
-            DebugSystem.debug("IMPORTS", "Available loaded imports: " + availableImports);
-            Set<String> registeredImports = importResolver.getRegisteredImports();
-            DebugSystem.debug("IMPORTS", "Registered imports: " + registeredImports);
-            
-            // Show what methods are available in current type for comparison
-            DebugSystem.debug("IMPORTS", "Available local methods:");
-            for (MethodNode m : obj.type.methods) {
-                DebugSystem.debug("IMPORTS", "  - " + m.name);
-            }
         }
     }
 
     if (method == null) {
-        DebugSystem.error(
-                "IMPORTS",
-                "Method not found: "
-                        + (call.qualifiedName != null ? call.qualifiedName : call.name));
-        // Debug: List available methods in current type
+        DebugSystem.error("IMPORTS", "Method not found: " + 
+                (call.qualifiedName != null ? call.qualifiedName : call.name));
+        
         DebugSystem.debug("METHODS", "Available methods in current type:");
         for (MethodNode m : obj.type.methods) {
             DebugSystem.debug("METHODS", "  - " + m.name);
         }
         
-        // Show import status for debugging
         importResolver.debugImportStatus();
         
         throw new RuntimeException(
-                "Method not found: "
-                        + (call.qualifiedName != null ? call.qualifiedName : call.name));
+                "Method not found: " + 
+                (call.qualifiedName != null ? call.qualifiedName : call.name));
+    }
+
+    if (method.isBuiltin) {
+        return handleBuiltinMethod(method, call, obj, locals);
     }
 
     Map<String, Object> newLocals = new HashMap<String, Object>();
     DebugSystem.debug("METHODS", "Evaluating " + call.arguments.size() + " arguments");
 
-    // Validate parameter count
     if (call.arguments.size() != method.parameters.size()) {
         throw new RuntimeException(
                 "Parameter count mismatch for method " + method.name + 
@@ -366,42 +332,33 @@ DebugSystem.debug("METHODS", "Method " + method.name + " has " + method.returnSl
 
     for (int i = 0; i < call.arguments.size(); i++) {
         ParamNode param = method.parameters.get(i);
-        Object argValue =
-                exprEvaluator.evaluate(
-                        call.arguments.get(i), obj, locals);
+        Object argValue = exprEvaluator.evaluate(call.arguments.get(i), obj, locals);
         newLocals.put(param.name, argValue);
         DebugSystem.debug("MEMORY", "Bound parameter: " + param.name + " = " + argValue);
     }
 
-    // --- MODIFICATION: Reverted to original, efficient slot initialization ---
     Map<String, Object> slotValues = new HashMap<String, Object>();
     for (SlotNode s : method.returnSlots) {
         slotValues.put(s.name, null);
         DebugSystem.debug("SLOTS", "Initialized return slot: " + s.name);
     }
-    // --- END MODIFICATION (REMOVED PRE-SCAN LOOP) ---
 
-
-    // Execute method body with access to both locals AND slots
     Map<String, Object> previousSlots = currentSlots;
     currentSlots = slotValues;
 
-    // FIX: Only set up slot path tracking if the called method has slots
     Set<String> previousSlotsInPath = slotsInCurrentPath;
-    boolean calledMethodHasSlots = !method.returnSlots.isEmpty(); // This works again
+    boolean calledMethodHasSlots = !method.returnSlots.isEmpty();
     if (calledMethodHasSlots) {
         slotsInCurrentPath = new HashSet<>(slotValues.keySet());
         DebugSystem.debug("SLOTS", "Called method has " + method.returnSlots.size() + " slots");
     } else {
-        slotsInCurrentPath = new HashSet<>(); // Empty for void methods
+        slotsInCurrentPath = new HashSet<>();
         DebugSystem.debug("SLOTS", "Called method has no return slots");
     }
 
     DebugSystem.debug("METHOD_CALL", "Executing method body for: " + method.name);
     for (StatementNode stmt : method.body) {
-        stmtEvaluator.evalStmt(
-                stmt, obj, newLocals, slotValues);
-        // Check for early return in called method
+        stmtEvaluator.evalStmt(stmt, obj, newLocals, slotValues);
         if (calledMethodHasSlots && shouldReturnEarly(slotValues)) {
             DebugSystem.debug("SLOTS", "Early return triggered in called method");
             break;
@@ -409,45 +366,52 @@ DebugSystem.debug("METHODS", "Method " + method.name + " has " + method.returnSl
     }
 
     currentSlots = previousSlots;
-    slotsInCurrentPath = previousSlotsInPath; // Restore previous slot path
+    slotsInCurrentPath = previousSlotsInPath;
 
-    DebugSystem.methodExit("call:" + call.name, slotValues);
+    DebugSystem.debug("METHOD_CALL", "Method call completed: " + method.name);
     return slotValues;
 }
 
-    private MethodNode resolveImportedMethod(String qualifiedMethodName) {
-        DebugSystem.debug("IMPORTS", "resolveImportedMethod called with: " + qualifiedMethodName);
+private Object handleBuiltinMethod(MethodNode method, MethodCallNode call, ObjectInstance obj, Map<String, Object> locals) {
+    switch (method.name) {
+        case "outa":
+            return handleSysOuta(call, obj, locals);
+        default:
+            throw new RuntimeException("Unknown builtin method: " + method.name);
+    }
+}
 
-        try {
-            MethodNode method = importResolver.findMethod(qualifiedMethodName);
-            if (method != null) {
-                DebugSystem.debug(
-                        "IMPORTS", "Successfully resolved imported method: " + qualifiedMethodName);
-                DebugSystem.debug(
-                        "IMPORTS",
-                        "Method details - params: "
-                                + method.parameters.size()
-                                + ", slots: "
-                                + method.returnSlots.size()); // This works again
-                return method;
-            } else {
-                DebugSystem.warn(
-                        "IMPORTS", "Failed to resolve imported method: " + qualifiedMethodName);
+private Object handleSysOuta(MethodCallNode call, ObjectInstance obj, Map<String, Object> locals) {
+    StringBuilder result = new StringBuilder();
+    for (int i = 0; i < call.arguments.size(); i++) {
+        Object value = exprEvaluator.evaluate(call.arguments.get(i), obj, locals);
+        result.append(String.valueOf(value));
+    }
+    ioHandler.output(result.toString());
+    return null;
+}
 
-                // Debug: List available imports
-                Set<String> loadedImports = importResolver.getLoadedImports();
-                DebugSystem.debug("IMPORTS", "Loaded imports in resolver: " + loadedImports);
-                return null;
-            }
-        } catch (Exception e) {
-            DebugSystem.error(
-                    "IMPORTS",
-                    "Error resolving imported method "
-                            + qualifiedMethodName
-                            + ": "
-                            + e.getMessage());
-            e.printStackTrace();
+private MethodNode resolveImportedMethod(String qualifiedMethodName) {
+    DebugSystem.debug("IMPORTS", "resolveImportedMethod called with: " + qualifiedMethodName);
+
+    try {
+        MethodNode method = importResolver.findMethod(qualifiedMethodName);
+        if (method != null) {
+            DebugSystem.debug("IMPORTS", "Successfully resolved imported method: " + qualifiedMethodName);
+            DebugSystem.debug("IMPORTS", "Method details - params: " + method.parameters.size() + ", slots: " + method.returnSlots.size());
+            return method;
+        } else {
+            DebugSystem.warn("IMPORTS", "Failed to resolve imported method: " + qualifiedMethodName);
+
+            // Debug: List available imports
+            Set<String> loadedImports = importResolver.getLoadedImports();
+            DebugSystem.debug("IMPORTS", "Loaded imports in resolver: " + loadedImports);
             return null;
         }
+    } catch (Exception e) {
+        DebugSystem.error("IMPORTS", "Error resolving imported method " + qualifiedMethodName + ": " + e.getMessage());
+        e.printStackTrace();
+        return null;
     }
+}
 }

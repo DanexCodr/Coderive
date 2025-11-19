@@ -67,7 +67,7 @@ public class IOHandler {
     }
 
     public void output(Object value) {
-        System.out.println(String.valueOf(value));
+        System.out.print(String.valueOf(value)); // CHANGED: println to print
     }
 
     public void close() {
