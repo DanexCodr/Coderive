@@ -1,5 +1,7 @@
-unit sample get {
-    cod.Math
+unit sample
+
+get {
+    cod.Sys
 }
 
 share InteractiveDemo {
@@ -21,9 +23,8 @@ share InteractiveDemo {
        // mixed one line return assignments
         ~> formula a / b, "division"
     } else {
-        ~> formula 0
-        ~> operation "unknown"
-    }
+        ~> 0, "unknown"
+   }
 }
 
 // Method with single expression
@@ -36,291 +37,291 @@ local haha(int a) {
     
     // Array demonstration
     local demonstrateArrays() {
-        output "=== Array Demo ==="
+        Sys.outln("=== Array Demo ===")
         
         numbers = [10, 20, 30, 40, 50]
-        output "Array: " + numbers
+        Sys.outln("Array: " + numbers)
         
-        output "First element: " + numbers[0]
-        output "Last element: " + numbers[4]
+        Sys.outln("First element: " + numbers[0] + " ")
+        Sys.outa("Last element:" + numbers[4]) // testing output
         
         numbers[2] = 99
-        output "After modification: " + numbers
+        Sys.outln("After modification: " + numbers)
     }
     
     // Input demonstration
     local getUserInfo() {
-        output "=== User Registration ==="
+        Sys.outln("=== User Registration ===")
         
-        output "Enter your name:"
+        Sys.outln("Enter your name:")
         name = (string) input
         
-        output "Enter your age:"
+        Sys.outln("Enter your age:")
         age = (int) input
         
-        output "Enter your height (meters):"
+        Sys.outln("Enter your height (meters):")
         height = (float) input
         
-        output "Are you a student? (true/false)"
+        Sys.outln("Are you a student? (true/false)")
         isStudent = (bool) input
         
-        output ""
-        output "Registration Complete!"
-        output "Name: " + name
-        output "Age: " + age
-        output "Height: " + height + "m"
-        output "Student: " + isStudent
+        Sys.outln("")
+        Sys.outln("Registration Complete!")
+        Sys.outln("Name: " + name)
+        Sys.outln("Age: " + age)
+        Sys.outln("Height: " + height + "m")
+        Sys.outln("Student: " + isStudent)
         
         if isStudent {
-            output "Welcome student " + name + "!"
+            Sys.outln("Welcome student " + name + "!")
         } else {
-            output "Welcome " + name + "!"
+            Sys.outln("Welcome " + name + "!")
         }
     }
     
     // Calculator with user input
     local interactiveCalculator() {
-        output "=== Interactive Calculator ==="
+        Sys.outln("=== Interactive Calculator ===")
         
-        output "Enter first number:"
+        Sys.outln("Enter first number:")
         num1 = (int) input
         
-        output "Enter second number:"
+        Sys.outln("Enter second number:")
         num2 = (int) input
         
-        output "Enter operation (+, -, *, /):"
+        Sys.outln("Enter operation (+, -, *, /):")
         op = (string) input
         
         result, operation = [formula, operation]:calculate(num1, num2, op)
         
-        output ""
-        output "Calculation Result:"
-        output num1 + " " + op + " " + num2 + " = " + result
-        output "Operation: " + operation
+        Sys.outln("")
+        Sys.outln("Calculation Result:")
+        Sys.outln(num1 + " " + op + " " + num2 + " = " + result)
+        Sys.outln("Operation: " + operation)
     }
     
     // Loop demonstration with input
     share numberSeries() {
-        output "=== Number Series Generator ==="
+        Sys.outln("=== Number Series Generator ===")
         
-        output "Enter start number:"
+        Sys.outln("Enter start number:")
         start = (int) input
         
-        output "Enter end number:"
+        Sys.outln("Enter end number:")
         end = (int) input
         
-        output "Number series from " + start + " to " + end + ":"
+        Sys.outln("Number series from " + start + " to " + end + ":")
         
-        output ""
-        output "=== DEFAULT STEPS (No 'by' clause) ==="
-        output "Counting up naturally:"
+        Sys.outln("")
+        Sys.outln("=== DEFAULT STEPS (No 'by' clause) ===")
+        Sys.outln("Counting up naturally:")
         for i in 1 to 5 {
-            output "Default step: " + i  // 1, 2, 3, 4, 5
+            Sys.outln("Default step: " + i)  // 1, 2, 3, 4, 5
         }
         
-        output "Counting down naturally:"
+        Sys.outln("Counting down naturally:")
         for i in 5 to 1 {
-            output "Default step: " + i  // 5, 4, 3, 2, 1
+            Sys.outln("Default step: " + i)  // 5, 4, 3, 2, 1
         }
         
-        output "User range - smart default:"
+        Sys.outln("User range - smart default:")
         for i in start to end {
-            output "Smart default: " + i  // auto +1 or -1 based on start/end
+            Sys.outln("Smart default: " + i)  // auto +1 or -1 based on start/end
         }
         
-        output ""
-        output "=== BASIC STEPS ==="
-        output "Enter step size:"
+        Sys.outln("")
+        Sys.outln("=== BASIC STEPS ===")
+        Sys.outln("Enter step size:")
         steps = (int) input
         
         for i by steps in start to end {
-            output "Step by " + steps + ": " + i
+            Sys.outln("Step by " + steps + ": " + i)
         }
         
         // Manual assignments
         for i by i = i + 1 in start to end {
-            output "Manual i=i+1: " + i
+            Sys.outln("Manual i=i+1: " + i)
         }
         
         // Compound assignments  
         for i by i += 1 in start to end {
-            output "Compound i+=1: " + i
+            Sys.outln("Compound i+=1: " + i)
         }
         
         // Operator prefixes
         for i by +1 in start to end {
-            output "Step by +1: " + i
+            Sys.outln("Step by +1: " + i)
         }
         
         // Counting down with various methods
         for i by -1 in 10 to 1 {
-            output "Countdown by -1: " + i
+            Sys.outln("Countdown by -1: " + i)
         }
         
         for i by i = i - 1 in 10 to 1 {
-            output "Countdown manual: " + i
+            Sys.outln("Countdown manual: " + i)
         }
         
         for i by i -= 1 in 10 to 1 {
-            output "Countdown compound: " + i
+            Sys.outln("Countdown compound: " + i)
         }
         
-        output ""
-        output "=== MULTIPLICATIVE STEPS ==="
+        Sys.outln("")
+        Sys.outln("=== MULTIPLICATIVE STEPS ===")
         
         // Multiplicative patterns
         
         for i by *2 in 1 to 32 {
-            output "Doubling: " + i
+            Sys.outln("Doubling: " + i)
         }
         
         for i by i = i * 2 in 1 to 32 {
-            output "Doubling manual: " + i
+            Sys.outln("Doubling manual: " + i)
         }
         
         for i by i *= 2 in 1 to 32 {
-            output "Doubling compound: " + i
+            Sys.outln("Doubling compound: " + i)
         } 
         
         for i by *+2 in start to end {
-            output "Step by *+2: " + i
+            Sys.outln("Step by *+2: " + i)
         }
         
-        output ""
-        output "=== DIVISION STEPS ==="
+        Sys.outln("")
+        Sys.outln("=== DIVISION STEPS ===")
         
         // Division patterns
         for i by /2 in 64 to 2 {
-            output "Halving: " + i
+            Sys.outln("Halving: " + i)
         }
         
         for i by i = i / 2 in 64 to 2 {
-            output "Halving manual: " + i
+            Sys.outln("Halving manual: " + i)
         }
         
         for i by i /= 2 in 64 to 2 {
-            output "Halving compound: " + i
+            Sys.outln("Halving compound: " + i)
         }
         
         for i by /+2 in 32 to 1 {
-            output "Step by /+2: " + i
+            Sys.outln("Step by /+2: " + i)
         }
         
-        output ""
-        output "=== PRACTICAL PATTERNS ==="
-        output "Powers of 2:"
+        Sys.outln("")
+        Sys.outln("=== PRACTICAL PATTERNS ===")
+        Sys.outln("Powers of 2:")
         
         // Various power patterns
         for power by *2 in 1 to 64 {
-            output "2^" + power + " = " + power
+            Sys.outln("2^" + power + " = " + power)
         }
         
         for power by power *= 2 in 1 to 64 {
-            output "Power compound: " + power
+            Sys.outln("Power compound: " + power)
         }
         
-        output "Countdown sequences:"
+        Sys.outln("Countdown sequences:")
         // Natural countdown
         for count in 10 to 1 {
-            output "Natural countdown: " + count
+            Sys.outln("Natural countdown: " + count)
         }
         
         // Explicit countdown
         for count by -1 in 10 to 1 {
-            output "Explicit countdown: " + count
+            Sys.outln("Explicit countdown: " + count)
         }
         
-        output "Growing sequences:"
+        Sys.outln("Growing sequences:")
         // Complex patterns
         for grow by *2 + 1 in 1 to 50 {
-            output "Growing: " + grow
+            Sys.outln("Growing: " + grow)
         }
         
         for grow
         by grow = grow * 2 + 1
         in 1
         to 50 {
-            output "Growing manual: " + grow
+            Sys.outln("Growing manual: " + grow)
         }
         
-        output "Mixed operations:"
+        Sys.outln("Mixed operations:")
         for mixed in 1 to 20 {
-            output "Mixed default: " + mixed
+            Sys.outln("Mixed default: " + mixed)
         }
         
         for mixed by +2 in 1 to 20 {
-            output "Mixed +2: " + mixed
+            Sys.outln("Mixed +2: " + mixed)
         }
         
         for mixed by -2 in 20 to 2 {
-            output "Mixed -2: " + mixed
+            Sys.outln("Mixed -2: " + mixed)
         }
     }
     
     // Additional demo for edge cases
     share edgeCaseLoops() {
-        output "=== Edge Case Loops ==="
+        Sys.outln("=== Edge Case Loops ===")
         
         // Single element ranges
-        output "Single element:"
+        Sys.outln("Single element:")
         for i in 5 to 5 {
-            output "Single: " + i  // Should output: 5
+            Sys.outln("Single: " + i)  // Should Sys.outln: 5
         }
         
         // Zero-step ranges
-        output "Zero range up:"
+        Sys.outln("Zero range up:")
         for i in 0 to 0 {
-            output "Zero up: " + i  // Should output: 0
+            Sys.outln("Zero up: " + i)  // Should Sys.outln: 0
         }
         
-        output "Zero range down:"
+        Sys.outln("Zero range down:")
         for i in 0 to 0 {
-            output "Zero down: " + i  // Should output: 0
+            Sys.outln("Zero down: " + i)  // Should Sys.outln: 0
         }
         
         // Negative numbers
-        output "Negative ranges:"
+        Sys.outln("Negative ranges:")
         for i in -5 to -1 {
-            output "Negative up: " + i  // -5, -4, -3, -2, -1
+            Sys.outln("Negative up: " + i) // -5, -4, -3, -2, -1
         }
         
         for i in -1 to -5 {
-            output "Negative down: " + i  // -1, -2, -3, -4, -5
+            Sys.outln("Negative down: " + i) // -1, -2, -3, -4, -5
         }
         
         // Large steps
-        output "Large steps:"
+        Sys.outln("Large steps:")
         for i by 10 in 0 to 50 {
-            output "Large step: " + i  // 0, 10, 20, 30, 40, 50
+            Sys.outln("Large step: " + i ) // 0, 10, 20, 30, 40, 50
         }
     }
     
     // Main method - program entry point
     share main() {
-        output "=== CODERIVE INTERACTIVE DEMO ==="
-        output ""
+        Sys.outln("=== CODERIVE INTERACTIVE DEMO ===")
+        Sys.outln("")
         
         // Demonstrate arrays
         demonstrateArrays()
-        output ""
+        Sys.outln("")
         
         // Get user information
         getUserInfo() 
-        output ""
+        Sys.outln("")
         
         // Calculator demo
         interactiveCalculator()
-        output ""
+        Sys.outln("")
         
         // Number series demo
         numberSeries()
-        output ""
+        Sys.outln("")
         
         // Edge cases
         edgeCaseLoops()
-        output ""
+        Sys.outln("")
         
-        output "=== DEMO COMPLETE ==="
-        output "Thank you for using Coderive!"
+        Sys.outln("=== DEMO COMPLETE ===")
+        Sys.outln("Thank you for using Coderive!")
     }
 }
