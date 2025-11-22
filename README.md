@@ -47,7 +47,7 @@ get {
     cod.Math
 }
 
-share interactiveDemo {
+share InteractiveDemo {
     ~| formula, operation
     local calculate(int a, int b, string op) {
         if op == "+" {
