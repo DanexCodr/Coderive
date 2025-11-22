@@ -147,7 +147,8 @@ public class ASTBuilder {
             if (idList.ID().size() > 2) returnSlots.add(idList.ID(2).getText());
         }
         
-        MethodNode method = ASTFactory.createMethod(ctx.ID().getText(), visibility, returnSlots);
+        MethodNode method = null;
+        // method = ASTFactory.createMethod(ctx.ID().getText(), visibility, returnSlots);
 
         if (ctx.parameterList() != null) {
             for (CoderiveParser.ParameterContext p : ctx.parameterList().parameter()) {

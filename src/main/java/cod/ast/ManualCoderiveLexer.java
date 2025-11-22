@@ -7,16 +7,8 @@ import java.util.Map;
 
 import static cod.Constants.*;
 
-/**
- * A self-contained, ANTLR-free lexer for the Coderive language. Contains the nested static Token
- * class. This lexer is compatible with Java 7.
- */
 public class ManualCoderiveLexer {
 
-    /**
-     * A simple, self-contained Token class, free of ANTLR dependencies. It is nested within the
-     * Lexer that produces it.
-     */
     public static class Token {
         public final int type;
         public final String text;
@@ -48,11 +40,7 @@ public class ManualCoderiveLexer {
         }
     }
 
-    /**
-     * Self-contained token type constants with their names.
-     */
     public static class TokenType {
-        // Token type constants
         public static final int SHARE = 1,
                 LOCAL = 2,
                 UNIT = 3,
@@ -109,76 +97,78 @@ public class ManualCoderiveLexer {
                 TILDE_BAR = 54,
                 TILDE_ARROW = 55,
                 BUILTIN = 56,
+                ALL = 57,
+                ANY = 58,
+                BANG = 59,
                 INVALID = -2;
         
         private static final Map<Integer, String> NAMES = new HashMap<Integer, String>();
         
         static {
-            // Keywords
-            NAMES.put(SHARE, "SHARE");
-            NAMES.put(LOCAL, "LOCAL");
-            NAMES.put(UNIT, "UNIT");
-            NAMES.put(GET, "GET");
-            NAMES.put(EXTEND, "EXTEND");
-            NAMES.put(THIS, "THIS");
-            NAMES.put(VAR, "VAR");
-            NAMES.put(OUTPUT, "OUTPUT");
-            NAMES.put(INPUT, "INPUT");
-            NAMES.put(IF, "IF");
-            NAMES.put(ELSE, "ELSE");
-            NAMES.put(ELIF, "ELIF");
-            NAMES.put(FOR, "FOR");
-            NAMES.put(IN, "IN");
-            NAMES.put(TO, "TO");
-            NAMES.put(BY, "BY");
-            NAMES.put(INT, "INT");
-            NAMES.put(STRING, "STRING");
-            NAMES.put(FLOAT, "FLOAT");
-            NAMES.put(BOOL, "BOOL");
-            NAMES.put(BUILTIN, "BUILTIN");
+            NAMES.put(SHARE, _share);
+            NAMES.put(LOCAL, _local);
+            NAMES.put(UNIT, _unit);
+            NAMES.put(GET, _get);
+            NAMES.put(EXTEND, _extend);
+            NAMES.put(THIS, _this);
+            NAMES.put(VAR, _var);
+            NAMES.put(OUTPUT, _output);
+            NAMES.put(INPUT, _input);
+            NAMES.put(IF, _if);
+            NAMES.put(ELSE, _else);
+            NAMES.put(ELIF, _elif);
+            NAMES.put(FOR, _for);
+            NAMES.put(IN, _in);
+            NAMES.put(TO, _to);
+            NAMES.put(BY, _by);
+            NAMES.put(INT, _int);
+            NAMES.put(STRING, _string);
+            NAMES.put(FLOAT, _float);
+            NAMES.put(BOOL, _bool);
+            NAMES.put(BUILTIN, _builtin);
+            NAMES.put(ALL, _all);
+            NAMES.put(ANY, _any);
             
-            // Literals
-            NAMES.put(INT_LIT, "INT_LIT");
-            NAMES.put(FLOAT_LIT, "FLOAT_LIT");
-            NAMES.put(STRING_LIT, "STRING_LIT");
-            NAMES.put(BOOL_LIT, "BOOL_LIT");
-            NAMES.put(ID, "ID");
+            NAMES.put(INT_LIT, _int_lit);
+            NAMES.put(FLOAT_LIT, _float_lit);
+            NAMES.put(STRING_LIT, _string_lit);
+            NAMES.put(BOOL_LIT, _bool_lit);
+            NAMES.put(ID, _id);
             
-            // Operators and symbols
-            NAMES.put(ASSIGN, "ASSIGN");
-            NAMES.put(PLUS, "PLUS");
-            NAMES.put(MINUS, "MINUS");
-            NAMES.put(MUL, "MUL");
-            NAMES.put(DIV, "DIV");
-            NAMES.put(MOD, "MOD");
-            NAMES.put(COLON, "COLON");
-            NAMES.put(GT, "GT");
-            NAMES.put(LT, "LT");
-            NAMES.put(GTE, "GTE");
-            NAMES.put(LTE, "LTE");
-            NAMES.put(EQ, "EQ");
-            NAMES.put(NEQ, "NEQ");
-            NAMES.put(DOT, "DOT");
-            NAMES.put(COMMA, "COMMA");
-            NAMES.put(LPAREN, "LPAREN");
-            NAMES.put(RPAREN, "RPAREN");
-            NAMES.put(LBRACE, "LBRACE");
-            NAMES.put(RBRACE, "RBRACE");
-            NAMES.put(LBRACKET, "LBRACKET");
-            NAMES.put(RBRACKET, "RBRACKET");
-            NAMES.put(PLUS_ASSIGN, "PLUS_ASSIGN");
-            NAMES.put(MINUS_ASSIGN, "MINUS_ASSIGN");
-            NAMES.put(MUL_ASSIGN, "MUL_ASSIGN");
-            NAMES.put(DIV_ASSIGN, "DIV_ASSIGN");
-            NAMES.put(TILDE_BAR, "TILDE_BAR");
-            NAMES.put(TILDE_ARROW, "TILDE_ARROW");
+            NAMES.put(ASSIGN, _assign);
+            NAMES.put(PLUS, _plus);
+            NAMES.put(MINUS, _minus);
+            NAMES.put(MUL, _mul);
+            NAMES.put(DIV, _div);
+            NAMES.put(MOD, _mod);
+            NAMES.put(COLON, _colon);
+            NAMES.put(GT, _gt);
+            NAMES.put(LT, _lt);
+            NAMES.put(GTE, _gte);
+            NAMES.put(LTE, _lte);
+            NAMES.put(EQ, _eq);
+            NAMES.put(NEQ, _neq);
+            NAMES.put(DOT, _dot);
+            NAMES.put(COMMA, _comma);
+            NAMES.put(LPAREN, _lparen);
+            NAMES.put(RPAREN, _rparen);
+            NAMES.put(LBRACE, _lbrace);
+            NAMES.put(RBRACE, _rbrace);
+            NAMES.put(LBRACKET, _lbracket);
+            NAMES.put(RBRACKET, _rbracket);
+            NAMES.put(PLUS_ASSIGN, _plus_assign);
+            NAMES.put(MINUS_ASSIGN, _minus_assign);
+            NAMES.put(MUL_ASSIGN, _mul_assign);
+            NAMES.put(DIV_ASSIGN, _div_assign);
+            NAMES.put(BANG, _bang);
+            NAMES.put(TILDE_BAR, _tilde_bar);
+            NAMES.put(TILDE_ARROW, _tilde_arrow);
             
-            // Special tokens
-            NAMES.put(Token.EOF, "EOF");
-            NAMES.put(INVALID, "INVALID");
-            NAMES.put(LINE_COMMENT, "LINE_COMMENT");
-            NAMES.put(BLOCK_COMMENT, "BLOCK_COMMENT");
-            NAMES.put(WS, "WS");
+            NAMES.put(Token.EOF, _eof);
+            NAMES.put(INVALID, _invalid);
+            NAMES.put(LINE_COMMENT, _line_comment);
+            NAMES.put(BLOCK_COMMENT, _block_comment);
+            NAMES.put(WS, _ws);
         }
         
         public static String getName(int type) {
@@ -190,7 +180,6 @@ public class ManualCoderiveLexer {
     private static final Map<String, Integer> KEYWORDS = new HashMap<String, Integer>();
 
     static {
-        // Keywords mapping
         KEYWORDS.put(share, TokenType.SHARE);
         KEYWORDS.put(local, TokenType.LOCAL);
         KEYWORDS.put(unit, TokenType.UNIT);
@@ -214,6 +203,8 @@ public class ManualCoderiveLexer {
         KEYWORDS.put(bool, TokenType.BOOL);
         KEYWORDS.put(true_, TokenType.BOOL_LIT);
         KEYWORDS.put(false_, TokenType.BOOL_LIT);
+        KEYWORDS.put(all, TokenType.ALL);
+        KEYWORDS.put(any, TokenType.ANY);
     }
 
     private final String input;
@@ -342,7 +333,7 @@ public class ManualCoderiveLexer {
                     consume();
                     return new Token(TokenType.NEQ, "!=", startLine, startColumn);
                 } else {
-                    return new Token(TokenType.INVALID, "!", startLine, startColumn);
+                    return new Token(TokenType.BANG, "!", startLine, startColumn);
                 }
             case '+':
                 if (peek() == '=') {

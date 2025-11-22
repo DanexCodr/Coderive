@@ -8,27 +8,19 @@ import cod.ast.ManualCoderiveLexer.Token;
 import static cod.ast.ManualCoderiveLexer.TokenType.*;
 import static cod.Constants.*;
 
-/**
- * A self-contained, ANTLR-free recursive descent parser.
- * Implements the "annotation-style" slot declaration.
- */
 public class ManualCoderiveParser {
     private final List<Token> tokens;
     private int position = 0;
 
-    // --- Constructor ---
     public ManualCoderiveParser(List<Token> tokens) {
         this.tokens = tokens;
     }
 
-    // --- Helper method to set source position ---
     private void setNodePosition(ASTNode node, Token token) {
         if (node != null && token != null) {
             node.setSourcePosition(token.line, token.column);
         }
     }
-
-    // --- Main Parsing Methods ---
 
     public ProgramNode parseProgram() {
         ProgramNode program = ASTFactory.createProgram();
@@ -39,7 +31,7 @@ public class ManualCoderiveParser {
         }
 
         while (!match(Token.EOF)) {
-            if (isVisibilityModifier() || isSlotDeclaration()) { // Allow type or method
+            if (isVisibilityModifier() || isSlotDeclaration()) {
                 program.unit.types.add(parseType());
             } else {
                  throw new ParseError("Expected type declaration (share/local) or EOF but found " +
@@ -50,19 +42,13 @@ public class ManualCoderiveParser {
         return program;
     }
 
-    // --- NEW METHOD FOR REPL ---
-    /**
-     * Parses a single statement or expression from the token stream.
-     * Used by the REPL.
-     */
     public StatementNode parseSingleLine() {
         if (match(Token.EOF)) {
-            return null; // Empty line
+            return null;
         }
         
         StatementNode stmt = parseStatement();
         
-        // After parsing one statement, we expect the end of the input.
         if (!match(Token.EOF)) {
             Token current = currentToken();
             throw new ParseError("Unexpected token after statement: " + 
@@ -71,8 +57,6 @@ public class ManualCoderiveParser {
         }
         return stmt;
     }
-    // --- END NEW METHOD ---
-
 
     private UnitNode parseUnit() {
         Token unitToken = currentToken();
@@ -110,7 +94,6 @@ public class ManualCoderiveParser {
         Token typeNameToken = currentToken();
         String typeName = consume(ID).text;
         
-        // ENFORCE CLASS NAMING
         NamingValidator.validateClassName(typeName, typeNameToken);
         
         String extendName = null;
@@ -139,18 +122,16 @@ public class ManualCoderiveParser {
     private MethodNode parseMethod() {
         Token startToken = currentToken();
         
-        List<String> returnSlots = null;
+        List<SlotNode> returnSlots = null;
         if (isSlotDeclaration()) {
-            consume(TILDE_BAR);
-            returnSlots = parseIdList();
+            returnSlots = parseSlotContractList();
         }
 
         boolean isBuiltin = false;
-        String visibility = share; // DEFAULT to share
+        String visibility = share;
         
         if (tryConsume(BUILTIN)) {
             isBuiltin = true;
-            // Builtin methods are automatically shareable
             visibility = share;
         } else if (isVisibilityModifier()) {
             visibility = consume().text;
@@ -190,12 +171,54 @@ public class ManualCoderiveParser {
         return method;
     }
 
+    private List<SlotNode> parseSlotContractList() {
+        consume(TILDE_BAR);
+        List<SlotNode> slots = new ArrayList<SlotNode>();
+        
+        boolean firstSlot = true;
+        boolean isNamedMode = false;
+        int index = 0;
+
+        do {
+            String type = parseTypeReference();
+            String name;
+
+            if (firstSlot) {
+                if (currentToken().type == ID) {
+                    isNamedMode = true;
+                    name = consume(ID).text;
+                } else {
+                    isNamedMode = false;
+                    name = String.valueOf(index);
+                }
+                firstSlot = false;
+            } else {
+                if (isNamedMode) {
+                    if (currentToken().type != ID) {
+                        throw new ParseError("Mixed slot declaration styles not allowed. Expected name for slot of type " + type + ".");
+                    }
+                    name = consume(ID).text;
+                } else {
+                    if (currentToken().type == ID) {
+                        throw new ParseError("Mixed slot declaration styles not allowed. Found name '" + currentToken().text + "' in unnamed slot list.");
+                    }
+                    name = String.valueOf(index);
+                }
+            }
+            
+            slots.add(ASTFactory.createSlot(type, name));
+            index++;
+
+        } while (tryConsume(COMMA));
+        
+        return slots;
+    }
+
     private FieldNode parseField() {
         Token startToken = currentToken();
         String fieldType = parseTypeReference();
         String fieldName = consume(ID).text;
         
-        // ENFORCE FIELD NAMING
         if (NamingValidator.isAllCaps(fieldName)) {
             NamingValidator.validateConstantName(fieldName, startToken);
         } else {
@@ -211,63 +234,37 @@ public class ManualCoderiveParser {
         return field;
     }
 
-    // --- Statement Parsers ---
-
     private StatementNode parseStatement() {
         return parseStatement(null);
     }
 
     private StatementNode parseStatement(Boolean inheritedStyle) {
-        // --- ORDER MATTERS FOR AMBIGUITY RESOLUTION ---
-
-        // 1. Keywords first (Ensure FOR is checked early)
         if (match(IF)) return parseIfStatement(inheritedStyle);
         if (match(FOR)) return parseForStatement();
         if (match(OUTPUT)) return parseOutputStatement();
 
-        // 2. Slot Assignment (NEW: Check for ~> before variable declarations)
         if (isSlotAssignment()) return parseSlotAssignment();
 
-        // 3. Variable Declaration (Check using predicate AFTER keywords)
         if (isVariableDeclaration()) return parseVariableDeclaration();
 
-        // 4. Assignments (check specific cases using predicates before general expression)
         if (isInputAssignment()) return parseInputAssignment();
         if (isReturnSlotAssignment()) return parseReturnSlotAssignment();
         if (isIndexAssignment()) return parseIndexAssignment();
         if (isSimpleAssignment()) return parseSimpleAssignment();
 
-        // 5. Method Call Statement (Check before general expression)
         if (isMethodCallStatement()) {
             return parseMethodCallStatement();
         }
 
-        // 6. Fallback: Other Expression Statements (if allowed)
         return parseExpressionStatement();
-    }
-
-    private List<SlotAssignmentNode> parseMultipleSlotAssignments() {
-        List<SlotAssignmentNode> assignments = new ArrayList<SlotAssignmentNode>();
-        
-        // Parse first assignment
-        assignments.add(parseSingleSlotAssignment());
-        
-        // Parse additional comma-separated assignments
-        while (tryConsume(COMMA)) {
-            assignments.add(parseSingleSlotAssignment());
-        }
-        
-        return assignments;
     }
 
     private SlotAssignmentNode parseSingleSlotAssignment() {
         Token startToken = currentToken();
         
-        // Check if this is a named assignment (slotName expr) or unnamed (expr)
         String slotName = null;
         ExprNode value;
         
-        // Simple heuristic: if we have ID followed by something that looks like an expression start
         if (peek(0).type == ID && 
             (peek(1).type == ID || 
              peek(1).type == INT_LIT ||
@@ -275,11 +272,9 @@ public class ManualCoderiveParser {
              peek(1).type == STRING_LIT ||
              peek(1).type == BOOL_LIT ||
              peek(1).type == LPAREN)) {
-            // This looks like a named assignment: slotName expr
             slotName = consume(ID).text;
             value = parseExpression();
         } else {
-            // Unnamed assignment: just expr
             value = parseExpression();
         }
         
@@ -290,18 +285,13 @@ public class ManualCoderiveParser {
 
     private StatementNode parseSlotAssignment() {
         Token startToken = currentToken();
-        consume(TILDE_ARROW);  // Consume ~>
+        consume(TILDE_ARROW);
         
-        // Check if this is a multiple assignment by looking ahead for comma
-        // We need to parse the first element and THEN check if there's a comma
         List<SlotAssignmentNode> assignments = new ArrayList<SlotAssignmentNode>();
         
-        // Parse first assignment
         assignments.add(parseSingleSlotAssignment());
         
-        // Now check if there are more comma-separated assignments
         if (match(COMMA)) {
-            // Parse the rest of the assignments
             while (tryConsume(COMMA)) {
                 assignments.add(parseSingleSlotAssignment());
             }
@@ -310,7 +300,6 @@ public class ManualCoderiveParser {
             setNodePosition(multiAssign, startToken);
             return multiAssign;
         } else {
-            // Single assignment - return the first one we parsed
             SlotAssignmentNode assignment = assignments.get(0);
             setNodePosition(assignment, startToken);
             return assignment;
@@ -341,12 +330,9 @@ public class ManualCoderiveParser {
         Token varNameToken = currentToken();
         String varName = consume(ID).text;
         
-        // ENFORCE VARIABLE/CONSTANT NAMING
         if (NamingValidator.isAllCaps(varName)) {
-            // This is a constant
             NamingValidator.validateConstantName(varName, varNameToken);
         } else {
-            // This is a regular variable
             NamingValidator.validateVariableName(varName, varNameToken);
         }
 
@@ -361,7 +347,7 @@ public class ManualCoderiveParser {
     }
 
     private StatementNode parseIfStatement() {
-        return parseIfStatement(null); // Start with no inherited style
+        return parseIfStatement(null);
     }
 
     private StatementNode parseIfStatement(Boolean inheritedStyle) {
@@ -371,10 +357,8 @@ public class ManualCoderiveParser {
         IfNode rootIfNode = ASTFactory.createIf(condition);
         setNodePosition(rootIfNode, startToken);
 
-        // Use inherited style if provided, otherwise we'll detect from the first branch we encounter
         Boolean currentStyle = inheritedStyle;
         
-        // Handle then block (single statement or brace block)
         if (match(LBRACE)) {
             consume(LBRACE);
             while(!match(RBRACE)) {
@@ -382,13 +366,11 @@ public class ManualCoderiveParser {
             }
             consume(RBRACE);
         } else {
-            // Single statement
             rootIfNode.thenBlock.statements.add(parseStatement(currentStyle));
         }
 
         IfNode currentNode = rootIfNode;
         
-        // Handle ELIF branches
         while (tryConsume(ELIF)) {
             if (currentStyle != null && !currentStyle) {
                 throw new ParseError("Cannot use 'elif' in an 'else if' style chain");
@@ -412,7 +394,6 @@ public class ManualCoderiveParser {
             currentNode = elifNode;
         }
 
-        // Handle ELSE branch
         if (tryConsume(ELSE)) {
             if (match(IF)) {
                 if (currentStyle != null && currentStyle) {
@@ -420,10 +401,8 @@ public class ManualCoderiveParser {
                 }
                 currentStyle = false;
                 
-                // Pass the current style down to nested if
                 currentNode.elseBlock.statements.add(parseIfStatement(currentStyle));
             } else {
-                // Regular ELSE block
                 if (match(LBRACE)) {
                     consume(LBRACE);
                     while(!match(RBRACE)) {
@@ -439,79 +418,60 @@ public class ManualCoderiveParser {
         return rootIfNode;
     }
 
-    // --- Method using the structure from your previously working version ---
     private StatementNode parseForStatement() {
         Token startToken = currentToken();
         consume(FOR);
         String iterator = consume(ID).text;
 
-        ExprNode by = null; // Initialize by expression
+        ExprNode by = null;
 
         if (tryConsume(BY)) {
-            // --- Using the logic structure from the OLD WORKING version ---
-
-            // 1. Check specific MULTIPLICATIVE prefixes
             if (match(MUL, DIV)) {
-                Token operator = consume(); // Consume '*' or '/'
-                ExprNode operand = parseExpression(); // Parse the expression after the operator
-                ExprNode iteratorRef = ASTFactory.createIdentifier(iterator); // Node for iterator 'i'
-                // Create 'i * operand' or 'i / operand' node
+                Token operator = consume();
+                ExprNode operand = parseExpression();
+                ExprNode iteratorRef = ASTFactory.createIdentifier(iterator);
                 by = ASTFactory.createBinaryOp(iteratorRef, operator.text, operand);
-
-            // 2. Check specific ADDITIVE prefixes (only simple literals)
             } else if (match(PLUS, MINUS)) {
-                Token operator = consume(); // Consume '+' or '-'
-                // Look ahead to see if it's followed by a literal for the simple case
+                Token operator = consume();
                 if (peek(0).type == INT_LIT || peek(0).type == FLOAT_LIT) {
-                    ExprNode operand = parsePrimaryExpression(); // Consume only the literal
+                    ExprNode operand = parsePrimaryExpression();
                     if (operator.type == PLUS) {
-                        by = operand; // +1 becomes just 1
+                        by = operand;
                     } else {
-                        by = ASTFactory.createUnaryOp("-", operand); // -1 becomes UnaryOp
+                        by = ASTFactory.createUnaryOp("-", operand);
                     }
                 } else {
-                     // If not followed by literal, assume it's part of a full expression.
-                     position--; // Backtrack (Put the operator back)
-                     by = parseExpression(); // Parse as general expression
+                     position--;
+                     by = parseExpression();
                 }
-
-            // 3. If NOT a specific prefix, THEN check for assignment or regular expr
             } else {
-                if (isAssignmentInByClause()) { // Checks for 'ID op= expr'
-                    // Parses 'by ID (=|+=|-=|*=|/=) expr'
+                if (isAssignmentInByClause()) {
                     ExprNode target = ASTFactory.createIdentifier(consume(ID).text);
                      if (!target.name.equals(iterator)) {
-                         // Warning or error depending on language rules
                          System.err.println("[Parser Warning] Variable in 'by' assignment ("+target.name+") doesn't match iterator ("+iterator+").");
                      }
-                    Token assignOp = consume(); // Consume operator
-                    ExprNode value = parseExpression(); // Parse the right side
-                    by = ASTFactory.createBinaryOp(target, assignOp.text, value); // Create assignment node
+                    Token assignOp = consume();
+                    ExprNode value = parseExpression();
+                    by = ASTFactory.createBinaryOp(target, assignOp.text, value);
                 } else {
-                    // 4. Fallback: Parses 'by expr' (like 'by 2' or 'by steps')
                     by = parseExpression();
                 }
             }
-            // --- End OLD WORKING logic structure ---
 
-            consume(IN); // Consume IN after the BY clause
+            consume(IN);
         } else {
-            // No BY clause
-            by = null; // Let interpreter handle default step
-            consume(IN); // Consume IN
+            by = null;
+            consume(IN);
         }
 
-        // Parse start and end expressions
         ExprNode start = parseExpression();
         consume(TO);
         ExprNode end = parseExpression();
 
-        // Create AST nodes
         RangeNode range = ASTFactory.createRange(by, start, end);
         ForNode forNode = ASTFactory.createFor(iterator, range);
         setNodePosition(forNode, startToken);
 
-        // Parse loop body
         consume(LBRACE);
         while (!match(RBRACE)) {
             forNode.body.statements.add(parseStatement());
@@ -598,20 +558,45 @@ public class ManualCoderiveParser {
          return expr;
     }
 
-    // --- Expression Parsers ---
-
     private ExprNode parseExpression() { return parseComparisonExpression(); }
 
     private ExprNode parseComparisonExpression() {
         Token startToken = currentToken();
         ExprNode left = parseAdditiveExpression();
-        while (match(EQ, NEQ, GT, LT, GTE, LTE)) {
+        
+        if (match(EQ, NEQ, GT, LT, GTE, LTE)) {
             Token op = consume();
+            
+            if (match(ALL, ANY)) {
+                return parseEqualityChain(left, op.text);
+            }
+            
             ExprNode right = parseAdditiveExpression();
             left = ASTFactory.createBinaryOp(left, op.text, right);
             setNodePosition(left, startToken);
         }
         return left;
+    }
+
+    private ExprNode parseEqualityChain(ExprNode left, String operator) {
+        Token startToken = currentToken();
+        Token chainTypeToken = consume();
+        boolean isAllChain = chainTypeToken.type == ALL;
+        
+        consume(LPAREN);
+        
+        List<ExprNode> chainArgs = new ArrayList<ExprNode>();
+        if (!match(RPAREN)) {
+            chainArgs.add(parseChainArgument());
+            while (tryConsume(COMMA)) {
+                chainArgs.add(parseChainArgument());
+            }
+        }
+        consume(RPAREN);
+        
+        EqualityChainNode chain = ASTFactory.createEqualityChain(left, operator, isAllChain, chainArgs);
+        setNodePosition(chain, startToken);
+        return chain;
     }
 
     private ExprNode parseAdditiveExpression() {
@@ -640,6 +625,13 @@ public class ManualCoderiveParser {
 
      private ExprNode parseUnaryExpression() {
         Token startToken = currentToken();
+        if (match(BANG)) {
+            Token op = consume();
+            ExprNode operand = parsePrimaryExpression();
+            UnaryNode unary = ASTFactory.createUnaryOp(op.text, operand);
+            setNodePosition(unary, startToken);
+            return unary;
+        }
         if (match(PLUS, MINUS)) {
             Token op = consume();
             ExprNode operand = parsePrimaryExpression();
@@ -714,8 +706,6 @@ public class ManualCoderiveParser {
         return baseExpr;
     }
 
-    // --- Sub-Expression and Grammar Rule Parsers ---
-
     private MethodCallNode parseMethodCall() {
         Token startToken = currentToken();
         String qualifiedNameStr = parseQualifiedName();
@@ -727,6 +717,11 @@ public class ManualCoderiveParser {
         setNodePosition(call, startToken);
 
         consume(LPAREN);
+        
+        if (match(ALL, ANY)) {
+            return parseConditionalChainCall(call);
+        }
+        
         if (!match(RPAREN)) {
             call.arguments.add(parseExpression());
             while (tryConsume(COMMA)) {
@@ -735,6 +730,41 @@ public class ManualCoderiveParser {
         }
         consume(RPAREN);
         return call;
+    }
+
+    private MethodCallNode parseConditionalChainCall(MethodCallNode call) {
+        Token chainTypeToken = consume();
+        boolean isAllChain = chainTypeToken.type == ALL;
+        call.chainType = isAllChain ? "all" : "any";
+        
+        boolean hasParens = tryConsume(LPAREN);
+        
+        List<ExprNode> chainArgs = new ArrayList<ExprNode>();
+        if (!match(RPAREN)) {
+            chainArgs.add(parseChainArgument());
+            while (tryConsume(COMMA)) {
+                chainArgs.add(parseChainArgument());
+            }
+        }
+        
+        if (hasParens) {
+            consume(RPAREN);
+        }
+        
+        call.chainArguments = chainArgs;
+        return call;
+    }
+
+    private ExprNode parseChainArgument() {
+        if (match(BANG)) {
+            consume(BANG);
+            ExprNode arg = parsePrimaryExpression();
+            UnaryNode negatedArg = ASTFactory.createUnaryOp("!", arg);
+            setNodePosition(negatedArg, currentToken());
+            return negatedArg;
+        }
+        
+        return parsePrimaryExpression();
     }
 
      private IndexAccessNode parseIndexAccessContinuation(ExprNode arrayExpr) {
@@ -760,7 +790,16 @@ public class ManualCoderiveParser {
 
     private List<String> parseReturnSlots() {
         consume(LBRACKET);
-        List<String> slots = parseIdList();
+        List<String> slots = new ArrayList<String>();
+        do {
+            if (match(ID)) {
+                slots.add(consume(ID).text);
+            } else if (match(INT_LIT)) {
+                slots.add(consume(INT_LIT).text);
+            } else {
+                throw new ParseError("Expected slot name or index, found " + currentToken().text);
+            }
+        } while (tryConsume(COMMA));
         consume(RBRACKET);
         return slots;
     }
@@ -780,7 +819,6 @@ public class ManualCoderiveParser {
         Token paramNameToken = currentToken();
         String name = consume(ID).text;
         
-        // ENFORCE: No PascalCase for parameters
         NamingValidator.validateParameterName(name, paramNameToken);
         
         ParamNode param = ASTFactory.createParam(name, type);
@@ -788,9 +826,6 @@ public class ManualCoderiveParser {
         return param;
     }
 
-    // --- Predicate Methods ---
-
-    // --- PREDICATES MODIFIED ---
     private boolean isSlotDeclaration() {
         try {
             return tokens.get(position).type == TILDE_BAR;
@@ -801,15 +836,12 @@ public class ManualCoderiveParser {
 
     private boolean isSlotAssignment() {
         try {
-            // Must be '~>' followed by something valid
             if (tokens.get(position).type != TILDE_ARROW) return false;
             if (position + 1 >= tokens.size()) return false;
             
-            // Check if followed by ID or expression start
             int nextPos = position + 1;
             Token nextToken = tokens.get(nextPos);
             
-            // Valid if followed by ID, literal, or expression start
             return nextToken.type == ID || 
                    nextToken.type == INT_LIT ||
                    nextToken.type == FLOAT_LIT ||
@@ -831,29 +863,23 @@ public class ManualCoderiveParser {
     private boolean isMethodDeclaration() {
         int p = position; 
         try { 
-            // Check for slot declaration (~|)
             if (tokens.get(p).type == TILDE_BAR) { 
-                p++; // Skip past ~|
-                while(p < tokens.size() && (tokens.get(p).type == ID || tokens.get(p).type == COMMA)) {
-                    p++; // Skip past id list
+                p++;
+                while(p < tokens.size() && (isTypeStart(tokens.get(p)) || tokens.get(p).type == ID || tokens.get(p).type == COMMA || tokens.get(p).type == LBRACKET || tokens.get(p).type == RBRACKET)) {
+                    p++; 
                 }
             }
             
-            // Check for builtin modifier OR visibility modifier
             if (tokens.get(p).type == BUILTIN || isVisibilityModifier(tokens.get(p))) {
                 p++; 
             }
             
-            // Must have ID (method name)
             if (p >= tokens.size() || tokens.get(p).type != ID) return false; 
             p++; 
             
-            // Must have LPAREN for parameters
             if (p >= tokens.size() || tokens.get(p).type != LPAREN) return false;
             p++;
             
-            // After parameters, must have either TILDE_ARROW or LBRACE
-            // Skip parameters and RPAREN
             int parenDepth = 1;
             while (p < tokens.size() && parenDepth > 0) {
                 if (tokens.get(p).type == LPAREN) parenDepth++;
@@ -861,10 +887,8 @@ public class ManualCoderiveParser {
                 p++;
             }
             
-            // Now check what comes after parameters
             if (p >= tokens.size()) return false;
             
-            // Valid if followed by ~> (single expression) or { (block)
             return tokens.get(p).type == TILDE_ARROW || 
                    tokens.get(p).type == LBRACE;
         } catch (IndexOutOfBoundsException e) { 
@@ -880,20 +904,13 @@ public class ManualCoderiveParser {
          int p = position; try { if (tokens.get(p++).type != ID) return false; if (tokens.get(p++).type != ASSIGN) return false; if (tokens.get(p++).type != LPAREN) return false; if (!isTypeStart(tokens.get(p))) return false; p++; while (p < tokens.size() && tokens.get(p).type == LBRACKET) { if (p + 1 < tokens.size() && tokens.get(p + 1).type == RBRACKET) { p += 2; } else { return false; } } if (p >= tokens.size() || tokens.get(p++).type != RPAREN) return false; return p < tokens.size() && tokens.get(p).type == INPUT; } catch (IndexOutOfBoundsException e) { return false; }
      }
 
-     // --- Fixed Simple Assignment Predicate ---
      private boolean isSimpleAssignment() {
          int p = position;
          try {
-             if (tokens.get(p).type != ID) return false; // Must start with ID
-             // Check NOT index assignment: token after ID should not be LBRACKET
+             if (tokens.get(p).type != ID) return false;
              if (p + 1 < tokens.size() && tokens.get(p + 1).type == LBRACKET) return false;
-             // Check IS followed by ASSIGN
              if (p + 1 >= tokens.size() || tokens.get(p + 1).type != ASSIGN) return false;
-             // Check NOT input assignment: token after ASSIGN is not LPAREN
              if (p + 2 < tokens.size() && tokens.get(p + 2).type == LPAREN) return false;
-             // REMOVED check for LBRACKET after ASSIGN
-
-             // If it passed all the above, it's a simple assignment
              return true;
          } catch (IndexOutOfBoundsException e) {
              return false;
@@ -909,7 +926,10 @@ public class ManualCoderiveParser {
      }
 
     private boolean isReturnSlotAssignment() {
-        int p = position; try { if (tokens.get(p++).type != ID) return false; while (p < tokens.size() && tokens.get(p).type == COMMA) { p++; if (p >= tokens.size() || tokens.get(p++).type != ID) return false; } if (p >= tokens.size() || tokens.get(p++).type != ASSIGN) return false; if (p >= tokens.size() || tokens.get(p++).type != LBRACKET) return false; if (p >= tokens.size() || tokens.get(p++).type != ID) return false; while (p < tokens.size() && tokens.get(p).type == COMMA) { p++; if (p >= tokens.size() || tokens.get(p++).type != ID) return false; } if (p >= tokens.size() || tokens.get(p++).type != RBRACKET) return false; return p < tokens.size() && tokens.get(p).type == COLON; } catch (IndexOutOfBoundsException e) { return false; }
+        int p = position; try { if (tokens.get(p++).type != ID) return false; while (p < tokens.size() && tokens.get(p).type == COMMA) { p++; if (p >= tokens.size() || tokens.get(p++).type != ID) return false; } if (p >= tokens.size() || tokens.get(p++).type != ASSIGN) return false; if (p >= tokens.size() || tokens.get(p++).type != LBRACKET) return false; 
+        if (p >= tokens.size()) return false;
+        if (tokens.get(p).type == ID || tokens.get(p).type == INT_LIT) { p++; } else { return false; }
+        while (p < tokens.size() && tokens.get(p).type == COMMA) { p++; if (p >= tokens.size()) return false; if (tokens.get(p).type == ID || tokens.get(p).type == INT_LIT) { p++; } else { return false; } } if (p >= tokens.size() || tokens.get(p++).type != RBRACKET) return false; return p < tokens.size() && tokens.get(p).type == COLON; } catch (IndexOutOfBoundsException e) { return false; }
     }
 
     private boolean isVariableDeclaration() {
@@ -921,10 +941,10 @@ public class ManualCoderiveParser {
     }
 
     private boolean isMethodCallStatement() {
-        int p = position; try { if (tokens.get(p).type == LBRACKET) { p++; if (tokens.get(p).type != ID) return false; p++; while(p < tokens.size() && tokens.get(p).type == COMMA) { p+=2; } if (p >= tokens.size() || tokens.get(p).type != RBRACKET) return false; p++; if (p >= tokens.size() || tokens.get(p).type != COLON) return false; p++; } if (tokens.get(p).type != ID) return false; p++; while(p < tokens.size() && tokens.get(p).type == DOT) { p++; if (p >= tokens.size() || tokens.get(p).type != ID) return false; p++; } return p < tokens.size() && tokens.get(p).type == LPAREN; } catch (IndexOutOfBoundsException e) { return false; }
+        int p = position; try { if (tokens.get(p).type == LBRACKET) { p++; 
+        if (tokens.get(p).type == ID || tokens.get(p).type == INT_LIT) { p++; } else { return false; }
+        while(p < tokens.size() && tokens.get(p).type == COMMA) { p+=2; } if (p >= tokens.size() || tokens.get(p).type != RBRACKET) return false; p++; if (p >= tokens.size() || tokens.get(p).type != COLON) return false; p++; } if (tokens.get(p).type != ID) return false; p++; while(p < tokens.size() && tokens.get(p).type == DOT) { p++; if (p >= tokens.size() || tokens.get(p).type != ID) return false; p++; } return p < tokens.size() && tokens.get(p).type == LPAREN; } catch (IndexOutOfBoundsException e) { return false; }
     }
-
-    // --- Utility and Helper Methods ---
 
     private String parseQualifiedName() {
         StringBuilder name = new StringBuilder();
@@ -972,8 +992,6 @@ public class ManualCoderiveParser {
           if (token == null) return false;
          return token.type == SHARE || token.type == LOCAL;
      }
-
-    // --- Token Stream Navigation ---
 
     private Token currentToken() {
         return (position >= tokens.size()) ? tokens.get(tokens.size() - 1) : tokens.get(position);

@@ -5,7 +5,6 @@ import java.util.*;
 
 public class ASTFactory {
     
-    // Program creation
     public static ProgramNode createProgram() {
         return new ProgramNode();
     }
@@ -25,7 +24,6 @@ public class ASTFactory {
         return getNode;
     }
     
-    // Type creation
     public static TypeNode createType(String name, String visibility, String extendName) {
         TypeNode type = new TypeNode();
         type.name = name;
@@ -37,7 +35,6 @@ public class ASTFactory {
         return type;
     }
     
-    // Field creation
     public static FieldNode createField(String name, String type, ExprNode value) {
         FieldNode field = new FieldNode();
         field.name = name;
@@ -50,10 +47,6 @@ public class ASTFactory {
         return createField(name, type, null);
     }
 
-    /**
-     * Renamed method to resolve ambiguity.
-     * This is called by the parser for field declarations like 'public string name'.
-     */
     public static FieldNode createFieldWithVisibility(String name, String type, String visibility) {
         FieldNode field = new FieldNode();
         field.name = name;
@@ -62,14 +55,13 @@ public class ASTFactory {
         return field;
     }
     
-public static AssignmentNode createAssignment(ExprNode target, ExprNode value) {
-    AssignmentNode assignment = new AssignmentNode();
-    assignment.left = target;
-    assignment.right = value;
-    return assignment;
-}
+    public static AssignmentNode createAssignment(ExprNode target, ExprNode value) {
+        AssignmentNode assignment = new AssignmentNode();
+        assignment.left = target;
+        assignment.right = value;
+        return assignment;
+    }
 
-    // Constructor creation
     public static ConstructorNode createConstructor() {
         ConstructorNode cons = new ConstructorNode();
         cons.parameters = new ArrayList<ParamNode>();
@@ -77,25 +69,16 @@ public static AssignmentNode createAssignment(ExprNode target, ExprNode value) {
         return cons;
     }
     
-    // Method creation
-    public static MethodNode createMethod(String name, String visibility, List<String> returnSlots) {
+    public static MethodNode createMethod(String name, String visibility, List<SlotNode> returnSlots) {
         MethodNode method = new MethodNode();
         method.name = name;
         method.visibility = visibility;
-        method.returnSlots = new ArrayList<SlotNode>();
+        method.returnSlots = returnSlots != null ? returnSlots : new ArrayList<SlotNode>();
         method.parameters = new ArrayList<ParamNode>();
         method.body = new ArrayList<StatementNode>();
-        
-        if (returnSlots != null) {
-            for (String slotName : returnSlots) {
-                method.returnSlots.add(createSlot(slotName));
-            }
-        }
-        
         return method;
     }
     
-    // Parameter creation
     public static ParamNode createParam(String name, String type) {
         ParamNode param = new ParamNode();
         param.name = name;
@@ -103,14 +86,13 @@ public static AssignmentNode createAssignment(ExprNode target, ExprNode value) {
         return param;
     }
     
-    // Slot creation
-    public static SlotNode createSlot(String name) {
+    public static SlotNode createSlot(String type, String name) {
         SlotNode slot = new SlotNode();
+        slot.type = type;
         slot.name = name;
         return slot;
     }
     
-    // Expression creation
     public static ExprNode createIdentifier(String name) {
         ExprNode node = new ExprNode();
         node.name = name;
@@ -149,6 +131,15 @@ public static AssignmentNode createAssignment(ExprNode target, ExprNode value) {
         return node;
     }
     
+    public static EqualityChainNode createEqualityChain(ExprNode left, String operator, boolean isAllChain, List<ExprNode> chainArguments) {
+        EqualityChainNode chain = new EqualityChainNode();
+        chain.left = left;
+        chain.operator = operator;
+        chain.isAllChain = isAllChain;
+        chain.chainArguments = chainArguments != null ? chainArguments : new ArrayList<ExprNode>();
+        return chain;
+    }
+    
     public static UnaryNode createUnaryOp(String op, ExprNode operand) {
         UnaryNode node = new UnaryNode();
         node.op = op;
@@ -163,24 +154,24 @@ public static AssignmentNode createAssignment(ExprNode target, ExprNode value) {
         return node;
     }
     
-public static SlotAssignmentNode createImplicitReturn(ExprNode returnExpr) {
-    SlotAssignmentNode returnStmt = new SlotAssignmentNode();
-    returnStmt.slotName = "return";
-    returnStmt.value = returnExpr;
-    return returnStmt;
-}
+    public static SlotAssignmentNode createImplicitReturn(ExprNode returnExpr) {
+        SlotAssignmentNode returnStmt = new SlotAssignmentNode();
+        returnStmt.slotName = "return";
+        returnStmt.value = returnExpr;
+        return returnStmt;
+    }
     
-    // Method call creation
     public static MethodCallNode createMethodCall(String name, String qualifiedName) {
         MethodCallNode call = new MethodCallNode();
         call.name = name;
         call.qualifiedName = qualifiedName;
         call.arguments = new ArrayList<ExprNode>();
         call.slotNames = new ArrayList<String>();
+        call.chainType = null;
+        call.chainArguments = null;
         return call;
     }
     
-    // Array creation
     public static ArrayNode createArray(List<ExprNode> elements) {
         ArrayNode array = new ArrayNode();
         array.elements = elements != null ? elements : new ArrayList<ExprNode>();
@@ -191,7 +182,6 @@ public static SlotAssignmentNode createImplicitReturn(ExprNode returnExpr) {
         return createArray(null);
     }
     
-    // Index access creation
     public static IndexAccessNode createIndexAccess(ExprNode array, ExprNode index) {
         IndexAccessNode node = new IndexAccessNode();
         node.array = array;
@@ -199,7 +189,6 @@ public static SlotAssignmentNode createImplicitReturn(ExprNode returnExpr) {
         return node;
     }
     
-    // Control structures
     public static IfNode createIf(ExprNode condition) {
         IfNode ifNode = new IfNode();
         ifNode.condition = condition;
@@ -217,15 +206,13 @@ public static SlotAssignmentNode createImplicitReturn(ExprNode returnExpr) {
     }
     
     public static RangeNode createRange(ExprNode step, ExprNode start, ExprNode end) {
-    RangeNode range = new RangeNode();
-    range.step = step;
-    range.start = start;
-    range.end = end;
-    return range;
-}
-
+        RangeNode range = new RangeNode();
+        range.step = step;
+        range.start = start;
+        range.end = end;
+        return range;
+    }
     
-    // Block creation
     public static BlockNode createBlock() {
         return new BlockNode();
     }
@@ -234,7 +221,6 @@ public static SlotAssignmentNode createImplicitReturn(ExprNode returnExpr) {
         return new BlockNode(statements);
     }
     
-    // Variable and input/output
     public static VarNode createVar(String name, ExprNode value) {
         VarNode var = new VarNode();
         var.name = name;
@@ -260,7 +246,6 @@ public static SlotAssignmentNode createImplicitReturn(ExprNode returnExpr) {
         return createOutput(null);
     }
     
-    // Return slot assignment
     public static ReturnSlotAssignmentNode createReturnSlotAssignment(List<String> variableNames, MethodCallNode methodCall) {
         ReturnSlotAssignmentNode assignment = new ReturnSlotAssignmentNode();
         assignment.variableNames = variableNames;
@@ -268,8 +253,6 @@ public static SlotAssignmentNode createImplicitReturn(ExprNode returnExpr) {
         return assignment;
     }
     
-    // --- NEW SLOT NODES ---
-
     public static SlotDeclarationNode createSlotDeclaration(List<String> slotNames) {
         SlotDeclarationNode node = new SlotDeclarationNode();
         node.slotNames = slotNames;
@@ -284,8 +267,8 @@ public static SlotAssignmentNode createImplicitReturn(ExprNode returnExpr) {
     }
     
     public static MultipleSlotAssignmentNode createMultipleSlotAssignment(List<SlotAssignmentNode> assignments) {
-    MultipleSlotAssignmentNode node = new MultipleSlotAssignmentNode();
-    node.assignments = assignments;
-    return node;
-}
+        MultipleSlotAssignmentNode node = new MultipleSlotAssignmentNode();
+        node.assignments = assignments;
+        return node;
+    }
 }
