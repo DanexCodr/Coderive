@@ -1,23 +1,7 @@
 package cod;
 
-/* *
-     *
-     * This class is for centralization of keywords ensuring that strings won't break anything in the language internal codes.
-     *
-     * */
-
 public class Constants {
 
-/* * * *
-     * KEYWORD TERMINOLOGIES and their EQUIVALENTS
-     * unit  -  "package" if in java language.
-     * get  -  "import" or "include" in any other languages.
-     * ship  -   "public" or "pub" in any other programming  langages.
-     * local  -  "private" in any other programming languages.
-     *
- * * * */
-
-    // For lower case
     public static final String
             share = "share",
             local = "local",
@@ -28,8 +12,6 @@ public class Constants {
             var = "var",
             input_ = "input",
             output = "output",
-
-            // Newly added constants
             if_ = "if",
             else_ = "else",
             elif_ = "elif",
@@ -44,10 +26,10 @@ public class Constants {
             true_ = "true",
             false_ = "false",
             builtin = "builtin",
-            native_ = "native"
+            all = "all",
+            any = "any"
             ;
     
-    // For upper case
     public static final String
             _share = "share", 
             _local = "LOCAL",
@@ -57,8 +39,6 @@ public class Constants {
             _this = "THIS",
             _var = "VAR",
             _output = "OUTPUT",
-
-            // Newly added token names
             _input = "INPUT",
             _if = "IF",
             _else = "ELSE",
@@ -71,8 +51,6 @@ public class Constants {
             _string = "STRING",
             _float = "FLOAT",
             _bool = "BOOL",
-            
-            // Other Token Names
             _eof = "EOF",
             _int_lit = "INT_LIT",
             _float_lit = "FLOAT_LIT",
@@ -105,8 +83,14 @@ public class Constants {
             _mul_assign = "MUL_ASSIGN",
             _div_assign = "DIV_ASSIGN",
             _builtin = "BUILTIN",
-            _native = "NATIVE",
+            _all = "ALL",
+            _any = "ANY",
+            _bang = "BANG",
+            _tilde_bar = "TILDE_BAR",
+            _tilde_arrow = "TILDE_ARROW",
+            _line_comment = "LINE_COMMENT",
+            _block_comment = "BLOCK_COMMENT",
+            _ws = "WS",
             _invalid = "INVALID"
             ;
-
 }
