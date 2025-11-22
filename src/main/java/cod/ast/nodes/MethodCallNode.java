@@ -7,5 +7,6 @@ public class MethodCallNode extends ExprNode {
     public List<String> slotNames = new ArrayList<>();
     public String qualifiedName;
     
-    // Remove all ANTLR imports and references
+    public String chainType;
+    public List<ExprNode> chainArguments;
 }
