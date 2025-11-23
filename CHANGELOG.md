@@ -1,6 +1,6 @@
 ## Changelog
 
-**v0.1.3** [Conditional Chain Revolution Begins] - November 23, 2025
+**v0.2.0** [Conditional Chain Revolution Begins] - November 23, 2025
 
 
 **· GROUNDBREAKING FEATURE:** Added conditional chain syntax with 'any:' and 'all:'.
