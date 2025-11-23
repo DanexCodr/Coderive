@@ -140,6 +140,14 @@ public class ASTFactory {
         return chain;
     }
     
+        public static BooleanChainNode createBooleanChain(boolean isAll, List<ExprNode> expressions) {
+        BooleanChainNode node = new BooleanChainNode();
+        node.isAll = isAll;
+        node.expressions = expressions != null ? expressions : new ArrayList<ExprNode>();
+        return node;
+    }
+
+    
     public static UnaryNode createUnaryOp(String op, ExprNode operand) {
         UnaryNode node = new UnaryNode();
         node.op = op;

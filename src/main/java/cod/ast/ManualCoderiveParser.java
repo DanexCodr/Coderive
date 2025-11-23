@@ -558,11 +558,69 @@ public class ManualCoderiveParser {
          return expr;
     }
 
-    private ExprNode parseExpression() { return parseComparisonExpression(); }
+private ExprNode parseExpression() {
+        if (match(ALL, ANY)) {
+            return parseBooleanChain();
+        }
+        return parseComparisonExpression();
+    }
+
+    
+    private ExprNode parseBooleanChain() {
+        Token startToken = currentToken();
+        Token typeToken = consume();
+        boolean isAll = typeToken.type == ALL;        
+        if (match(ID)) {
+
+             ExprNode arrayExpr = ASTFactory.createIdentifier(consume().text);
+
+             if (match(EQ, NEQ, GT, LT, GTE, LTE)) {
+                 Token op = consume();
+
+                 ExprNode right = parseAdditiveExpression();                
+
+                 List<ExprNode> chainArgs = new ArrayList<ExprNode>();
+                 chainArgs.add(right);
+
+                 EqualityChainNode chain = ASTFactory.createEqualityChain(arrayExpr, op.text, isAll, chainArgs);
+                 setNodePosition(chain, startToken);
+                 return chain;
+             } else {
+                 throw new ParseError("Expected comparison operator after 'all/any <arrayName>' but found " +
+                         getTypeName(currentToken().type) + " ('" + currentToken().text +
+                         "') at line " + currentToken().line + ":" + currentToken().column);
+             }
+        } else {
+            consume(LBRACKET); 
+            List<ExprNode> expressions = new ArrayList<ExprNode>();
+
+            if (!match(RBRACKET)) {
+                 expressions.add(parseExpression());              
+                 if (!match(COMMA) && !match(RBRACKET)) {
+                     throw new ParseError("Boolean chain requires at least two expressions or a comma after the first expression.");
+                 }                 
+                 while (tryConsume(COMMA)) {
+                     expressions.add(parseExpression());
+                 }
+            }
+            consume(RBRACKET);
+            BooleanChainNode node = ASTFactory.createBooleanChain(isAll, expressions);
+            if (node != null) {
+                 node.setSourcePosition(startToken.line, startToken.column);
+            }
+            return node;
+        }
+    }
 
     private ExprNode parseComparisonExpression() {
         Token startToken = currentToken();
         ExprNode left = parseAdditiveExpression();
+        
+        // --- NEW: Check for reverse equality chain (e.g., 'x == any[...]') ---
+        if (match(EQ, NEQ, GT, LT, GTE, LTE) && isEqualityChainReverse()) {
+            Token op = consume();
+            return parseEqualityChain(left, op.text);
+        }
         
         if (match(EQ, NEQ, GT, LT, GTE, LTE)) {
             Token op = consume();
@@ -578,25 +636,51 @@ public class ManualCoderiveParser {
         return left;
     }
 
-    private ExprNode parseEqualityChain(ExprNode left, String operator) {
+        private ExprNode parseEqualityChain(ExprNode left, String operator) {
         Token startToken = currentToken();
         Token chainTypeToken = consume();
         boolean isAllChain = chainTypeToken.type == ALL;
         
-        consume(LPAREN);
+        // --- UPDATED: Looking for LBRACKET instead of LPAREN ---
+        consume(LBRACKET);
         
         List<ExprNode> chainArgs = new ArrayList<ExprNode>();
-        if (!match(RPAREN)) {
+        // --- UPDATED: Looking for RBRACKET instead of RPAREN ---
+        if (!match(RBRACKET)) {
             chainArgs.add(parseChainArgument());
             while (tryConsume(COMMA)) {
                 chainArgs.add(parseChainArgument());
             }
         }
-        consume(RPAREN);
+        // --- UPDATED: Consuming RBRACKET instead of RPAREN ---
+        consume(RBRACKET);
         
         EqualityChainNode chain = ASTFactory.createEqualityChain(left, operator, isAllChain, chainArgs);
         setNodePosition(chain, startToken);
         return chain;
+    }
+
+        private MethodCallNode parseConditionalChainCall(MethodCallNode call) {
+        Token chainTypeToken = consume();
+        boolean isAllChain = chainTypeToken.type == ALL;
+        call.chainType = isAllChain ? "all" : "any";
+        
+        // --- UPDATED: Mandate LBRACKET and RBRACKET for chain arguments ---
+        consume(LBRACKET);
+        
+        List<ExprNode> chainArgs = new ArrayList<ExprNode>();
+        if (!match(RBRACKET)) {
+            chainArgs.add(parseChainArgument());
+            while (tryConsume(COMMA)) {
+                chainArgs.add(parseChainArgument());
+            }
+        }
+        
+        // --- UPDATED: Consume RBRACKET ---
+        consume(RBRACKET);
+        
+        call.chainArguments = chainArgs;
+        return call;
     }
 
     private ExprNode parseAdditiveExpression() {
@@ -729,29 +813,6 @@ public class ManualCoderiveParser {
             }
         }
         consume(RPAREN);
-        return call;
-    }
-
-    private MethodCallNode parseConditionalChainCall(MethodCallNode call) {
-        Token chainTypeToken = consume();
-        boolean isAllChain = chainTypeToken.type == ALL;
-        call.chainType = isAllChain ? "all" : "any";
-        
-        boolean hasParens = tryConsume(LPAREN);
-        
-        List<ExprNode> chainArgs = new ArrayList<ExprNode>();
-        if (!match(RPAREN)) {
-            chainArgs.add(parseChainArgument());
-            while (tryConsume(COMMA)) {
-                chainArgs.add(parseChainArgument());
-            }
-        }
-        
-        if (hasParens) {
-            consume(RPAREN);
-        }
-        
-        call.chainArguments = chainArgs;
         return call;
     }
 
@@ -921,9 +982,50 @@ public class ManualCoderiveParser {
         int p = position; try { if (tokens.get(p++).type != ID) return false; if (p >= tokens.size() || tokens.get(p++).type != LBRACKET) return false; int bd = 1; while (p < tokens.size() && bd > 0) { if (tokens.get(p).type == LBRACKET) bd++; else if (tokens.get(p).type == RBRACKET) bd--; p++; } if (bd != 0) return false; while (p < tokens.size() && tokens.get(p).type == LBRACKET) { p++; bd = 1; while (p < tokens.size() && bd > 0) { if (tokens.get(p).type == LBRACKET) bd++; else if (tokens.get(p).type == RBRACKET) bd--; p++; } if (bd != 0) return false; } return p < tokens.size() && tokens.get(p).type == ASSIGN; } catch (IndexOutOfBoundsException e) { return false; }
     }
 
-     private boolean isMethodCallFollows() {
-         int p = position; try { if (tokens.get(p).type != ID) return false; p++; while(p < tokens.size() && tokens.get(p).type == DOT) { p++; if (p >= tokens.size() || tokens.get(p).type != ID) return false; p++; } return p < tokens.size() && tokens.get(p).type == LPAREN; } catch (IndexOutOfBoundsException e) { return false; }
+          private boolean isMethodCallFollows() {
+         int p = position; 
+         try { 
+             if (tokens.get(p).type != ID) return false; 
+             p++; 
+             while(p < tokens.size() && tokens.get(p).type == DOT) { 
+                 p++; 
+                 if (p >= tokens.size() || tokens.get(p).type != ID) return false; 
+                 p++; 
+             } 
+             if (p >= tokens.size() || tokens.get(p).type != LPAREN) return false;
+             p++; 
+             
+             if (p < tokens.size() && (tokens.get(p).type == ALL || tokens.get(p).type == ANY)) {
+                 p++; 
+                 return p < tokens.size() && tokens.get(p).type == LBRACKET;
+             }
+             
+             return true; 
+         } catch (IndexOutOfBoundsException e) { 
+             return false; 
+         }
      }
+     
+    // --- NEW: Helper for reverse equality chain ---
+    private boolean isEqualityChainReverse() {
+        int p = position;
+        try {
+            // Check for Operator
+            if (tokens.get(p).type != EQ && tokens.get(p).type != NEQ &&
+                tokens.get(p).type != GT && tokens.get(p).type != LT &&
+                tokens.get(p).type != GTE && tokens.get(p).type != LTE) return false;
+            p++;
+            
+            // Check for ALL/ANY followed by LBRACKET
+            if (tokens.get(p).type != ALL && tokens.get(p).type != ANY) return false;
+            p++;
+            
+            return tokens.get(p).type == LBRACKET;
+        } catch (IndexOutOfBoundsException e) {
+            return false;
+        }
+    }
+
 
     private boolean isReturnSlotAssignment() {
         int p = position; try { if (tokens.get(p++).type != ID) return false; while (p < tokens.size() && tokens.get(p).type == COMMA) { p++; if (p >= tokens.size() || tokens.get(p++).type != ID) return false; } if (p >= tokens.size() || tokens.get(p++).type != ASSIGN) return false; if (p >= tokens.size() || tokens.get(p++).type != LBRACKET) return false; 
