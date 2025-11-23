@@ -30,6 +30,7 @@ share InteractiveDemo {
     // Method with single expression
     local add(int a, int b) ~> a + b
 
+    // TBA: This should fail the compilation but for now doesn't yet.
     ~| x, y
     local haha(int a) {
     }
@@ -344,4 +345,5 @@ share InteractiveDemo {
         Sys.outln("=== DEMO COMPLETE ===")
         Sys.outln("Thank you for using Coderive!")
     }
+
 }
