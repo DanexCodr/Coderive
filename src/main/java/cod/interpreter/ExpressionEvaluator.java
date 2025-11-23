@@ -14,8 +14,14 @@ public class ExpressionEvaluator {
         this.interpreter = interpreter;
     }
 
-    public Object evaluate(ExprNode expr, ObjectInstance obj, Map<String, Object> locals) {
+        public Object evaluate(ExprNode expr, ObjectInstance obj, Map<String, Object> locals) {
         DebugSystem.trace("EXPRESSIONS", "Evaluating: " + expr.getClass().getSimpleName());
+
+        // --- NEW: Handles 'if all:(A, B)' and 'if any: A, B' ---
+        if (expr instanceof BooleanChainNode) {
+            return evaluateBooleanChain((BooleanChainNode) expr, obj, locals);
+        }
+        // ... (UnaryNode, EqualityChainNode, TypeCastNode, ArrayNode, IndexAccessNode) ...
 
         if (expr instanceof UnaryNode) {
             UnaryNode unary = (UnaryNode) expr;
@@ -82,57 +88,57 @@ public class ExpressionEvaluator {
             }
 
        } else if (expr instanceof BinaryOpNode) {
-    BinaryOpNode binOp = (BinaryOpNode) expr;
-    
-    boolean isForLoopStep = isForLoopStepEvaluation(binOp, obj, locals);
-    
-    if (isAssignmentOperator(binOp.op) && !isForLoopStep) {
-        throw new RuntimeException("Assignment operator '" + binOp.op + "' cannot be used in expressions - use statements instead");
-    }
-    
-    Object left = evaluate(binOp.left, obj, locals);
-    Object right = evaluate(binOp.right, obj, locals);
-    DebugSystem.debug(
-            "EXPRESSIONS", "Binary operation: " + left + " " + binOp.op + " " + right);
+            BinaryOpNode binOp = (BinaryOpNode) expr;
+            
+            boolean isForLoopStep = isForLoopStepEvaluation(binOp, obj, locals);
+            
+            if (isAssignmentOperator(binOp.op) && !isForLoopStep) {
+                throw new RuntimeException("Assignment operator '" + binOp.op + "' cannot be used in expressions - use statements instead");
+            }
+            
+            Object left = evaluate(binOp.left, obj, locals);
+            Object right = evaluate(binOp.right, obj, locals);
+            DebugSystem.debug(
+                    "EXPRESSIONS", "Binary operation: " + left + " " + binOp.op + " " + right);
 
-    switch (binOp.op) {
-        case "+":
-            return (left instanceof String || right instanceof String)
-                    ? String.valueOf(left) + right
-                    : typeSystem.addNumbers(left, right);
-        case "-":
-            return typeSystem.subtractNumbers(left, right);
-        case "*":
-            return typeSystem.multiplyNumbers(left, right);
-        case "/":
-            return typeSystem.divideNumbers(left, right);
-        case "%":
-            return typeSystem.modulusNumbers(left, right);
-        case ">":
-            return typeSystem.compare(left, right) > 0;
-        case "<":
-            return typeSystem.compare(left, right) < 0;
-        case ">=":
-            return typeSystem.compare(left, right) >= 0;
-        case "<=":
-            return typeSystem.compare(left, right) <= 0;
-        case "==":
-            return left.equals(right);
-        case "!=":
-            return !left.equals(right);
-        case "=":
-            return right;
-        case "+=":
-            return typeSystem.addNumbers(left, right);
-        case "-=":
-            return typeSystem.subtractNumbers(left, right);
-        case "*=":
-            return typeSystem.multiplyNumbers(left, right);
-        case "/=":
-            return typeSystem.divideNumbers(left, right);
-        default:
-            throw new RuntimeException("Unknown operator: " + binOp.op);
-    }
+            switch (binOp.op) {
+                case "+":
+                    return (left instanceof String || right instanceof String)
+                            ? String.valueOf(left) + right
+                            : typeSystem.addNumbers(left, right);
+                case "-":
+                    return typeSystem.subtractNumbers(left, right);
+                case "*":
+                    return typeSystem.multiplyNumbers(left, right);
+                case "/":
+                    return typeSystem.divideNumbers(left, right);
+                case "%":
+                    return typeSystem.modulusNumbers(left, right);
+                case ">":
+                    return typeSystem.compare(left, right) > 0;
+                case "<":
+                    return typeSystem.compare(left, right) < 0;
+                case ">=":
+                    return typeSystem.compare(left, right) >= 0;
+                case "<=":
+                    return typeSystem.compare(left, right) <= 0;
+                case "==":
+                    return left.equals(right);
+                case "!=":
+                    return !left.equals(right);
+                case "=":
+                    return right;
+                case "+=":
+                    return typeSystem.addNumbers(left, right);
+                case "-=":
+                    return typeSystem.subtractNumbers(left, right);
+                case "*=":
+                    return typeSystem.multiplyNumbers(left, right);
+                case "/=":
+                    return typeSystem.divideNumbers(left, right);
+                default:
+                    throw new RuntimeException("Unknown operator: " + binOp.op);
+            }
         } else if (expr instanceof MethodCallNode) {
             MethodCallNode call = (MethodCallNode) expr;
             
@@ -194,55 +200,133 @@ public class ExpressionEvaluator {
     }
 
     private Object evaluateEqualityChain(EqualityChainNode chain, ObjectInstance obj, Map<String, Object> locals) {
-        Object leftValue = evaluate(chain.left, obj, locals);
+        
+        // --- NEW: Handle Array-based check (e.g., 'all scores >= 60') ---
+        Object leftObj = evaluate(chain.left, obj, locals);
+        
+        List<Object> targetValues;
+        
+        if (leftObj instanceof List) {
+            // Case 1: Array-based check (e.g., 'all scores >= 60')
+            targetValues = (List<Object>) leftObj;
+        } else {
+            // Case 2: Standard check (e.g., 'x == any[1, 2, 3]') or Reverse Check (e.g., 'any[1, 2, 3] == x')
+            // In both these cases, the "target" of the comparison is the single leftObj
+            targetValues = new ArrayList<Object>();
+            targetValues.add(leftObj);
+        }
+        
         boolean isAllChain = chain.isAllChain;
         boolean result = isAllChain;
         
         DebugSystem.debug("EQUALITY_CHAIN", "Starting " + (isAllChain ? "all" : "any") + " chain with operator: " + chain.operator);
         
-        for (ExprNode chainArg : chain.chainArguments) {
-            Object rightValue = evaluate(chainArg, obj, locals);
-            boolean currentResult;
-            
-            switch (chain.operator) {
-                case "==":
-                    currentResult = leftValue.equals(rightValue);
-                    break;
-                case "!=":
-                    currentResult = !leftValue.equals(rightValue);
-                    break;
-                case ">":
-                    currentResult = typeSystem.compare(leftValue, rightValue) > 0;
-                    break;
-                case "<":
-                    currentResult = typeSystem.compare(leftValue, rightValue) < 0;
-                    break;
-                case ">=":
-                    currentResult = typeSystem.compare(leftValue, rightValue) >= 0;
-                    break;
-                case "<=":
-                    currentResult = typeSystem.compare(leftValue, rightValue) <= 0;
-                    break;
-                default:
-                    throw new RuntimeException("Unsupported operator in equality chain: " + chain.operator);
-            }
-            
-            if (isAllChain) {
-                result = result && currentResult;
-                if (!result) {
-                    DebugSystem.debug("EQUALITY_CHAIN", "ALL chain short-circuited at false");
-                    break;
+        // If it's an array check, the chain arguments must have a single value (e.g., 60)
+        // If it's a standard check, the targetValues has a single value (e.g., x)
+        
+        List<ExprNode> comparisonValues = chain.chainArguments;
+        
+        if (targetValues.size() > 1 && comparisonValues.size() > 1) {
+            throw new RuntimeException("Ambiguous chain: Cannot compare array against array/list of values in an equality chain.");
+        }
+        
+        // --- NEW Logic for array iteration (Case 1) ---
+        if (targetValues.size() > 1) {
+             Object rightValue = comparisonValues.size() == 1 ? evaluate(comparisonValues.get(0), obj, locals) : null;
+             
+             for (Object targetValue : targetValues) {
+                 boolean currentResult = compareValues(targetValue, chain.operator, rightValue);
+
+                 if (isAllChain) {
+                    result = result && currentResult;
+                    if (!result) {
+                        DebugSystem.debug("EQUALITY_CHAIN", "ALL array chain short-circuited at false");
+                        break;
+                    }
+                } else {
+                    result = result || currentResult;
+                    if (result) {
+                        DebugSystem.debug("EQUALITY_CHAIN", "ANY array chain short-circuited at true");
+                        break;
+                    }
                 }
-            } else {
-                result = result || currentResult;
-                if (result) {
-                    DebugSystem.debug("EQUALITY_CHAIN", "ANY chain short-circuited at true");
-                    break;
+             }
+             
+        } else {
+            // --- Original Logic for single-value check (Case 2 and Reverse) ---
+            Object fixedLeftValue = targetValues.get(0);
+            
+            for (ExprNode chainArg : comparisonValues) {
+                Object rightValue = evaluate(chainArg, obj, locals);
+                boolean currentResult = compareValues(fixedLeftValue, chain.operator, rightValue);
+                
+                if (isAllChain) {
+                    result = result && currentResult;
+                    if (!result) {
+                        DebugSystem.debug("EQUALITY_CHAIN", "ALL chain short-circuited at false");
+                        break;
+                    }
+                } else {
+                    result = result || currentResult;
+                    if (result) {
+                        DebugSystem.debug("EQUALITY_CHAIN", "ANY chain short-circuited at true");
+                        break;
+                    }
                 }
             }
         }
         
         DebugSystem.debug("EQUALITY_CHAIN", "Equality chain result: " + result);
+        return result;
+    }
+    
+    // --- NEW: Comparison helper method to clean up chain logic ---
+    private boolean compareValues(Object leftValue, String operator, Object rightValue) {
+        switch (operator) {
+            case "==":
+                return leftValue.equals(rightValue);
+            case "!=":
+                return !leftValue.equals(rightValue);
+            case ">":
+                return typeSystem.compare(leftValue, rightValue) > 0;
+            case "<":
+                return typeSystem.compare(leftValue, rightValue) < 0;
+            case ">=":
+                return typeSystem.compare(leftValue, rightValue) >= 0;
+            case "<=":
+                return typeSystem.compare(leftValue, rightValue) <= 0;
+            default:
+                throw new RuntimeException("Unsupported operator in equality chain: " + operator);
+        }
+    }
+
+    private Object evaluateBooleanChain(BooleanChainNode chain, ObjectInstance obj, Map<String, Object> locals) {
+        boolean isAll = chain.isAll;
+        boolean result = isAll; 
+        
+        DebugSystem.debug("BOOL_CHAIN", "Starting " + (isAll ? "all" : "any") + " boolean chain");
+
+        if (isAll) {
+             result = true;
+             for (ExprNode e : chain.expressions) {
+                 Object val = evaluate(e, obj, locals);
+                 if (!isTruthy(val)) {
+                     DebugSystem.debug("BOOL_CHAIN", "ALL chain short-circuited (found false)");
+                     result = false;
+                     break;
+                 }
+             }
+        } else {
+             result = false;
+             for (ExprNode e : chain.expressions) {
+                 Object val = evaluate(e, obj, locals);
+                 if (isTruthy(val)) {
+                     DebugSystem.debug("BOOL_CHAIN", "ANY chain short-circuited (found true)");
+                     result = true;
+                     break;
+                 }
+             }
+        }
         return result;
     }
 
