@@ -7,32 +7,32 @@ get {
 share InteractiveDemo {
     
     // Supporting both else-if and elif
-    ~| formula, operation
+    ~| int formula, string operation
     local calculate(int a, int b, string op) {  
-    if op == "+" {
-         // Separate return assignments
-        ~> formula a + b
-        ~> operation "addition"
-    } else if op == "-" {
-       // One line return assignments
-        ~> formula a - b, operation "subtraction"
-    } else if op == "*" {
-       // implicit one line return assignments
-        ~> a * b, "multiplication"
-    } else if op == "/" {
-       // mixed one line return assignments
-        ~> formula a / b, "division"
-    } else {
-        ~> 0, "unknown"
-   }
-}
+        if op == "+" {
+           // Separate return assignments
+           ~> formula a + b
+           ~> operation "addition"
+         } else if op == "-" {
+           // One line return assignments
+           ~> formula a - b, operation "subtraction"
+         } else if op == "*" {
+           // implicit one line return assignments
+           ~> a * b, "multiplication"
+         } else if op == "/" {
+           // mixed one line return assignments
+           ~> formula a / b, "division"
+          } else {
+           ~> 0, "unknown"
+          }
+    }
 
-// Method with single expression
-local add(int a, int b) ~> a + b
+    // Method with single expression
+    local add(int a, int b) ~> a + b
 
-~| x, y
-local haha(int a) {
-}
+    ~| x, y
+    local haha(int a) {
+    }
 
     
     // Array demonstration
@@ -48,56 +48,76 @@ local haha(int a) {
         numbers[2] = 99
         Sys.outln("After modification: " + numbers)
     }
-    
-    // Input demonstration
+
+    // Input demonstration with ENHANCED VALIDATION
     local getUserInfo() {
         Sys.outln("=== User Registration ===")
-        
+    
         Sys.outln("Enter your name:")
         name = (string) input
-        
+    
         Sys.outln("Enter your age:")
         age = (int) input
-        
+    
         Sys.outln("Enter your height (meters):")
         height = (float) input
-        
+    
         Sys.outln("Are you a student? (true/false)")
         isStudent = (bool) input
-        
-        Sys.outln("")
-        Sys.outln("Registration Complete!")
-        Sys.outln("Name: " + name)
-        Sys.outln("Age: " + age)
-        Sys.outln("Height: " + height + "m")
-        Sys.outln("Student: " + isStudent)
-        
-        if isStudent {
-            Sys.outln("Welcome student " + name + "!")
-        } else {
-            Sys.outln("Welcome " + name + "!")
-        }
-    }
     
-    // Calculator with user input
+        // NEW: Showcasing 'all' for comprehensive validation
+        if all[
+            name != "",
+            age >= 0, 
+            age <= 120,
+            height > 0.0,
+            height < 3.0
+       ] {
+            Sys.outln("")
+            Sys.outln("Registration Complete!")
+            Sys.outln("Name: " + name)
+            Sys.outln("Age: " + age)
+            Sys.outln("Height: " + height + "m")
+            Sys.outln("Student: " + isStudent)
+        
+            // NEW: Showcasing 'any' for role-based greeting
+            if any[isStudent, age < 25] {
+                Sys.outln("Welcome young user " + name + "!")
+            } else {
+                Sys.outln("Welcome " + name + "!")
+            }
+         } else {
+             Sys.outln("")
+             Sys.outln(" Registration Failed: Invalid data provided!")
+         }
+    }
+
+    // Calculator with user input + VALIDATION SHOWCASE
     local interactiveCalculator() {
         Sys.outln("=== Interactive Calculator ===")
-        
+    
         Sys.outln("Enter first number:")
         num1 = (int) input
-        
+    
         Sys.outln("Enter second number:")
         num2 = (int) input
-        
+    
         Sys.outln("Enter operation (+, -, *, /):")
         op = (string) input
+    
+        //  NEW: Showcasing conditional chains for validation!
+        if op == any["+", "-", "*", "/"] {
+            result, operation = [formula, operation]:calculate(num1, num2, op)
         
-        result, operation = [formula, operation]:calculate(num1, num2, op)
-        
-        Sys.outln("")
-        Sys.outln("Calculation Result:")
-        Sys.outln(num1 + " " + op + " " + num2 + " = " + result)
-        Sys.outln("Operation: " + operation)
+            Sys.outln("")
+            Sys.outln("Calculation Result:")
+            Sys.outln(num1 + " " + op + " " + num2 + " = " + result)
+            Sys.outln("Operation: " + operation)
+        } else {
+            Sys.outln("")
+            Sys.outln("Error: '" + op + "' is not a valid operation!")
+            Sys.outln("Please use one of: +, -, *, /")
+        }
     }
     
     // Loop demonstration with input
