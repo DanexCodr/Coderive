@@ -12,6 +12,8 @@
 
 A mobile-first general programming language written primarily in Java 7. The runtime is built in c. It is a dual parser (antlr + manual "recursive backtracking"), dual compilation language (bytecode + native code generation).
 
+Designed to be a go to for **safe, fast, and clear** vibe coding language.
+
 ###### **Development period:** 1 month old
 
 ## Vision
