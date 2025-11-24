@@ -186,14 +186,15 @@ This project is licensed under the [MIT License](/LICENSE).
 
 ## 8. Contact
 
-Have questions or want to contribute? Join our community discussions:
+Have questions or want to contribute? 
+
+Join our community discussions:
 
 · GitHub Discussions - Ask questions and share ideas
 
 · GitHub Issues - Report bugs and problems
 
-· Email: Reach out via GitHub discussions
-
+· Email: danisonnunez001@gmail.com
 ---
 
 <div align="center">
