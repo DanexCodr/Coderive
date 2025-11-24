@@ -134,6 +134,11 @@ Coderive replaces traditional boolean operators with expressive quantifiers:
 
 **No More && and ||**
 
+<div align="center">
+  <img src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/assets/quantifier_estimation.jpg" alt="Quantifier Estimation" width="400">
+</div>
+
+
 Instead of verbose chains:
 
 ```java
