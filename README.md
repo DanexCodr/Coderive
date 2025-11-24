@@ -6,12 +6,6 @@
 
 </div>
 
-
-
-<br>
-
-
-
 | Feature | Language Base | Runtime Base | Development | Project Status | Popularity |
 
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -19,10 +13,6 @@
 | **Status** | ![Java](https://img.shields.io/badge/Java-7-yellow) | **Built in C** | ![Built On](https://img.shields.io/badge/Built%20On-Phone-purple) | ![Status](https://img.shields.io/badge/Status-Active-brightgreen) | [![GitHub Stars](https://img.shields.io/github/stars/DanexCodr/Coderive.svg)](https://github.com/DanexCodr/Coderive/stargazers) |
 
 | **Details** | Written primarily in **Java 7** | Execution engine in C | **Mobile-first** architecture | Actively developed | Check out our stars! |
-
-
-
-<br>
 
 A mobile-first general programming language designed to be a go-to for **safe, fast, and clear** vibe coding. It features a **dual parser** (ANTLR + manual "recursive backtracking") and a **dual compilation** pipeline (bytecode + native code generation).
 
