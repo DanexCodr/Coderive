@@ -10,6 +10,7 @@
   <a href="https://github.com/DanexCodr/Coderive"><img alt="Repository"
     src="https://img.shields.io/badge/Repository-Coderive-536af5?color=536af5&logoColor=white"/></a>
 
+
   <a href="https://github.com/DanexCodr/Coderive/discussions"><img alt="Discussions"
     src="https://img.shields.io/badge/💬%20Discussions-Community-ffc107?color=ffc107&logoColor=white"/></a>
   <a href="https://github.com/DanexCodr/Coderive/issues"><img alt="Issues"
@@ -20,6 +21,7 @@
   <a href="https://github.com/DanexCodr/Coderive/blob/main/LICENSE"><img alt="License"
     src="https://img.shields.io/badge/License-MIT-f5de53?&color=f5de53"/></a>
   <br>
+
   <b>Mobile-First Programming Language</b>
 </div>
 
