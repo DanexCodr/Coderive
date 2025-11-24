@@ -175,7 +175,7 @@ Type System 🔧 In Progress Extended features
 
 7. License
 
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](/LICENSE).
 
 8. Contact
 
