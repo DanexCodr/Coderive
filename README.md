@@ -194,7 +194,8 @@ Join our community discussions:
 
 · GitHub Issues - Report bugs and problems
 
-· Email: danisonnunez001@gmail.com
+· Developer's Email: danisonnunez001@gmail.com
+
 ---
 
 <div align="center">
