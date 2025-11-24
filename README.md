@@ -136,7 +136,7 @@ highly optimized data structures in established languages.
 |-------|------|------|-------|
 |Interpreter|✅ Working|JVM Bytecode|Full language support|
 |Native Compilation|✅ Working|ARM64/x86_64|Advanced register allocation|
-|Quantifier|Performance|✅|Validated All targets|Efficient short-circuiting|
+|Quantifier|✅ Performance|Validated All targets|Efficient short-circuiting|
 
 </div>
 
@@ -173,7 +173,7 @@ Compilation Output
 |Component|Status|Notes|
 |---------|------|-----|
 |Interpreter|✅ Complete|Full language features|
-|Native Code Generation|✅|Complete ARM64/x86_64 support|
+|Native Code Generation|✅ Complete|ARM64/x86_64 support|
 |Register Allocation|✅ Complete|Predictive spilling|
 |String Handling|🔧 In Progress|Enhanced implementation|
 |Type System|🔧 In Progress|Extended features|
