@@ -40,7 +40,7 @@ Coderive features a dual parser system (ANTLR + manual recursive backtracking) a
 Built entirely on mobile devices, Coderive proves that serious compiler development can happen outside traditional environments.
 
 <p align="center">
-  <img width="80%" src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/assets/quantifier_estimation.jpg">
+  <img width="120%" src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/assets/quantifier_estimation.jpg">
 </p>
 
 ## 2. Technical Architecture
