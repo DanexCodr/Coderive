@@ -1,4 +1,4 @@
-# ✨ Coderive v.0.2.3: Mobile-First Systems Language
+# ✨ Coderive v0.2.3: Mobile-First Systems Language
 
 <div align="center">
 
