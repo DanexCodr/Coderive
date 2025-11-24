@@ -127,6 +127,85 @@ java -jar coderive.jar --native program.cod
 - **Hybrid "future-cost" register allocation** with predictive spilling
 - **Dual-parser system** (ANTLR + recursive backtracking) for robust parsing
 - **Multi-target native compilation** from single Java codebase (ARM64/x86_64)
+  
+## 🧠 Logic Revolution: Quantifier-First Design
+
+Coderive replaces traditional boolean operators with expressive quantifiers:
+
+**No More && and ||**
+
+Instead of verbose chains:
+
+```java
+// Traditional languages
+if (name != "" && age >= 0 && age <= 120) {
+if (isAdmin || (isOwner && isActive)) {
+```
+
+Coderive uses clean, declarative quantifiers:
+
+```python
+# Coderive - more readable and less error-prone
+if all[name != "", age >= 0, age <= 120] {
+if any[isAdmin, all[isOwner, isActive]] {
+```
+
+**Key Benefits**
+
+· **More expressive:** Code says what it means
+· **Fewer bugs:** No operator precedence confusion
+· **Better readability:** Intent is immediately clear
+· **Automatic short-circuiting:** Built into the language
+
+**Quick Conversion Guide**
+
+```python
+A && B && C          → all[A, B, C]
+A || B || C          → any[A, B, C] 
+A && (B || C)        → all[A, any[B, C]]
+
+!(any[X, Y])         → all[!X, !Y]  # "De Morgan's Law". Both are valid but depends on use case.
+```
+
+**Real-World Examples**
+
+```python
+# User validation
+if all[name != "", email.contains("@"), age >= 13] {
+    ~> registerUser()
+}
+
+# Permission checks  
+if any[user.isAdmin, all[user.isOwner, user.isActive]] {
+    ~> grantAccess()
+}
+
+# Data filtering
+if all scores >= 60 {  # All scores pass threshold where scores is an array
+    ~> "Everyone passed!"
+}
+```
+## Choosing Your Logical Expression
+
+### When to use `!(any[...])`
+- When you're thinking in terms of "excluding cases"
+- When the `any` check is a conceptual unit
+- When you want to emphasize the negation of a group
+
+### When to use `all[!...]`  
+- When you're thinking in terms of "all must be false"
+- When you want explicit control over evaluation order
+- When the individual negations are meaningful
+
+**Example:**
+
+```python
+# Both work, but express different perspectives:
+if !(any[file.isCorrupted, file.isLocked]) { ... }
+if all[!file.isCorrupted, !file.isLocked] { ... }
+```
+
+> "In Coderive, we provide both forms and let programmers choose based on their intent and performance needs. `!(any[X, Y])` and `all[!X, !Y]` are logically equivalent but express different thinking patterns and have different evaluation characteristics."
 
 ## 🚀 Novel Contributions
 
