@@ -40,7 +40,7 @@ Coderive features a dual parser system (ANTLR + manual recursive backtracking) a
 Built entirely on mobile devices, Coderive proves that serious compiler development can happen outside traditional environments.
 
 <p align="center">
-  <img width="120%" src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/assets/quantifier_estimation.jpg">
+  <img width="90%" src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/assets/quantifier_estimation.jpg">
 </p>
 
 ## 2. Technical Architecture
@@ -162,6 +162,24 @@ java -jar coderive.jar --native program.cod
 [20:26:28.056] [INFO] RUNNER: AST built successfully  
 [20:26:28.068] [INFO] BYTECODE: Compilation complete: 1076 instructions across 9 methods
 [20:26:28.227] [INFO] MTOT: Full compilation pipeline complete.
+```
+
+**Generated Assembly Sample**
+
+A snippet of the resulting ARM64 assembly code from the compilation pipeline:
+
+```assembly
+    .text
+    .global add
+add:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    sub sp, sp, #48
+    // Saving callee-saved registers
+    stp x19, x20, [x29, #-16]
+    // ... ARM64 assembly code
+    mov x0, x23
+    ret
 ```
 
 ## 6. Current Status
