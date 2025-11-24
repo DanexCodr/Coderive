@@ -9,7 +9,8 @@
 <div align="center" style="line-height: 1;">
   <a href="https://github.com/DanexCodr/Coderive"><img alt="Repository"
     src="https://img.shields.io/badge/Project-Coderive-536af5?color=536af5&logoColor=white"/></a>
-<br>
+
+  <br>
 
   <a href="https://github.com/DanexCodr/Coderive/discussions"><img alt="Discussions"
     src="https://img.shields.io/badge/💬%20Discussions-Community-ffc107?color=ffc107&logoColor=white"/></a>
