@@ -85,7 +85,8 @@ Coderive replaces traditional boolean operators with expressive quantifiers:
 **Multi-Return Slot System**
 ```python
 share Calculator {
-    ~| result, operation  # Return slot declarations
+
+    ~| int result, string operation  # Return slot declarations
     local calculate(int a, int b) {
         ~> a + b, "addition"  # Slot assignments
     }
@@ -95,7 +96,7 @@ share Calculator {
 **Smart For-Loops**
 
 ```python
-for i in 1 to 10 by *2 {  # Complex step patterns
+for i by *2 in 1 to 10 {  # Complex step patterns
     # Loop body
 }
 ```
@@ -110,7 +111,8 @@ get {
 }
 
 share InteractiveDemo {
-    ~| formula, operation
+
+    ~| int formula, string operation
     local calculate(int a, int b, string op) {
         if all[a >= 0, b >= 0] {
             if op == any["+", "-", "*"] {
@@ -130,10 +132,11 @@ highly optimized data structures in established languages.
 
 <div align="center">
 
-Feature Status Target Details
-Interpreter ✅ Working JVM Bytecode Full language support
-Native Compilation ✅ Working ARM64/x86_64 Advanced register allocation
-Quantifier Performance ✅ Validated All targets Efficient short-circuiting
+|Feature|Status|Target|Details|
+|-------|------|------|-------|
+|Interpreter|✅ Working|JVM Bytecode|Full language support|
+|Native Compilation|✅ Working|ARM64/x86_64|Advanced register allocation|
+|Quantifier|Performance|✅|Validated All targets|Efficient short-circuiting|
 
 </div>
 
@@ -171,7 +174,7 @@ Compilation Output
 |---------|------|-----|
 |Interpreter|✅ Complete|Full language features|
 |Native Code Generation|✅|Complete ARM64/x86_64 support|
-|Register Allocation|✅ Complete Predictive spilling|
+|Register Allocation|✅ Complete|Predictive spilling|
 |String Handling|🔧 In Progress|Enhanced implementation|
 |Type System|🔧 In Progress|Extended features|
 
