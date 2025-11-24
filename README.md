@@ -244,4 +244,4 @@ This project proves great software can come from anywhere. We welcome contributi
 
 ---
 
->>>  Built with passion and persistence on and for mobile devices — proving that innovation knows no hardware boundaries. Happy coding to derive your visions! 😊
+>  Built with passion and persistence on and for mobile devices — proving that innovation knows no hardware boundaries. Happy coding to derive your visions! 😊
