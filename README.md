@@ -104,7 +104,7 @@ add:
 
 The system demonstrates working register allocation and proper loop execution across both interpreter and native compilation targets, with the native code showing expected output for complex loop patterns and edge cases.
 
-## 🚀 Quantifier Performance Validation
+## Quantifier Performance Validation
 
 The chart below demonstrates Coderive's design goal for fast logic during a simple membership check (the equivalent of `if element == any[...]`). The data shown is based on **internal, relative performance profiling** designed to validate the efficiency of the Coderive runtime implementation against common language equivalents.
 
