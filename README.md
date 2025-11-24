@@ -139,12 +139,13 @@ highly optimized data structures in established languages.
 
 ## 5. Getting Started
 
-System Requirements
+**System Requirements**
 
 · Java 7 or later
+
 · Linux environment (Termux recommended for mobile)
 
-Quick Start
+**Quick Start**
 
 ```bash
 # Run interpreter
@@ -154,7 +155,7 @@ java -jar coderive.jar program.cod
 java -jar coderive.jar --native program.cod
 ```
 
-Compilation Output
+**Compilation Output**
 
 ```
 [20:26:28.018] [INFO] RUNNER: Starting MTOT compilation pipeline
