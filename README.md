@@ -1,16 +1,28 @@
 # ✨ Coderive v.0.2.3: Mobile-First Systems Language
 
 <div align="center">
+
   <img src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/assets/1762666234889.jpg" alt="Coderive Logo" width="200">
+
 </div>
 
-| Category | Status | Details |
-| :--- | :--- | :--- |
-| **Language Base** | ![Java](https://img.shields.io/badge/Java-7-yellow) | Written primarily in **Java 7**. |
-| **Runtime Base** | **Built in C** | Runtime execution engine. |
-| **Development** | ![Built On](https://img.shields.io/badge/Built%20On-Phone-purple) | **Mobile-first** architecture. |
-| **Project Status** | ![Status](https://img.shields.io/badge/Status-Active-brightgreen) | Actively developed since its start. |
-| **Popularity** | [![GitHub Stars](https://img.shields.io/github/stars/DanexCodr/Coderive.svg)](https://github.com/DanexCodr/Coderive/stargazers) | Check out our stars! |
+
+
+<br>
+
+
+
+| Feature | Language Base | Runtime Base | Development | Project Status | Popularity |
+
+| :--- | :---: | :---: | :---: | :---: | :---: |
+
+| **Status** | ![Java](https://img.shields.io/badge/Java-7-yellow) | **Built in C** | ![Built On](https://img.shields.io/badge/Built%20On-Phone-purple) | ![Status](https://img.shields.io/badge/Status-Active-brightgreen) | [![GitHub Stars](https://img.shields.io/github/stars/DanexCodr/Coderive.svg)](https://github.com/DanexCodr/Coderive/stargazers) |
+
+| **Details** | Written primarily in **Java 7** | Execution engine in C | **Mobile-first** architecture | Actively developed | Check out our stars! |
+
+
+
+<br>
 
 A mobile-first general programming language designed to be a go-to for **safe, fast, and clear** vibe coding. It features a **dual parser** (ANTLR + manual "recursive backtracking") and a **dual compilation** pipeline (bytecode + native code generation).
 
