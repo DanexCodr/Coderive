@@ -76,7 +76,7 @@ share InteractiveDemo {
 }
 ```
 
-Show the complete of the Coderive file here: [The "InteractiveDemo" file](./src/main/cod/InteractiveDemo.cod/)
+See the complete of the Coderive file here: [The "InteractiveDemo" file](./src/main/cod/InteractiveDemo.cod/)
 
 ### **Compilation Output Snapshot**
 The MTOT (Mobile Target Output Tool) pipeline successfully builds the AST and compiles the code:
