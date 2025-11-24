@@ -76,8 +76,8 @@ Coderive replaces traditional boolean operators with expressive quantifiers:
 | Traditional | Coderive |
 |-------------|----------|
 | `A && B && C` | `all[A, B, C]` |
-| `A || B || C` | `any[A, B, C]` |
-| `A && (B || C)` | `all[A, any[B, C]]` |
+| `A \|\| B \|\| C` | `any[A, B, C]` |
+| `A && (B \|\| C)` | `all[A, any[B, C]]` |
 
 **Multi-Return Slot System**
 ```python
