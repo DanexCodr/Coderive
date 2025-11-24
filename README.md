@@ -8,7 +8,6 @@
 <hr>
 <div align="center" style="line-height: 1;">
   <a href="https://github.com/DanexCodr/Coderive"><img alt="Repository"    src="https://img.shields.io/badge/Project-Coderive-536af5?color=536af5&logoColor=white"/></a>
-<br>
   <a href="https://github.com/DanexCodr/Coderive/discussions"><img alt="Discussions"
     src="https://img.shields.io/badge/💬%20Discussions-Community-ffc107?color=ffc107&logoColor=white"/></a>
   <a href="https://github.com/DanexCodr/Coderive/issues"><img alt="Issues"
@@ -36,7 +35,7 @@
 
 ## 1. Introduction
 
-We present Coderive v0.2.3, a mobile-first general programming language designed for **safe, fast, and clear** coding. 
+We present **Coderive v0.2.3**, a mobile-first general programming language designed for **safe, fast, and clear** coding. 
 Coderive features a dual parser system (ANTLR + manual recursive backtracking) and dual compilation pipeline (bytecode + native code generation).
 Built entirely on mobile devices, Coderive proves that serious compiler development can happen outside traditional environments.
 
@@ -188,9 +187,9 @@ Have questions or want to contribute?
 
 Join our community discussions:
 
-· GitHub Discussions - Ask questions and share ideas
+· [GitHub Discussions](https://github.com/DanexCodr/Coderive/discussions) - Ask questions and share ideas
 
-· GitHub Issues - Report bugs and problems
+· [GitHub Issues](https://github.com/DanexCodr/Coderive/issues) - Report bugs and problems
 
 · Developer's Email: danisonnunez001@gmail.com
 
