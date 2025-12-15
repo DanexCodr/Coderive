@@ -1,237 +1,476 @@
 package cod.ast;
 
+import static cod.syntax.Keyword.*;
 import cod.ast.nodes.*;
 
-public class ASTPrinter {
-
-    public static void print(ASTNode node, int indent) {
-        if (node == null) return;
-        String pad = new String(new char[indent]).replace("\0", "  ");
-
-        if (node instanceof ProgramNode) {
-            System.out.println(pad + "Program");
-            print(((ProgramNode) node).unit, indent + 1);
-
-        } else if (node instanceof UnitNode) {
-            UnitNode u = (UnitNode) node;
-            System.out.println(pad + "Unit: " + u.name);
-            // Print GetNode if it exists
-            if (u.imports != null) {
-                print(u.imports, indent + 1);
-            }
-            for (TypeNode t : u.types) print(t, indent + 1);
-            
-        } else if (node instanceof GetNode) {
-            GetNode get = (GetNode) node;
-            if (get.imports.isEmpty()) {
-                System.out.println(pad + "Get imports: []");
-            } else {
-                System.out.println(pad + "Get imports: " + get.imports);
-            }
-            
-        } else if (node instanceof TypeNode) {
-            TypeNode t = (TypeNode) node;
-            System.out.println(
-                    pad
-                            + "Class: "
-                            + t.name
-                            + " Extends: "
-                            + t.extendName
-                            + " Visibility: "
-                            + t.visibility);
-            for (FieldNode f : t.fields) print(f, indent + 1);
-            if (t.constructor != null) print(t.constructor, indent + 1);
-            for (MethodNode m : t.methods) print(m, indent + 1);
-            for (StatementNode s : t.statements) print(s, indent + 1);
-
-        } else if (node instanceof FieldNode) {
-            FieldNode f = (FieldNode) node;
-            System.out.println(pad + "Field: " + f.type + " " + f.name + " Visibility: " + f.visibility);
-            if (f.value != null) {
-                System.out.print(pad + "  Value: ");
-                print(f.value, indent + 2);
-            }
-            // REMOVED: Array assignment handling from FieldNode since it's now in AssignmentNode
-
-        } else if (node instanceof AssignmentNode) {
-            // NEW: Handle AssignmentNode
-            AssignmentNode assignment = (AssignmentNode) node;
-            System.out.println(pad + "Assignment:");
-            System.out.print(pad + "  Target: ");
-            print(assignment.left, indent + 2);
-            System.out.print(pad + "  Value: ");
-            print(assignment.right, indent + 2);
-            
-        } else if (node instanceof ConstructorNode) {
-            ConstructorNode c = (ConstructorNode) node;
-            System.out.println(pad + "Constructor Params: " + c.parameters.size());
-            for (ParamNode p : c.parameters) print(p, indent + 1);
-            for (StatementNode s : c.body) print(s, indent + 1);
-
-        } else if (node instanceof MethodNode) {
-            MethodNode m = (MethodNode) node;
-            System.out.print(pad + "Method: " + m.name + " Slots: ");
-            for (SlotNode s : m.returnSlots) System.out.print(s.name + " ");
-            System.out.println(" Visibility: " + m.visibility);
-            for (ParamNode p : m.parameters) print(p, indent + 1);
-            for (StatementNode s : m.body) print(s, indent + 1);
-
-        } else if (node instanceof MethodCallNode) {
-            MethodCallNode mc = (MethodCallNode) node;
-            System.out.print(
-                    pad
-                            + "Identifier/Call: "
-                            + (mc.qualifiedName != null ? mc.qualifiedName : mc.name));
-            // FIX: Handle multiple slot names
-            if (mc.slotNames != null && !mc.slotNames.isEmpty()) {
-                System.out.print(" (slot_cast: ");
-                for (int i = 0; i < mc.slotNames.size(); i++) {
-                    if (i > 0) System.out.print(", ");
-                    System.out.print(mc.slotNames.get(i));
-                }
-                System.out.print(")");
-            }
-            System.out.println();
-            for (ExprNode arg : mc.arguments) print(arg, indent + 1);
-
-        } else if (node instanceof ArrayNode) {
-            ArrayNode arr = (ArrayNode) node;
-            System.out.println(pad + "ArrayLiteral with " + arr.elements.size() + " elements:");
-            for (int i = 0; i < arr.elements.size(); i++) {
-                System.out.print(pad + "  [" + i + "]: ");
-                print(arr.elements.get(i), indent + 2);
-            }
-
-        } else if (node instanceof IndexAccessNode) {
-            IndexAccessNode idx = (IndexAccessNode) node;
-            System.out.println(pad + "IndexAccess");
-            System.out.print(pad + "  Array: ");
-            print(idx.array, indent + 2);
-            System.out.print(pad + "  Index: ");
-            print(idx.index, indent + 2);
-
-        } else if (node instanceof UnaryNode) {
-            UnaryNode unary = (UnaryNode) node;
-            System.out.println(pad + "Unary: " + unary.op);
-            print(unary.operand, indent + 1);
-
-        } else if (node instanceof BinaryOpNode) {
-            BinaryOpNode b = (BinaryOpNode) node;
-            System.out.println(pad + "BinaryOp: " + b.op);
-            if (b.left != null) print(b.left, indent + 1);
-            if (b.right != null) print(b.right, indent + 1);
-
-        } else if (node instanceof ExprNode) {
-            ExprNode e = (ExprNode) node;
-            if (e.value != null) {
-                System.out.println(pad + "Value: " + e.value);
-            } else if (e.name != null) {
-                System.out.println(pad + "Identifier: " + e.name);
-            } else if (e.left != null && e.right != null && e.op != null) {
-                // This might be a BinaryOpNode that got cast to ExprNode
-                System.out.println(pad + "BinaryOp: " + e.op);
-                print(e.left, indent + 1);
-                print(e.right, indent + 1);
-            } else if (e instanceof IndexAccessNode) {
-                // Handle IndexAccessNode that got cast to ExprNode
-                IndexAccessNode idx = (IndexAccessNode) e;
-                System.out.println(pad + "IndexAccess");
-                System.out.print(pad + "  Array: ");
-                print(idx.array, indent + 2);
-                System.out.print(pad + "  Index: ");
-                print(idx.index, indent + 2);
-            } else {
-                System.out.println(
-                        pad + "Expr (unresolved - name: " + e.name + ", value: " + e.value + ")");
-            }
-
-        } else if (node instanceof ParamNode) {
-            ParamNode p = (ParamNode) node;
-            System.out.println(pad + "Param: " + p.type + " " + p.name);
-
-        } else if (node instanceof SlotNode) {
-            SlotNode s = (SlotNode) node;
-            System.out.println(pad + "Slot: " + s.name);
-
-        } else if (node instanceof BlockNode) {
-            BlockNode block = (BlockNode) node;
-            System.out.println(pad + "Block:");
-            for (StatementNode s : block.statements) print(s, indent + 1);
-
-        } else if (node instanceof OutputNode) {
-            OutputNode p = (OutputNode) node;
-            System.out.print(pad + "Output");
-            if (p.varName != null) System.out.print(" Var: " + p.varName);
-            System.out.println();
-
-            if (p.arguments.isEmpty()) {
-                System.out.println(pad + "  (no arguments)");
-            } else {
-                for (int i = 0; i < p.arguments.size(); i++) {
-                    System.out.print(pad + "  Argument " + i + ": ");
-                    print(p.arguments.get(i), indent + 2);
-                }
-            }
-
-        } else if (node instanceof InputNode) {
-            InputNode input = (InputNode) node;
-            System.out.println(
-                    pad + "Input: " + input.variableName + " = (" + input.targetType + ") input");
-
-        } else if (node instanceof VarNode) {
-            VarNode v = (VarNode) node;
-            System.out.print(pad + "Var: " + v.name);
-            if (v.value != null) {
-                System.out.println(" = ");
-                print(v.value, indent + 1);
-            } else {
-                System.out.println();
-            }
-
-        } else if (node instanceof IfNode) {
-            IfNode ifn = (IfNode) node;
-            System.out.println(pad + "If");
-            System.out.print(pad + "  Condition: ");
-            print(ifn.condition, indent + 2);
-            System.out.println(pad + "  Then:");
-            print(ifn.thenBlock, indent + 2);
-            if (!ifn.elseBlock.statements.isEmpty()) {
-                System.out.println(pad + "  Else:");
-                print(ifn.elseBlock, indent + 2);
-            }
-
-        } else if (node instanceof RangeNode) {
-    RangeNode r = (RangeNode) node;
-    System.out.print(pad + "Range: step ");
-    print(r.step, 0);
-    System.out.print(" in ");
-    print(r.start, 0);
-    System.out.print(" to ");
-    print(r.end, 0);
-    System.out.println();
-
-        } else if (node instanceof ForNode) {
-            ForNode f = (ForNode) node;
-            System.out.println(pad + "For iterator: " + f.iterator);
-            System.out.print(pad + "  Range: ");
-            print(f.range, 0);
-            System.out.println();
-            System.out.println(pad + "  Body:");
-            print(f.body, indent + 2);
-
-        } else if (node instanceof ReturnSlotAssignmentNode) {
-            ReturnSlotAssignmentNode rsa = (ReturnSlotAssignmentNode) node;
-            System.out.println(pad + "ReturnSlotAssignment:");
-            System.out.println(pad + "  Variables: " + rsa.variableNames);
-            System.out.print(pad + "  MethodCall: ");
-            print(rsa.methodCall, indent + 2);
-
-        } else {
-            System.out.println(pad + node.getClass().getSimpleName());
-        }
+public class ASTPrinter extends BaseASTVisitor<Void> {
+    private int indent = 0;
+    
+    private String getIndent() {
+        return new String(new char[indent]).replace("\0", "|   ");
     }
-
+    
+    private void print(String message) {
+        System.out.print(getIndent() + message);
+    }
+    
+    private void println(String message) {
+        print(getIndent() + message + "\n");
+    }
+    
+    @Override
+    public Void visit(ProgramNode node) {
+        println("\nPROGRAM");
+        println("|   ");
+        if (node.unit != null) visit(node.unit);
+        return null;
+    }
+    
+    @Override
+    public Void visit(UnitNode node) {
+        println("|   UNIT: " + node.name);
+        
+        if (node.imports != null) visit(node.imports);
+        visitAll(node.types);
+        println("|   ");
+        return null;
+    }
+    
+    @Override
+    public Void visit(UseNode node) {
+            println("USE imports: " + (node.imports.isEmpty() ? "[]" : node.imports));
+            println("|   ");
+        return null;
+    }
+    
+    @Override
+    public Void visit(TypeNode node) {
+        println("CLASS: " + node.name + " extends: " + node.extendName + " visibility: " + node.visibility + "\n|   |   ");
+        indent++;
+        visitAll(node.fields);
+        if (node.constructor != null) visit(node.constructor);
+        visitAll(node.methods);
+        visitAll(node.statements);
+        indent--;
+        return null;
+    }
+    
+    @Override
+    public Void visit(FieldNode node) {
+        println("FIELD: " + node.type + " " + node.name + " visibility: " + node.visibility);
+        if (node.value != null) {
+            println("|   value:");
+            indent += 2;
+            visit(node.value);
+            indent -= 2;
+        }
+        return null;
+    }
+    
+    @Override
+    public Void visit(MethodNode node) {
+        print("|   METHOD: " + node.name + " slots: ");
+        for (SlotNode s : node.returnSlots) System.out.print(s.name + " ");
+        System.out.println(" visibility: " + node.visibility);
+        visitAll(node.parameters);
+        visitAll(node.body);
+        return null;
+    }
+    
+    @Override
+    public Void visit(ParamNode node) {
+        println("|   PARAM: " + node.type + " " + node.name);
+        return null;
+    }
+    
+    @Override
+    public Void visit(ConstructorNode node) {
+        println("CONSTRUCTOR PARAMS: " + node.parameters.size());
+        indent++;
+        visitAll(node.parameters);
+        visitAll(node.body);
+        indent--;
+        return null;
+    }
+    
+    @Override
+    public Void visit(BlockNode node) {
+        println("BLOCK:");
+        indent++;
+        visitAll(node.statements);
+        indent--;
+        return null;
+    }
+    
+    @Override
+    public Void visit(AssignmentNode node) {
+        println("ASSIGNMENT:");
+        println("|   target:");
+        indent += 2;
+        if (node.left != null) visit(node.left);
+        indent -= 2;
+        println("|   value:");
+        indent += 2;
+        if (node.right != null) visit(node.right);
+        indent -= 2;
+        return null;
+    }
+    
+    @Override
+    public Void visit(VarNode node) {
+        print("VAR: " + node.name);
+        if (node.explicitType != null) {
+            System.out.print(" (type: " + node.explicitType + ")");
+        }
+        if (node.value != null) {
+            System.out.println(" =");
+            indent++;
+            visit(node.value);
+            indent--;
+        } else {
+            System.out.println();
+        }
+        return null;
+    }
+    
+    @Override
+    public Void visit(StmtIfNode node) {
+        println("|   |   IF condition:");
+        indent ++;
+        if (node.condition != null) visit(node.condition);
+        indent --;
+        println("|   |   |   THEN execute:");
+        indent += 2;
+        if (node.thenBlock != null) visit(node.thenBlock);
+        indent -= 2;
+        if (node.elseBlock != null && !node.elseBlock.statements.isEmpty()) {
+            println("|   |   ELSE:");
+            indent += 2;
+            visit(node.elseBlock);
+            indent -= 2;
+        }
+        return null;
+    }
+    
+    @Override
+    public Void visit(ForNode node) {
+        println("FOR iterator: " + node.iterator);
+        indent += 2;
+        if (node.range != null) visit(node.range);
+        indent -= 2;
+        println("|   BODY:");
+        indent += 2;
+        if (node.body != null) visit(node.body);
+        indent -= 2;
+        return null;
+    }
+    
+    @Override
+    public Void visit(RangeNode node) {
+        println("|   step:");
+        indent += 2;
+        if (node.step != null) visit(node.step);
+        indent -= 2;
+        println("RANGE:");
+        println("|   start:");
+        indent += 2;
+        if (node.start != null) visit(node.start);
+        indent -= 2;
+        println("|   end:");
+        indent += 2;
+        if (node.end != null) visit(node.end);
+        indent -= 2;
+        return null;
+    }
+    
+    @Override
+    public Void visit(OutputNode node) {
+        print("OUTPUT");
+        if (node.varName != null) System.out.print(" var: " + node.varName);
+        System.out.println();
+        
+        if (node.arguments.isEmpty()) {
+            println("|   (no arguments)");
+        } else {
+            for (int i = 0; i < node.arguments.size(); i++) {
+                println("|   ARGUMENT " + i + ":");
+                indent += 2;
+                visit(node.arguments.get(i));
+                indent -= 2;
+            }
+        }
+        return null;
+    }
+    
+    @Override
+    public Void visit(InputNode node) {
+        println("INPUT: " + node.variableName + " = (" + node.targetType + ") input");
+        return null;
+    }
+    
+    @Override
+    public Void visit(ExitNode node) {
+        println("EXIT");
+        return null;
+    }
+    
+    @Override
+    public Void visit(ReturnSlotAssignmentNode node) {
+        println("RETURN SLOT ASSIGNMENT:");
+        println("|   VARIABLES: " + node.variableNames);
+        println("|   METHOD CALL:");
+        indent += 2;
+        if (node.methodCall != null) visit(node.methodCall);
+        indent -= 2;
+        return null;
+    }
+    
+    @Override
+    public Void visit(SlotDeclarationNode node) {
+        println("SLOT DECLARATION: " + node.slotNames);
+        return null;
+    }
+    
+    @Override
+    public Void visit(SlotAssignmentNode node) {
+        println("SLOT ASSIGNMENT:");
+        println("|   slot: " + (node.slotName != null ? node.slotName : "(implicit)"));
+        println("|   value:");
+        indent += 2;
+        if (node.value != null) visit(node.value);
+        indent -= 2;
+        return null;
+    }
+    
+    @Override
+    public Void visit(MultipleSlotAssignmentNode node) {
+        println("MULTIPLE SLOT ASSIGNMENT:");
+        indent++;
+        for (int i = 0; i < node.assignments.size(); i++) {
+            SlotAssignmentNode assign = node.assignments.get(i);
+            println("ASSIGNMENT " + i + ":");
+            println("|   slot: " + (assign.slotName != null ? assign.slotName : "(positional)"));
+            println("|   value:");
+            indent += 2;
+            if (assign.value != null) visit(assign.value);
+            indent -= 2;
+        }
+        indent--;
+        return null;
+    }
+    
+    @Override
+    public Void visit(ExprNode node) {
+        // Check if this ExprNode is actually a more specific type (like in original printer)
+        if (node instanceof IndexAccessNode) {
+            // Handle IndexAccessNode that got cast to ExprNode
+            IndexAccessNode idx = (IndexAccessNode) node;
+            println("INDEX ACCESS");
+            println("|   array:");
+            indent += 2;
+            visit(idx.array);
+            indent -= 2;
+            println("|   index:");
+            indent += 2;
+            visit(idx.index);
+            indent -= 2;
+        } else if (node instanceof ArrayNode) {
+            // Handle ArrayNode that got cast to ExprNode
+            ArrayNode arr = (ArrayNode) node;
+            println("ARRAY literal with " + arr.elements.size() + " elements:");
+            indent++;
+            for (int i = 0; i < arr.elements.size(); i++) {
+                println("[" + i + "]:");
+                indent++;
+                visit(arr.elements.get(i));
+                indent--;
+            }
+            indent--;
+        } else if (node instanceof BooleanChainNode) {
+            // Handle BooleanChainNode that got cast to ExprNode
+            BooleanChainNode chain = (BooleanChainNode) node;
+            println("BOOLEAN chain: " + (chain.isAll ? ALL : ANY));
+            indent++;
+            for (ExprNode expr : chain.expressions) {
+                visit(expr);
+            }
+            indent--;
+        } else if (node instanceof EqualityChainNode) {
+            // Handle EqualityChainNode that got cast to ExprNode
+            EqualityChainNode chain = (EqualityChainNode) node;
+            println("EQUALITY chain: " + (chain.isAllChain ? ALL : ANY) + " " + chain.operator);
+            println("|   LEFT:");
+            indent += 2;
+            visit(chain.left);
+            indent -= 2;
+            println("|   CHAIN arguments:");
+            indent += 2;
+            for (ExprNode arg : chain.chainArguments) {
+                visit(arg);
+            }
+            indent -= 2;
+        } else if (node instanceof UnaryNode) {
+            // Handle UnaryNode that got cast to ExprNode
+            UnaryNode unary = (UnaryNode) node;
+            println("UNARY: " + unary.op);
+            indent++;
+            visit(unary.operand);
+            indent--;
+        } else if (node.value != null) {
+            println("value: " + node.value);
+        } else if (node.name != null) {
+            println("IDENTIFIER: " + node.name);
+        } else if (node.left != null && node.right != null && node.op != null) {
+            // This might be a BinaryOpNode that got cast to ExprNode
+            println("|   BINARY operation: " + node.op);
+            println("|   left:");
+            indent += 2;
+            visit(node.left);
+            indent -= 2;
+            println("|   right:");
+            indent += 2;
+            visit(node.right);
+            indent -= 2;
+        } else {
+            println("EXPR (unresolved - name: " + node.name + ", value: " + node.value + ")");
+        }
+        return null;
+    }
+    
+    @Override
+    public Void visit(BinaryOpNode node) {
+        println("|   BINARY operation: " + node.op);
+        println("|   left:");
+        indent += 2;
+        if (node.left != null) visit(node.left);
+        indent -= 2;
+        println("|   right:");
+        indent += 2;
+        if (node.right != null) visit(node.right);
+        indent -= 2;
+        return null;
+    }
+    
+    @Override
+    public Void visit(UnaryNode node) {
+        println("UNARY: " + node.op);
+        indent++;
+        if (node.operand != null) visit(node.operand);
+        indent--;
+        return null;
+    }
+    
+    @Override
+    public Void visit(TypeCastNode node) {
+        println("TYPECAST: " + node.targetType);
+        println("|   expression:");
+        indent += 2;
+        if (node.expression != null) visit(node.expression);
+        indent -= 2;
+        return null;
+    }
+    
+    @Override
+    public Void visit(MethodCallNode node) {
+        print("IDENTIFIER/CALL: " + (node.qualifiedName != null ? node.qualifiedName : node.name));
+        if (node.slotNames != null && !node.slotNames.isEmpty()) {
+            System.out.print(" (slot_cast: ");
+            for (int i = 0; i < node.slotNames.size(); i++) {
+                if (i > 0) System.out.print(", ");
+                System.out.print(node.slotNames.get(i));
+            }
+            System.out.print(")");
+        }
+        if (node.chainType != null) {
+            System.out.print(" (chain: " + node.chainType + ")");
+        }
+        System.out.println();
+        
+        if (node.chainArguments != null && !node.chainArguments.isEmpty()) {
+            println("|   CHAIN arguments:");
+            indent += 2;
+            for (ExprNode arg : node.chainArguments) {
+                visit(arg);
+            }
+            indent -= 2;
+        }
+        
+        if (node.arguments != null && !node.arguments.isEmpty()) {
+            println("|   ARGUMENTS:");
+            indent += 2;
+            for (ExprNode arg : node.arguments) {
+                visit(arg);
+            }
+            indent -= 2;
+        } else {
+            println("|   (no arguments)");
+        }
+        return null;
+    }
+    
+    @Override
+    public Void visit(ArrayNode node) {
+        println("ARRAY literal with " + node.elements.size() + " elements:");
+        indent++;
+        for (int i = 0; i < node.elements.size(); i++) {
+            println("[" + i + "]:");
+            indent++;
+            visit(node.elements.get(i));
+            indent--;
+        }
+        indent--;
+        return null;
+    }
+    
+    @Override
+    public Void visit(IndexAccessNode node) {
+        println("INDEX access");
+        println("|   ARRAY:");
+        indent += 2;
+        if (node.array != null) visit(node.array);
+        indent -= 2;
+        println("|   INDEX:");
+        indent += 2;
+        if (node.index != null) visit(node.index);
+        indent -= 2;
+        return null;
+    }
+    
+    @Override
+    public Void visit(EqualityChainNode node) {
+        println("EQUALITY chain: " + (node.isAllChain ? ALL : ANY) + " " + node.operator);
+        println("|   LEFT:");
+        indent += 2;
+        if (node.left != null) visit(node.left);
+        indent -= 2;
+        println("|   CHAIN arguments:");
+        indent += 2;
+        for (ExprNode arg : node.chainArguments) {
+            visit(arg);
+        }
+        indent -= 2;
+        return null;
+    }
+    
+    @Override
+    public Void visit(BooleanChainNode node) {
+        println("BOOLEAN chain: " + (node.isAll ? ALL : ANY));
+        indent++;
+        for (ExprNode expr : node.expressions) {
+            visit(expr);
+        }
+        indent--;
+        return null;
+    }
+    
+    @Override
+    public Void visit(SlotNode node) {
+        println("SLOT: " + node.name + " (type: " + node.type + ")");
+        return null;
+    }
+    
     public static void print(ASTNode node) {
-        print(node, 0);
+        ASTPrinter printer = new ASTPrinter();
+        printer.visit(node);
     }
 }

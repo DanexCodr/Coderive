@@ -1,8 +1,13 @@
 package cod.ast.nodes;
 
-import cod.ast.CoderiveParser;
-import org.antlr.v4.runtime.tree.ParseTree;
+import cod.ast.ASTVisitor;
 
 public class BinaryOpNode extends ExprNode {
     public BinaryOpNode() {}
+    
+               @Override
+        public final <T> T accept(ASTVisitor<T> visitor) {
+           return visitor.visit(this);
+        }
+    
 }

@@ -1,14 +1,14 @@
 package cod.ast.nodes;
 
-import cod.ast.CoderiveParser;
-import org.antlr.v4.runtime.tree.ParseTree;
+import cod.ast.ASTVisitor;
 
-public class InputNode extends StatementNode {
+public class InputNode extends ExprNode {
     public String targetType;    // The type being read (int, string, float, bool)
     public String variableName;  // The variable to assign the input to
     
-    @Override
-    public String toString() {
-        return "InputNode{type=" + targetType + ", var=" + variableName + "}";
-    }
+               @Override
+        public final <T> T accept(ASTVisitor<T> visitor) {
+           return visitor.visit(this);
+        }
+    
 }

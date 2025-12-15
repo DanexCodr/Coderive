@@ -1,7 +1,11 @@
 package cod.ast;
 
 import cod.ast.nodes.*;
+
+import cod.syntax.Keyword;
+
 import java.util.*;
+import java.math.BigDecimal;
 
 public class ASTFactory {
     
@@ -12,26 +16,26 @@ public class ASTFactory {
     public static UnitNode createUnit(String name) {
         UnitNode unit = new UnitNode();
         unit.name = name;
-        unit.imports = new GetNode();
+        unit.imports = new UseNode();
         unit.types = new ArrayList<TypeNode>();
         unit.resolvedImports = new HashMap<String, ProgramNode>();
         return unit;
     }
     
-    public static GetNode createGetNode(List<String> imports) {
-        GetNode getNode = new GetNode();
-        getNode.imports = imports;
-        return getNode;
+    public static UseNode createUseNode(List<String> imports) {
+        UseNode useNode = new UseNode();
+        useNode.imports = imports;
+        return useNode;
     }
     
-    public static TypeNode createType(String name, String visibility, String extendName) {
+    public static TypeNode createType(String name, Keyword visibility, String extendName) {
         TypeNode type = new TypeNode();
         type.name = name;
         type.visibility = visibility;
         type.extendName = extendName;
         type.fields = new ArrayList<FieldNode>();
         type.methods = new ArrayList<MethodNode>();
-        type.statements = new ArrayList<StatementNode>();
+        type.statements = new ArrayList<StmtNode>();
         return type;
     }
     
@@ -42,16 +46,11 @@ public class ASTFactory {
         field.value = value;
         return field;
     }
-    
-    public static FieldNode createField(String name, String type) {
-        return createField(name, type, null);
-    }
 
-    public static FieldNode createFieldWithVisibility(String name, String type, String visibility) {
+    public static FieldNode createField(String name, String type) {
         FieldNode field = new FieldNode();
         field.name = name;
         field.type = type;
-        field.visibility = visibility;
         return field;
     }
     
@@ -65,26 +64,31 @@ public class ASTFactory {
     public static ConstructorNode createConstructor() {
         ConstructorNode cons = new ConstructorNode();
         cons.parameters = new ArrayList<ParamNode>();
-        cons.body = new ArrayList<StatementNode>();
+        cons.body = new ArrayList<StmtNode>();
         return cons;
     }
     
-    public static MethodNode createMethod(String name, String visibility, List<SlotNode> returnSlots) {
+    public static MethodNode createMethod(String name, Keyword visibility, List<SlotNode> returnSlots) {
         MethodNode method = new MethodNode();
         method.name = name;
         method.visibility = visibility;
         method.returnSlots = returnSlots != null ? returnSlots : new ArrayList<SlotNode>();
         method.parameters = new ArrayList<ParamNode>();
-        method.body = new ArrayList<StatementNode>();
+        method.body = new ArrayList<StmtNode>();
         return method;
     }
     
-    public static ParamNode createParam(String name, String type) {
-        ParamNode param = new ParamNode();
-        param.name = name;
-        param.type = type;
-        return param;
+public static ParamNode createParam(String name, String type, ExprNode defaultValue, boolean typeInferred) {
+    ParamNode param = new ParamNode();
+    param.name = name;
+    param.type = type;
+    if (defaultValue != null) {
+        param.defaultValue = defaultValue;
+        param.hasDefaultValue = true;
     }
+    param.typeInferred = typeInferred;
+    return param;
+}
     
     public static SlotNode createSlot(String type, String name) {
         SlotNode slot = new SlotNode();
@@ -105,11 +109,17 @@ public class ASTFactory {
         return node;
     }
     
-    public static ExprNode createFloatLiteral(float value) {
-        ExprNode node = new ExprNode();
-        node.value = value;
-        return node;
-    }
+    public static ExprNode createLongLiteral(long value) {
+    ExprNode node = new ExprNode();
+    node.value = value;
+    return node;
+}
+    
+    public static ExprNode createFloatLiteral(BigDecimal value) {
+    ExprNode node = new ExprNode();
+    node.value = value; // Stores the precise BigDecimal object
+    return node;
+}
     
     public static ExprNode createStringLiteral(String value) {
         ExprNode node = new ExprNode();
@@ -120,6 +130,13 @@ public class ASTFactory {
     public static ExprNode createBoolLiteral(boolean value) {
         ExprNode node = new ExprNode();
         node.value = value;
+        return node;
+    }
+    
+    public static ExprNode createNullLiteral() {
+        ExprNode node = new ExprNode();
+        node.value = null;
+        node.isNull = true;
         return node;
     }
     
@@ -140,13 +157,12 @@ public class ASTFactory {
         return chain;
     }
     
-        public static BooleanChainNode createBooleanChain(boolean isAll, List<ExprNode> expressions) {
+    public static BooleanChainNode createBooleanChain(boolean isAll, List<ExprNode> expressions) {
         BooleanChainNode node = new BooleanChainNode();
         node.isAll = isAll;
         node.expressions = expressions != null ? expressions : new ArrayList<ExprNode>();
         return node;
     }
-
     
     public static UnaryNode createUnaryOp(String op, ExprNode operand) {
         UnaryNode node = new UnaryNode();
@@ -164,7 +180,7 @@ public class ASTFactory {
     
     public static SlotAssignmentNode createImplicitReturn(ExprNode returnExpr) {
         SlotAssignmentNode returnStmt = new SlotAssignmentNode();
-        returnStmt.slotName = "return";
+        returnStmt.slotName = "_";
         returnStmt.value = returnExpr;
         return returnStmt;
     }
@@ -190,6 +206,12 @@ public class ASTFactory {
         return createArray(null);
     }
     
+    public static TupleNode createTuple(List<ExprNode> elements) {
+        TupleNode node = new TupleNode();
+        node.elements = elements != null ? elements : new ArrayList<ExprNode>();
+        return node;
+    }
+    
     public static IndexAccessNode createIndexAccess(ExprNode array, ExprNode index) {
         IndexAccessNode node = new IndexAccessNode();
         node.array = array;
@@ -197,12 +219,20 @@ public class ASTFactory {
         return node;
     }
     
-    public static IfNode createIf(ExprNode condition) {
-        IfNode ifNode = new IfNode();
-        ifNode.condition = condition;
-        ifNode.thenBlock = new BlockNode();
-        ifNode.elseBlock = new BlockNode();
-        return ifNode;
+    public static ExprIfNode createIfExpression(ExprNode condition, ExprNode thenExpr, ExprNode elseExpr) {
+    ExprIfNode node = new ExprIfNode();
+    node.condition = condition;
+    node.thenExpr = thenExpr;
+    node.elseExpr = elseExpr;
+    return node;
+}
+    
+    public static StmtIfNode createIfStatement(ExprNode condition) {
+        StmtIfNode stmtIfNode = new StmtIfNode();
+        stmtIfNode.condition = condition;
+        stmtIfNode.thenBlock = new BlockNode();
+        stmtIfNode.elseBlock = new BlockNode();
+        return stmtIfNode;
     }
     
     public static ForNode createFor(String iterator, RangeNode range) {
@@ -213,19 +243,15 @@ public class ASTFactory {
         return forNode;
     }
     
-    public static RangeNode createRange(ExprNode step, ExprNode start, ExprNode end) {
-        RangeNode range = new RangeNode();
-        range.step = step;
-        range.start = start;
-        range.end = end;
-        return range;
-    }
+public static RangeNode createRange(ExprNode step, ExprNode start, ExprNode end) {
+    return new RangeNode(step, start, end);
+}
     
     public static BlockNode createBlock() {
         return new BlockNode();
     }
     
-    public static BlockNode createBlock(List<StatementNode> statements) {
+    public static BlockNode createBlock(List<StmtNode> statements) {
         return new BlockNode(statements);
     }
     
@@ -252,6 +278,16 @@ public class ASTFactory {
     
     public static OutputNode createOutput() {
         return createOutput(null);
+    }
+    
+    public static ExitNode createExit() {
+      return new ExitNode();
+    }
+    
+    public static ArgumentListNode createArgumentList(List<ExprNode> arguments) {
+        ArgumentListNode node = new ArgumentListNode();
+        node.arguments = arguments != null ? arguments : new ArrayList<ExprNode>();
+        return node;
     }
     
     public static ReturnSlotAssignmentNode createReturnSlotAssignment(List<String> variableNames, MethodCallNode methodCall) {

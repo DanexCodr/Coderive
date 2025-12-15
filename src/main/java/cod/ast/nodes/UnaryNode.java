@@ -1,6 +1,6 @@
 package cod.ast.nodes;
 
-import org.antlr.v4.runtime.tree.ParseTree;
+import cod.ast.ASTVisitor;
 
 public class UnaryNode extends ExprNode {
     public String op;  // "+" or "-"
@@ -12,4 +12,10 @@ public class UnaryNode extends ExprNode {
         this.op = op;
         this.operand = operand;
     }
+    
+               @Override
+        public final <T> T accept(ASTVisitor<T> visitor) {
+           return visitor.visit(this);
+        }
+    
 }

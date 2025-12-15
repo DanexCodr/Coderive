@@ -1,5 +1,7 @@
 package cod.ast.nodes;
 
+import cod.ast.ASTVisitor;
+
 public class SlotNode extends ASTNode {
     public String name;
     public String type;
@@ -10,4 +12,10 @@ public class SlotNode extends ASTNode {
         // If name starts with digit, it's auto-generated (since IDs can't start with digit)
         return !Character.isDigit(name.charAt(0));
     }
+    
+               @Override
+        public final <T> T accept(ASTVisitor<T> visitor) {
+           return visitor.visit(this);
+        }
+    
 }

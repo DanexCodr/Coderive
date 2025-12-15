@@ -2,8 +2,8 @@
 package cod.debug;
 
 import java.util.*;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class DebugSystem {
     public enum Level {
@@ -26,20 +26,19 @@ public class DebugSystem {
     }
 
     private static Level currentLevel = Level.INFO;
-    private static Set<String> enabledCategories = new HashSet<>();
+    private static Set<String> enabledCategories = new HashSet<String>();
     private static boolean showTimestamp = true;
     private static boolean showThread = false;
-    private static Map<String, Long> timers = new HashMap<>();
+    private static Map<String, Long> timers = new HashMap<String, Long>();
+    private static SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
 
     static {
-        // Enable common categories by default
         enabledCategories.add("AST");
         enabledCategories.add("METHODS");
         enabledCategories.add("SLOTS");
         enabledCategories.add("INTERPRETER");
     }
 
-    // Configuration methods
     public static void setLevel(Level level) {
         currentLevel = level;
     }
@@ -53,15 +52,13 @@ public class DebugSystem {
     }
 
     public static void enableAllCategories() {
-        enabledCategories.addAll(
-                Arrays.asList(
-                        "AST",
-                        "METHODS",
-                        "SLOTS",
-                        "FIELDS",
-                        "EXPRESSIONS",
-                        "INTERPRETER",
-                        "MEMORY"));
+        enabledCategories.add("AST");
+        enabledCategories.add("METHODS");
+        enabledCategories.add("SLOTS");
+        enabledCategories.add("FIELDS");
+        enabledCategories.add("EXPRESSIONS");
+        enabledCategories.add("INTERPRETER");
+        enabledCategories.add("MEMORY");
     }
 
     public static void setShowTimestamp(boolean show) {
@@ -72,7 +69,6 @@ public class DebugSystem {
         showThread = show;
     }
 
-    // Logging methods
     public static void error(String category, String message) {
         log(Level.ERROR, category, message);
     }
@@ -93,7 +89,6 @@ public class DebugSystem {
         log(Level.TRACE, category, message);
     }
 
-    // Specialized logging methods
     public static void methodEntry(String methodName, Map<String, Object> params) {
         if (shouldLog(Level.DEBUG, "METHODS")) {
             debug("METHODS", "→ " + methodName + "(" + params + ")");
@@ -118,7 +113,6 @@ public class DebugSystem {
         }
     }
 
-    // Performance timing
     public static void startTimer(String name) {
         if (shouldLog(Level.DEBUG, "PERF")) {
             timers.put(name, System.currentTimeMillis());
@@ -135,7 +129,14 @@ public class DebugSystem {
         }
     }
 
-    // AST building helpers
+    public static long getTimerDuration(String name) {
+        Long start = timers.get(name);
+        if (start != null) {
+            return System.currentTimeMillis() - start;
+        }
+        return -1;
+    }
+
     public static void astBuilding(String nodeType, String details) {
         if (shouldLog(Level.TRACE, "AST")) {
             trace("AST", "Building " + nodeType + ": " + details);
@@ -148,27 +149,24 @@ public class DebugSystem {
         }
     }
 
-    // Private implementation
     private static void log(Level level, String category, String message) {
         if (shouldLog(level, category)) {
             StringBuilder logLine = new StringBuilder();
 
-            // Timestamp
             if (showTimestamp) {
                 logLine.append("[")
-                        .append(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss.SSS")))
+                        .append(timeFormat.format(new Date()))
                         .append("] ");
             }
 
-            // Level
             logLine.append("[").append(level).append("] ");
 
-            // Thread (optional)
             if (showThread) {
-                logLine.append("[").append(Thread.currentThread().getName()).append("] ");
+                logLine.append("[")
+                        .append(Thread.currentThread().getName())
+                        .append("] ");
             }
 
-            // Category and message
             logLine.append(category).append(": ").append(message);
 
             System.out.println(logLine.toString());
@@ -177,5 +175,9 @@ public class DebugSystem {
 
     private static boolean shouldLog(Level level, String category) {
         return level.getLevel() <= currentLevel.getLevel() && enabledCategories.contains(category);
+    }
+
+    public static Level getLevel() {
+        return currentLevel;
     }
 }

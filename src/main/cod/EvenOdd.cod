@@ -1,13 +1,12 @@
-share EvenOdd {
 
-  share main() {
-    int number = 5
-    output "The number is " + number
-    if (number % 2) == 0 {
-      output "The number is even."
-    } else {
-      output "The number is odd."
-    }
-  }
+use {
+	lang.Sys
+}
 
+number := 5
+Sys.outln("The number is " + number)
+if (number % 2) == 0 {
+   Sys.outln("The number is even.")
+} else {
+   Sys.outln("The number is odd.")
 }

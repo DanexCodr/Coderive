@@ -1,0 +1,115 @@
+use { lang.Sys }
+
+share main() {
+    Sys.outln("=== NUMBER TYPE PRECISION TEST ===\n")
+    
+    // Test 1: Integer type boundaries
+    Sys.outln("1. Testing integer type boundaries:")
+    
+    // Small (should be Integer)
+    int small = 42
+    Sys.outln("   small = " + small + " (should be 42)")
+    
+    // Medium (should be Long)
+    int medium = 9223372036854775807  // Long.MAX_VALUE
+    Sys.outln("   medium = Long.MAX_VALUE = " + medium)
+    
+    // Check if we can add 1 without overflow
+    int mediumPlus1 = medium + 1
+    Sys.outln("   medium + 1 = " + mediumPlus1 + " (what happens?)")
+    
+    // Huge (what does this become?)
+    int huge = 999999999999999999999999999999999
+    Sys.outln("   huge = " + huge)
+    Sys.outln("   Is huge exact? " + (huge.toString().length() > 15 ? "Probably not" : "Maybe"))
+    
+    // Test 2: Floating-point precision
+    Sys.outln("\n2. Testing floating-point precision:")
+    
+    float a = 0.1
+    float b = 0.2
+    float c = a + b
+    Sys.outln("   0.1 = " + a)
+    Sys.outln("   0.2 = " + b)
+    Sys.outln("   0.1 + 0.2 = " + c)
+    Sys.outln("   0.1 + 0.2 == 0.3? " + (c == 0.3))
+    Sys.outln("   Difference: " + (c - 0.3))
+    
+    // Test 3: Large integer preservation in NaturalArray
+    Sys.outln("\n3. Testing NaturalArray with large numbers:")
+    
+    // Create array with huge bounds
+    bigArray := [1000000000000 to 1000000000005]  // 1 trillion to 1 trillion + 5
+    Sys.outln("   Created: " + bigArray)
+    
+    for i in 0 to 5 {
+        Sys.outln("   bigArray[" + i + "] = " + bigArray[i])
+    }
+    
+    // Modify with large number
+    bigArray[2] = 888888888888888888888
+    Sys.outln("   After setting bigArray[2] = 888888888888888888888:")
+    Sys.outln("   bigArray[2] = " + bigArray[2])
+    
+    // Test 4: Arithmetic with huge numbers
+    Sys.outln("\n4. Testing arithmetic operations:")
+    
+    int x = 100000000000000000000
+    int y = 200000000000000000000
+    int sum = x + y
+    int product = x * 3
+    
+    Sys.outln("   x = " + x)
+    Sys.outln("   y = " + y)
+    Sys.outln("   x + y = " + sum + " (should be 300000000000000000000)")
+    Sys.outln("   x * 3 = " + product + " (should be 300000000000000000000)")
+    
+    // Test 5: Division and fractions
+    Sys.outln("\n5. Testing division:")
+    
+    float div1 = 1.0 / 3.0
+    float div2 = 1 / 3
+    Sys.outln("   1.0 / 3.0 = " + div1)
+    Sys.outln("   1 / 3 = " + div2 + " (integer division?)")
+    
+    // Test 6: Type inference
+    Sys.outln("\n6. Testing type inference:")
+    
+    inferred1 := 42
+    inferred2 := 42.0
+    inferred3 := 100000000000000000000
+    
+    Sys.outln("   inferred1 := 42 → type? value = " + inferred1)
+    Sys.outln("   inferred2 := 42.0 → type? value = " + inferred2)
+    Sys.outln("   inferred3 := 100000000000000000000 → type? value = " + inferred3)
+    
+    // Test 7: Edge cases
+    Sys.outln("\n7. Testing edge cases:")
+    
+    // Very precise decimal
+    float precise = 3.14159265358979323846264338327950288419716939937510
+    Sys.outln("   π to 50 digits = " + precise)
+    Sys.outln("   Actual stored length: " + precise.toString().length() + " chars")
+    
+    // Scientific notation
+    float scientific = 6.02214076e23
+    Sys.outln("   Avogadro's number = " + scientific)
+    
+    Sys.outln("\n=== ANALYSIS ===")
+    Sys.outln("Based on these tests:")
+    Sys.outln("1. If huge integers preserve all digits → You have BigInteger!")
+    Sys.outln("2. If 0.1 + 0.2 == 0.3 exactly → You have exact decimals!")
+    Sys.outln("3. If NaturalArray works with huge bounds → Formula computation works!")
+    
+    Sys.outln("\nCurrent findings from your code:")
+    Sys.outln("• Your 'int' handles: Integer (32-bit), Long (64-bit), Double (lossy for huge)")
+    Sys.outln("• Your 'float' is Java's double (64-bit IEEE 754)")
+    Sys.outln("• NaturalArray uses double for calculations")
+    
+    Sys.outln("\nRecommendations:")
+    Sys.outln("1. To name them 'exact'/'prec': Implement BigInteger/BigDecimal")
+    Sys.outln("2. Keep 'int'/'float': Be honest about limitations")
+    Sys.outln("3. NaturalArray is already revolutionary regardless!")
+    
+    Sys.outln("\nRun this test to see the truth! 🔍")
+}

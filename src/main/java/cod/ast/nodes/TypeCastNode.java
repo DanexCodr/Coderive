@@ -1,15 +1,14 @@
 package cod.ast.nodes;
 
-import cod.ast.ASTBuilder;
-import cod.ast.CoderiveParser;
-import org.antlr.v4.runtime.tree.ParseTree;
+import cod.ast.ASTVisitor;
 
 public class TypeCastNode extends ExprNode {
     public String targetType;    // The target type to cast to
     public ExprNode expression;  // The expression being cast
     
-    @Override
-    public String toString() {
-        return "TypeCastNode{type=" + targetType + ", expr=" + expression + "}";
-    }
+               @Override
+        public final <T> T accept(ASTVisitor<T> visitor) {
+           return visitor.visit(this);
+        }
+    
 }

@@ -1,15 +1,19 @@
-unit sample get {
-cod.Math
+
+use {
+	lang.Sys
 }
 
-share SlotTest {
+share compute(a: int, b: int)
+:: sum: int, diff: int
+~> sum: a + b, diff: a - b
 
-~| sum, diff
-share compute(int a, int b) ~> a + b, a - b
+share trying(a: int, b: int)
+:: int, int|float
+~> a * b, a / b
 
 share main() {
-output [sum]:compute(2, 1)
-output [diff]:compute(2, 1)
-}
-
+Sys.outln([sum]:compute(2, 1))
+Sys.outln([diff]:compute(2, 1))
+Sys.outln([0]:trying(2, 1))
+Sys.outln([1]:trying(2, 4))
 }

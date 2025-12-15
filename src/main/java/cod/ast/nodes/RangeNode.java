@@ -1,6 +1,8 @@
 package cod.ast.nodes;
 
-public class RangeNode extends ASTNode {
+import cod.ast.ASTVisitor;
+
+public class RangeNode extends ExprNode {
     public ExprNode step;    // NEW: Step comes first now
     public ExprNode start;   // NEW: Start after IN
     public ExprNode end;     // NEW: End after TO
@@ -13,4 +15,11 @@ public class RangeNode extends ASTNode {
         this.start = start;
         this.end = end;
     }
+    
+               @Override
+        public final <T> T accept(ASTVisitor<T> visitor) {
+           return visitor.visit(this);
+        }
+    
+    
 }

@@ -15,8 +15,8 @@ jobs:
         find src/main/java -name "*.java" > sources.txt
         mkdir -p target/classes
         javac -d target/classes @sources.txt
-        # Test with first .cdrv file found
-        TEST_FILE=$(find src/main/cdrv -name "*.cdrv" -type f | head -1)
+        # Test with first .cod file found
+        TEST_FILE=$(find src/main/cod -name "*.cod" -type f | head -1)
         if [ -n "$TEST_FILE" ]; then
-          java -cp target/classes cdrv.runner.CompilerRunner --bytecode "$TEST_FILE"
+          java -cp target/classes cod.runner.CompilerRunner --bytecode "$TEST_FILE"
         fi

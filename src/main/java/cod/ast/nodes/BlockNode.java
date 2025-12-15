@@ -1,15 +1,22 @@
 package cod.ast.nodes;
 
+import cod.ast.ASTVisitor;
+
 import java.util.ArrayList;
 import java.util.List;
-import org.antlr.v4.runtime.tree.ParseTree;
 
-public class BlockNode extends StatementNode {
-    public List<StatementNode> statements = new ArrayList<>();
+public class BlockNode extends StmtNode {
+    public List<StmtNode> statements = new ArrayList<>();
 
     public BlockNode() {}
 
-    public BlockNode(List<StatementNode> statements) {
+    public BlockNode(List<StmtNode> statements) {
         this.statements = statements;
     }
+    
+               @Override
+        public final <T> T accept(ASTVisitor<T> visitor) {
+           return visitor.visit(this);
+        }
+    
 }

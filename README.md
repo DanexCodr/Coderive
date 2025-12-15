@@ -83,8 +83,9 @@ Coderive replaces traditional boolean operators with expressive quantifiers:
 ```python
 share Calculator {
 
-    ~| int result, string operation  # Return slot declarations
-    local calculate(int a, int b) {
+    local calculate(int a, int b)
+    :: result: int, operation: text
+    {
         ~> a + b, "addition"  # Slot assignments
     }
 }
@@ -104,13 +105,14 @@ for i by *2 in 1 to 10 {  # Complex step patterns
 unit sample.program
 
 get {
-    cod.Math
+    lang.Math
 }
 
 share InteractiveDemo {
 
-    ~| int formula, string operation
-    local calculate(int a, int b, string op) {
+    local calculate(a: int, b: int, op: text)
+    :: formula: int, operation: text
+    {
         if all[a >= 0, b >= 0] {
             if op == any["+", "-", "*"] {
                 ~> a + b, "valid operation"
@@ -121,21 +123,10 @@ share InteractiveDemo {
 }
 ```
 
-## 4. Performance Validation
+## 4. Compiler
 
-The system demonstrates efficient execution across both interpreter and native compilation targets. 
-Internal performance profiling shows that Coderive's quantifier operations approach the efficiency of
-highly optimized data structures in established languages.
-
-<div align="center">
-
-|Feature|Status|Target|Details|
-|-------|------|------|-------|
-|Interpreter|✅ Working|JVM Bytecode|Full language support|
-|Native Compilation|✅ Working|ARM64/x86_64|Advanced register allocation|
-|Quantifier Performance|✅ Validated|All targets|Efficient short-circuiting|
-
-</div>
+The system has an on going TAC Compiler for efficient execution across both interpreter and native compilation targets. 
+Internal performance profiling shows that 
 
 ## 5. Getting Started
 
@@ -155,33 +146,6 @@ java -jar coderive.jar program.cod
 java -jar coderive.jar --native program.cod
 ```
 
-**Compilation Output**
-
-```
-[20:26:28.018] [INFO] RUNNER: Starting MTOT compilation pipeline
-[20:26:28.056] [INFO] RUNNER: AST built successfully  
-[20:26:28.068] [INFO] BYTECODE: Compilation complete: 1076 instructions across 9 methods
-[20:26:28.227] [INFO] MTOT: Full compilation pipeline complete.
-```
-
-**Generated Assembly Sample**
-
-A snippet of the resulting ARM64 assembly code from the compilation pipeline:
-
-```assembly
-    .text
-    .global add
-add:
-    stp x29, x30, [sp, #-16]!
-    mov x29, sp
-    sub sp, sp, #48
-    // Saving callee-saved registers
-    stp x19, x20, [x29, #-16]
-    // ... ARM64 assembly code
-    mov x0, x23
-    ret
-```
-
 ## 6. Current Status
 
 <div align="center">
@@ -190,9 +154,7 @@ add:
 |---------|------|-----|
 |Interpreter|✅ Complete|Full language features|
 |Native Code Generation|✅ Complete|ARM64/x86_64 support|
-|Register Allocation|✅ Complete|Predictive spilling|
-|String Handling|🔧 In Progress|Enhanced implementation|
-|Type System|🔧 In Progress|Extended features|
+|TAC Compiler|🔧 In Progress|Enhanced implementation|
 
 </div>
 

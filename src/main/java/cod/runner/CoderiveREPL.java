@@ -1,40 +1,41 @@
+// CoderiveREPL.java
 package cod.runner;
 
 import cod.ast.ASTFactory;
-import cod.ast.ManualCoderiveLexer;
-import cod.ast.ManualCoderiveParser;
+import cod.semantic.NamingValidator;
 import cod.ast.nodes.*;
 import cod.debug.DebugSystem;
+
 import cod.interpreter.Interpreter;
 import cod.interpreter.ObjectInstance;
+
+import cod.lexer.MainLexer;
+import cod.parser.MainParser;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
-/**
- * A Read-Eval-Print-Loop (REPL) for the Coderive language.
- *
- * This class provides an interactive command-line shell that uses the
- * ManualCoderiveLexer, ManualCoderiveParser, and the Interpreter
- * to execute Coderive code one line at a time.
- */
+import cod.syntax.Keyword;
+
 public class CoderiveREPL {
 
     public static void main(String[] args) {
         System.out.println("Welcome to the Coderive REPL. Type 'exit' to quit.");
-        System.out.println("Special commands: ';reset' to clear state, ';help' for help\n");
-        
-        // 1. Set up persistent state
-        Interpreter interpreter = new Interpreter();
-        ObjectInstance globalInstance = new ObjectInstance(ASTFactory.createType("REPLGlobal", "local", null));
-        Map<String, Object> globalLocals = new HashMap<>();
-        Map<String, Object> globalSlots = new HashMap<>();
+        System.out.println("Special commands: ';reset' to clear state, ';help' for help");
+        System.out.println("Optimization: Type ';opt on' to enable constant folding, ';opt off' to disable\n");
         
         DebugSystem.setLevel(DebugSystem.Level.ERROR);
+        DebugSystem.info("REPL", "Starting Coderive REPL");
+        
+        Interpreter interpreter = new Interpreter();
+        ObjectInstance globalInstance = new ObjectInstance(ASTFactory.createType("REPLGlobal", Keyword.LOCAL, null));
+        Map<String, Object> globalLocals = new HashMap<String, Object>();
+        Map<String, Object> globalSlots = new HashMap<String, Object>();
+        
+        boolean optimize = false;
 
-        // 2. Start the Read-Eval-Print-Loop
         Scanner scanner = new Scanner(System.in);
         while (true) {
             System.out.print(">> ");
@@ -45,13 +46,14 @@ public class CoderiveREPL {
                 continue;
             }
             
-            // Handle special REPL commands
             if (line.equalsIgnoreCase(";exit") || line.equalsIgnoreCase(";quit")) {
+                DebugSystem.info("REPL", "Exiting REPL");
                 break;
             }
             if (line.equalsIgnoreCase(";reset")) {
                 globalLocals.clear();
                 globalSlots.clear();
+                DebugSystem.info("REPL", "State reset");
                 System.out.println("State reset.");
                 continue;
             }
@@ -59,72 +61,138 @@ public class CoderiveREPL {
                 printHelp();
                 continue;
             }
+            
+            if (line.equalsIgnoreCase(";opt on")) {
+                optimize = true;
+                DebugSystem.info("REPL", "Constant folding ENABLED");
+                System.out.println("Constant folding optimization ENABLED");
+                continue;
+            }
+            if (line.equalsIgnoreCase(";opt off")) {
+                optimize = false;
+                DebugSystem.info("REPL", "Constant folding DISABLED");
+                System.out.println("Constant folding optimization DISABLED");
+                continue;
+            }
+            if (line.equalsIgnoreCase(";opt status")) {
+                System.out.println("Constant folding: " + (optimize ? "ENABLED" : "DISABLED"));
+                continue;
+            }
 
             try {
-                // 3. Check for multi-line input
                 String fullInput = line;
                 if (needsMoreInput(line)) {
+                    DebugSystem.debug("REPL", "Detected multi-line input");
                     fullInput = readMultiLineInput(scanner, line);
                     if (fullInput == null) {
-                        continue; // User cancelled multi-line input
+                        continue;
                     }
                 }
 
-                // 4. READ: Lex the input
-                ManualCoderiveLexer lexer = new ManualCoderiveLexer(fullInput);
-                List<ManualCoderiveLexer.Token> tokens = lexer.tokenize();
+                MainLexer lexer = new MainLexer(fullInput);
+                List<MainLexer.Token> tokens = lexer.tokenize();
+                DebugSystem.debug("REPL", "Tokenized: " + tokens.size() + " tokens");
 
-                // 5. EVAL (Part 1: Parse)
-                ManualCoderiveParser parser = new ManualCoderiveParser(tokens);
-                StatementNode astNode = parser.parseSingleLine(); 
+                MainParser parser = new MainParser(tokens);
+                StmtNode astNode = parser.parseSingleLine(); 
                 
                 if (astNode == null) {
+                    DebugSystem.warn("REPL", "No AST generated for input");
                     continue;
                 }
+                
+                DebugSystem.debug("REPL", "Parsed AST node: " + astNode.getClass().getSimpleName());
+                
+                if (optimize) {
+                    DebugSystem.debug("REPL", "Applying constant folding");
+                    try {
+                        Class<?> optimizerClass = Class.forName("cod.ast.Optimizer");
+                        java.lang.reflect.Method foldMethod = optimizerClass.getMethod("foldConstants", ASTNode.class);
+                        astNode = (StmtNode) foldMethod.invoke(null, astNode);
+                        DebugSystem.debug("REPL", "Constant folding applied");
+                    } catch (Exception e) {
+                        DebugSystem.warn("REPL", "Constant folding failed: " + e.getMessage());
+                    }
+                }
+                
+                validateREPLNaming(astNode, globalLocals);
 
-                // 6. EVAL (Part 2: Execute)
-                Object result = interpreter.getStatementEvaluator().evalStmt(
+                DebugSystem.debug("REPL", "Evaluating statement");
+                Object result = interpreter.evalReplStatement(
                     astNode,
                     globalInstance,
                     globalLocals,
                     globalSlots
                 );
 
-                // 7. PRINT
                 if (astNode instanceof ExprNode && result != null) {
                     System.out.println(String.valueOf(result));
+                    DebugSystem.debug("REPL", "Result: " + result);
                 }
 
             } catch (Exception e) {
                 System.err.println("Error: " + e.getMessage());
+                DebugSystem.error("REPL", "Error: " + e.getMessage());
             }
         }
-
         scanner.close();
         System.out.println("Exiting REPL.");
     }
+    
+    private static void validateREPLNaming(StmtNode stmt, Map<String, Object> locals) {
+        DebugSystem.debug("REPL", "Validating naming for: " + stmt.getClass().getSimpleName());
+        
+        if (stmt instanceof VarNode) {
+            VarNode var = (VarNode) stmt;
+            String varName = var.name;
+            
+            if (NamingValidator.isPascalCase(varName)) {
+                DebugSystem.error("REPL", "Invalid PascalCase variable: " + varName);
+                throw new RuntimeException("Variable name '" + varName + "' cannot use PascalCase (reserved for classes)");
+            }
+            
+            if (NamingValidator.isAllCaps(varName) && var.value == null) {
+                DebugSystem.error("REPL", "Constant without value: " + varName);
+                throw new RuntimeException("Constant '" + varName + "' must have an initial value");
+            }
+            
+        } else if (stmt instanceof AssignmentNode) {
+            AssignmentNode assign = (AssignmentNode) stmt;
+            if (assign.left instanceof ExprNode) {
+                ExprNode target = (ExprNode) assign.left;
+                if (target.name != null) {
+                    String varName = target.name;
+                    if (NamingValidator.isPascalCase(varName)) {
+                        DebugSystem.error("REPL", "Invalid PascalCase assignment: " + varName);
+                        throw new RuntimeException("Variable name '" + varName + "' cannot use PascalCase (reserved for classes)");
+                    }
+                    
+                    if (NamingValidator.isAllCaps(varName) && !locals.containsKey(varName)) {
+                        DebugSystem.error("REPL", "Assignment to undeclared constant: " + varName);
+                        throw new RuntimeException("Cannot assign to undeclared constant '" + varName + "'");
+                    }
+                }
+            }
+        }
+        
+        DebugSystem.debug("REPL", "Naming validation passed");
+    }
 
-    /**
-     * Checks if the input line needs continuation (unclosed braces, etc.)
-     */
     private static boolean needsMoreInput(String line) {
-        // Simple check: if we have unmatched braces, we need more input
         int openBraces = countChar(line, '{');
         int closeBraces = countChar(line, '}');
         return openBraces > closeBraces;
     }
 
-    /**
-     * Reads multi-line input until all braces are balanced
-     */
     private static String readMultiLineInput(Scanner scanner, String firstLine) {
+        DebugSystem.debug("REPL", "Starting multi-line input collection");
         StringBuilder input = new StringBuilder(firstLine);
         int braceBalance = countChar(firstLine, '{') - countChar(firstLine, '}');
         
         System.out.print(" . . ");
         while (braceBalance > 0) {
             String line = scanner.nextLine().trim();
-            input.append(" ").append(line); // Add space between lines
+            input.append(" ").append(line);
             
             braceBalance += countChar(line, '{') - countChar(line, '}');
             
@@ -134,12 +202,10 @@ public class CoderiveREPL {
             System.out.print(" . . ");
         }
         
+        DebugSystem.debug("REPL", "Multi-line input complete, length: " + input.length());
         return input.toString();
     }
 
-    /**
-     * Counts occurrences of a character in a string
-     */
     private static int countChar(String str, char ch) {
         int count = 0;
         for (int i = 0; i < str.length(); i++) {
@@ -150,9 +216,6 @@ public class CoderiveREPL {
         return count;
     }
 
-    /**
-     * Prints REPL help information
-     */
     private static void printHelp() {
         System.out.println("Coderive REPL Help:");
         System.out.println("  Expressions: 5 + 3, x * 2, \"hello\" + \" world\"");

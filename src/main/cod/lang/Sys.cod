@@ -1,0 +1,15 @@
+unit lang
+
+share Sys {
+
+/* auto in-between spacing between each + and
+any other concats. 'printp' means print pretty.
+*/
+builtin printp(inp: text) {}
+
+/* 'println' meaning print line */
+share println(inp: text) { 
+output inp + "\n"
+}
+
+}

@@ -1,15 +1,12 @@
-unit sample
 
-share LoopTest {
+use {
+	lang.Sys
+}
 
-share main() {
-output "Enter start"
-start = (int) input
-output "Enter end"
-end = (int) input
+Sys.outln("Enter start")
+start := (int) input
+Sys.outln("Enter end")
+end := (int) input
 for i by *+2 in start to end {
-output "Result is: " + i
-}
-}
-
+Sys.outln("Result is: " + i)
 }

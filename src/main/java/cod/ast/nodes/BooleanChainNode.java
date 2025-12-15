@@ -1,5 +1,6 @@
 package cod.ast.nodes;
 
+import cod.ast.ASTVisitor;
 import java.util.*;
 
 public class BooleanChainNode extends ExprNode {
@@ -9,4 +10,10 @@ public class BooleanChainNode extends ExprNode {
     public BooleanChainNode() {
         this.expressions = new ArrayList<ExprNode>();
     }
+    
+               @Override
+        public final <T> T accept(ASTVisitor<T> visitor) {
+           return visitor.visit(this);
+        }
+    
 }
