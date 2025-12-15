@@ -1,8 +1,8 @@
 package cod.ast.nodes;
 
-import java.util.*;
+import cod.ast.ASTVisitor;
 
-public class ForNode extends StatementNode {
+public class ForNode extends StmtNode {
     public String iterator;
     public RangeNode range;
     public BlockNode body = new BlockNode();
@@ -13,5 +13,11 @@ public class ForNode extends StatementNode {
         this.iterator = iterator;
         this.range = range;
     }
-
+    
+               @Override
+        public final <T> T accept(ASTVisitor<T> visitor) {
+           return visitor.visit(this);
+        }
+    
+    
 }

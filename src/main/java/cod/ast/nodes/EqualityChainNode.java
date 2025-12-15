@@ -1,5 +1,6 @@
 package cod.ast.nodes;
 
+import cod.ast.ASTVisitor;
 import java.util.*;
 
 public class EqualityChainNode extends ExprNode {
@@ -11,4 +12,10 @@ public class EqualityChainNode extends ExprNode {
     public EqualityChainNode() {
         this.chainArguments = new ArrayList<ExprNode>();
     }
+    
+               @Override
+        public final <T> T accept(ASTVisitor<T> visitor) {
+           return visitor.visit(this);
+        }
+    
 }

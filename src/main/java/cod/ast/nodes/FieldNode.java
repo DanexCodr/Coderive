@@ -1,11 +1,18 @@
 package cod.ast.nodes;
 
-public class FieldNode extends StatementNode {
+import cod.ast.ASTVisitor;
+import cod.syntax.Keyword;
+
+public class FieldNode extends StmtNode {
     public String name;
     public String type;
-    public String visibility; // [FIX] Added visibility property
+    public Keyword visibility; // [FIX] Added visibility property
     public ExprNode value;
     
-    // The 'left' property for assignments has been removed, 
-    // as the new AssignmentNode is a much cleaner way to handle that.
+               @Override
+        public final <T> T accept(ASTVisitor<T> visitor) {
+           return visitor.visit(this);
+        }
+    
+    
 }
