@@ -6,7 +6,7 @@ All notable changes to Coderive are documented in this file.
 
 ### 🚨 Breaking Changes
 - **Completely abandoned `~|` to instead use `::` return slot operator** - Embracing suffix-style design, fully abandoning the prefix-style.
-- **Replaced stack-based multi-arch compiler** - Ensuring lesser bug to show. (Status: Ongoing, Currently not priority)
+- **Replaced the stack-based multi-arch compiler with a TAC IR** - Ensuring lesser systemic bugs to show. (ongoing, not yet prioritized)
 - **Almost all classes renamed  updated, and repackaged** - Full refactoring of classes and their packages for more cleaner view.
 - **Fully removed ANTLR Dependency** - To focus on the language implementation and lessen dependencies.
 - **Replaced `<type><ws><name>`  to use `<name><colon><optional-ws><type>` instead for variable declaration.** - `name: type` for declaration, `name: type = value` for explicit declaration and assignment, `name := value` for inferred declaration and assignment,`name = value` for reassignment
@@ -22,11 +22,15 @@ All notable changes to Coderive are documented in this file.
   - Immutable by default but can be mutable (Note: "Use moderately")
   - Supports text as natural array.
 - **Added numeric shorthands**
-  - Added support for common numeric shorthands: K, M, B, T, Q, Qi, e
+  - Added support for common numeric shorthands: `K, M, B, T, Q, Qi, e`
   - Case for this feature will be case-sensitive.
 - **Added parameter skipping and named arguments support**
 
 > Check for other new minor features if you have free time...
+
+### 📚 Documentation
+- Updated all demo files showcasing the new updates
+- Added `ParamSkipDemo.cod` file for testing parameter skipping.
 
 ## [v0.2.3] - The Great Logic Revolution - November 23, 2025
 
