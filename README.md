@@ -83,8 +83,8 @@ Coderive replaces traditional boolean operators with expressive quantifiers:
 ```python
 share Calculator {
 
-    ~| int result, string operation  # Return slot declarations
-    local calculate(int a, int b) {
+    local calculate(int a, int b) :: result: int, operation: text  /* Return slot declarations */
+    {
         ~> a + b, "addition"  # Slot assignments
     }
 }
@@ -104,7 +104,7 @@ for i by *2 in 1 to 10 {  # Complex step patterns
 unit sample.program
 
 get {
-    cod.Math
+    lang.Math
 }
 
 share InteractiveDemo {
