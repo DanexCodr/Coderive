@@ -1,32 +1,67 @@
-unit sample get {
-    cod.Math
+use {
+	lang.Sys,
+    lang.Math
 }
 
-share ArrayTest {
+// Test 2 - Should work based on parseTypeReference() output  
+local test2() :: arr: [int] {
+    ~> arr: [1, 2, 3]
+}
+
     share main() {
         // Array declaration and initialization
-        int[] numbers = [1, 2, 3, 4, 5]
-        output "Array: " + numbers
+        numbers: [int] = [1, 2, 3, 4, 5]
+        Sys.println("Array: " + numbers)
         
         // Array access
-        output "First element: " + numbers[0]
-        output "Third element: " + numbers[2]
+        Sys.println("First element: " + numbers[0])
+        Sys.println("Third element: " + numbers[2])
         
         // String array
-        string[] names = ["Alice", "Bob", "Charlie"]
-        output "Names: " + names
-        output "Second name: " + names[1]
+        names: [text] = ["Alice", "Bob", "Charlie"]
+        Sys.println("Names: " + names)
+        Sys.println("Second name: " + names[1])
         
         // Array assignment
         numbers[0] = 100
-        output "After assignment - First element: " + numbers[0]
+        Sys.println("After assignment - First element: " + numbers[0])
         
         // Empty array
-        int[] empty = []
-        output "Empty array: " + empty
+        empty := []
+        Sys.println("Empty array: " + empty)
         
         // Single element array
-        int[] single = [42]
-        output "Single element: " + single[0]
+        single: [] = [42]
+        Sys.println("Single element: " + single[0])
+        
+        x := [1 to 10]
+        Sys.println("Simple natural array: " + x[2])
+        
+        Sys.println("Big number: " + 9.999Qi)
+        
+        x = [by 2 in 168 to 9.999Qi]
+        Sys.println("Multiplicative natural array: ")
+        Sys.println("Before mutation: " + x[20000])
+        x[20000] = "hello"
+        Sys.println("After mutation: " + x[20000])
+        
+        x = [[1 to 10]]
+        Sys.println("Simple nested natural array: " + x[0][2])
+        
+        x = [[1 to 10], [by 2 in 3 to 100]]
+        Sys.println("Nested natural array: " + x[1][5])
+        
+        x = ["a" to "Zz"]
+        Sys.println("Alphabet natural array: " + x[52])
+        
+        range := [1 to 10]
+        container := [range]
+        Sys.println(range[5])
+        Sys.println(container[0][1])
+        Sys.println(container[0][5])
+
+        // Test string formatting
+        Sys.println("Test: |" + "trailing space " + "|")
+        Sys.println("Number: " + 40168)
+        Sys.println(9.999Qi)
     }
-}

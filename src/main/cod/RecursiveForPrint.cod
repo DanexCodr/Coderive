@@ -1,19 +1,15 @@
-unit sample get {
-    cod.Math
+use {
+	lang. Sys,
+    lang.Math
 }
 
-share RecursiveForPrint {
-    share main() {
-    	output "This is a test for for-loop"
+Sys.outln("This is a test for for-loop")
     
-        output "Counting up:"
-        for i by 1 in 1 to 10 {
-            output i
-        }
-        
-        output "Counting down:"
-        for i by -1 in 10 to 1 {
-            output i
-        }
-    }
+Sys.outln("Counting up: ")
+for i by 1 in 1 to 10 {
+   Sys.outln(i)
+}        
+Sys.outln("Counting down: ")
+for i by -1 in 10 to 1 {
+   Sys.outln(i)
 }

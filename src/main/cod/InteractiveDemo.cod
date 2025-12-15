@@ -1,70 +1,78 @@
 unit sample
 
-get {
-    cod.Sys
+use {
+    lang.Sys
 }
 
 share InteractiveDemo {
     
     // Supporting both else-if and elif
-    ~| int formula, string operation
-    local calculate(int a, int b, string op) {  
+    local calculate(a: int, b: int, op: text)
+    :: formula: int|float, operation: text {  
         if op == "+" {
            // Separate return assignments
-           ~> formula a + b
-           ~> operation "addition"
+           ~> formula: a + b
+           ~> operation: "addition"
          } else if op == "-" {
            // One line return assignments
-           ~> formula a - b, operation "subtraction"
+           ~> formula: a - b, operation: "subtraction"
          } else if op == "*" {
            // implicit one line return assignments
            ~> a * b, "multiplication"
          } else if op == "/" {
            // mixed one line return assignments
-           ~> formula a / b, "division"
+           ~> formula: a / b, "division"
           } else {
            ~> 0, "unknown"
           }
     }
 
     // Method with single expression
-    local add(int a, int b) ~> a + b
+    local add(a: int, b: int) ~> a + b
 
-    // TBA: This should fail the compilation but for now doesn't yet.
-    ~| x, y
-    local haha(int a) {
+    local haha(a: int) :: x: int, y: int {
+    	// Without '~> value' this will make a compile error
     }
 
     
     // Array demonstration
     local demonstrateArrays() {
-        Sys.outln("=== Array Demo ===")
+        Sys.println("=== Array Demo ===")
+
+        num1: [] = [1, 2, 3]
         
-        numbers = [10, 20, 30, 40, 50]
-        Sys.outln("Array: " + numbers)
+        Sys.println("Trying num1: [] = " + num1)
         
-        Sys.outln("First element: " + numbers[0] + " ")
-        Sys.outa("Last element:" + numbers[4]) // testing output
+        num2: [int] = [2, 3, 4, 5, 6]
         
-        numbers[2] = 99
-        Sys.outln("After modification: " + numbers)
+        Sys.println("Trying num2: [int] = " + num2)
+        
+                // With implicitness
+        num3 := [10, 20, 30, 40, 50]
+        Sys.println("Trying: num3 := " + num3)
+        
+        Sys.println("First element: " + num3[0])
+        Sys.println("Last element: " + num3[4])
+
+        num3[2] = 99
+        Sys.println("After modification: " + num3)
     }
 
     // Input demonstration with ENHANCED VALIDATION
     local getUserInfo() {
-        Sys.outln("=== User Registration ===")
+        Sys.println("=== User Registration ===")
     
-        Sys.outln("Enter your name:")
-        name = (string) input
+        Sys.println("Enter your name:")
+        name := (text) input
     
-        Sys.outln("Enter your age:")
-        age = (int) input
+        Sys.println("Enter your age:")
+        age := (int) input
     
-        Sys.outln("Enter your height (meters):")
-        height = (float) input
+        Sys.println("Enter your height (meters):")
+        height := (float) input
     
-        Sys.outln("Are you a student? (true/false)")
-        isStudent = (bool) input
+        Sys.println("Are you a student? (true/false)")
+        isStudent := (bool) input
     
         // NEW: Showcasing 'all' for comprehensive validation
         if all[
@@ -74,276 +82,238 @@ share InteractiveDemo {
             height > 0.0,
             height < 3.0
        ] {
-            Sys.outln("")
-            Sys.outln("Registration Complete!")
-            Sys.outln("Name: " + name)
-            Sys.outln("Age: " + age)
-            Sys.outln("Height: " + height + "m")
-            Sys.outln("Student: " + isStudent)
+            Sys.println("")
+            Sys.println("Registration Complete!")
+            Sys.println("Name: " + name)
+            Sys.println("Age: " + age)
+            Sys.println("Height: " + height + "m")
+            Sys.println("Student: " + isStudent)
         
             // NEW: Showcasing 'any' for role-based greeting
             if any[isStudent, age < 25] {
-                Sys.outln("Welcome young user " + name + "!")
+                Sys.println("Welcome young user " + name + "!")
             } else {
-                Sys.outln("Welcome " + name + "!")
+                Sys.println("Welcome " + name + "!")
             }
          } else {
-             Sys.outln("")
-             Sys.outln(" Registration Failed: Invalid data provided!")
+             Sys.println("")
+             Sys.println(" Registration Failed: Invalid data provided!")
          }
     }
 
     // Calculator with user input + VALIDATION SHOWCASE
     local interactiveCalculator() {
-        Sys.outln("=== Interactive Calculator ===")
+        Sys.println("=== Interactive Calculator ===")
     
-        Sys.outln("Enter first number:")
-        num1 = (int) input
+        Sys.println("Enter first number:")
+        num1 := (int) input
     
-        Sys.outln("Enter second number:")
-        num2 = (int) input
+        Sys.println("Enter second number:")
+        num2 := (int) input
     
-        Sys.outln("Enter operation (+, -, *, /):")
-        op = (string) input
+        Sys.println("Enter operation (+, -, *, /):")
+        op := (text) input
     
         //  NEW: Showcasing conditional chains for validation!
         if op == any["+", "-", "*", "/"] {
-            result, operation = [formula, operation]:calculate(num1, num2, op)
+            result, operation := [formula, operation]:calculate(num1, num2, op)
         
-            Sys.outln("")
-            Sys.outln("Calculation Result:")
-            Sys.outln(num1 + " " + op + " " + num2 + " = " + result)
-            Sys.outln("Operation: " + operation)
+            Sys.println("")
+            Sys.println("Calculation Result:")
+            Sys.println(num1 + " " + op + " " + num2 + " = " + result)
+            Sys.println("Operation: " + operation)
         } else {
-            Sys.outln("")
-            Sys.outln("Error: '" + op + "' is not a valid operation!")
-            Sys.outln("Please use one of: +, -, *, /")
+            Sys.println("")
+            Sys.println("Error: '" + op + "' is not a valid operation!")
+            Sys.println("Please use one of: +, -, *, /")
         }
     }
     
     // Loop demonstration with input
     share numberSeries() {
-        Sys.outln("=== Number Series Generator ===")
+        Sys.println("=== Number Series Generator ===")
         
-        Sys.outln("Enter start number:")
-        start = (int) input
+        Sys.println("Enter start number:")
+        start := (int) input
         
-        Sys.outln("Enter end number:")
-        end = (int) input
+        Sys.println("Enter end number:")
+        end := (int) input
         
-        Sys.outln("Number series from " + start + " to " + end + ":")
+        Sys.println("Number series from " + start + " to " + end + ":")
         
-        Sys.outln("")
-        Sys.outln("=== DEFAULT STEPS (No 'by' clause) ===")
-        Sys.outln("Counting up naturally:")
+        Sys.println("")
+        Sys.println("=== DEFAULT STEPS (No 'by' clause) ===")
+        Sys.println("Counting up naturally:")
         for i in 1 to 5 {
-            Sys.outln("Default step: " + i)  // 1, 2, 3, 4, 5
+            Sys.println("Default step: " + i)  // 1, 2, 3, 4, 5
         }
         
-        Sys.outln("Counting down naturally:")
+        Sys.println("Counting down naturally:")
         for i in 5 to 1 {
-            Sys.outln("Default step: " + i)  // 5, 4, 3, 2, 1
+            Sys.println("Default step: " + i)  // 5, 4, 3, 2, 1
         }
         
-        Sys.outln("User range - smart default:")
+        Sys.println("User range - smart default:")
         for i in start to end {
-            Sys.outln("Smart default: " + i)  // auto +1 or -1 based on start/end
+            Sys.println("Smart default: " + i)  // auto +1 or -1 based on start/end
         }
         
-        Sys.outln("")
-        Sys.outln("=== BASIC STEPS ===")
-        Sys.outln("Enter step size:")
-        steps = (int) input
+        Sys.println("")
+        Sys.println("=== BASIC STEPS ===")
+        Sys.println("Enter step size:")
+        steps := (int) input
         
         for i by steps in start to end {
-            Sys.outln("Step by " + steps + ": " + i)
-        }
-        
-        // Manual assignments
-        for i by i = i + 1 in start to end {
-            Sys.outln("Manual i=i+1: " + i)
-        }
-        
-        // Compound assignments  
-        for i by i += 1 in start to end {
-            Sys.outln("Compound i+=1: " + i)
+            Sys.println("Step by " + steps + ": " + i)
         }
         
         // Operator prefixes
         for i by +1 in start to end {
-            Sys.outln("Step by +1: " + i)
+            Sys.println("Step by +1: " + i)
         }
         
         // Counting down with various methods
         for i by -1 in 10 to 1 {
-            Sys.outln("Countdown by -1: " + i)
+            Sys.println("Countdown by -1: " + i)
         }
         
-        for i by i = i - 1 in 10 to 1 {
-            Sys.outln("Countdown manual: " + i)
-        }
-        
-        for i by i -= 1 in 10 to 1 {
-            Sys.outln("Countdown compound: " + i)
-        }
-        
-        Sys.outln("")
-        Sys.outln("=== MULTIPLICATIVE STEPS ===")
+        Sys.println("=== MULTIPLICATIVE STEPS ===")
         
         // Multiplicative patterns
         
         for i by *2 in 1 to 32 {
-            Sys.outln("Doubling: " + i)
+            Sys.println("Doubling: " + i)
         }
         
-        for i by i = i * 2 in 1 to 32 {
-            Sys.outln("Doubling manual: " + i)
+        exponent := 1
+        powerValue := 2
+        for i in 1 to 6 {
+           Sys.println("Power compound: 2^" + exponent + " = " + powerValue)
+           exponent = exponent + 1
+           powerValue = powerValue * 2
         }
-        
-        for i by i *= 2 in 1 to 32 {
-            Sys.outln("Doubling compound: " + i)
-        } 
         
         for i by *+2 in start to end {
-            Sys.outln("Step by *+2: " + i)
+            Sys.println("Step by *+2: " + i)
         }
         
-        Sys.outln("")
-        Sys.outln("=== DIVISION STEPS ===")
+        Sys.println("")
+        Sys.println("=== DIVISION STEPS ===")
         
         // Division patterns
         for i by /2 in 64 to 2 {
-            Sys.outln("Halving: " + i)
-        }
-        
-        for i by i = i / 2 in 64 to 2 {
-            Sys.outln("Halving manual: " + i)
-        }
-        
-        for i by i /= 2 in 64 to 2 {
-            Sys.outln("Halving compound: " + i)
+            Sys.println("Halving: " + i)
         }
         
         for i by /+2 in 32 to 1 {
-            Sys.outln("Step by /+2: " + i)
+            Sys.println("Step by /+2: " + i)
         }
         
-        Sys.outln("")
-        Sys.outln("=== PRACTICAL PATTERNS ===")
-        Sys.outln("Powers of 2:")
+        Sys.println("")
+        Sys.println("=== PRACTICAL PATTERNS ===")
+        Sys.println("Powers of 2:")
         
-        // Various power patterns
-        for power by *2 in 1 to 64 {
-            Sys.outln("2^" + power + " = " + power)
+        exponent = 1
+        for value by *2 in 2 to 64 {  // Start from 2 (2^1)
+           Sys.println("2^" + exponent + " = " + value)
+           exponent = exponent + 1
         }
         
-        for power by power *= 2 in 1 to 64 {
-            Sys.outln("Power compound: " + power)
-        }
-        
-        Sys.outln("Countdown sequences:")
+        Sys.println("Countdown sequences:")
         // Natural countdown
         for count in 10 to 1 {
-            Sys.outln("Natural countdown: " + count)
+            Sys.println("Natural countdown: " + count)
         }
         
         // Explicit countdown
         for count by -1 in 10 to 1 {
-            Sys.outln("Explicit countdown: " + count)
+            Sys.println("Explicit countdown: " + count)
         }
         
-        Sys.outln("Growing sequences:")
-        // Complex patterns
-        for grow by *2 + 1 in 1 to 50 {
-            Sys.outln("Growing: " + grow)
+        grow := 1
+        for i in 1 to 5 {  // Limit iterations
+            Sys.println("Growing: " + grow)
+        grow = grow * 2 + 1
         }
         
-        for grow
-        by grow = grow * 2 + 1
-        in 1
-        to 50 {
-            Sys.outln("Growing manual: " + grow)
-        }
-        
-        Sys.outln("Mixed operations:")
+        Sys.println("Mixed operations:")
         for mixed in 1 to 20 {
-            Sys.outln("Mixed default: " + mixed)
+            Sys.println("Mixed default: " + mixed)
         }
         
         for mixed by +2 in 1 to 20 {
-            Sys.outln("Mixed +2: " + mixed)
+            Sys.println("Mixed +2: " + mixed)
         }
         
         for mixed by -2 in 20 to 2 {
-            Sys.outln("Mixed -2: " + mixed)
+            Sys.println("Mixed -2: " + mixed)
         }
     }
     
     // Additional demo for edge cases
     share edgeCaseLoops() {
-        Sys.outln("=== Edge Case Loops ===")
+        Sys.println("=== Edge Case Loops ===")
         
         // Single element ranges
-        Sys.outln("Single element:")
+        Sys.println("Single element:")
         for i in 5 to 5 {
-            Sys.outln("Single: " + i)  // Should Sys.outln: 5
+            Sys.println("Single: " + i)  // Should Sys.println: 5
         }
         
         // Zero-step ranges
-        Sys.outln("Zero range up:")
+        Sys.println("Zero range up:")
         for i in 0 to 0 {
-            Sys.outln("Zero up: " + i)  // Should Sys.outln: 0
+            Sys.println("Zero up: " + i)  // Should Sys.println: 0
         }
         
-        Sys.outln("Zero range down:")
+        Sys.println("Zero range down:")
         for i in 0 to 0 {
-            Sys.outln("Zero down: " + i)  // Should Sys.outln: 0
+            Sys.println("Zero down: " + i)  // Should Sys.println: 0
         }
         
         // Negative numbers
-        Sys.outln("Negative ranges:")
+        Sys.println("Negative ranges:")
         for i in -5 to -1 {
-            Sys.outln("Negative up: " + i) // -5, -4, -3, -2, -1
+            Sys.println("Negative up: " + i) // -5, -4, -3, -2, -1
         }
         
         for i in -1 to -5 {
-            Sys.outln("Negative down: " + i) // -1, -2, -3, -4, -5
+            Sys.println("Negative down: " + i) // -1, -2, -3, -4, -5
         }
         
         // Large steps
-        Sys.outln("Large steps:")
+        Sys.println("Large steps:")
         for i by 10 in 0 to 50 {
-            Sys.outln("Large step: " + i ) // 0, 10, 20, 30, 40, 50
+            Sys.println("Large step: " + i ) // 0, 10, 20, 30, 40, 50
         }
     }
     
     // Main method - program entry point
     share main() {
-        Sys.outln("=== CODERIVE INTERACTIVE DEMO ===")
-        Sys.outln("")
+        output "=== CODERIVE INTERACTIVE DEMO ==="
+        Sys.println("")
         
         // Demonstrate arrays
         demonstrateArrays()
-        Sys.outln("")
+        Sys.println("")
         
         // Get user information
         getUserInfo() 
-        Sys.outln("")
+        Sys.println("")
         
         // Calculator demo
         interactiveCalculator()
-        Sys.outln("")
+        Sys.println("")
         
         // Number series demo
         numberSeries()
-        Sys.outln("")
+        Sys.println("")
         
         // Edge cases
         edgeCaseLoops()
-        Sys.outln("")
+        Sys.println("")
         
-        Sys.outln("=== DEMO COMPLETE ===")
-        Sys.outln("Thank you for using Coderive!")
+        Sys.println("=== DEMO COMPLETE ===")
+        Sys.println("Thank you for using Coderive!")
     }
-
 }

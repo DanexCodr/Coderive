@@ -1,57 +1,61 @@
-unit sample get {
-    cod.Math
+unit sample
+
+use {
+	lang.Sys,
+    lang.Math
 }
 
 share PrimitiveTest {
     
     // Test arithmetic operations
     share testArithmetic() {
-        int a = 15
-        int b = 4
-        float x = 10.5
-        float y = 2.5
+        a: int = 15
+        b: int = 4
+        x: float = 10.5
+        y: float = 2.5
         
-        output "Arithmetic Operations:"
-        output "15 + 4 = " + (a + b)
-        output "15 - 4 = " + (a - b)
-        output "15 * 4 = " + (a * b)
-        output "15 / 4 = " + (a / b)
-        output "10.5 + 2.5 = " + (x + y)
-        output "10.5 - 2.5 = " + (x - y)
-        output "10.5 * 2.5 = " + (x * y)
-        output "10.5 / 2.5 = " + (x / y)
+        Sys.outln("Arithmetic Operations:")
+        Sys.outln("15 + 4 = " + (a + b))
+        Sys.outln("15 - 4 = " + (a - b))
+        Sys.outln("15 * 4 = " + (a * b))
+        Sys.outln("15 / 4 = " + (a / b))
+        Sys.outln("10.5 + 2.5 = " + (x + y))
+        Sys.outln("10.5 - 2.5 = " + (x - y))
+        Sys.outln("10.5 * 2.5 = " + (x * y))
+        Sys.outln("10.5 / 2.5 = " + (x / y))
     }
     
     // Test comparison operations  
     share testComparisons() {
-        int num1 = 10
-        int num2 = 20
+        num1 := 10
+        num2 := 20
         
-        output "Comparison Operations:"
-        output "10 == 10: " + (num1 == num1)
-        output "10 == 20: " + (num1 == num2)
-        output "10 != 20: " + (num1 != num2)
-        output "10 < 20: " + (num1 < num2)
-        output "10 > 20: " + (num1 > num2)
-        output "10 <= 20: " + (num1 <= num2)
-        output "10 >= 20: " + (num1 >= num2)
+        Sys.outln("Comparison Operations:")
+        Sys.outln("10 == 10: " + (num1 == num1))
+        Sys.outln("10 == 20: " + (num1 == num2))
+        Sys.outln("10 != 20: " + (num1 != num2))
+        Sys.outln("10 < 20: " + (num1 < num2))
+        Sys.outln("10 > 20: " + (num1 > num2))
+        Sys.outln("10 <= 20: " + (num1 <= num2))
+        Sys.outln("10 >= 20: " + (num1 >= num2))
     }
     
     // Test multiple return values
-        ~|intResult, stringResult
-        share testMultiReturn(int inputInteger) ~> inputInteger * 2, "Processed: " + inputInteger
+    share testMultiReturn(inputInteger: int)
+    :: intResult: int, stringResult: text
+    ~> inputInteger * 2, "Processed: " + inputInteger
     
     share main() {
-        output "=== COMPREHENSIVE TESTS ==="
-        output ""
+        Sys.outln("=== COMPREHENSIVE TESTS ===")
+        Sys.outln("")
         
         testArithmetic()
-        output ""
+        Sys.outln("")
         
         testComparisons() 
-        output ""
+        Sys.outln("")
         
-        output "Multiple Return Test:"
-        output [stringResult, intResult]:testMultiReturn(25)
+        Sys.outln("Multiple Return Test:")
+        Sys.outln([stringResult, intResult]:testMultiReturn(25))
     }
 }
