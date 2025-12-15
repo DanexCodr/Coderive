@@ -1,11 +1,14 @@
+// ArgumentListNode.java
 package cod.ast.nodes;
 
 import cod.ast.ASTVisitor;
 
-public class BinaryOpNode extends ExprNode {
-    public BinaryOpNode() {}
+import java.util.List;
+
+public class ArgumentListNode extends ExprNode {
+    public List<ExprNode> arguments;
     
-               @Override
+              @Override
         public final <T> T accept(ASTVisitor<T> visitor) {
            return visitor.visit(this);
         }
