@@ -1,12 +1,16 @@
 package cod.ast.nodes;
 
-import cod.ast.CoderiveParser;
-import java.util.*;
-import org.antlr.v4.runtime.tree.ParseTree;
-import org.antlr.v4.runtime.tree.TerminalNode;
+import cod.ast.ASTVisitor;
 
-public class OutputNode extends StatementNode {
+import java.util.*;
+
+public class OutputNode extends StmtNode {
     public String varName;               // optional, for "output n = ..."
     public List<ExprNode> arguments = new ArrayList<>(); // normal output or multiple args
+    
+               @Override
+        public final <T> T accept(ASTVisitor<T> visitor) {
+           return visitor.visit(this);
+        }
     
 }
