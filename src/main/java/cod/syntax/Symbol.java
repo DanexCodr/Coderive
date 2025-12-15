@@ -1,0 +1,40 @@
+package cod.syntax;
+
+public enum Symbol {
+  EQ,
+  ASSIGN,
+  GT,
+  GTE,
+  LT,
+  LTE,
+  NEQ,
+  BANG,
+
+  PLUS,
+  PLUS_ASSIGN,
+  MINUS,
+  MINUS_ASSIGN,
+  MUL,
+  MUL_ASSIGN,
+  DIV,
+  DIV_ASSIGN,
+
+  MOD,
+  DOUBLE_COLON,
+  DOUBLE_COLON_ASSIGN,
+  TILDE_ARROW,
+  COLON,
+  DOT,
+  COMMA,
+  LPAREN,
+  RPAREN,
+  LBRACE,
+  RBRACE,
+  LBRACKET,
+  RBRACKET,
+
+  PIPE,
+  QUESTION,
+  AMPERSAND,
+  UNDERSCORE
+}
