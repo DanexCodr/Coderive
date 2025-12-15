@@ -25,7 +25,7 @@ All notable changes to Coderive are documented in this file.
   - Case for this feature will be case-sensitive.
 - **Added parameter skipping and named arguments support**
 
-> Check for other nee minor features if you have free time...
+> Check for other new minor features if you have free time...
 
 ## [v0.2.3] - The Great Logic Revolution - November 23, 2025
 
