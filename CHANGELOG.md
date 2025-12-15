@@ -2,6 +2,31 @@
 
 All notable changes to Coderive are documented in this file.
 
+## [v0.3.0] - The Design Leap - December 15, 2025
+
+### 🚨 Breaking Changes
+- **Completely abandoned `~|` to instead use `::` return slot operator** - Embracing suffix-style design, fully abandoning the prefix-style.
+- **Replaced stack-based multi-arch compiler** - Ensuring lesser bug to show. (Status: Ongoing, Currently not priority)
+- **Almost all classes renamed  updated, and repackaged** - Full refactoring of classes and their packages for more cleaner view.
+- **Replaced `<type><ws><name>`  to use `<name><colon><optional-ws><type>` instead for variable declaration.** - `name: type` for declaration, `name: type = value` for explicit declaration and assignment, `name := value` for inferred declaration and assignment,`name = value` for reassignment
+
+### ✨ Major Features
+- **Three World System**
+  - Added three distinct types of programs for Coderive: Script, Method-only, and Module.
+- **From String to Text**
+  - Replaced the previous `string` keyword with `text`.
+- **Natural Array**
+  - Added supports for range for arrays
+  - Lazy array generation
+  - Immutable by default but can be mutable (Note: "Use moderately")
+  - Supports text as natural array.
+- **Added numeric shorthands**
+  - Added support for common numeric shorthands: K, M, B, T, Q, Qi, e
+  - Case for this feature will be case-sensitive.
+- **Added parameter skipping and named arguments support**
+
+> Check for other nee minor features if you have free time...
+
 ## [v0.2.3] - The Great Logic Revolution - November 23, 2025
 
 ### 🚨 Breaking Changes
