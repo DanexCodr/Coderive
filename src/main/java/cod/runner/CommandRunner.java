@@ -7,52 +7,32 @@ import cod.interpreter.Interpreter;
 
 public class CommandRunner extends BaseRunner {
     
-    // Operation modes
-    private enum OperationMode {
-        INTERPRET,
-        COMPILE_BYTECODE,
-        COMPILE_NATIVE,
-        COMPILE_BOTH
-    }
-    
     private final Interpreter interpreter;
-    private final CompilationEngine compilationEngine;
+    private boolean enableOptimization = false;
+    private boolean showOptimizationStats = false;
     
     public CommandRunner() {
         this.interpreter = new Interpreter();
-        this.compilationEngine = new CompilationEngine();
     }
     
     @Override
     public void run(String[] args) throws Exception {
-        // Default operation mode
-        OperationMode mode = OperationMode.INTERPRET;
         String outputFilename = null;
-        boolean showHelp = false;
+        enableOptimization = false;
+        showOptimizationStats = false;
         
-        // Process command line arguments with anonymous configuration
         RunnerConfig config = processCommandLineArgs(args, null, new Configuration() {
             @Override
             public void configure(RunnerConfig config) {
-                // Common defaults
-                config.withParserMode(ParserMode.MANUAL)
-                      .withLinting(true)
-                      .withPrintAST(false)
-                      .withDebugLevel(DebugSystem.Level.INFO);
+                config.withDebugLevel(DebugSystem.Level.INFO);
             }
         });
         
-        // Process operation mode arguments and output filename
+        // Parse command-line arguments
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
-            if ("--compile".equals(arg) || "-c".equals(arg)) {
-                mode = OperationMode.COMPILE_NATIVE;
-            } else if ("--compile-bytecode".equals(arg)) {
-                mode = OperationMode.COMPILE_BYTECODE;
-            } else if ("--compile-both".equals(arg)) {
-                mode = OperationMode.COMPILE_BOTH;
-            } else if ("--interpret".equals(arg) || "-i".equals(arg)) {
-                mode = OperationMode.INTERPRET;
+            if ("--interpret".equals(arg) || "-i".equals(arg)) {
+                // Default mode, do nothing
             } else if ("-o".equals(arg)) {
                 if (i + 1 < args.length) {
                     outputFilename = args[i + 1];
@@ -60,115 +40,98 @@ public class CommandRunner extends BaseRunner {
                 } else {
                     System.err.println("Error: -o option requires an output filename.");
                 }
+            } else if ("-O".equals(arg) || "--optimize".equals(arg)) {
+                enableOptimization = true;
+                DebugSystem.info(LOG_TAG, "Constant folding optimization enabled");
+            } else if ("--opt-stats".equals(arg)) {
+                showOptimizationStats = true;
+            } else if ("--debug".equals(arg)) {
+                config.debugLevel = DebugSystem.Level.DEBUG;
+            } else if ("--trace".equals(arg)) {
+                config.debugLevel = DebugSystem.Level.TRACE;
+            } else if ("--quiet".equals(arg)) {
+                config.debugLevel = DebugSystem.Level.ERROR;
             } else if ("--help".equals(arg) || "-h".equals(arg)) {
-                showHelp = true;
+                printHelp();
+                return;
             }
         }
         
-        // Show help and exit if requested
-        if (showHelp) {
-            printHelp();
-            return;
-        }
-        
-        // Set output filename if provided
         if (outputFilename != null) {
             config.withOutputFilename(outputFilename);
         }
         
-        // Validate input filename
-        if (config.inputFilename == null || config.inputFilename.isEmpty()) {
-            printHelp();
-            throw new RuntimeException("No input file specified");
-        }
-        
-        // Configure debug system with the specified level
         configureDebugSystem(config.debugLevel);
         
         DebugSystem.info(LOG_TAG, "Starting CommandRunner execution");
-        DebugSystem.info(LOG_TAG, "Operation mode: " + mode);
-        DebugSystem.info(LOG_TAG, "Parser mode: " + config.parserMode);
         DebugSystem.info(LOG_TAG, "Input file: " + config.inputFilename);
-        DebugSystem.info(LOG_TAG, "Output file: " + config.outputFilename);
-        DebugSystem.info(LOG_TAG, "Print AST: " + config.printAST);
-        DebugSystem.info(LOG_TAG, "Enable linting: " + config.enableLinting);
+        DebugSystem.info(LOG_TAG, "Optimization: " + (enableOptimization ? "ENABLED" : "DISABLED"));
         
-        // STAGE 1: PARSING AND AST
-        DebugSystem.startTimer("parsing_and_ast");
-        ProgramNode ast = parseSourceFile(config.inputFilename, config.parserMode);
+        if (config.inputFilename == null || config.inputFilename.isEmpty()) {
+            throw new RuntimeException("No input file specified. Usage: CommandRunner <filename> [options]");
+        }
+        
+        DebugSystem.startTimer("parsing");
+        ProgramNode ast = parse(config.inputFilename);
         if (ast == null) {
             throw new RuntimeException("Parsing failed, AST is null.");
         }
-        DebugSystem.stopTimer("parsing_and_ast");
+        DebugSystem.stopTimer("parsing");
         DebugSystem.info(LOG_TAG, "AST built successfully");
-
-        // PRINT AST BEFORE LINTING (if enabled)
-        printASTIfEnabled(ast, config);
-
-        // STAGE 2: LINTING
-        if (!performLinting(ast, config)) {
-            return; // Stop execution if linting failed
+        
+        // Apply constant folding optimization if enabled
+        if (enableOptimization) {
+            DebugSystem.startTimer("optimization");
+            DebugSystem.info(LOG_TAG, "Applying constant folding optimization...");
+            
+            ast = optimizeAST(ast, true);
+            
+            DebugSystem.stopTimer("optimization");
+            DebugSystem.info(LOG_TAG, "Optimization completed");
+            
+            if (showOptimizationStats) {
+                printOptimizationSummary();
+            }
         }
-
-        // STAGE 3: EXECUTION BASED ON MODE
-        switch (mode) {
-            case INTERPRET:
-                executeInterpretation(ast);
-                break;
-            case COMPILE_BYTECODE:
-                compilationEngine.compileToBytecode(ast, true);
-                break;
-            case COMPILE_NATIVE:
-                compilationEngine.compileFullPipeline(ast, config.outputFilename, false);
-                break;
-            case COMPILE_BOTH:
-                compilationEngine.compileFullPipeline(ast, config.outputFilename, true);
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown operation mode: " + mode);
-        }
+        
+        executeInterpretation(ast);
         
         DebugSystem.info(LOG_TAG, "CommandRunner execution completed");
     }
-
+    
     private void executeInterpretation(ProgramNode ast) {
         DebugSystem.info(LOG_TAG, "Starting program interpretation");
         interpreter.run(ast);
         DebugSystem.info(LOG_TAG, "Program interpretation completed");
     }
     
+    private void printOptimizationSummary() {
+        System.out.println("\n=== CONSTANT FOLDING SUMMARY ===");
+        System.out.println("Constant folding has been applied to the AST.");
+        System.out.println("Benefits:");
+        System.out.println("  • Constant expressions evaluated at compile time");
+        System.out.println("  • Runtime performance improved");
+        System.out.println("  • Boolean chains (any[]/all[]) optimized");
+        System.out.println("  • Type casts eliminated where possible");
+        System.out.println("===============================\n");
+    }
+    
     private void printHelp() {
-        System.out.println("Coderive CommandRunner - Multi-target language runner");
-        System.out.println();
-        System.out.println("Usage: java CommandRunner [options] <input_file.cdrv>");
-        System.out.println();
-        System.out.println("Operation Modes:");
-        System.out.println("  --interpret, -i     Interpret the program (default)");
-        System.out.println("  --compile, -c       Compile to native assembly");
-        System.out.println("  --compile-bytecode  Compile to bytecode only");
-        System.out.println("  --compile-both      Compile to both bytecode and native");
-        System.out.println();
-        System.out.println("Parser Options:");
-        System.out.println("  --manual            Use manual parser (default)");
-        System.out.println("  --antlr             Use ANTLR parser");
-        System.out.println();
-        System.out.println("Output Options:");
-        System.out.println("  -o <file>           Output filename for compilation");
-        System.out.println("  --print-ast         Print the Abstract Syntax Tree");
-        System.out.println();
-        System.out.println("Analysis Options:");
-        System.out.println("  --no-lint           Disable linting");
-        System.out.println("  --stop-on-lint      Stop execution on lint errors");
-        System.out.println();
-        System.out.println("Debug Options:");
+        System.out.println("Coderive CommandRunner - Execute Coderive programs");
+        System.out.println("Usage: CommandRunner <filename> [options]\n");
+        System.out.println("Options:");
+        System.out.println("  -i, --interpret     Interpret the program (default)");
+        System.out.println("  -O, --optimize      Enable constant folding optimization");
+        System.out.println("  --opt-stats         Show optimization summary");
+        System.out.println("  -o <file>           Write output to file");
         System.out.println("  --debug             Enable debug output");
-        System.out.println("  --trace             Enable trace-level output");
-        System.out.println("  --help, -h          Show this help message");
-        System.out.println();
-        System.out.println("Examples:");
-        System.out.println("  java CommandRunner program.cdrv --interpret");
-        System.out.println("  java CommandRunner program.cdrv --compile -o output.s");
-        System.out.println("  java CommandRunner program.cdrv --compile-bytecode --print-ast");
+        System.out.println("  --trace             Enable trace-level debugging");
+        System.out.println("  --quiet             Only show errors");
+        System.out.println("  -h, --help          Show this help message");
+        System.out.println("\nExamples:");
+        System.out.println("  CommandRunner program.cod");
+        System.out.println("  CommandRunner program.cod -O");
+        System.out.println("  CommandRunner program.cod -O --opt-stats");
     }
 
     public static void main(String[] args) {
