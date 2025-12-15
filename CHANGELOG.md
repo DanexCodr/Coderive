@@ -8,6 +8,7 @@ All notable changes to Coderive are documented in this file.
 - **Completely abandoned `~|` to instead use `::` return slot operator** - Embracing suffix-style design, fully abandoning the prefix-style.
 - **Replaced stack-based multi-arch compiler** - Ensuring lesser bug to show. (Status: Ongoing, Currently not priority)
 - **Almost all classes renamed  updated, and repackaged** - Full refactoring of classes and their packages for more cleaner view.
+- **Fully removed ANTLR Dependency** - To focus on the language implementation and lessen dependencies.
 - **Replaced `<type><ws><name>`  to use `<name><colon><optional-ws><type>` instead for variable declaration.** - `name: type` for declaration, `name: type = value` for explicit declaration and assignment, `name := value` for inferred declaration and assignment,`name = value` for reassignment
 
 ### ✨ Major Features
