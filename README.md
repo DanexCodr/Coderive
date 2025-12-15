@@ -110,8 +110,9 @@ get {
 
 share InteractiveDemo {
 
-    ~| int formula, string operation
-    local calculate(a: int, b: int, op: text) {
+    local calculate(a: int, b: int, op: text)
+    :: formula: int, operation: text
+    {
         if all[a >= 0, b >= 0] {
             if op == any["+", "-", "*"] {
                 ~> a + b, "valid operation"
