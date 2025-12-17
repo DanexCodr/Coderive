@@ -51,7 +51,6 @@ Built entirely on mobile devices, Coderive proves that serious compiler developm
 
 - **Dual Compilation:** Simultaneous bytecode and native code generation
 - **Multi-Target Support:** ARM64 and x86_64 code generation from single codebase
-- **Advanced Register Allocation:** Hybrid "future-cost" predictive register spilling
 - **Mobile-First Design:** Built and tested primarily on Android devices
 
 ---
