@@ -21,8 +21,6 @@ public enum Keyword {
   IS,
   
   THIS,
-  INPUT,
-  OUTPUT,
   IF,
   ELSE,
   ELIF,
@@ -30,7 +28,7 @@ public enum Keyword {
   // Loop
   FOR,
   BREAK,
-  CONTINUE,
+  SKIP,
   
   // Used in loop and natural arrays
   IN,

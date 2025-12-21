@@ -36,5 +36,5 @@ public enum Symbol {
   PIPE,
   QUESTION,
   AMPERSAND,
-  UNDERSCORE
+  UNDERSCORE // NEW: for match default case
 }
