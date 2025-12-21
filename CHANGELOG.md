@@ -2,6 +2,32 @@
 
 All notable changes to Coderive are documented in this file.
 
+## [v0.4.0] - Infinite Possibilities - December 21, 2025
+
+### 🚨 Breaking Changes
+
+· **Removed `input` and `output` keywords** - Replaced with method calls `Sys.in(...)` and `Sys.out(...)`.
+
+### ✨ Major Features
+
+· **Class Inheritance** - Added class inheritance with the `is` keyword.
+· **Class Constructors** - Added class constructors using `this` as a special method name.
+· **Class Calling** - Added support for direct class calling.
+· **Flexible Control Flows** - Enhanced control flow structures to be more flexible while maintaining safety.
+· **Enhanced Loop Safety** - Added checks to prevent loop steps of 0 and ensure loops do not reverse from their stated start and end direction.
+· **External Array Iteration** - Added support for iterating over external arrays within loops.
+· **Builtin Method Syntax** - Removed the requirement for `{}` bodies for builtin methods.
+· **Dedicated Registry Classes** - Added separate Registry classes for Builtin and Global methods.
+· **Global I/O Methods** - Added `in()` and `out()` as both Builtin and Global methods for accessibility.
+
+### 🔧 Engine & Parser Improvements
+
+· **Fixed BinaryOpNode Bug** - Resolved a deeply hidden bug in the BinaryOpNode.
+· **Optimized Array Iteration** - Added formula-based loops for O(1) iteration over natural arrays.
+· **Proper Code Instantiation** - Fixed issues related to code instantiation.
+
+---
+
 ## [v0.3.0] - The Design Leap - December 15, 2025
 
 ### 🚨 Breaking Changes
@@ -31,6 +57,8 @@ All notable changes to Coderive are documented in this file.
 ### 📚 Documentation
 - Updated all demo files showcasing the new updates
 - Added `ParamSkipDemo.cod` file for testing parameter skipping.
+
+---
 
 ## [v0.2.3] - The Great Logic Revolution - November 23, 2025
 
