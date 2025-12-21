@@ -11,7 +11,7 @@ import java.util.Scanner;
 public class InterpreterRunner extends BaseRunner {
 
     private final String androidPath = "/storage/emulated/0";
-    private final String definedFilePath = "/JavaNIDE/Programming-Language/Coderive/executables/ParamSkipDemo.cod";
+    private final String definedFilePath = "/JavaNIDE/Programming-Language/Coderive/executables/LazyLoop.cod";
     
     private final Interpreter interpreter;
     private boolean enableOptimization = false;
