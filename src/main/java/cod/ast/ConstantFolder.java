@@ -639,17 +639,6 @@ public class ConstantFolder extends BaseASTVisitor<ASTNode> {
     }
     
     @Override
-    public ASTNode visit(OutputNode node) {
-        OutputNode folded = new OutputNode();
-        folded.varName = node.varName;
-        folded.arguments = new ArrayList<>();
-        for (ExprNode arg : node.arguments) {
-            folded.arguments.add((ExprNode) dispatch(arg));
-        }
-        return folded;
-    }
-    
-    @Override
     public ASTNode visit(BlockNode node) {
         BlockNode folded = new BlockNode();
         folded.statements = new ArrayList<>();
@@ -702,8 +691,6 @@ public class ConstantFolder extends BaseASTVisitor<ASTNode> {
     public ASTNode visit(ParamNode node) { return node; }
     @Override
     public ASTNode visit(ConstructorNode node) { return node; }
-    @Override
-    public ASTNode visit(InputNode node) { return node; }
     @Override
     public ASTNode visit(ExitNode node) { return node; }
     @Override

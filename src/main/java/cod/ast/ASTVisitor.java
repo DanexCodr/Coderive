@@ -6,49 +6,50 @@ import java.util.List;
 public interface ASTVisitor<T> {
     
     // Program structure
-    T visit(ProgramNode node);
-    T visit(UnitNode node);
-    T visit(UseNode node);
+    T visit(ProgramNode n);
+    T visit(UnitNode n);
+    T visit(UseNode n);
     
     // Type declarations
-    T visit(TypeNode node);
-    T visit(FieldNode node);
-    T visit(MethodNode node);
-    T visit(ParamNode node);
-    T visit(ConstructorNode node);
+    T visit(TypeNode n);
+    T visit(FieldNode n);
+    T visit(MethodNode n);
+    T visit(ParamNode n);
+    T visit(ConstructorNode n);
+    T visit(ConstructorCallNode n);
     
     // Statements
-    T visit(BlockNode node);
-    T visit(AssignmentNode node);
-    T visit(VarNode node);
-    T visit(StmtIfNode node);
-    T visit(ExprIfNode node);
-    T visit(ForNode node);
-    T visit(RangeNode node);
-    T visit(OutputNode node);
-    T visit(InputNode node);
-    T visit(ExitNode node);
-    T visit(TupleNode node);
-    T visit(ReturnSlotAssignmentNode node);
-    T visit(SlotDeclarationNode node);
-    T visit(SlotAssignmentNode node);
-    T visit(MultipleSlotAssignmentNode node);
+    T visit(BlockNode n);
+    T visit(AssignmentNode n);
+    T visit(VarNode n);
+    T visit(StmtIfNode n);
+    T visit(ExprIfNode n);
+    T visit(ForNode n);
+    T visit(SkipNode n);
+    T visit(BreakNode n);
+    T visit(RangeNode n);
+    T visit(ExitNode n);
+    T visit(TupleNode n);
+    T visit(ReturnSlotAssignmentNode n);
+    T visit(SlotDeclarationNode n);
+    T visit(SlotAssignmentNode n);
+    T visit(MultipleSlotAssignmentNode n);
     
     // Expressions
-    T visit(ExprNode node);
-    T visit(BinaryOpNode node);
-    T visit(UnaryNode node);
-    T visit(TypeCastNode node);
-    T visit(MethodCallNode node);
-    T visit(ArrayNode node);
-    T visit(IndexAccessNode node);
-    T visit(EqualityChainNode node);
-    T visit(BooleanChainNode node);
-    T visit(SlotNode node);
+    T visit(ExprNode n);
+    T visit(BinaryOpNode n);
+    T visit(UnaryNode n);
+    T visit(TypeCastNode n);
+    T visit(MethodCallNode n);
+    T visit(ArrayNode n);
+    T visit(IndexAccessNode n);
+    T visit(EqualityChainNode n);
+    T visit(BooleanChainNode n);
+    T visit(SlotNode n);
     
-    T visit(ASTNode node);
+    T visit(ASTNode n);
     
     // Utility methods for visiting lists
-    List<T> visitList(List<? extends ASTNode> nodes);
-    void visitAll(List<? extends ASTNode> nodes);
+    List<T> visitList(List<? extends ASTNode> n);
+    void visitAll(List<? extends ASTNode> n);
 }

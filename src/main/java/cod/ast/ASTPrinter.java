@@ -69,7 +69,7 @@ public class ASTPrinter extends BaseASTVisitor<Void> {
     
     @Override
     public Void visit(MethodNode node) {
-        print("|   METHOD: " + node.name + " slots: ");
+        print("|   METHOD: " + node.methodName + " slots: ");
         for (SlotNode s : node.returnSlots) System.out.print(s.name + " ");
         System.out.println(" visibility: " + node.visibility);
         visitAll(node.parameters);
@@ -180,31 +180,6 @@ public class ASTPrinter extends BaseASTVisitor<Void> {
         indent += 2;
         if (node.end != null) visit(node.end);
         indent -= 2;
-        return null;
-    }
-    
-    @Override
-    public Void visit(OutputNode node) {
-        print("OUTPUT");
-        if (node.varName != null) System.out.print(" var: " + node.varName);
-        System.out.println();
-        
-        if (node.arguments.isEmpty()) {
-            println("|   (no arguments)");
-        } else {
-            for (int i = 0; i < node.arguments.size(); i++) {
-                println("|   ARGUMENT " + i + ":");
-                indent += 2;
-                visit(node.arguments.get(i));
-                indent -= 2;
-            }
-        }
-        return null;
-    }
-    
-    @Override
-    public Void visit(InputNode node) {
-        println("INPUT: " + node.variableName + " = (" + node.targetType + ") input");
         return null;
     }
     

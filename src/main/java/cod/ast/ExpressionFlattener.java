@@ -266,18 +266,7 @@ public class ExpressionFlattener extends BaseASTVisitor<ASTNode> {
         flattened.end = (ExprNode) dispatch(node.end);
         return flattened;
     }
-    
-    @Override
-    public ASTNode visit(OutputNode node) {
-        OutputNode flattened = new OutputNode();
-        flattened.varName = node.varName;
-        flattened.arguments = new ArrayList<>();
-        for (ExprNode arg : node.arguments) {
-            flattened.arguments.add((ExprNode) dispatch(arg));
-        }
-        return flattened;
-    }
-    
+   
     @Override
     public ASTNode visit(BlockNode node) {
         BlockNode flattened = new BlockNode();
@@ -305,8 +294,6 @@ public class ExpressionFlattener extends BaseASTVisitor<ASTNode> {
     public ASTNode visit(ParamNode node) { return node; }
     @Override
     public ASTNode visit(ConstructorNode node) { return node; }
-    @Override
-    public ASTNode visit(InputNode node) { return node; }
     @Override
     public ASTNode visit(ExitNode node) { return node; }
     @Override
