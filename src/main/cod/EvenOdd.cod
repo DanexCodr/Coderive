@@ -1,12 +1,7 @@
-
-use {
-	lang.Sys
-}
-
 number := 5
-Sys.outln("The number is " + number)
+outln("The number is " + number)
 if (number % 2) == 0 {
-   Sys.outln("The number is even.")
+   outln("The number is even.")
 } else {
-   Sys.outln("The number is odd.")
+   outln("The number is odd.")
 }

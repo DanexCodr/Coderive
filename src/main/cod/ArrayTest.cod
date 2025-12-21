@@ -1,5 +1,4 @@
 use {
-	lang.Sys,
     lang.Math
 }
 
@@ -11,57 +10,57 @@ local test2() :: arr: [int] {
     share main() {
         // Array declaration and initialization
         numbers: [int] = [1, 2, 3, 4, 5]
-        Sys.println("Array: " + numbers)
+        outln("Array: " + numbers)
         
         // Array access
-        Sys.println("First element: " + numbers[0])
-        Sys.println("Third element: " + numbers[2])
+        outln("First element: " + numbers[0])
+        outln("Third element: " + numbers[2])
         
         // String array
         names: [text] = ["Alice", "Bob", "Charlie"]
-        Sys.println("Names: " + names)
-        Sys.println("Second name: " + names[1])
+        outln("Names: " + names)
+        outln("Second name: " + names[1])
         
         // Array assignment
         numbers[0] = 100
-        Sys.println("After assignment - First element: " + numbers[0])
+        outln("After assignment - First element: " + numbers[0])
         
         // Empty array
         empty := []
-        Sys.println("Empty array: " + empty)
+        outln("Empty array: " + empty)
         
         // Single element array
         single: [] = [42]
-        Sys.println("Single element: " + single[0])
+        outln("Single element: " + single[0])
         
         x := [1 to 10]
-        Sys.println("Simple natural array: " + x[2])
+        outln("Simple natural array: " + x[2])
         
-        Sys.println("Big number: " + 9.999Qi)
+        outln("Big number: " + 9.999Qi)
         
         x = [by 2 in 168 to 9.999Qi]
-        Sys.println("Multiplicative natural array: ")
-        Sys.println("Before mutation: " + x[20000])
+        outln("Multiplicative natural array: ")
+        outln("Before mutation: " + x[20000])
         x[20000] = "hello"
-        Sys.println("After mutation: " + x[20000])
+        outln("After mutation: " + x[20000])
         
         x = [[1 to 10]]
-        Sys.println("Simple nested natural array: " + x[0][2])
+        outln("Simple nested natural array: " + x[0][2])
         
         x = [[1 to 10], [by 2 in 3 to 100]]
-        Sys.println("Nested natural array: " + x[1][5])
+        outln("Nested natural array: " + x[1][5])
         
         x = ["a" to "Zz"]
-        Sys.println("Alphabet natural array: " + x[52])
+        outln("Alphabet natural array: " + x[52])
         
         range := [1 to 10]
         container := [range]
-        Sys.println(range[5])
-        Sys.println(container[0][1])
-        Sys.println(container[0][5])
+        outln(range[5])
+        outln(container[0][1])
+        outln(container[0][5])
 
         // Test string formatting
-        Sys.println("Test: |" + "trailing space " + "|")
-        Sys.println("Number: " + 40168)
-        Sys.println(9.999Qi)
+        outln("Test: |" + "trailing space " + "|")
+        outln("Number: " + 40168)
+        outln(9.999Qi)
     }
