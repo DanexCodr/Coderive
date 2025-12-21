@@ -1,15 +1,15 @@
 unit lang
 
 share Sys {
+	
+	// Methods declared as builtin can have any text inside its param
 
-/* auto in-between spacing between each + and
-any other concats. 'printp' means print pretty.
-*/
-builtin printp(inp: text) {}
-
-/* 'println' meaning print line */
-share println(inp: text) { 
-output inp + "\n"
-}
-
+    /* the printer */
+    builtin out(...values)
+    
+    /* 'outln' is the printer that also prints line */
+    builtin outln(...values)
+    
+    /* Input method - reads from stdin */
+    builtin in( not needed if declared... type, optional... message, optional... source)
 }
