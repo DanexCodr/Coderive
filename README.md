@@ -35,7 +35,7 @@
 
 ## 1. Introduction
 
-We present **Coderive v0.3.0**, a mobile-first general programming language designed for **safe, fast, and clear** coding. 
+We present **Coderive v0.4.0**, a mobile-first general programming language designed for **safe, fast, and clear** coding. 
 Coderive features a parser system written in java (manual recursive backtracking) and dual compilation pipeline (bytecode + native code generation).
 Built entirely on mobile devices, Coderive proves that serious compiler development can happen outside traditional environments.
 
