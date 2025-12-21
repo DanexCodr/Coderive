@@ -125,7 +125,6 @@ share InteractiveDemo {
 ## 4. Compiler
 
 The system has an on going TAC Compiler for efficient execution across both interpreter and native compilation targets. 
-Internal performance profiling shows that 
 
 ## 5. Getting Started
 
