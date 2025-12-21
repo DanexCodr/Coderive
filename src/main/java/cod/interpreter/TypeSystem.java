@@ -39,15 +39,23 @@ public class TypeSystem {
         return bdA.subtract(bdB);
     }
     public Object multiplyNumbers(Object a, Object b) {
-        a = unwrap(a); b = unwrap(b);
-        if (a instanceof List || b instanceof List) throw new RuntimeException("Cannot operate on arrays");
-        if (a instanceof Integer && b instanceof Integer) return (Integer)a * (Integer)b;
-        
-        // Use BigDecimal for high precision multiplication
-        BigDecimal bdA = toBigDecimal(a);
-        BigDecimal bdB = toBigDecimal(b);
-        return bdA.multiply(bdB);
+    a = unwrap(a); 
+    b = unwrap(b);
+    
+    if (a instanceof List || b instanceof List) {
+        throw new RuntimeException("Cannot operate on arrays");
     }
+    
+    if (a instanceof Integer && b instanceof Integer) {
+        Object result = (Integer)a * (Integer)b;
+        return result;
+    }
+    
+    BigDecimal bdA = toBigDecimal(a);
+    BigDecimal bdB = toBigDecimal(b);
+    Object result = bdA.multiply(bdB);
+    return result;
+}
     public Object divideNumbers(Object a, Object b) {
         a = unwrap(a); b = unwrap(b);
         if (a instanceof List || b instanceof List) throw new RuntimeException("Cannot operate on arrays");
@@ -228,6 +236,25 @@ public class TypeSystem {
         String concreteType = getConcreteType(value);
         return validateTypeInternal(typeSig, value, concreteType);
     }
+    
+public boolean areEqual(Object a, Object b) {
+    a = unwrap(a);
+    b = unwrap(b);
+    
+    // Handle nulls
+    if (a == null) return b == null;
+    if (b == null) return false;
+    
+    // Handle numeric equality (BigDecimal(0) == Integer(0) == Double(0.0))
+    if (a instanceof Number && b instanceof Number) {
+        BigDecimal bdA = toBigDecimal(a);
+        BigDecimal bdB = toBigDecimal(b);
+        return bdA.compareTo(bdB) == 0;
+    }
+    
+    // Default equals
+    return a.equals(b);
+}
 
    private boolean validateTypeInternal(String typeSig, Object rawValue, String concreteType) {
     if (typeSig == null) return true;
