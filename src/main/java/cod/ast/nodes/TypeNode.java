@@ -14,6 +14,7 @@ public class TypeNode extends ASTNode {
     public ConstructorNode constructor;
     public List<MethodNode> methods = new ArrayList<MethodNode>();
     public List<StmtNode> statements = new ArrayList<StmtNode>();
+    public List<ConstructorNode> constructors = new ArrayList<ConstructorNode>();
     
                @Override
         public final <T> T accept(ASTVisitor<T> visitor) {
