@@ -149,20 +149,144 @@ public class ImportResolver {
         }
     }
 
+public TypeNode findType(String qualifiedTypeName) {
+    DebugSystem.debug("IMPORTS", "findType called for: " + qualifiedTypeName);
+    
+    // Extract type name and potential import name
+    int lastDot = qualifiedTypeName.lastIndexOf('.');
+    if (lastDot == -1) {
+        // Simple name like "Sys" - need to search all imports
+        DebugSystem.debug("IMPORTS", "Simple type name, searching all imports");
+        return findTypeByName(qualifiedTypeName);
+    }
+    
+    String typeName = qualifiedTypeName.substring(lastDot + 1);
+    String importPart = qualifiedTypeName.substring(0, lastDot);
+    
+    DebugSystem.debug("IMPORTS", "Import part: '" + importPart + "', type: '" + typeName + "'");
+    
+    // First check if we already have a loaded import that matches
+    String actualImportName = null;
+    
+    // Check loaded imports first
+    for (String loadedImport : loadedPrograms.keySet()) {
+        DebugSystem.debug("IMPORTS", "Checking loaded import: " + loadedImport);
+        
+        if (loadedImport.endsWith("." + importPart) || loadedImport.equals(importPart)) {
+            actualImportName = loadedImport;
+            DebugSystem.debug("IMPORTS", "Found matching loaded import: " + actualImportName);
+            break;
+        }
+    }
+    
+    // If not found in loaded imports, check registered imports
+    if (actualImportName == null) {
+        for (String registeredImport : registeredImports) {
+            DebugSystem.debug("IMPORTS", "Checking registered import: " + registeredImport);
+            
+            if (registeredImport.endsWith("." + importPart) || registeredImport.equals(importPart)) {
+                actualImportName = registeredImport;
+                DebugSystem.debug("IMPORTS", "Found matching registered import: " + actualImportName);
+                break;
+            }
+        }
+    }
+    
+    // If still not found, use the import part as-is
+    if (actualImportName == null) {
+        actualImportName = importPart;
+        DebugSystem.debug("IMPORTS", "No import matched, using: " + actualImportName);
+    }
+    
+    DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', type: '" + typeName + "'");
+    
+    // Try to resolve the import if not already loaded
+    if (!loadedPrograms.containsKey(actualImportName)) {
+        DebugSystem.debug("IMPORTS", "Import not loaded, trying to resolve: " + actualImportName);
+        try {
+            ProgramNode program = resolveImport(actualImportName);
+            if (program != null) {
+                loadedPrograms.put(actualImportName, program);
+                importedUnits.put(actualImportName, program);
+                registeredImports.remove(actualImportName);
+                DebugSystem.debug("IMPORTS", "Successfully loaded import: " + actualImportName);
+            }
+        } catch (Exception e) {
+            DebugSystem.error("IMPORTS", "Failed to load import " + actualImportName + ": " + e.getMessage());
+            return null;
+        }
+    }
+    
+    // Search through loaded programs for the type
+    DebugSystem.debug("IMPORTS", "Searching for type '" + typeName + "' in loaded program: " + actualImportName);
+    
+    ProgramNode program = loadedPrograms.get(actualImportName);
+    if (program != null && program.unit != null && program.unit.types != null) {
+        for (TypeNode type : program.unit.types) {
+            DebugSystem.debug("IMPORTS", "  Checking type: " + type.name);
+            if (type.name.equals(typeName)) {
+                DebugSystem.debug("IMPORTS", "    *** FOUND TYPE: " + type.name + " ***");
+                return type;
+            }
+        }
+    }
+    
+    // Type not found
+    DebugSystem.error("IMPORTS", "*** TYPE NOT FOUND: " + qualifiedTypeName + " ***");
+    DebugSystem.debug("IMPORTS", "Loaded imports: " + loadedPrograms.keySet());
+    DebugSystem.debug("IMPORTS", "Registered imports: " + registeredImports);
+    
+    return null;
+}
+
+private TypeNode findTypeByName(String typeName) {
+    // Search all loaded programs for this type name
+    for (Map.Entry<String, ProgramNode> entry : loadedPrograms.entrySet()) {
+        ProgramNode program = entry.getValue();
+        if (program != null && program.unit != null && program.unit.types != null) {
+            for (TypeNode type : program.unit.types) {
+                if (type.name.equals(typeName)) {
+                    return type;
+                }
+            }
+        }
+    }
+    
+    // Try loading from registered imports that might contain this type
+    for (String importName : registeredImports) {
+        if (importName.endsWith("." + typeName)) {
+            try {
+                ProgramNode program = resolveImport(importName);
+                if (program != null && program.unit != null && program.unit.types != null) {
+                    for (TypeNode type : program.unit.types) {
+                        if (type.name.equals(typeName)) {
+                            return type;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                continue;
+            }
+        }
+    }
+    
+    return null;
+}
+
     public MethodNode findMethod(String qualifiedMethodName) {
         DebugSystem.debug("IMPORTS", "findMethod called for: " + qualifiedMethodName);
         
-        // Extract method name and potential import name
+        // Extract node name and potential import name
         int lastDot = qualifiedMethodName.lastIndexOf('.');
         if (lastDot == -1) {
-            DebugSystem.debug("IMPORTS", "No dots in method name, not an imported method");
-            return null; // Not an imported method
+            DebugSystem.debug("IMPORTS", "No dots in node name, not an imported node");
+            return null; // Not an imported node
         }
         
         String methodName = qualifiedMethodName.substring(lastDot + 1);
         String calledImport = qualifiedMethodName.substring(0, lastDot); // This is "Sys" from "Sys.outln"
         
-        DebugSystem.debug("IMPORTS", "Called import part: '" + calledImport + "', method: '" + methodName + "'");
+        DebugSystem.debug("IMPORTS", "Called import part: '" + calledImport + "', node: '" + methodName + "'");
         
         // FIX: First check if we already have a loaded import that matches
         String actualImportName = null;
@@ -200,7 +324,7 @@ public class ImportResolver {
             DebugSystem.debug("IMPORTS", "No import matched, using: " + actualImportName);
         }
         
-        DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', method: '" + methodName + "'");
+        DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', node: '" + methodName + "'");
         
         // Try to resolve the import if not already loaded
         if (!loadedPrograms.containsKey(actualImportName)) {
@@ -219,19 +343,19 @@ public class ImportResolver {
             }
         }
         
-        // Search through loaded programs for the method
-        DebugSystem.debug("IMPORTS", "Searching for method '" + methodName + "' in loaded program: " + actualImportName);
+        // Search through loaded programs for the node
+        DebugSystem.debug("IMPORTS", "Searching for node '" + methodName + "' in loaded program: " + actualImportName);
         
         ProgramNode program = loadedPrograms.get(actualImportName);
         if (program != null && program.unit != null && program.unit.types != null) {
             for (TypeNode type : program.unit.types) {
                 DebugSystem.debug("IMPORTS", "  Searching in type: " + type.name);
                 
-                for (MethodNode method : type.methods) {
-                    DebugSystem.debug("IMPORTS", "    Checking method: " + method.name);
-                    if (method.name.equals(methodName)) {
-                        DebugSystem.debug("IMPORTS", "    *** FOUND METHOD: " + method.name + " ***");
-                        return method;
+                for (MethodNode node : type.methods) {
+                    DebugSystem.debug("IMPORTS", "    Checking node: " + node.methodName);
+                    if (node.methodName.equals(methodName)) {
+                        DebugSystem.debug("IMPORTS", "    *** FOUND METHOD: " + node.methodName + " ***");
+                        return node;
                     }
                 }
             }
@@ -285,13 +409,13 @@ public class ImportResolver {
             if (program != null && program.unit != null && program.unit.types != null) {
                 for (TypeNode type : program.unit.types) {
                     DebugSystem.debug("IMPORTS", "  Type: " + type.name);
-                    for (MethodNode method : type.methods) {
+                    for (MethodNode node : type.methods) {
                         DebugSystem.debug(
                                 "IMPORTS",
                                 "    Method: "
-                                        + method.name
+                                        + node.methodName
                                         + " (params: "
-                                        + method.parameters.size()
+                                        + node.parameters.size()
                                         + ")");
                     }
                 }

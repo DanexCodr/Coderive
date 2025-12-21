@@ -2,7 +2,7 @@ package cod.semantic;
 
 import cod.ast.nodes.*;
 import cod.parser.ProgramType;
-import cod.error.ParseError;
+import cod.error.ProgramError;
 
 /**
  * Validates that a program conforms to the rules of its detected program type.
@@ -18,11 +18,11 @@ public class ProgramValidator {
      * 
      * @param program The program to validate
      * @param programType The detected program type
-     * @throws ParseError if validation fails
+     * @throws ProgramError if validation fails
      */
     public static void validate(ProgramNode program, ProgramType programType) {
         if (program == null) {
-            throw new ParseError("Program cannot be null");
+            throw new ProgramError("Program cannot be null");
         }
         
         switch (programType) {
@@ -36,7 +36,7 @@ public class ProgramValidator {
                 validateMethodScript(program);
                 break;
             default:
-                throw new ParseError("Unknown program type: " + programType);
+                throw new ProgramError("Unknown program type: " + programType);
         }
     }
     
@@ -51,7 +51,7 @@ public class ProgramValidator {
     private static void validateModule(ProgramNode program) {
         // Rule 1: Must have unit declaration (not "default")
         if (program.unit == null || "default".equals(program.unit.name)) {
-            throw new ParseError(
+            throw new ProgramError(
                 "Module must start with 'unit' declaration.\n" +
                 "Add: unit namespace.name\n" +
                 "Before your class definitions."
@@ -60,7 +60,7 @@ public class ProgramValidator {
         
         // Rule 2: Must contain at least one class
         if (program.unit.types == null || program.unit.types.isEmpty()) {
-            throw new ParseError(
+            throw new ProgramError(
                 "Module '" + program.unit.name + "' must contain at least one class.\n" +
                 "Add a class: share ClassName { ... }"
             );
@@ -70,9 +70,9 @@ public class ProgramValidator {
         for (TypeNode type : program.unit.types) {
             // Check for direct code in classes
             if (type.statements != null && !type.statements.isEmpty()) {
-                throw new ParseError(
+                throw new ProgramError(
                     "Modules cannot have direct code outside classes.\n" +
-                    "Move the code inside a method in class '" + type.name + "'."
+                    "Move the code inside a node in class '" + type.name + "'."
                 );
             }
             
@@ -84,7 +84,7 @@ public class ProgramValidator {
      * Validates a SCRIPT program.
      * Rules:
      * 1. Can have direct code (statements)
-     * 2. Cannot have method declarations
+     * 2. Cannot have node declarations
      * 3. Cannot have class declarations
      * 4. Cannot have field declarations
      */
@@ -94,13 +94,13 @@ public class ProgramValidator {
         
         // Check each type (should only be the synthetic __Script__ type)
         for (TypeNode type : program.unit.types) {
-            // Rule 2: Cannot have method declarations
+            // Rule 2: Cannot have node declarations
             if (type.methods != null && !type.methods.isEmpty()) {
-                throw new ParseError(
-                    "Scripts cannot contain method declarations.\n" +
+                throw new ProgramError(
+                    "Scripts cannot contain node declarations.\n" +
                     "Either:\n" +
                     "1. Remove methods and keep as script, OR\n" +
-                    "2. Remove direct code and make it a method script, OR\n" +
+                    "2. Remove direct code and make it a node script, OR\n" +
                     "3. Add 'unit' and classes to make it a module."
                 );
             }
@@ -108,7 +108,7 @@ public class ProgramValidator {
             // Rule 3: Cannot have real class declarations (synthetic type is OK)
             if (!type.name.startsWith("__") && type.name != null) {
                 // This is a real class name, not allowed in scripts
-                throw new ParseError(
+                throw new ProgramError(
                     "Scripts cannot contain class declarations.\n" +
                     "Found class: " + type.name + "\n" +
                     "Remove the class or add 'unit' to make it a module."
@@ -117,7 +117,7 @@ public class ProgramValidator {
             
             // Rule 4: Cannot have field declarations
             if (type.fields != null && !type.fields.isEmpty()) {
-                throw new ParseError(
+                throw new ProgramError(
                     "Scripts cannot contain field declarations.\n" +
                     "Found fields in type: " + type.name + "\n" +
                     "Remove field declarations or use variables instead."
@@ -129,11 +129,11 @@ public class ProgramValidator {
     /**
      * Validates a METHOD_SCRIPT program.
      * Rules:
-     * 1. Must contain at least one method
+     * 1. Must contain at least one node
      * 2. Cannot have direct code outside methods
      * 3. Cannot have class declarations
      * 4. Cannot have field declarations
-     * 5. Should have main() method (warning only)
+     * 5. Should have main() node (warning only)
      */
 private static void validateMethodScript(ProgramNode program) {
     boolean hasMethods = false;
@@ -144,9 +144,9 @@ private static void validateMethodScript(ProgramNode program) {
         }
         
         if (type.statements != null && !type.statements.isEmpty()) {
-            throw new ParseError(
+            throw new ProgramError(
                 "Method scripts cannot have direct code outside methods.\n" +
-                "Place all code inside method declarations."
+                "Place all code inside node declarations."
             );
         }
         
@@ -154,7 +154,7 @@ private static void validateMethodScript(ProgramNode program) {
         if (type.name != null && !type.name.startsWith("__")) {
             // Check if it's actually a synthetic type created by parser
             // If not, it's an error
-            throw new ParseError(
+            throw new ProgramError(
                 "Method scripts cannot contain class declarations.\n" +
                 "Found: " + type.name + "\n" +
                 "Remove the class or add 'unit' to make it a module."
@@ -162,7 +162,7 @@ private static void validateMethodScript(ProgramNode program) {
         }
         
         if (type.fields != null && !type.fields.isEmpty()) {
-            throw new ParseError(
+            throw new ProgramError(
                 "Method scripts cannot contain field declarations.\n" +
                 "Remove field declarations or add 'unit' to make it a module."
             );
@@ -170,16 +170,16 @@ private static void validateMethodScript(ProgramNode program) {
     }
     
     if (!hasMethods) {
-        throw new ParseError("Method script must contain at least one method.");
+        throw new ProgramError("Method script must contain at least one node.");
     }
     
     // Warning for missing main() - optional
     boolean hasMain = false;
     for (TypeNode type : program.unit.types) {
         if (type.methods != null) {
-            for (MethodNode method : type.methods) {
-                if ("main".equals(method.name)) {
-                    if (method.parameters == null || method.parameters.isEmpty()) {
+            for (MethodNode node : type.methods) {
+                if ("main".equals(node.methodName)) {
+                    if (node.parameters == null || node.parameters.isEmpty()) {
                         hasMain = true;
                         break;
                     }
@@ -190,7 +190,7 @@ private static void validateMethodScript(ProgramNode program) {
     }
     
     if (!hasMain) {
-        System.err.println("Warning: Method script should have a 'main()' method");
+        System.err.println("Warning: Method script should have a 'main()' node");
     }
 }
 }
