@@ -10,10 +10,6 @@ public class ParseError extends RuntimeException {
         this.column = column;
     }
     
-    public ParseError(String message) {
-        super(message);
-    }
-    
     public int getLine() {
       return line;
     }
