@@ -5,6 +5,7 @@ import cod.ast.ASTVisitor;
 public class ForNode extends StmtNode {
     public String iterator;
     public RangeNode range;
+    public ExprNode arraySource;
     public BlockNode body = new BlockNode();
 
     public ForNode() {}

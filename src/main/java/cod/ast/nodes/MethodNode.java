@@ -7,7 +7,8 @@ import cod.ast.ASTVisitor;
 import cod.syntax.Keyword;
 
 public class MethodNode extends ASTNode {
-    public String name;
+    public String methodName;
+    public String associatedClass;
     public Keyword visibility = Keyword.SHARE;
     public List<SlotNode> returnSlots = new ArrayList<SlotNode>();
     public List<ParamNode> parameters = new ArrayList<ParamNode>();
