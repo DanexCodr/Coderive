@@ -48,6 +48,10 @@ public abstract class BaseParser {
                 tokens.get(targetPos) : null;
     }
 
+protected boolean canKeywordBeMethodName(String keywordText) {
+    return keywordText.equals("in");
+}
+
     // NEW: Fast lookahead helpers
     protected Token lookahead(int n) {
         return peek(n);
@@ -98,8 +102,7 @@ public abstract class BaseParser {
             }
             return token;
         }
-        throw new ParseError("Expected " + getTypeName(expectedType) + " but found " +
-                getTypeName(token.type) + " ('" + token.text + "') at line " + token.line + ":" + token.column);
+        throw new ParseError("Expected " + getTypeName(expectedType) + " but found " + getTypeName(token.type) + " ('" + token.text + "')", token.line, token.column);
     }
 
     protected Token consume(Symbol expectedSymbol) {
@@ -111,15 +114,14 @@ public abstract class BaseParser {
             return token;
         }
         throw new ParseError("Expected " + expectedSymbol + " but found " +
-                getTypeName(token.type) + " ('" + token.text + "') at line " + token.line + ":" + token.column);
+                getTypeName(token.type) + " ('" + token.text + "')", token.line, token.column);
     }
     
     protected Token consume(boolean condition) {
          if (condition) return consume();
          Token current = currentToken();
          throw new ParseError("Consumption condition not met at: " + current.text +
-             " (" + getTypeName(current.type) + ")" +
-             " at line " + current.line + ":" + current.column);
+             " (" + getTypeName(current.type) + ")", current.line, current.column);
     }
 
     protected boolean tryConsume(Symbol expectedSymbol) {
@@ -159,7 +161,7 @@ public abstract class BaseParser {
             return;
         }
         throw new ParseError("Expected keyword '" + expectedKeyword.toString() + "' but found " +
-                getTypeName(token.type) + " ('" + token.text + "') at line " + token.line + ":" + token.column);
+                getTypeName(token.type) + " ('" + token.text + "') ", token.line, token.column);
     }
     
     protected boolean isSymbolAt(int offset, Symbol symbol) {
@@ -189,22 +191,34 @@ public abstract class BaseParser {
            (t.type == KEYWORD && (
                NULL.toString().equals(text) || 
                TRUE.toString().equals(text) || 
-               FALSE.toString().equals(text) ||
-               INPUT.toString().equals(text)
+               FALSE.toString().equals(text)
            ));
 }
     
     // --- Generic Grammar Helpers ---
     
     protected String parseQualifiedName() {
-        StringBuilder name = new StringBuilder();
-        name.append(consume(ID).text);
-        while (tryConsume(DOT)) {
-            name.append(".");
+    StringBuilder name = new StringBuilder();
+    
+    // First part - must be ID
+    name.append(consume(ID).text);
+    
+    while (tryConsume(DOT)) {
+        name.append(".");
+        
+        // Next part can be ID OR a keyword that can be a method name
+        Token next = currentToken();
+        if (next.type == ID) {
             name.append(consume(ID).text);
+        } else if (next.type == KEYWORD && canKeywordBeMethodName(next.text)) {
+            name.append(consume().text);  // consume the keyword
+        } else {
+            throw new ParseError("Expected identifier or method keyword after '.', found: " + 
+                getTypeName(next.type) + " ('" + next.text + "')", next.line, next.column);
         }
-        return name.toString();
     }
+    return name.toString();
+}
     
     protected boolean isTypeKeyword(String text) {
         // Includes ARRAY keyword for declaration purposes
@@ -329,8 +343,7 @@ protected String parseTypeReference() {
         } else {
             Token current = currentToken();
             throw new ParseError("Expected type name but got " +
-                getTypeName(current.type) + " ('" + current.text + "')" +
-                " at line " + current.line + ":" + current.column);
+                getTypeName(current.type) + " ('" + current.text + "')", current.line, current.column);
         }
     }
     

@@ -33,57 +33,46 @@ public class StatementParser extends BaseParser {
 
     Token first = currentToken();
 
-    // 1. Keyword statements (fast path)
     if (first.type == KEYWORD) {
         String text = first.text;
         if (IF.toString().equals(text)) return parseIfStatement(inheritedStyle);
         if (FOR.toString().equals(text)) return parseForStatement();
-        if (OUTPUT.toString().equals(text)) return parseOutputStatement();
         if (EXIT.toString().equals(text)) return parseExitStatement();
+        if (SKIP.toString().equals(text)) return parseSkipStatement();
+        if (BREAK.toString().equals(text)) return parseBreakStatement();
     }
 
-    // 2. Symbol statements (Slot Assignment)
     if (first.symbol == TILDE_ARROW) return parseSlotAssignment();
 
-    // 3. Method Call Statement with return slots (starts with [)
     if (first.symbol == LBRACKET && isMethodCallStatement()) {
         return parseMethodCallStatement();
     }
 
-    // 4. Reassignment and Method Call (declarations handled above)
     if (isVariableDeclaration()) {
         return parseVariableDeclaration();
     }
     
-    // 5. Declaration, Assignment, or Method Call
     if (first.type == ID) {
         Token second = lookahead(1);
 
         if (second != null) {
-            // Case A: ID [ ... (Index Assignment only)
             if (first.type == ID && second.symbol == LBRACKET) {
                 if (isIndexAssignment()) return parseIndexAssignment();
             }
 
-            // Case B: ID = ... (Simple reassignment)
             if (first.type == ID && second.symbol == ASSIGN) {
-                // Check specific assignments before falling back to simple
                 if (isReturnSlotAssignment()) return parseReturnSlotAssignment();
-                if (isInputAssignment()) return parseInputAssignment();
                 return parseSimpleAssignment();
             }
 
-            // Case C: ID , ... (Multi-var return slot)
             if (first.type == ID && second.symbol == COMMA) {
                 if (isReturnSlotAssignment()) return parseReturnSlotAssignment();
             }
         }
 
-        // Fallback for Calls (f())
         if (isMethodCallStatement()) return parseMethodCallStatement();
     }
 
-    // 6. Everything else (Expression Statement)
     return parseExpressionStatement();
 }
 
@@ -91,8 +80,6 @@ public class StatementParser extends BaseParser {
     Token current = currentToken();
     if (current.type != KEYWORD) return;
 
-    // REMOVED: VAR keyword check
-    // Only check if keyword looks like a type start
     if (isTypeStart(current)) return;
 
     Token idToken = peek(1);
@@ -123,25 +110,153 @@ public class StatementParser extends BaseParser {
     }
 }
 
+private StmtNode parseSkipStatement() {
+    Token skipToken = currentToken();
+    
+    consumeKeyword(SKIP);
+    
+    skipWhitespaceAndComments();
+    
+    Token nextToken = currentToken();
+    
+    if (nextToken.type == EOF || nextToken.symbol == RBRACE) {
+    } else if (isStatementStart(nextToken)) {
+    } else {
+        throw new ParseError(
+            "Nothing can follow 'skip' in the same statement. " +
+            "'skip' must be the complete statement.",
+            skipToken.line,
+            skipToken.column
+        );
+    }
+    
+    return ASTFactory.createSkipStatement();
+}
+
+private StmtNode parseBreakStatement() {
+    Token breakToken = currentToken();
+    
+    consumeKeyword(BREAK);
+    
+    skipWhitespaceAndComments();
+    
+    Token nextToken = currentToken();
+    
+    if (nextToken.type == EOF || nextToken.symbol == RBRACE) {
+    } else if (isStatementStart(nextToken)) {
+    } else {
+        throw new ParseError(
+            "Nothing can follow 'break' in the same statement. " +
+            "'break' must be the complete statement.",
+            breakToken.line,
+            breakToken.column
+        );
+    }
+    
+    return ASTFactory.createBreakStatement();
+}
+
+private boolean isStatementStart(Token token) {
+    if (token == null) return false;
+    
+    if (token.type == KEYWORD) {
+        String text = token.text;
+        return text.equals(IF.toString()) || 
+               text.equals(FOR.toString()) || 
+               text.equals(EXIT.toString()) ||
+               text.equals(ELSE.toString()) ||
+               text.equals(ELIF.toString()) ||
+               text.equals(SKIP.toString()) ||
+               text.equals(BREAK.toString()) ||
+               text.equals(SHARE.toString()) ||
+               text.equals(LOCAL.toString());
+    }
+    
+    if (token.type == ID) {
+        Token next = lookahead(1);
+        if (next != null) {
+            return next.symbol == COLON || 
+                   next.symbol == ASSIGN || 
+                   next.symbol == DOUBLE_COLON_ASSIGN ||
+                   next.symbol == LBRACKET;
+        }
+    }
+    
+    if (token.symbol == TILDE_ARROW) return true;
+    
+    if (token.symbol == LBRACKET) {
+        return isMethodCallStatement();
+    }
+    
+    return false;
+}
+
+private void skipWhitespaceAndComments() {
+    while (position.get() < tokens.size()) {
+        Token t = currentToken();
+        if (t.type == WS || t.type == LINE_COMMENT || t.type == BLOCK_COMMENT) {
+            consume();
+        } else {
+            break;
+        }
+    }
+}
+
+private boolean isStatementTerminator(Token token) {
+    if (token == null) return true;
+    if (token.type == EOF) return true;
+    
+    if (token.symbol == RBRACE) return true;
+    
+    if (token.type == KEYWORD) {
+        String text = token.text;
+        return text.equals(IF.toString()) || 
+               text.equals(FOR.toString()) || 
+               text.equals(EXIT.toString()) ||
+               text.equals(ELSE.toString()) ||
+               text.equals(ELIF.toString()) ||
+               text.equals(SKIP.toString()) ||
+               text.equals(BREAK.toString()) ||
+               text.equals(SHARE.toString()) ||
+               text.equals(LOCAL.toString());
+    }
+    
+    if (token.type == ID) {
+        Token next = lookahead(1);
+        if (next != null) {
+            if (next.symbol == COLON || next.symbol == ASSIGN || 
+                next.symbol == DOUBLE_COLON_ASSIGN) {
+                return true;
+            }
+        }
+    }
+    
+    if (token.symbol == TILDE_ARROW) return true;
+    
+    if (token.symbol == LBRACKET) {
+        if (isMethodCallStatement()) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
   private SlotAssignmentNode parseSingleSlotAssignment() {
     String slotName = null;
     ExprNode value;
     
-    // Check for named slot: "slotName: expression"
     if (currentToken().type == ID) {
         Token afterId = lookahead(1);
         if (afterId != null && afterId.symbol == COLON) {
-            // Named slot: "sum: a + b"
             slotName = consume(ID).text;
             consume(COLON);
             value = expressionParser.parseExpression();
         } else {
-            // Positional slot: just an expression
             slotName = null;
             value = expressionParser.parseExpression();
         }
     } else {
-        // Positional slot: just an expression
         slotName = null;
         value = expressionParser.parseExpression();
     }
@@ -167,7 +282,6 @@ private StmtNode parseSimpleAssignment() {
     Token startToken = currentToken();
     String idName = consume(ID).text;
     
-    // REJECT assignment to underscore
     if ("_".equals(idName)) {
         throw new ParseError(
             "Cannot assign to '_'. Underscore is reserved for discard/placeholder.",
@@ -189,13 +303,11 @@ private StmtNode parseVariableDeclaration() {
     String varName = null;
     ExprNode value = null;
 
-    // Case 1: Implicit Typing (ID := Expression)
     if (currentToken().type == ID && lookahead(1) != null && 
         lookahead(1).symbol == DOUBLE_COLON_ASSIGN) {
         
         varName = consume(ID).text;
         
-        // REJECT underscore
         if ("_".equals(varName)) {
             throw new ParseError(
                 "Cannot declare variable '_'. Underscore is reserved for discard/placeholder.",
@@ -208,42 +320,36 @@ private StmtNode parseVariableDeclaration() {
         value = expressionParser.parseExpression();
         
     }
-    // Case 2: Explicit Typing (ID : Type [ = Expression])
     else if (currentToken().type == ID && lookahead(1) != null && 
              lookahead(1).symbol == COLON) {
         
         varName = consume(ID).text;
         
-        // REJECT underscore
         if ("_".equals(varName)) {
             throw new ParseError(
-                "Cannot declare variable '_'. Underscore is reserved for discard/placeholder.",
+                "Cannot declare variable '_'. Underscore is reserved for discard/placeholder",
                 startToken.line, startToken.column
             );
         }
         
         consume(COLON);
         
-        // MUST have a type after colon
         if (isTypeStart(currentToken())) {
             typeName = parseTypeReference();
             
-            // Check for optional assignment
             if (tryConsume(ASSIGN)) {
                 value = expressionParser.parseExpression();
             }
         } else {
             throw new ParseError("Expected type after ':' in variable declaration. " +
-                                 "For inferred typing use ':=' operator.");
+                                 "For inferred typing use ':=' operator", startToken.line, startToken.column);
         }
         
     } else {
-        // Fallback for unrecognized pattern that wasn't correctly caught by lookahead
         throw new ParseError(
-            "Expected variable declaration in format 'name: type', 'name: type = value', or 'name := value'.");
+            "Expected variable declaration in format 'name: type', 'name: type = value', or 'name := value'", startToken.line, startToken.column);
     }
 
-    // Validate variable name (common to both cases)
     if (varName != null) {
         if (NamingValidator.isAllCaps(varName)) {
             NamingValidator.validateConstantName(varName, startToken);
@@ -252,7 +358,6 @@ private StmtNode parseVariableDeclaration() {
         }
     }
 
-    // Create and return the VarNode
     VarNode varNode = ASTFactory.createVar(varName, value);
     varNode.explicitType = isImplicit ? null : typeName;
     return varNode;
@@ -264,6 +369,15 @@ private StmtNode parseVariableDeclaration() {
     StmtIfNode rootIfNode = ASTFactory.createIfStatement(condition);
 
     Boolean currentStyle = inheritedStyle;
+
+    if (!match(LBRACE)) {
+        if (lookaheadIsIfOrElif()) {
+            throw new ParseError(
+                "If statement containing another if or elif must use braces: if condition { ... }",
+                currentToken().line, currentToken().column
+            );
+        }
+    }
 
     if (match(LBRACE)) {
       consume(LBRACE);
@@ -278,10 +392,20 @@ private StmtNode parseVariableDeclaration() {
     while (isKeyword(ELIF)) {
       consumeKeyword(ELIF);
       if (currentStyle != null && !currentStyle)
-        throw new ParseError("Cannot use 'elif' in an 'else if' style chain");
+        throw new ParseError("Cannot use 'elif' in an 'else if' style chain", currentToken().line, currentToken().column);
       currentStyle = true;
       ExprNode elifCondition = expressionParser.parseExpression();
       StmtIfNode elifNode = ASTFactory.createIfStatement(elifCondition);
+      
+      if (!match(LBRACE)) {
+          if (lookaheadIsIfOrElif()) {
+              throw new ParseError(
+                  "Elif statement containing another if or elif must use braces: elif condition { ... }",
+                  currentToken().line, currentToken().column
+              );
+          }
+      }
+      
       if (match(LBRACE)) {
         consume(LBRACE);
         while (!match(RBRACE)) elifNode.thenBlock.statements.add(parseStatement(currentStyle));
@@ -294,26 +418,87 @@ private StmtNode parseVariableDeclaration() {
     }
 
     if (isKeyword(ELSE)) {
-      consumeKeyword(ELSE);
-      if (isKeyword(IF)) {
-        if (currentStyle != null && currentStyle)
-          throw new ParseError("Cannot use 'else if' in an 'elif' style chain");
-        currentStyle = false;
-        currentNode.elseBlock.statements.add(parseIfStatement(currentStyle));
-      } else {
-        if (match(LBRACE)) {
-          consume(LBRACE);
-          while (!match(RBRACE)) currentNode.elseBlock.statements.add(parseStatement(currentStyle));
-          consume(RBRACE);
-        } else {
-          currentNode.elseBlock.statements.add(parseStatement(currentStyle));
+        Token elseToken = currentToken();
+        consumeKeyword(ELSE);
+        
+        int savedPos = getPosition();
+        
+        while (position.get() < tokens.size()) {
+            Token t = currentToken();
+            if (t.type == WS || t.type == LINE_COMMENT || t.type == BLOCK_COMMENT) {
+                consume();
+            } else {
+                break;
+            }
         }
-      }
+        
+        if (isKeyword(IF)) {
+            if (currentStyle != null && currentStyle)
+                throw new ParseError("Cannot use 'else if' in an 'elif' style chain", currentToken().line, currentToken().column);
+            currentStyle = false;
+            currentNode.elseBlock.statements.add(parseIfStatement(currentStyle));
+        } else {
+            position.set(savedPos);
+            
+            if (isKeyword(IF)) {
+                if (currentStyle != null && currentStyle)
+                    throw new ParseError("Cannot use 'else if' in an 'elif' style chain", currentToken().line, currentToken().column);
+                currentStyle = false;
+                currentNode.elseBlock.statements.add(parseIfStatement(currentStyle));
+            } else {
+                if (!match(LBRACE)) {
+                    if (isControlFlowStatementStart(currentToken())) {
+                        throw new ParseError(
+                            "Else statement containing another control flow statement must use braces: else { ... }",
+                            currentToken().line, currentToken().column
+                        );
+                    }
+                }
+                
+                if (match(LBRACE)) {
+                    consume(LBRACE);
+                    while (!match(RBRACE)) currentNode.elseBlock.statements.add(parseStatement(currentStyle));
+                    consume(RBRACE);
+                } else {
+                    currentNode.elseBlock.statements.add(parseStatement(currentStyle));
+                }
+            }
+        }
     }
     return rootIfNode;
+}
+
+  private boolean lookaheadIsIfOrElif() {
+      int savedPos = getPosition();
+      try {
+          while (position.get() < tokens.size()) {
+              Token t = currentToken();
+              if (t.type == WS || t.type == LINE_COMMENT || t.type == BLOCK_COMMENT) {
+                  consume();
+              } else {
+                  break;
+              }
+          }
+          
+          return isControlFlowStatementStart(currentToken());
+      } finally {
+          position.set(savedPos);
+      }
   }
 
-// For loop parsing with multiplicative (*2, /2) and additive (+1, -2) step expressions
+private boolean isControlFlowStatementStart(Token token) {
+    if (token == null) return false;
+    
+    if (token.type == KEYWORD) {
+        String text = token.text;
+        return text.equals(IF.toString()) || 
+               text.equals(FOR.toString()) ||
+               text.equals(ELSE.toString()) ||
+               text.equals(ELIF.toString());
+    }
+    return false;
+}
+
   private StmtNode parseForStatement() {
     consumeKeyword(FOR);
     String iterator = consume(ID).text;
@@ -322,14 +507,11 @@ private StmtNode parseVariableDeclaration() {
     if (isKeyword(BY)) {
         consumeKeyword(BY);
         
-        // KEEP: Multiplicative and division operators (*2, /2)
         if (match(MUL) || match(DIV)) {
             Token operator = consume();
             
-            // Handle *2, /2, *stepVar, /stepVar
             if (match(INT_LIT) || match(FLOAT_LIT) || match(ID) || match(PLUS) || match(MINUS)) {
                 ExprNode operand = expressionParser.parseExpression();
-                // Create a binary operation like i * 2 or i / 2
                 ExprNode iteratorRef = ASTFactory.createIdentifier(iterator);
                 step = ASTFactory.createBinaryOp(iteratorRef, operator.text, operand);
             } else {
@@ -337,25 +519,20 @@ private StmtNode parseVariableDeclaration() {
                     currentToken().line, currentToken().column);
             }
         } 
-        // KEEP: Additive operators with optional sign
         else if (match(PLUS) || match(MINUS)) {
             Token operator = consume();
             
             if (peek(0).type == INT_LIT || peek(0).type == FLOAT_LIT) {
-                // Handle +1, -2, etc.
                 ExprNode operand = expressionParser.parsePrimaryExpression();
                 if (operator.symbol == PLUS) {
-                    step = operand;  // Just the number (e.g., 1)
+                    step = operand;
                 } else {
-                    // Create unary negative (e.g., -2)
                     step = ASTFactory.createUnaryOp("-", operand);
                 }
             } else {
-                // Just a simple expression (could be variable)
                 step = expressionParser.parseExpression();
             }
         }
-        // Simple numeric or variable step
         else {
             step = expressionParser.parseExpression();
         }
@@ -366,45 +543,44 @@ private StmtNode parseVariableDeclaration() {
         consumeKeyword(IN);
     }
 
-    ExprNode start = expressionParser.parseExpression();
-    consumeKeyword(TO);
-    ExprNode end = expressionParser.parseExpression();
-
-    RangeNode range = ASTFactory.createRange(step, start, end);
-    ForNode forNode = ASTFactory.createFor(iterator, range);
-
-    consume(LBRACE);
-    while (!match(RBRACE)) forNode.body.statements.add(parseStatement());
-    consume(RBRACE);
-    return forNode;
-  }
-
-  private StmtNode parseOutputStatement() {
-    consumeKeyword(OUTPUT);
-    OutputNode output = ASTFactory.createOutput();
-    output.arguments.add(expressionParser.parseExpression());
-    return output;
-  }
-
-  private StmtNode parseInputAssignment() {
-  Token startToken = currentToken();
-    String varName = consume(ID).text;
-    consume(ASSIGN);
-    String type;
-    if (match(LPAREN)) {
-      consume(LPAREN);
-      type = parseTypeReference();
-      consume(RPAREN);
+    // Parse the iteration source
+    ExprNode source = expressionParser.parseExpression();
+    
+    // Check if it's a range (has TO keyword)
+    if (isKeyword(TO)) {
+        // Traditional range: source to end
+        ExprNode start = source;
+        consumeKeyword(TO);
+        ExprNode end = expressionParser.parseExpression();
+        RangeNode range = ASTFactory.createRange(step, start, end);
+        ForNode forNode = ASTFactory.createFor(iterator, range);
+        return parseForLoopBody(forNode);
     } else {
-      throw new ParseError(
-          "Input assignment requires an explicit type grouping, e.g., var = (int)input",
-          startToken.line,
-          startToken.column);
+        // Array-based iteration
+        ForNode forNode = ASTFactory.createFor(iterator, source); // NEW: pass source as second param
+        return parseForLoopBody(forNode);
     }
-    consumeKeyword(INPUT);
-    InputNode input = ASTFactory.createInput(type, varName);
-    return input;
-  }
+}
+
+private StmtNode parseForLoopBody(ForNode forNode) {
+    if (!match(LBRACE)) {
+        if (isControlFlowStatementStart(currentToken())) {
+            throw new ParseError(
+                "For statement containing another control flow statement must use braces: for ... { ... }",
+                currentToken().line, currentToken().column
+            );
+        }
+    }
+
+    if (match(LBRACE)) {
+        consume(LBRACE);
+        while (!match(RBRACE)) forNode.body.statements.add(parseStatement());
+        consume(RBRACE);
+    } else {
+        forNode.body.statements.add(parseStatement());
+    }
+    return forNode;
+}
 
   private StmtNode parseExitStatement() {
     consumeKeyword(EXIT);
@@ -415,7 +591,6 @@ private StmtNode parseVariableDeclaration() {
   private StmtNode parseReturnSlotAssignment() {
     List<String> varNames = parseIdList();
     
-    // Accept both = and := for return slot assignment
     if (match(DOUBLE_COLON_ASSIGN)) {
         consume(DOUBLE_COLON_ASSIGN);
     } else {
@@ -427,17 +602,15 @@ private StmtNode parseVariableDeclaration() {
     MethodCallNode methodCall = expressionParser.parseMethodCall();
     methodCall.slotNames = slotNames;
     
-    // Validate variable names (allow underscore for discard)
     for (String varName : varNames) {
         if ("_".equals(varName)) {
-            continue; // Underscore is allowed here - it means discard this slot
+            continue;
         }
-        // Validate other names normally
     }
     
     if (varNames.size() != slotNames.size()) {
         throw new ParseError(
-            "Number of variables (" + varNames.size() + ") does not match number of slots (" + slotNames.size() + ")");
+            "Number of variables (" + varNames.size() + ") does not match number of slots (" + slotNames.size() + ")", currentToken().line, currentToken().column);
     }
     
     ReturnSlotAssignmentNode assignment = ASTFactory.createReturnSlotAssignment(varNames, methodCall);
@@ -482,8 +655,6 @@ private StmtNode parseVariableDeclaration() {
     return ids;
   }
 
-  // --- Lookahead Methods (OPTIMIZED) ---
-
   protected boolean isSlotAssignment() {
     Token first = lookahead(0);
     if (first == null || first.symbol != TILDE_ARROW) return false;
@@ -491,31 +662,23 @@ private StmtNode parseVariableDeclaration() {
     Token next = lookahead(1);
     if (next == null) return false;
 
-    // Check if the next token is a possible start of an expression/literal
     return isExpressionStart(next);
   }
 
-  // SIMPLIFIED: Uses simpler token-based lookahead instead of complex loop and exception catching
   private boolean isIndexAssignment() {
     Token first = lookahead(0);
     Token second = lookahead(1);
 
     if (first == null || first.type == ID) {
-    // Continue to next
     } else {
          return false;
     }
 
     if (second == null || second.symbol != LBRACKET) return false;
 
-    // REMOVED: Case 1 (Empty brackets) check.
-    // Now only checks if it looks like an index access (name[...)
-
-    // Case 2: Index access: name[expr]... = value
-    int pos = getPosition() + 2; // Start after ID [
+    int pos = getPosition() + 2;
     int bracketDepth = 1;
 
-    // Look for the matching closing bracket for the first index
     while (pos < tokens.size() && bracketDepth > 0) {
       Token t = tokens.get(pos);
       if (t.symbol == LBRACKET) bracketDepth++;
@@ -523,9 +686,7 @@ private StmtNode parseVariableDeclaration() {
       pos++;
     }
 
-    // If we found a matching bracket
     if (bracketDepth == 0) {
-      // Check for subsequent index accesses or assignment
       while (pos < tokens.size() && tokens.get(pos).symbol == LBRACKET) {
         pos++;
         bracketDepth = 1;
@@ -546,30 +707,24 @@ private StmtNode parseVariableDeclaration() {
 private boolean isReturnSlotAssignment() {
     int p = getPosition();
 
-    // 1. Variable list (ID, ID...)
     Token t = tokens.get(p++);
     if (t.type != ID) return false;
     
     while (p < tokens.size() && tokens.get(p).symbol == COMMA) {
-        p++; // Skip comma
+        p++;
         if (p >= tokens.size() || tokens.get(p).type != ID) return false;
-        p++; // Skip ID
+        p++;
     }
 
-    // 2. Assignment ( = OR := )
     if (p >= tokens.size()) return false;
     
-    // --- FIX START: Allow both ASSIGN and DOUBLE_COLON_ASSIGN ---
     if (tokens.get(p).symbol != ASSIGN && tokens.get(p).symbol != DOUBLE_COLON_ASSIGN) return false;
-    // --- FIX END ---
     
     p++;
 
-    // 3. Slot list ([...])
     if (p >= tokens.size() || tokens.get(p).symbol != LBRACKET) return false;
     p++;
 
-    // Check for at least one slot
     if (p >= tokens.size()) return false;
     Token firstSlot = tokens.get(p);
     if (firstSlot.type == ID || firstSlot.type == INT_LIT) {
@@ -592,39 +747,13 @@ private boolean isReturnSlotAssignment() {
     if (p >= tokens.size() || tokens.get(p).symbol != RBRACKET) return false;
     p++;
 
-    // 4. Colon (:)
     return p < tokens.size() && tokens.get(p).symbol == COLON;
 }
 
-  // Original logic was sufficient, minor cleanup
-  private boolean isInputAssignment() {
-    int p = getPosition();
-
-    if (tokens.get(p++).type != ID) return false;
-    if (p >= tokens.size() || tokens.get(p).symbol != ASSIGN) return false;
-    p++;
-    if (p >= tokens.size() || tokens.get(p).symbol != LPAREN) return false;
-    p++;
-
-    int parenBalance = 1;
-    while (p < tokens.size() && parenBalance > 0) {
-      Token t = tokens.get(p);
-      if (t.symbol == LPAREN) parenBalance++;
-      else if (t.symbol == RPAREN) parenBalance--;
-      p++;
-    }
-
-    if (parenBalance != 0) return false; // Type grouping must close
-
-    return p < tokens.size() && isKeywordAt(p - getPosition(), INPUT);
-  }
-
-  // Original logic was sufficient, minor cleanup
   private boolean isMethodCallStatement() {
     int p = getPosition();
 
     if (isSymbolAt(0, LBRACKET)) {
-      // Check for [slots] : call()
       p++;
       if (p >= tokens.size() || (tokens.get(p).type != ID && tokens.get(p).type != INT_LIT))
         return false;
@@ -641,7 +770,6 @@ private boolean isReturnSlotAssignment() {
       p++;
     }
 
-    // Check for qualified name/ID
     if (p >= tokens.size() || tokens.get(p).type != ID) return false;
     p++;
     while (p < tokens.size() && tokens.get(p).symbol == DOT) {
@@ -650,7 +778,6 @@ private boolean isReturnSlotAssignment() {
       p++;
     }
 
-    // Must be followed by (
     return p < tokens.size() && tokens.get(p).symbol == LPAREN;
   }
 
@@ -660,14 +787,12 @@ private boolean isVariableDeclaration() {
     
     if (first == null) return false;
 
-    // Case 1: name := value (implicit typing)
     if (first.type == ID && second != null && second.symbol == DOUBLE_COLON_ASSIGN) {
         return true;
     }
     
-    // Case 2: name: type or name: type = value
     if (first.type == ID && second != null && second.symbol == COLON) {
-        int pos = getPosition() + 2; // Skip ID and COLON
+        int pos = getPosition() + 2;
         if (pos < tokens.size()) {
             Token third = tokens.get(pos);
             return isTypeStart(third);

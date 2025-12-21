@@ -56,7 +56,7 @@ public ProgramNode parseProgram() {
                 program = parseMethodScriptProgram();
                 break;
             default:
-                throw new ParseError("Unknown program type: " + programType);
+                throw new ParseError("Unknown program type: " + programType, currentToken().line, currentToken().column);
         }
     } catch (ParseError e) {
         // Add program type context to error
@@ -87,8 +87,7 @@ public ProgramNode parseProgram() {
         if (!match(EOF)) {
             Token current = currentToken();
             throw new ParseError("Unexpected token after statement: " +
-                getTypeName(current.type) + " ('" + current.text + "')" +
-                " at line " + current.line + ":" + current.column);
+                getTypeName(current.type) + " ('" + current.text + "')", current.line, current.column);
         }
         return stmt;
     }
@@ -265,7 +264,7 @@ private ProgramType detectProgramType() {
             if (isVisibilityModifier()) {
                 program.unit.types.add(parseTypeDelegation());
             } else {
-                throw new ParseError("Modules can only contain class declarations after imports");
+                throw new ParseError("Modules can only contain class declarations after imports", currentToken().line, currentToken().column);
             }
         }
         
@@ -295,7 +294,7 @@ private ProgramType detectProgramType() {
         // Parse statements directly
         while (!match(EOF)) {
             if (isVisibilityModifier() || isMethodDeclarationStart()) {
-                throw new ParseError("Scripts cannot contain method or class declarations");
+                throw new ParseError("Scripts cannot contain method or class declarations", currentToken().line, currentToken().column);
             }
             scriptType.statements.add(statementParser.parseStatement());
         }
@@ -327,7 +326,7 @@ private ProgramType detectProgramType() {
         // Parse method declarations only
         while (!match(EOF)) {
             if (!isMethodDeclarationStart()) {
-                throw new ParseError("Method scripts can only contain method declarations");
+                throw new ParseError("Method scripts can only contain method declarations", currentToken().line, currentToken().column);
             }
             methodScriptType.methods.add(declarationParser.parseMethod());
         }
@@ -385,11 +384,10 @@ private ProgramType detectProgramType() {
         }
         
         // Only these keywords are direct code
-        return text.equals("output") || 
+        return
                text.equals("if") ||
                text.equals("for") ||
-               text.equals("exit") ||
-               text.equals("input");
+               text.equals("exit");
     }
     
     // Variable declaration/assignment
@@ -434,8 +432,17 @@ private ProgramType detectProgramType() {
     }
     
     private void skipMethodDeclaration() {
+    // Check for builtin modifier
+    boolean isBuiltin = false;
+    if (match(KEYWORD) && BUILTIN.toString().equals(currentToken().text)) {
+        isBuiltin = true;
+        consume(); // skip "builtin"
+    }
+    
     // Skip modifier (share/local)
-    consume();
+    if (isVisibilityModifier()) {
+        consume();
+    }
     
     // Skip method name
     if (match(ID)) consume();
@@ -452,12 +459,16 @@ private ProgramType detectProgramType() {
         skipSlotContract();
     }
     
-    // Handle both ~> and { syntax
+    // --- NEW: Builtin methods have no body ---
+    if (isBuiltin) {
+        return; // Builtin methods end here
+    }
+    
+    // Handle both ~> and { syntax (only for non-builtin methods)
     if (match(TILDE_ARROW)) {
         consume(TILDE_ARROW);
         
-        // --- FIX: Skip slot assignments properly ---
-        // Skip first slot assignment
+        // Skip slot assignments properly
         skipSlotAssignment();
         
         // Skip additional comma-separated slot assignments
@@ -506,8 +517,6 @@ private void skipSlotAssignment() {
             skipIfStatement();
         } else if ("for".equals(text)) {
             skipForStatement();
-        } else if ("output".equals(text)) {
-            skipOutputStatement();
         } else if ("exit".equals(text)) {
             consume(); // exit
         } else if ("local".equals(text) || "share".equals(text)) {
@@ -609,11 +618,6 @@ private void skipForStatement() {
         }
     }
     
-    private void skipOutputStatement() {
-        consumeKeyword(OUTPUT);
-        skipExpression();
-    }
-    
     private void skipExpression() {
     // UPDATED: Now tracks nesting and handles Commas/Keywords correctly
     int braceDepth = 0;
@@ -648,7 +652,6 @@ private void skipForStatement() {
                 String text = t.text;
                 if (text.equals(IF.toString()) || 
                     text.equals(FOR.toString()) || 
-                    text.equals(OUTPUT.toString()) ||
                     text.equals(EXIT.toString()) ||
                     text.equals(ELSE.toString()) ||
                     text.equals(ELIF.toString()) ||
@@ -698,7 +701,7 @@ private void skipForStatement() {
                 (t.type == KEYWORD && 
                  (t.text.equals(ELSE.toString()) || t.text.equals("elif") ||
                   t.text.equals("if") || t.text.equals("for") ||
-                  t.text.equals("output") || t.text.equals("exit")))) {
+                  t.text.equals("exit")))) {
                 break;
             }
             
@@ -742,10 +745,10 @@ private void skipForStatement() {
     // Rule 1: Has unit → MUST be Module
     if (hasUnit) {
         if (hasDirectCode) {
-            throw new ParseError("Modules cannot have direct code outside classes.");
+            throw new ParseError("Modules cannot have direct code outside classes.", currentToken().line, currentToken().column);
         }
         if (hasMethods && !hasClasses) {
-            throw new ParseError("Modules cannot have methods outside classes.");
+            throw new ParseError("Modules cannot have methods outside classes.", currentToken().line, currentToken().column);
         }
         return ProgramType.MODULE;
     }
@@ -757,10 +760,10 @@ private void skipForStatement() {
                                "Either:\n" +
                                "1. Remove methods and keep as script, OR\n" +
                                "2. Remove direct code and make it a method script, OR\n" +
-                               "3. Add 'unit' and classes to make it a module.");
+                               "3. Add 'unit' and classes to make it a module.", currentToken().line, currentToken().column);
         }
         if (hasClasses) {
-            throw new ParseError("Scripts cannot contain class declarations.");
+            throw new ParseError("Scripts cannot contain class declarations.", currentToken().line, currentToken().column);
         }
         return ProgramType.SCRIPT;
     }
@@ -768,7 +771,7 @@ private void skipForStatement() {
     // Rule 3: Has methods → Method Script
     if (hasMethods) {
         if (hasClasses) {
-            throw new ParseError("Method scripts cannot contain class declarations.");
+            throw new ParseError("Method scripts cannot contain class declarations.", currentToken().line, currentToken().column);
         }
         return ProgramType.METHOD_SCRIPT;
     }
@@ -777,10 +780,10 @@ private void skipForStatement() {
     if (hasClasses) {
         throw new ParseError("Classes require 'unit' declaration.\n" +
                            "Add: unit namespace.name\n" +
-                           "Before your class definitions.");
+                           "Before your class definitions.", currentToken().line, currentToken().column);
     }
     
     // Empty file or unrecognized
-    throw new ParseError("Empty file or unrecognized structure");
+    throw new ParseError("Empty file or unrecognized structure", 1, 1);
 }
 }
