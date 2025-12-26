@@ -80,14 +80,11 @@ Coderive replaces traditional boolean operators with expressive quantifiers:
 
 **Multi-Return Slot System**
 ```python
-share Calculator {
-
     local calculate(int a, int b)
     :: result: int, operation: text
     {
         ~> a + b, "addition"  # Slot assignments
     }
-}
 ```
 
 **Smart For-Loops**
@@ -103,7 +100,7 @@ for i by *2 in 1 to 10 {  # Complex step patterns
 ```python
 unit sample.program
 
-get {
+use {
     lang.Math
 }
 
