@@ -87,7 +87,7 @@ Coderive replaces traditional boolean operators with expressive quantifiers:
     }
 ```
 
-** O(1) Lazy Array and Formula-Optimizing Loop**
+**O(1) Lazy Array and Formula-Optimizing Loop**
 
 ```python
        for i in [0 to 1Qi] {
