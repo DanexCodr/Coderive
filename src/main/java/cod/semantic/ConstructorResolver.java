@@ -334,7 +334,7 @@ public class ConstructorResolver {
             
             if (param.type.contains("|")) {
                 String activeType = typeSystem.getConcreteType(typeSystem.unwrap(argValue));
-                return new TypedValue(argValue, activeType, param.type);
+                return new TypeValue(argValue, activeType, param.type);
             }
             
             return argValue;
