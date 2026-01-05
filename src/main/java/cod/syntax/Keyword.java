@@ -41,9 +41,20 @@ public enum Keyword {
   FLOAT,
   BOOL,
   
+  // metaprimitive type
+  TYPE,
+  
+  // concurrrency primitive type
+  CONCUR,
+  
+  // for concurrency
+  SYNC,
+  ASYNC,
+  WITH,
+
+  
   BUILTIN,
-  
-  
+    
   ALL,
   ANY,
   
