@@ -2,6 +2,39 @@
 
 All notable changes to Coderive are documented in this file.
 
+## [v0.5.0] - Heavy Clean Changes - January 5, 2026
+
+### 🚨 Breaking Changes
+- **Heavy package restructuring** - Multiple classes moved to new packages for better organization.
+- **Renamed core classes** - `ASTVisitor` → `VisitorImpl`, `BaseASTVisitor` → `ASTVisitor`, `TypedValue` → `TypeValue`, `CoderiveREPL` → `REPLRunner`.
+- **Removed optimization components** - Eliminated `ConstantFolder`, `Deadcode eliminator`, and associated helper methods.
+
+### ✨ Major Features
+- **Enhanced Formula Loops** - Added support for combinations of patterns at the top level.
+- **Multi-line String Support** - Introduced `|"` and `"|` delimiter pair for multi-line strings with baseline-aware content alignment (different from traditional `"""` triple quotes).
+- **Package Private Classes** - Added support for package-private class visibility.
+- **Package Broadcasted main()** - Added main method broadcasting at package level with call restrictions.
+- **Native Range Indexing** - Added native range index feature for arrays.
+- **Builtin Timer Method** - Added `timer()` method accessible both as builtin and globally.
+
+### 🔧 Engine & Parser Improvements
+- **Enhanced MainLexer** - Made more modular and maintainable.
+- **Project Restructuring** - Heavy reformatting and repackaging of entire codebase:
+  - Moved `ExecutionContext` and `ObjectInstance` to `interpreter.context`
+  - Moved `BreakLoopException`, `EarlyExitException`, `SkipIterationException` to `interpreter.exception`
+  - Moved `IOHandler` to `interpreter.io`
+  - Moved `BuiltinRegistry` and `GlobalRegistry` to `interpreter.registry`
+  - Moved `TypeSystem` and `TypeValue` to `interpreter.type`
+  - Moved `NaturalArray` to dedicated `range` package
+  - Moved formula classes to `range.formula`
+  - Moved pattern classes to `range.pattern`
+- **Performance Improvements** - Fixed subtle bugs to enhance overall performance.
+
+### 📦 Architecture & Organization
+- **Cleaner Codebase Structure** - Logical separation of concerns with dedicated packages for exceptions, IO, registries, types, and range handling.
+- **Improved Maintainability** - Modular lexer and better organized class hierarchy.
+- **Dedicated Range Package** - Centralized range and pattern handling functionality.
+
 ## [v0.4.0] - Infinite Possibilities - December 21, 2025
 
 ### 🚨 Breaking Changes
