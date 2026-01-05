@@ -1,6 +1,6 @@
 package cod.ast.nodes;
 
-import cod.ast.ASTVisitor;
+import cod.ast.VisitorImpl;
 
 public class ExprNode extends StmtNode {
     public String name; // For identifiers or method names
@@ -13,7 +13,7 @@ public class ExprNode extends StmtNode {
     public ExprNode() {}
     
             @Override
-        public <T> T accept(ASTVisitor<T> visitor) {
+        public <T> T accept(VisitorImpl<T> visitor) {
            return visitor.visit(this);
         }
     
