@@ -1,3 +1,4 @@
+// InterpreterRunner.java
 package cod.runner;
 
 import cod.runner.BaseRunner;
@@ -14,8 +15,6 @@ public class InterpreterRunner extends BaseRunner {
     private final String definedFilePath = "/JavaNIDE/Programming-Language/Coderive/executables/LazyLoop.cod";
     
     private final Interpreter interpreter;
-    private boolean enableOptimization = false;
-    private boolean showOptimizationSummary = false;
     
     public InterpreterRunner() {
         this.interpreter = new Interpreter();
@@ -24,15 +23,6 @@ public class InterpreterRunner extends BaseRunner {
     @Override
     public void run(String[] args) throws Exception {
         String inputFilename = getInputFilename(args);
-        
-        // Parse optimization flags
-        for (String arg : args) {
-            if ("-O".equals(arg) || "--optimize".equals(arg)) {
-                enableOptimization = true;
-            } else if ("--opt-summary".equals(arg)) {
-                showOptimizationSummary = true;
-            }
-        }
         
         RunnerConfig config = processCommandLineArgs(args, inputFilename, new Configuration() {
             @Override
@@ -45,26 +35,9 @@ public class InterpreterRunner extends BaseRunner {
         
         DebugSystem.info(LOG_TAG, "Starting interpreter execution...");
         DebugSystem.info(LOG_TAG, "Input file: " + config.inputFilename);
-        DebugSystem.info(LOG_TAG, "Optimization: " + (enableOptimization ? "ENABLED" : "DISABLED"));
         
         ProgramNode ast = parse(config.inputFilename);
         if (ast == null) throw new RuntimeException("Parsing failed, AST is null.");
-        
-        // Apply constant folding optimization if enabled
-        if (enableOptimization) {
-            DebugSystem.info(LOG_TAG, "Applying constant folding optimization...");
-            DebugSystem.startTimer("constant_folding");
-            
-            ast = optimizeAST(ast, true);
-            
-            DebugSystem.stopTimer("constant_folding");
-            DebugSystem.info(LOG_TAG, "Constant folding completed in " + 
-                DebugSystem.getTimerDuration("constant_folding") + " ms");
-            
-            if (showOptimizationSummary) {
-                printOptimizationSummary();
-            }
-        }
         
         // Perform linting and check completion status
         boolean lintingCompleted = performLinting(ast);
@@ -83,12 +56,11 @@ public class InterpreterRunner extends BaseRunner {
     }
     
     private String getInputFilename(String[] args) {
-        // First, check for optimization flags and input file in args
+        // First, check for input file in args
         String inputFileFromArgs = null;
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
-            if (!arg.startsWith("-") && !arg.equals("-o") && !arg.equals("-O") && 
-                !arg.equals("--optimize") && !arg.equals("--opt-summary")) {
+            if (!arg.startsWith("-") && !arg.equals("-o")) {
                 inputFileFromArgs = arg;
                 break;
             }
@@ -118,19 +90,19 @@ public class InterpreterRunner extends BaseRunner {
     }
     
     private void executeWithManualInterpreter(ProgramNode ast) {
-    DebugSystem.info(LOG_TAG, "Running Manual Interpreter");
-    DebugSystem.startTimer("interpretation");
-    
-    interpreter.run(ast);
-    
-    // Get the duration FIRST, while the timer still exists
-    long duration = DebugSystem.getTimerDuration("interpretation");
-    
-    // THEN stop the timer (which removes it)
-    DebugSystem.stopTimer("interpretation");
-    
-    DebugSystem.info(LOG_TAG, "Interpretation completed in " + duration + " ms");
-}
+        DebugSystem.info(LOG_TAG, "Running Manual Interpreter");
+        DebugSystem.startTimer("interpretation");
+        
+        interpreter.run(ast);
+        
+        // Get the duration FIRST, while the timer still exists
+        long duration = DebugSystem.getTimerDuration("interpretation");
+        
+        // THEN stop the timer (which removes it)
+        DebugSystem.stopTimer("interpretation");
+        
+        DebugSystem.info(LOG_TAG, "Interpretation completed in " + duration + " ms");
+    }
 
     private boolean performLinting(ProgramNode ast) {
         DebugSystem.startTimer("linting");
@@ -152,22 +124,6 @@ public class InterpreterRunner extends BaseRunner {
         return lintingCompleted;
     }
     
-    private void printOptimizationSummary() {
-        System.out.println("\n=== CONSTANT FOLDING OPTIMIZATION SUMMARY ===");
-        System.out.println("Optimization Status: APPLIED");
-        System.out.println("\nWhat was optimized:");
-        System.out.println("  • Constant arithmetic expressions (e.g., 2 + 3 * 4 → 14)");
-        System.out.println("  • Boolean chains with any[] and all[]");
-        System.out.println("  • Type casts with constant values");
-        System.out.println("  • String concatenation with constants");
-        System.out.println("  • Comparison operations with constants");
-        System.out.println("\nExpected benefits:");
-        System.out.println("  • Runtime performance: 20-40% faster");
-        System.out.println("  • Memory usage: Reduced temporary objects");
-        System.out.println("  • Execution: Fewer runtime checks");
-        System.out.println("==============================================\n");
-    }
-    
     /**
      * Forces all output streams to flush completely to ensure proper output ordering
      */
@@ -185,14 +141,12 @@ public class InterpreterRunner extends BaseRunner {
             InterpreterRunner runner = new InterpreterRunner();
             runner.run(args);
         } catch (Exception e) {
-            System.err.println("Interpreter Error: " + e.getMessage());
+            e.printStackTrace();
             System.err.println("\nUsage: InterpreterRunner [filename] [options]");
             System.err.println("Options:");
-            System.err.println("  -O, --optimize     Enable constant folding optimization");
-            System.err.println("  --opt-summary      Show optimization summary");
+            System.err.println("  -o <file>      Output file");
             System.err.println("\nExample:");
-            System.err.println("  InterpreterRunner myprogram.cod -O");
-            e.printStackTrace();
+            System.err.println("  InterpreterRunner myprogram.cod");
         }
     }
 }

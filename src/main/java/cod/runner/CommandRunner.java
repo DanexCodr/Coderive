@@ -1,3 +1,4 @@
+// CommandRunner.java
 package cod.runner;
 
 import cod.runner.BaseRunner;
@@ -8,8 +9,6 @@ import cod.interpreter.Interpreter;
 public class CommandRunner extends BaseRunner {
     
     private final Interpreter interpreter;
-    private boolean enableOptimization = false;
-    private boolean showOptimizationStats = false;
     
     public CommandRunner() {
         this.interpreter = new Interpreter();
@@ -18,8 +17,6 @@ public class CommandRunner extends BaseRunner {
     @Override
     public void run(String[] args) throws Exception {
         String outputFilename = null;
-        enableOptimization = false;
-        showOptimizationStats = false;
         
         RunnerConfig config = processCommandLineArgs(args, null, new Configuration() {
             @Override
@@ -40,11 +37,6 @@ public class CommandRunner extends BaseRunner {
                 } else {
                     System.err.println("Error: -o option requires an output filename.");
                 }
-            } else if ("-O".equals(arg) || "--optimize".equals(arg)) {
-                enableOptimization = true;
-                DebugSystem.info(LOG_TAG, "Constant folding optimization enabled");
-            } else if ("--opt-stats".equals(arg)) {
-                showOptimizationStats = true;
             } else if ("--debug".equals(arg)) {
                 config.debugLevel = DebugSystem.Level.DEBUG;
             } else if ("--trace".equals(arg)) {
@@ -65,7 +57,6 @@ public class CommandRunner extends BaseRunner {
         
         DebugSystem.info(LOG_TAG, "Starting CommandRunner execution");
         DebugSystem.info(LOG_TAG, "Input file: " + config.inputFilename);
-        DebugSystem.info(LOG_TAG, "Optimization: " + (enableOptimization ? "ENABLED" : "DISABLED"));
         
         if (config.inputFilename == null || config.inputFilename.isEmpty()) {
             throw new RuntimeException("No input file specified. Usage: CommandRunner <filename> [options]");
@@ -79,21 +70,6 @@ public class CommandRunner extends BaseRunner {
         DebugSystem.stopTimer("parsing");
         DebugSystem.info(LOG_TAG, "AST built successfully");
         
-        // Apply constant folding optimization if enabled
-        if (enableOptimization) {
-            DebugSystem.startTimer("optimization");
-            DebugSystem.info(LOG_TAG, "Applying constant folding optimization...");
-            
-            ast = optimizeAST(ast, true);
-            
-            DebugSystem.stopTimer("optimization");
-            DebugSystem.info(LOG_TAG, "Optimization completed");
-            
-            if (showOptimizationStats) {
-                printOptimizationSummary();
-            }
-        }
-        
         executeInterpretation(ast);
         
         DebugSystem.info(LOG_TAG, "CommandRunner execution completed");
@@ -105,24 +81,11 @@ public class CommandRunner extends BaseRunner {
         DebugSystem.info(LOG_TAG, "Program interpretation completed");
     }
     
-    private void printOptimizationSummary() {
-        System.out.println("\n=== CONSTANT FOLDING SUMMARY ===");
-        System.out.println("Constant folding has been applied to the AST.");
-        System.out.println("Benefits:");
-        System.out.println("  • Constant expressions evaluated at compile time");
-        System.out.println("  • Runtime performance improved");
-        System.out.println("  • Boolean chains (any[]/all[]) optimized");
-        System.out.println("  • Type casts eliminated where possible");
-        System.out.println("===============================\n");
-    }
-    
     private void printHelp() {
         System.out.println("Coderive CommandRunner - Execute Coderive programs");
         System.out.println("Usage: CommandRunner <filename> [options]\n");
         System.out.println("Options:");
         System.out.println("  -i, --interpret     Interpret the program (default)");
-        System.out.println("  -O, --optimize      Enable constant folding optimization");
-        System.out.println("  --opt-stats         Show optimization summary");
         System.out.println("  -o <file>           Write output to file");
         System.out.println("  --debug             Enable debug output");
         System.out.println("  --trace             Enable trace-level debugging");
@@ -130,8 +93,7 @@ public class CommandRunner extends BaseRunner {
         System.out.println("  -h, --help          Show this help message");
         System.out.println("\nExamples:");
         System.out.println("  CommandRunner program.cod");
-        System.out.println("  CommandRunner program.cod -O");
-        System.out.println("  CommandRunner program.cod -O --opt-stats");
+        System.out.println("  CommandRunner program.cod -o output.txt");
     }
 
     public static void main(String[] args) {
