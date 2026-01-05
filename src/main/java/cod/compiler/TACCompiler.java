@@ -1,12 +1,12 @@
 package cod.compiler;
 
-import cod.ast.BaseASTVisitor;
+import cod.ast.ASTVisitor;
 import cod.ast.nodes.*;
 import cod.compiler.TACInstruction.Opcode;
 import cod.debug.DebugSystem;
 import java.util.*;
 
-public class TACCompiler extends BaseASTVisitor<String> {
+public class TACCompiler extends ASTVisitor<String> {
 
     private TACProgram tacProgram;
     private List<TACInstruction> currentCode;
@@ -69,33 +69,33 @@ public class TACCompiler extends BaseASTVisitor<String> {
     }
 
     @Override
-    public String visit(MethodNode method) {
+    public String visit(MethodNode node) {
         currentCode = new ArrayList<TACInstruction>();
         variableToTempMap.clear();
         labelCounter = 0;
         nextTempId = 0;
-        currentMethodName = method.name;
+        currentMethodName = node.methodName;
 
         // Allocate variables for parameters
-        for (ParamNode param : method.parameters) allocateVariable(param.name);
+        for (ParamNode param : node.parameters) allocateVariable(param.name);
         
         // Allocate variables for return slots
-        for (SlotNode slot : method.returnSlots) allocateVariable(slot.name);
+        for (SlotNode slot : node.returnSlots) allocateVariable(slot.name);
 
-        // Compile method body
-        for (StmtNode stmt : method.body) visit(stmt);
+        // Compile node body
+        for (StmtNode stmt : node.body) visit(stmt);
 
         // Add implicit return if missing
         if (currentCode.isEmpty() || currentCode.get(currentCode.size() - 1).opcode != Opcode.RET) {
-            if (!method.returnSlots.isEmpty()) {
-                String firstSlot = variableToTempMap.get(method.returnSlots.get(0).name);
+            if (!node.returnSlots.isEmpty()) {
+                String firstSlot = variableToTempMap.get(node.returnSlots.get(0).name);
                 emit(new TACInstruction(Opcode.RET, firstSlot));
             } else {
                 emit(new TACInstruction(Opcode.RET));
             }
         }
 
-        tacProgram.addMethod(method.name, new ArrayList<TACInstruction>(currentCode));
+        tacProgram.addMethod(node.methodName, new ArrayList<TACInstruction>(currentCode));
         return null;
     }
 
@@ -156,11 +156,11 @@ public class TACCompiler extends BaseASTVisitor<String> {
             emit(new TACInstruction(Opcode.PARAM, t));
         }
         
-        // Step 2: Call method - returns primary result (could be array/map)
+        // Step 2: Call node - returns primary result (could be array/map)
         String primaryRet = newTemp();
         
         // Use CALL_SLOTS to indicate this returns multiple values
-        // Operand1: method name
+        // Operand1: node name
         // Operand2: argument count
         // No need for slot count in operand since we handle it in runtime
         emit(new TACInstruction(Opcode.CALL_SLOTS, primaryRet, call.qualifiedName, call.arguments.size()));
@@ -174,8 +174,8 @@ public class TACCompiler extends BaseASTVisitor<String> {
                 // First variable gets the primary return
                 emit(new TACInstruction(Opcode.ASSIGN, targetTemp, primaryRet));
             } else {
-                // Additional variables from array (if method returns array)
-                // For now, assume method returns array with slots at indices
+                // Additional variables from array (if node returns array)
+                // For now, assume node returns array with slots at indices
                 String idxTemp = newTemp();
                 emit(new TACInstruction(Opcode.LOAD_IMM, idxTemp, i));
                 emit(new TACInstruction(Opcode.LOAD_ARRAY, targetTemp, primaryRet, idxTemp));
@@ -301,41 +301,6 @@ public class TACCompiler extends BaseASTVisitor<String> {
 
         emit(new TACInstruction(Opcode.GOTO, startLabel));
         emit(new TACInstruction(Opcode.LABEL, endLabel));
-        return null;
-    }
-
-    @Override
-    public String visit(OutputNode node) {
-        if (node.arguments.isEmpty()) {
-            String t = newTemp();
-            emit(new TACInstruction(Opcode.LOAD_ADDR, t, ""));
-            emit(new TACInstruction(Opcode.PRINT, t));
-            return null;
-        }
-        
-        for (ExprNode arg : node.arguments) {
-            String val = dispatch(arg);
-            if (val == null) {
-                // Handle method calls that return void
-                if (arg instanceof MethodCallNode) {
-                    // Call already emitted, just need PRINT
-                    String temp = newTemp();
-                    emit(new TACInstruction(Opcode.LOAD_IMM, temp, 0)); // Dummy value
-                    emit(new TACInstruction(Opcode.PRINT, temp));
-                }
-            } else {
-                emit(new TACInstruction(Opcode.PRINT, val));
-            }
-        }
-        return null;
-    }
-
-    @Override
-    public String visit(InputNode node) {
-        String targetTemp = getOrAllocateVariable(node.variableName);
-        String typeTemp = newTemp();
-        emit(new TACInstruction(Opcode.LOAD_ADDR, typeTemp, node.targetType));
-        emit(new TACInstruction(Opcode.READ_INPUT, targetTemp, typeTemp));
         return null;
     }
 
@@ -489,7 +454,7 @@ public class TACCompiler extends BaseASTVisitor<String> {
                 }
             }
         } else {
-            // Regular method call
+            // Regular node call
             emit(new TACInstruction(Opcode.CALL, result, node.qualifiedName, node.arguments.size()));
         }
         
