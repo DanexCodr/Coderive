@@ -1,12 +1,17 @@
 package cod.interpreter;
 
-import cod.syntax.Keyword;
-import static cod.syntax.Keyword.*;
 import cod.ast.nodes.*;
 import cod.ast.ASTFactory;
+import cod.debug.DebugSystem;
+import cod.interpreter.context.*;
+import cod.interpreter.exception.*;
+import cod.interpreter.io.IOHandler;
+import cod.interpreter.registry.*;
+import cod.interpreter.type.*;
 import cod.semantic.ImportResolver;
 import cod.semantic.ConstructorResolver;
-import cod.debug.DebugSystem;
+import cod.syntax.Keyword;
+import static cod.syntax.Keyword.*;
 
 import java.util.*;
 
@@ -101,34 +106,109 @@ public class Interpreter {
   private void runModule(ProgramNode program) {
     UnitNode unit = program.unit;
     initializeImportResolver(unit);
-
+    
     boolean mainExecuted = false;
+    
+    // Strategy 1: Look for local main() in any class in this file
+    TypeNode localMainClass = null;
+    MethodNode localMainMethod = null;
+    
     for (TypeNode type : unit.types) {
-        for (MethodNode node : type.methods) {
-            boolean isMainMethod = "main".equals(node.methodName);
-            boolean hasNoParameters = node.parameters.isEmpty();
-
-            if (isMainMethod && hasNoParameters) {
-                DebugSystem.methodEntry("main", Collections.<String, Object>emptyMap());
-                
-                ObjectInstance obj = constructorResolver.resolveAndCreate(
-                    ASTFactory.createConstructorCall(type.name, new ArrayList<ExprNode>()), 
-                    new ExecutionContext(null, new HashMap<String, Object>(), null, null)
-                );
-                
-                Object result = evalMethod(node, obj, new HashMap<String, Object>());
-                DebugSystem.methodExit("main", result);
-                mainExecuted = true;
+        for (MethodNode method : type.methods) {
+            if ("main".equals(method.methodName) && 
+                method.parameters.isEmpty()) {
+                localMainClass = type;
+                localMainMethod = method;
                 break;
-            } else if (isMainMethod && !hasNoParameters) {
-                DebugSystem.warn("INTERPRETER", "Ignoring main() with parameters in class: " + type.name);
             }
         }
-        if (mainExecuted) break;
+        if (localMainClass != null) break;
     }
-
+    
+    // Rule: Local main() takes priority
+    if (localMainClass != null && localMainMethod != null) {
+        DebugSystem.methodEntry("main (local)", Collections.<String, Object>emptyMap());
+        
+        ObjectInstance obj = constructorResolver.resolveAndCreate(
+            ASTFactory.createConstructorCall(localMainClass.name, new ArrayList<ExprNode>()), 
+            new ExecutionContext(null, new HashMap<String, Object>(), null, null)
+        );
+        
+        Object result = evalMethod(localMainMethod, obj, new HashMap<String, Object>());
+        DebugSystem.methodExit("main", result);
+        mainExecuted = true;
+    }
+    // Strategy 2: Use broadcasted main class if no local main
+    else if (unit.mainClassName != null && !unit.mainClassName.isEmpty()) {
+        DebugSystem.info("INTERPRETER", "Running broadcasted main class: " + unit.mainClassName);
+        
+        // Find the broadcasted main class (should be in this file)
+        TypeNode broadcastedClass = null;
+        MethodNode broadcastedMainMethod = null;
+        
+        for (TypeNode type : unit.types) {
+            if (type.name.equals(unit.mainClassName)) {
+                broadcastedClass = type;
+                for (MethodNode method : type.methods) {
+                    if ("main".equals(method.methodName) && 
+                        method.parameters.isEmpty()) {
+                        broadcastedMainMethod = method;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        
+        if (broadcastedClass != null && broadcastedMainMethod != null) {
+            DebugSystem.methodEntry("main (broadcast)", Collections.<String, Object>emptyMap());
+            
+            ObjectInstance obj = constructorResolver.resolveAndCreate(
+                ASTFactory.createConstructorCall(broadcastedClass.name, new ArrayList<ExprNode>()), 
+                new ExecutionContext(null, new HashMap<String, Object>(), null, null)
+            );
+            
+            Object result = evalMethod(broadcastedMainMethod, obj, new HashMap<String, Object>());
+            DebugSystem.methodExit("main", result);
+            mainExecuted = true;
+        } else {
+            throw new RuntimeException(
+                "Broadcasted main class '" + unit.mainClassName + 
+                "' not found or has no main() method"
+            );
+        }
+    }
+    // Strategy 3: Fallback - any class with main() in the package
+    else {
+        // Legacy behavior: find any main() in package
+        for (TypeNode type : unit.types) {
+            for (MethodNode method : type.methods) {
+                if ("main".equals(method.methodName) && method.parameters.isEmpty()) {
+                    DebugSystem.methodEntry("main (legacy)", Collections.<String, Object>emptyMap());
+                    
+                    ObjectInstance obj = constructorResolver.resolveAndCreate(
+                        ASTFactory.createConstructorCall(type.name, new ArrayList<ExprNode>()), 
+                        new ExecutionContext(null, new HashMap<String, Object>(), null, null)
+                    );
+                    
+                    Object result = evalMethod(method, obj, new HashMap<String, Object>());
+                    DebugSystem.methodExit("main", result);
+                    mainExecuted = true;
+                    break;
+                }
+            }
+            if (mainExecuted) break;
+        }
+    }
+    
     if (!mainExecuted) {
-        throw new RuntimeException("Module must have a class with 'main()' node");
+        throw new RuntimeException(
+            "No executable main() found in package '" + unit.name + "'\n" +
+            "Add one of:\n" +
+            "1. A class with main() method\n" +
+            "2. A broadcast declaration: unit " + unit.name + " (main: YourClass)\n" +
+            "   (YourClass must be in same file and have share main())"
+        );
     }
 }
 
@@ -149,9 +229,9 @@ public class Interpreter {
             visitor.pushContext(ctx);
             try {
               Object result = visitor.visit((ASTNode) stmt);
-              DebugSystem.debug("SCRIPT", "Executed statement: " + stmt.getClass().getSimpleName());
+              DebugSystem.debug("INTERPRETER", "Executed script statement: " + stmt.getClass().getSimpleName());
               if (result != null) {
-                DebugSystem.debug("SCRIPT", "  Result: " + result);
+                DebugSystem.debug("INTERPRETER", "  Result: " + result);
               }
             } finally {
               visitor.popContext();
@@ -499,22 +579,4 @@ private TypeNode findTypeByName(String className) {
     
     return null;
 }
-
-  public static class EarlyExitException extends RuntimeException {
-    public EarlyExitException() {
-      super("Early exit");
-    }
-  }
-  
-  public static class SkipIterationException extends RuntimeException {
-    public SkipIterationException() {
-      super("Skip iteration");
-    }
-  }
-  
-  public static class BreakLoopException extends RuntimeException {
-    public BreakLoopException() {
-        super("Break loop");
-    }
-  }
 }
