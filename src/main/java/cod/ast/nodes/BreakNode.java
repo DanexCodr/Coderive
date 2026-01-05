@@ -1,6 +1,6 @@
 package cod.ast.nodes;
 
-import cod.ast.ASTVisitor;
+import cod.ast.VisitorImpl;
 
 /**
  * Represents a 'break' statement that exits the current loop.
@@ -11,7 +11,7 @@ public class BreakNode extends StmtNode {
     // No fields needed - break is a simple statement
     
     @Override
-    public <T> T accept(ASTVisitor<T> visitor) {
+    public <T> T accept(VisitorImpl<T> visitor) {
         return visitor.visit(this);
     }
     
