@@ -1,7 +1,7 @@
 package cod.semantic;
 
 import cod.error.ParseError;
-import cod.lexer.MainLexer.Token;
+import cod.lexer.Token;
 
 public class NamingValidator {
     

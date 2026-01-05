@@ -2,7 +2,7 @@ package cod.semantic;
 
 import cod.ast.nodes.*;
 
-import cod.lexer.MainLexer;
+import cod.lexer.*;
 import cod.parser.MainParser;
 
 import cod.debug.DebugSystem;
@@ -15,6 +15,37 @@ public class ImportResolver {
     private Map<String, ProgramNode> preloadedImports = new HashMap<>();
     private Set<String> registeredImports = new HashSet<>();
     private List<String> importPaths = new ArrayList<>();
+    private Map<String, String> packageBroadcasts = new HashMap<String, String>();
+    
+    // NEW: Register broadcast declarations
+    public void registerBroadcast(String packageName, String mainClassName) {
+        if (packageBroadcasts.containsKey(packageName)) {
+            // Check for conflicts - multiple broadcasts in same package
+            String existing = packageBroadcasts.get(packageName);
+            if (!existing.equals(mainClassName)) {
+                throw new RuntimeException(
+                    "Broadcast conflict in package '" + packageName + "':\n" +
+                    "  Already declared: (main: " + existing + ")\n" +
+                    "  New declaration: (main: " + mainClassName + ")\n" +
+                    "Only one broadcast per package allowed."
+                );
+            }
+        } else {
+            packageBroadcasts.put(packageName, mainClassName);
+            DebugSystem.debug("BROADCAST", "Registered broadcast for package '" + 
+                packageName + "': (main: " + mainClassName + ")");
+        }
+    }
+    
+    // NEW: Get broadcast for package
+    public String getBroadcast(String packageName) {
+        return packageBroadcasts.get(packageName);
+    }
+    
+    // NEW: Clear broadcasts (for testing)
+    public void clearBroadcasts() {
+        packageBroadcasts.clear();
+    }
 
     public ImportResolver() {
         // Initialize with default import paths
@@ -132,7 +163,7 @@ public class ImportResolver {
             
             // Use the SAME MANUAL parser that we use for the main file
             MainLexer lexer = new MainLexer(content.toString());
-            List<MainLexer.Token> tokens = lexer.tokenize();
+            List<Token> tokens = lexer.tokenize();
             
             DebugSystem.debug("IMPORTS", "Generated " + tokens.size() + " tokens");
             

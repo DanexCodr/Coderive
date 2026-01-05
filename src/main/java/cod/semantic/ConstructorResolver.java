@@ -2,7 +2,8 @@ package cod.semantic;
 
 import cod.ast.nodes.*;
 import cod.interpreter.*;
-import cod.lexer.MainLexer.Token;
+import cod.interpreter.context.*;
+import cod.interpreter.type.*;
 import static cod.syntax.Keyword.*;
 
 import java.util.*;
@@ -103,13 +104,31 @@ public class ConstructorResolver {
     }
     
     private TypeNode findType(String className, ExecutionContext ctx) {
-    // 1. Check current object's type
+    // 1. Check if this is the main class of the current unit
+    if (interpreter != null) {
+        ProgramNode currentProgram = interpreter.getCurrentProgram();
+        if (currentProgram != null && currentProgram.unit != null) {
+            // Check if it's the specified main class
+            if (className.equals(currentProgram.unit.mainClassName)) {
+                // Search in current program's types
+                if (currentProgram.unit.types != null) {
+                    for (TypeNode type : currentProgram.unit.types) {
+                        if (type.name.equals(className)) {
+                            return type;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // 2. Check current object's type
     if (ctx.objectInstance != null && ctx.objectInstance.type != null && 
         ctx.objectInstance.type.name.equals(className)) {
         return ctx.objectInstance.type;
     }
     
-    // 2. Check current program
+    // 3. Check current program
     ProgramNode currentProgram = interpreter.getCurrentProgram();
     if (currentProgram != null && currentProgram.unit != null && currentProgram.unit.types != null) {
         for (TypeNode type : currentProgram.unit.types) {
@@ -119,7 +138,7 @@ public class ConstructorResolver {
         }
     }
     
-    // 3. Use ImportResolver to find type (NEW - consistent with method resolution)
+    // 4. Use ImportResolver to find type (NEW - consistent with method resolution)
     ImportResolver resolver = interpreter.getImportResolver();
     TypeNode type = resolver.findType(className);
     
@@ -127,22 +146,24 @@ public class ConstructorResolver {
         return type;
     }
     
-    // 4. Also check if it's a fully qualified name in loaded imports
+    // 5. Also check if it's a fully qualified name in loaded imports
     // (e.g., "lang.Sys" where className is "lang.Sys", not just "Sys")
-    for (String loadedImport : resolver.getLoadedImports()) {
-        if (loadedImport.endsWith("." + className) || loadedImport.equals(className)) {
-            try {
-                ProgramNode program = resolver.resolveImport(loadedImport);
-                if (program != null && program.unit != null && program.unit.types != null) {
-                    for (TypeNode t : program.unit.types) {
-                        if (t.name.equals(className) || 
-                            loadedImport.endsWith("." + t.name)) {
-                            return t;
+    if (resolver != null) {
+        for (String loadedImport : resolver.getLoadedImports()) {
+            if (loadedImport.endsWith("." + className) || loadedImport.equals(className)) {
+                try {
+                    ProgramNode program = resolver.resolveImport(loadedImport);
+                    if (program != null && program.unit != null && program.unit.types != null) {
+                        for (TypeNode t : program.unit.types) {
+                            if (t.name.equals(className) || 
+                                loadedImport.endsWith("." + t.name)) {
+                                return t;
+                            }
                         }
                     }
+                } catch (Exception e) {
+                    continue;
                 }
-            } catch (Exception e) {
-                continue;
             }
         }
     }
