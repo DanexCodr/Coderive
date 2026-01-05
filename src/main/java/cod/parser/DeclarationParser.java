@@ -3,13 +3,14 @@ package cod.parser;
 import cod.ast.ASTFactory;
 import cod.ast.nodes.*;
 import cod.error.ParseError;
-import cod.lexer.MainLexer.Token;
 import cod.semantic.NamingValidator;
 import cod.syntax.Keyword;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import static cod.lexer.MainLexer.TokenType.*;
+
+import cod.lexer.Token;
+import static cod.lexer.TokenType.*;
 import static cod.syntax.Keyword.*;
 import static cod.syntax.Symbol.*;
 
@@ -119,52 +120,60 @@ public class DeclarationParser extends BaseParser {
     }
 
     public TypeNode parseType() {
+    Token startToken = currentToken();
+    
+    // NEW: Make visibility optional (null = package-private)
+    Keyword visibility = null;
+    
+    if (isVisibilityModifier()) {
         Token visibilityToken = currentToken();
-        String visibilityText = consume(isVisibilityModifier()).text;
+        String visibilityText = consume().text;
 
-        Keyword visibility;
         if (SHARE.toString().equals(visibilityText)) {
             visibility = Keyword.SHARE;
         } else if (LOCAL.toString().equals(visibilityText)) {
             visibility = Keyword.LOCAL;
         } else {
             throw new ParseError(
-                    "Internal parser error: isVisibilityModifier() returned true for non-visibility keyword: '" + visibilityText + "'",
-                    visibilityToken.line, visibilityToken.column);
+                "Internal parser error: isVisibilityModifier() returned true for non-visibility keyword: '" + visibilityText + "'",
+                visibilityToken.line, visibilityToken.column);
         }
-
-        Token typeNameToken = currentToken();
-        String typeName = consume(ID).text;
-
-        NamingValidator.validateClassName(typeName, typeNameToken);
-
-        // NEW: Parse optional inheritance
-        String extendName = null;
-        if (isKeyword(IS)) {
-            consumeKeyword(IS);
-            extendName = parseQualifiedName(); // Could be "ParentClass" or "package.ParentClass"
-        }
-
-        TypeNode type = ASTFactory.createType(typeName, visibility, extendName);
-
-        consume(LBRACE);
-        while (!match(RBRACE)) {
-            if (isFieldDeclaration()) {
-                type.fields.add(parseField());
-            } else if (isConstructorDeclaration()) {
-                ConstructorNode constructor = parseConstructor();
-                type.constructors.add(constructor);
-            } else if (isMethodDeclaration()) {
-                MethodNode method = parseMethod();
-                method.associatedClass = type.name;
-                type.methods.add(method);
-            } else {
-                type.statements.add(statementParser.parseStatement());
-            }
-        }
-        consume(RBRACE);
-        return type;
     }
+    // If no visibility modifier, visibility remains null = package-private
+
+    Token typeNameToken = currentToken();
+    String typeName = consume(ID).text;
+
+    NamingValidator.validateClassName(typeName, typeNameToken);
+
+    // NEW: Parse optional inheritance
+    String extendName = null;
+    if (isKeyword(IS)) {
+        consumeKeyword(IS);
+        extendName = parseQualifiedName(); // Could be "ParentClass" or "package.ParentClass"
+    }
+
+    // NEW: Pass null for package-private
+    TypeNode type = ASTFactory.createType(typeName, visibility, extendName);
+
+    consume(LBRACE);
+    while (!match(RBRACE)) {
+        if (isFieldDeclaration()) {
+            type.fields.add(parseField());
+        } else if (isConstructorDeclaration()) {
+            ConstructorNode constructor = parseConstructor();
+            type.constructors.add(constructor);
+        } else if (isMethodDeclaration()) {
+            MethodNode method = parseMethod();
+            method.associatedClass = type.name;
+            type.methods.add(method);
+        } else {
+            type.statements.add(statementParser.parseStatement());
+        }
+    }
+    consume(RBRACE);
+    return type;
+}
 
     public MethodNode parseMethod() {
     Token startToken = currentToken();

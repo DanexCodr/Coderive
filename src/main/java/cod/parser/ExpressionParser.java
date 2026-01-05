@@ -4,8 +4,8 @@ import cod.ast.ASTFactory;
 import cod.error.ParseError;
 import cod.ast.nodes.*;
 
-import cod.lexer.MainLexer.Token;
-import static cod.lexer.MainLexer.TokenType.*;
+import cod.lexer.Token;
+import static cod.lexer.TokenType.*;
 
 import static cod.syntax.Symbol.*;
 import static cod.syntax.Keyword.*;
@@ -23,17 +23,29 @@ public class ExpressionParser extends BaseParser {
     private static final int PREC_FACTOR = 80;
     private static final int PREC_UNARY = 90;
     private static final int PREC_CALL = 100;
+    private static final int PREC_IS = 40; // NEW: lower precedence than equality
     
     public ExpressionParser(List<Token> tokens, PositionHolder position) {
         super(tokens, position);
     }
 
     public ExprNode parseExpression() {
-        if (isKeyword(ALL) || isKeyword(ANY)) {
+    // Check if this is all/any operator OR method call
+    if (isKeyword(ALL) || isKeyword(ANY)) {
+        // Look ahead to see if it's followed by '(' (method call) or something else (operator)
+        Token nextToken = lookahead(1);
+        
+        if (nextToken != null && nextToken.symbol == LPAREN) {
+            // It's a method call: all(...) or any(...)
+            return parseMethodCall();
+        } else {
+            // It's the operator: all arr > 5 or all [...]
             return parseBooleanChain();
         }
-        return parsePrecedence(PREC_ASSIGNMENT);
     }
+    
+    return parsePrecedence(PREC_ASSIGNMENT);
+}
 
     private ExprNode parseConstructorCall() {
         Token classNameToken = currentToken();
@@ -162,12 +174,106 @@ private String parseQualifiedNameOrKeyword() {
     return parseQualifiedName();
 }
 
-    public IndexAccessNode parseIndexAccessContinuation(ExprNode arrayExpr) {
-        consume(LBRACKET);
-        ExprNode indexExpr = parseExpression();
-        consume(RBRACKET);
-        return ASTFactory.createIndexAccess(arrayExpr, indexExpr);
+private boolean isRangeIndex() {
+    int savedPos = getPosition();
+    try {
+        // Skip whitespace/comments
+        while (position.get() < tokens.size()) {
+            Token t = currentToken();
+            if (t.type == WS || t.type == LINE_COMMENT || t.type == BLOCK_COMMENT) {
+                consume();
+            } else {
+                break;
+            }
+        }
+        
+        // Pattern 1: "by ..."
+        if (isKeyword(BY)) return true;
+        
+        // Pattern 2: Look for expression followed by "to" or comma
+        // Try to parse an expression
+        try {
+            parseExpression();
+            
+            // Check what follows
+            Token after = currentToken();
+            if (after != null) {
+                // Check for "to" keyword or comma for multiple ranges
+                if (isKeyword(TO) || after.symbol == COMMA) {
+                    return true;
+                }
+            }
+        } catch (ParseError e) {
+            // Not a valid expression
+            return false;
+        }
+        
+        return false;
+    } finally {
+        position.set(savedPos);
     }
+}
+
+public IndexAccessNode parseIndexAccessContinuation(ExprNode arrayExpr) {
+    consume(LBRACKET);
+    
+    // Check if this is a range index
+    ExprNode indexExpr;
+    
+    if (isRangeIndex()) {
+        indexExpr = parseRangeIndex();
+    } else {
+        // Regular single index access
+        indexExpr = parseExpression();
+    }
+    
+    consume(RBRACKET);
+    
+    IndexAccessNode indexAccess = ASTFactory.createIndexAccess(arrayExpr, indexExpr);
+    return indexAccess;
+}
+
+private ExprNode parseRangeIndex() {
+    List<RangeIndexNode> ranges = new ArrayList<RangeIndexNode>();
+    
+    // Parse first range
+    ranges.add(parseSingleRangeIndex());
+    
+    // Parse additional comma-separated ranges
+    while (tryConsume(COMMA)) {
+        ranges.add(parseSingleRangeIndex());
+    }
+    
+    if (ranges.size() == 1) {
+        return ranges.get(0);
+    } else {
+        return ASTFactory.createMultiRangeIndex(ranges);
+    }
+}
+
+private RangeIndexNode parseSingleRangeIndex() {
+    ExprNode step = null;
+    ExprNode start;
+    ExprNode end;
+    
+    // Pattern 1: "by step in start to end"
+    if (isKeyword(BY)) {
+        consumeKeyword(BY);
+        step = parseExpression();
+        consumeKeyword(IN);
+        start = parseExpression();
+        consumeKeyword(TO);
+        end = parseExpression();
+    }
+    // Pattern 2: "start to end"
+    else {
+        start = parseExpression();
+        consumeKeyword(TO);
+        end = parseExpression();
+    }
+    
+    return ASTFactory.createRangeIndex(step, start, end);
+}
 
     public List<String> parseReturnSlots() {
         consume(LBRACKET);
@@ -212,7 +318,6 @@ private String parseQualifiedNameOrKeyword() {
         return ASTFactory.createIfExpression(condition, thenExpr, elseExpr);
     }
 
-    // File: cod/parser/ExpressionParser.java
 public ExprNode parsePrimaryExpression() {
     ExprNode baseExpr;
     Token startToken = currentToken();
@@ -256,8 +361,15 @@ public ExprNode parsePrimaryExpression() {
         if (resolvedValue instanceof BigDecimal) {
             baseExpr = ASTFactory.createFloatLiteral((BigDecimal)resolvedValue);
         } else {
-            BigDecimal bigDecimalValue = new BigDecimal(floatText);
-            baseExpr = ASTFactory.createFloatLiteral(bigDecimalValue);
+            // If resolveFloatLiteralValue returned null (shouldn't happen for valid numbers)
+            // or something else, try to parse as plain BigDecimal
+            try {
+                BigDecimal bigDecimalValue = new BigDecimal(floatText);
+                baseExpr = ASTFactory.createFloatLiteral(bigDecimalValue);
+            } catch (NumberFormatException e) {
+                throw new ParseError("Invalid numeric literal: " + floatText, 
+                    floatToken.line, floatToken.column);
+            }
         }
     } else if (match(STRING_LIT)) {
         Token stringToken = consume();
@@ -271,13 +383,11 @@ public ExprNode parsePrimaryExpression() {
     } else if (isKeyword(NULL)) {
         consumeKeyword(NULL);
         baseExpr = ASTFactory.createNullLiteral();
-    } else if (isKeyword(INT) || isKeyword(TEXT) || isKeyword(FLOAT) || isKeyword(BOOL)) {
-        // TYPE LITERALS: int, text, float, bool as string values
-        // This allows in(text), in(int), etc. where type keywords are used as string arguments
+    } else if (isKeyword(INT) || isKeyword(TEXT) || isKeyword(FLOAT) || isKeyword(BOOL) || isKeyword(TYPE)) {
+        // TYPE LITERALS: int, text, float, bool, type as string values
         String typeName = consume().text;
         baseExpr = ASTFactory.createStringLiteral(typeName);
     } else if (match(ID) || (currentToken().type == KEYWORD && canKeywordBeMethodName(currentToken().text))) {
-        // CHANGED: Allow both ID and certain keywords (like "in" as method name)
         if (isMethodCallFollows()) {
             baseExpr = parseMethodCall();
         } else {
@@ -323,6 +433,51 @@ public ExprNode parsePrimaryExpression() {
     return baseExpr;
 }
 
+private Object resolveFloatLiteralValue(String literal) {
+    
+    String baseValueStr;
+    String suffix;
+    int exponent = 0;
+    
+    if (literal.endsWith("Qi")) {
+        suffix = "Qi";
+        baseValueStr = literal.substring(0, literal.length() - 2);
+        exponent = 18;
+    } else {
+        char lastChar = literal.charAt(literal.length() - 1);
+        
+        if (lastChar == 'K' || lastChar == 'M' || lastChar == 'B' || lastChar == 'T' || lastChar == 'Q') {
+            suffix = String.valueOf(lastChar);
+            baseValueStr = literal.substring(0, literal.length() - 1);
+            
+            switch (suffix) {
+                case "K": exponent = 3; break;
+                case "M": exponent = 6; break;
+                case "B": exponent = 9; break;
+                case "T": exponent = 12; break;
+                case "Q": exponent = 15; break;
+                default: break; 
+            }
+        } else {
+            // Try to parse as plain number or scientific notation
+            try {
+                return new BigDecimal(literal);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+    }
+
+    try {
+        BigDecimal base = new BigDecimal(baseValueStr);
+        BigDecimal multiplier = BigDecimal.TEN.pow(exponent);
+        return base.multiply(multiplier);
+    } catch (Exception e) {
+        // If anything goes wrong (NumberFormatException, ArithmeticException, etc.)
+        return null;
+    }
+}
+
     private ExprNode parsePrecedence(int precedence) {
         ExprNode left = parsePrefix();
         
@@ -342,7 +497,12 @@ public ExprNode parsePrimaryExpression() {
             if (opPrecedence > 0) {
                 consume();
                 ExprNode right = parsePrecedence(opPrecedence + 1);
-                left = ASTFactory.createBinaryOp(left, op.text, right);
+                // NEW: Handle 'is' as a special binary operator
+                if (op.type == KEYWORD && IS.toString().equals(op.text)) {
+                    left = ASTFactory.createBinaryOp(left, "is", right);
+                } else {
+                    left = ASTFactory.createBinaryOp(left, op.text, right);
+                }
                 continue;
             }
             
@@ -563,55 +723,6 @@ public ExprNode parsePrimaryExpression() {
         ExprNode expressionToCast = parsePrecedence(PREC_UNARY);
         return ASTFactory.createTypeCast(type, expressionToCast);
     }
-    
-    private Object resolveFloatLiteralValue(String literal) {
-        String baseValueStr;
-        String suffix;
-        int exponent = 0;
-        
-        if (literal.endsWith("Qi")) {
-            suffix = "Qi";
-            baseValueStr = literal.substring(0, literal.length() - 2);
-            exponent = 18;
-        } else {
-            char lastChar = literal.charAt(literal.length() - 1);
-            
-            if (lastChar == 'K' || lastChar == 'M' || lastChar == 'B' || lastChar == 'T' || lastChar == 'Q') {
-                suffix = String.valueOf(lastChar);
-                baseValueStr = literal.substring(0, literal.length() - 1);
-                
-                switch (suffix) {
-                    case "K": exponent = 3; break;
-                    case "M": exponent = 6; break;
-                    case "B": exponent = 9; break;
-                    case "T": exponent = 12; break;
-                    case "Q": exponent = 15; break;
-                    default: break; 
-                }
-            } else {
-                if (literal.contains("e") || literal.contains("E")) {
-                     try {
-                         return new BigDecimal(literal);
-                     } catch (NumberFormatException e) {
-                     }
-                }
-                
-                return null;
-            }
-        }
-
-        if (exponent > 0) {
-            try {
-                BigDecimal base = new BigDecimal(baseValueStr);
-                BigDecimal multiplier = BigDecimal.TEN.pow(exponent);
-                return base.multiply(multiplier);
-            } catch (NumberFormatException e) {
-            }
-        }
-        
-        throw new ParseError("Invalid numeric literal format: " + literal, 
-            currentToken().line, currentToken().column);
-    }
 
     private boolean isConstructorCall() {
     int savedPos = getPosition();
@@ -701,19 +812,33 @@ public ExprNode parsePrimaryExpression() {
     }
 
     private boolean isTypeCast() {
+        // 1. Must start with (
         if (!isSymbolAt(0, LPAREN)) return false;
+        
+        // 2. Second token must be a valid start of a type (ID or primitive keyword)
         Token second = lookahead(1);
         if (second == null || !isTypeStart(second)) return false;
         
         int pos = getPosition();
         int parenDepth = 0;
         
-        for (int i = 0; i < 20 && pos < tokens.size(); i++) {
+        // Limit lookahead to avoid performance issues
+        for (int i = 0; i < 50 && pos < tokens.size(); i++) {
             Token t = tokens.get(pos);
+            
+            // NEW CHECK: If we find a token inside the parens that CANNOT be part of a type
+            // (like -, +, *, /, etc.), then this is definitely NOT a cast.
+            // We check parenDepth > 0 to ensure we are inside the (...)
+            if (parenDepth > 0 && isIllegalTypeToken(t)) {
+                return false;
+            }
+
             if (t.symbol == LPAREN) parenDepth++;
             else if (t.symbol == RPAREN) {
                 parenDepth--;
                 if (parenDepth == 0) {
+                    // We found the matching closing paren.
+                    // Check if the token immediately AFTER matches the start of an expression
                     if (pos + 1 < tokens.size()) {
                         Token afterParen = tokens.get(pos + 1);
                         return isExpressionStart(afterParen);
@@ -726,8 +851,33 @@ public ExprNode parsePrimaryExpression() {
         return false;
     }
 
+    /**
+     * Helper to detect tokens that define Math/Logic but are invalid in Type definitions.
+     * If these appear inside (...), it's a Grouped Expression, not a Cast.
+     */
+    private boolean isIllegalTypeToken(Token t) {
+        // Allow: ID, Keywords, LBRACKET/RBRACKET (arrays), COMMA/PIPE (unions/tuples), DOT (qualified)
+        // Disallow: Math operators, logic operators, literals
+        
+        if (t.type == INT_LIT || t.type == FLOAT_LIT || t.type == STRING_LIT || t.type == BOOL_LIT) return true;
+        
+        if (t.symbol == PLUS || t.symbol == MINUS || t.symbol == MUL || 
+            t.symbol == DIV || t.symbol == MOD || t.symbol == EQ || 
+            t.symbol == NEQ || t.symbol == GT || t.symbol == LT || 
+            t.symbol == GTE || t.symbol == LTE) {
+            return true;
+        }
+        
+        return false;
+    }
+
     private int getPrecedence(Token token) {
         if (token == null) return 0;
+        
+        // NEW: 'is' keyword has lower precedence than equality
+        if (token.type == KEYWORD && IS.toString().equals(token.text)) {
+            return PREC_IS;
+        }
         
         if (token.type == SYMBOL) {
             switch (token.symbol) {

@@ -9,9 +9,9 @@ import static cod.syntax.Symbol.*;
 
 import java.util.List;
 
-import cod.lexer.MainLexer.Token;
-import cod.lexer.MainLexer.TokenType;
-import static cod.lexer.MainLexer.TokenType.*;
+import cod.lexer.Token;
+import cod.lexer.TokenType;
+import static cod.lexer.TokenType.*;
 
 /**
  * Base class for all parser components, handling token stream management and
@@ -49,7 +49,9 @@ public abstract class BaseParser {
     }
 
 protected boolean canKeywordBeMethodName(String keywordText) {
-    return keywordText.equals("in");
+    return keywordText.equals("in") || 
+           keywordText.equals("all") || 
+           keywordText.equals("any");
 }
 
     // NEW: Fast lookahead helpers
@@ -140,6 +142,50 @@ protected boolean canKeywordBeMethodName(String keywordText) {
         return false;
     }
     
+    protected boolean isClassStart() {
+        Token current = currentToken();
+        if (current == null) return false;
+        
+        // Check for visibility modifier
+        if (isVisibilityModifier()) {
+            return true;
+        }
+        
+        // Check for class name without modifier (must be PascalCase)
+        return isClassStartWithoutModifier();
+    }
+    
+    protected boolean isClassStartWithoutModifier() {
+        Token current = currentToken();
+        if (current == null || current.type != ID) return false;
+        
+        // Check if it's a class name (must be PascalCase)
+        String name = current.text;
+        if (name.length() == 0 || !Character.isUpperCase(name.charAt(0))) {
+            return false; // Not a class name (starts lowercase)
+        }
+        
+        // Look ahead to see if it's followed by 'is' or '{'
+        Token next = lookahead(1);
+        if (next == null) return false;
+        
+        // Could be: ClassName { ... }
+        if (next.symbol == LBRACE) {
+            return true;
+        }
+        
+        // Could be: ClassName is ParentClass { ... }
+        if (next.type == KEYWORD && IS.toString().equals(next.text)) {
+            Token afterIs = lookahead(2);
+            if (afterIs != null && afterIs.type == ID) {
+                Token afterParent = lookahead(3);
+                return afterParent != null && afterParent.symbol == LBRACE;
+            }
+        }
+        
+        return false;
+    }
+    
     // --- Keyword and Symbol Helpers ---
 
     protected boolean isKeyword(Keyword expectedKeyword) {
@@ -221,15 +267,16 @@ protected boolean canKeywordBeMethodName(String keywordText) {
 }
     
     protected boolean isTypeKeyword(String text) {
-        // Includes ARRAY keyword for declaration purposes
+        // UPDATED: Added TYPE keyword for meta-primitive type
         return text.equals(INT.toString()) || text.equals(TEXT.toString()) ||
-               text.equals(FLOAT.toString()) || text.equals(BOOL.toString()); 
+               text.equals(FLOAT.toString()) || text.equals(BOOL.toString()) ||
+               text.equals(TYPE.toString()); 
     }
 
 protected boolean isTypeStart(Token token) {
     if (token == null) return false;
     // REMOVED: var keyword from type checking
-    // Checks for (int, text, bool, float, ID, LPAREN)
+    // Checks for (int, text, bool, float, type, ID, LPAREN)
     // LBRACKET for prefix array types e.g., [int]
     return isTypeKeyword(token.text) || token.type == ID || token.symbol == LPAREN || token.symbol == LBRACKET;
 }

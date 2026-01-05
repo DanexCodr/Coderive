@@ -8,8 +8,8 @@ import cod.ast.nodes.*;
 import java.util.ArrayList;
 import java.util.List;
 
-import cod.lexer.MainLexer.Token;
-import static cod.lexer.MainLexer.TokenType.*;
+import cod.lexer.Token;
+import static cod.lexer.TokenType.*;
 
 import static cod.syntax.Symbol.*;
 import static cod.syntax.Keyword.*;
@@ -292,7 +292,9 @@ private StmtNode parseSimpleAssignment() {
     ExprNode target = ASTFactory.createIdentifier(idName);
     consume(ASSIGN);
     ExprNode value = expressionParser.parseExpression();
-    AssignmentNode assignment = ASTFactory.createAssignment(target, value);
+    
+    // NEW: Create assignment with isDeclaration = false
+    AssignmentNode assignment = ASTFactory.createAssignment(target, value, false);
     return assignment;
 }
 
@@ -303,6 +305,7 @@ private StmtNode parseVariableDeclaration() {
     String varName = null;
     ExprNode value = null;
 
+    // Check for varName := value
     if (currentToken().type == ID && lookahead(1) != null && 
         lookahead(1).symbol == DOUBLE_COLON_ASSIGN) {
         
@@ -320,8 +323,8 @@ private StmtNode parseVariableDeclaration() {
         value = expressionParser.parseExpression();
         
     }
-    else if (currentToken().type == ID && lookahead(1) != null && 
-             lookahead(1).symbol == COLON) {
+    // Check for varName: type [= value]
+    else if (currentToken().type == ID && lookahead(1) != null && lookahead(1).symbol == COLON) {
         
         varName = consume(ID).text;
         
@@ -347,7 +350,8 @@ private StmtNode parseVariableDeclaration() {
         
     } else {
         throw new ParseError(
-            "Expected variable declaration in format 'name: type', 'name: type = value', or 'name := value'", startToken.line, startToken.column);
+            "Expected variable declaration in format 'name: type', 'name: type = value', or 'name := value'", 
+            startToken.line, startToken.column);
     }
 
     if (varName != null) {
@@ -622,13 +626,15 @@ private StmtNode parseForLoopBody(ForNode forNode) {
 
     IndexAccessNode indexAccess = expressionParser.parseIndexAccessContinuation(arrayVar);
     while (match(LBRACKET)) {
-      indexAccess = expressionParser.parseIndexAccessContinuation(indexAccess);
+        indexAccess = expressionParser.parseIndexAccessContinuation(indexAccess);
     }
     consume(ASSIGN);
     ExprNode value = expressionParser.parseExpression();
-    AssignmentNode assignment = ASTFactory.createAssignment(indexAccess, value);
+    
+    // NEW: Index assignments are never declarations (isDeclaration = false)
+    AssignmentNode assignment = ASTFactory.createAssignment(indexAccess, value, false);
     return assignment;
-  }
+}
 
   private StmtNode parseMethodCallStatement() {
     if (isSymbolAt(0, LBRACKET)) {

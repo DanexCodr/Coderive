@@ -1,18 +1,16 @@
 package cod.parser;
 
-import cod.error.ParseError;
 import cod.ast.ASTFactory;
 import cod.ast.nodes.*;
-
-import static cod.syntax.Keyword.*;
+import cod.error.ParseError;
+import cod.interpreter.Interpreter;
 import cod.syntax.Symbol;
-import static cod.syntax.Symbol.*;
-
 import java.util.ArrayList;
 import java.util.List;
-
-import static cod.lexer.MainLexer.Token;
-import static cod.lexer.MainLexer.TokenType.*;
+import cod.lexer.Token;
+import static cod.lexer.TokenType.*;
+import static cod.syntax.Keyword.*;
+import static cod.syntax.Symbol.*;
 
 /**
  * The main parser entry point, responsible for the overall program structure.
@@ -24,17 +22,27 @@ public class MainParser extends BaseParser {
     private final ExpressionParser expressionParser;
     private final StatementParser statementParser;
     private final DeclarationParser declarationParser;
+    private final Interpreter interpreter;
 
     public MainParser(List<Token> tokens) {
+        this(tokens, null);
+    }
+    
+    public MainParser(List<Token> tokens, Interpreter interpreter) {
         // Initialize BaseParser with shared PositionHolder
         super(tokens, new PositionHolder(0));
         
-        // All parsers share the same position counter - NO synchronization needed!
+        // All parsers share the same position counter
         this.expressionParser = new ExpressionParser(tokens, this.position);
         this.statementParser = new StatementParser(tokens, this.position, expressionParser);
         this.declarationParser = new DeclarationParser(tokens, this.position, statementParser);
+        this.interpreter = interpreter;
     }
-
+    
+    private Interpreter getInterpreter() {
+        return interpreter;
+    }
+    
 public ProgramNode parseProgram() {
     // Detect program type first
     ProgramType programType = detectProgramType();
@@ -44,24 +52,20 @@ public ProgramNode parseProgram() {
     
     // Parse based on program type
     ProgramNode program = null;
-    try {
-        switch (programType) {
-            case MODULE:
-                program = parseModuleProgram();
-                break;
-            case SCRIPT:
-                program = parseScriptProgram();
-                break;
-            case METHOD_SCRIPT:
-                program = parseMethodScriptProgram();
-                break;
-            default:
-                throw new ParseError("Unknown program type: " + programType, currentToken().line, currentToken().column);
-        }
-    } catch (ParseError e) {
-        // Add program type context to error
-        throw new ParseError("[" + programType + "] " + e.getMessage(), 
-                            e.getLine(), e.getColumn());
+    // REMOVE THE TRY-CATCH BLOCK - let errors propagate naturally
+    switch (programType) {
+        case MODULE:
+            program = parseModuleProgram();
+            break;
+        case SCRIPT:
+            program = parseScriptProgram();
+            break;
+        case METHOD_SCRIPT:
+            program = parseMethodScriptProgram();
+            break;
+        default:
+            throw new ParseError("Unknown program type: " + programType, 
+                currentToken().line, currentToken().column);
     }
     
     // Set program type
@@ -92,16 +96,58 @@ public ProgramNode parseProgram() {
         return stmt;
     }
 
-    private UnitNode parseUnit() {
-        consumeKeyword(UNIT);
-        String unitName = parseQualifiedName();
-        UnitNode unit = ASTFactory.createUnit(unitName);
-
-        if (isKeyword(USE)) {
-            unit.imports = parseUseNode();
+private UnitNode parseUnit() {
+    consumeKeyword(UNIT);
+    String unitName = parseQualifiedName();
+    
+    // NEW: Parse optional main class specification
+    String mainClassName = null;
+    if (match(LPAREN)) {
+        consume(LPAREN);
+        
+        // Expect "main:" identifier followed by colon
+        Token mainToken = currentToken();
+        Token colonToken = lookahead(1);
+        
+        if (mainToken == null || colonToken == null || 
+            mainToken.type != ID || !"main".equals(mainToken.text) || 
+            colonToken.symbol != COLON) {
+            throw new ParseError(
+                "Expected 'main:' in unit declaration",
+                mainToken != null ? mainToken.line : currentToken().line,
+                mainToken != null ? mainToken.column : currentToken().column
+            );
         }
-        return unit;
+        
+        consume(); // consume "main" (as ID)
+        consume(COLON);
+        
+        mainClassName = parseQualifiedName();
+        
+        consume(RPAREN);
     }
+    
+    UnitNode unit = ASTFactory.createUnit(unitName);
+    unit.mainClassName = mainClassName;
+    
+    if (isKeyword(USE)) {
+        unit.imports = parseUseNode();
+    }
+    return unit;
+}
+
+private void skipOptionalMainClass() {
+    consume(LPAREN);
+    
+    // Skip "main: ClassName" pattern
+    // Look for: any token "main", then ":", then identifiers/dots, then ")"
+    while (!match(RPAREN) && !match(EOF)) {
+        consume();
+    }
+    if (match(RPAREN)) {
+        consume(RPAREN);
+    }
+}
 
     private UseNode parseUseNode() {
         consumeKeyword(USE);
@@ -135,9 +181,6 @@ private ProgramType detectProgramType() {
     int savedPos = position.get();
     position.set(0);
     
-    // Turn off debug output for cleaner test results
-    // System.err.println("[DEBUG] Starting program type detection");
-    
     try {
         boolean hasUnit = false;
         boolean hasDirectCode = false;
@@ -162,21 +205,26 @@ private ProgramType detectProgramType() {
                 continue;
             }
             
-            // Check for unit declaration
-            if (!hasUnit && current.type == KEYWORD && UNIT.toString().equals(current.text)) {
-                hasUnit = true;
-                consume(); // consume "unit"
-                // Skip unit name
-                if (match(ID)) {
-                    parseQualifiedName();
-                }
-                continue;
-            }
+// Check for unit declaration
+if (!hasUnit && current.type == KEYWORD && UNIT.toString().equals(current.text)) {
+    hasUnit = true;
+    consume(); // consume "unit"
+    // Skip unit name
+    if (match(ID)) {
+        parseQualifiedName();
+    }
+    
+    // NEW: Skip optional (main: ClassName)
+    if (match(LPAREN)) {
+        skipOptionalMainClass();
+    }
+    continue;
+}
             
             // After unit, we should only see class declarations
             if (hasUnit) {
-                // Check for class declaration (visibility modifier)
-                if (isVisibilityModifier()) {
+                // Check for class declaration (visibility modifier OR just class name)
+                if (isClassStart()) {
                     hasClasses = true;
                     // Skip the class declaration
                     skipTypeDeclaration();
@@ -212,7 +260,7 @@ private ProgramType detectProgramType() {
             }
             
             // Check for class declaration (without unit - error)
-            if (isVisibilityModifier()) {
+            if (isClassStart()) {
                 hasClasses = true;
                 skipTypeDeclaration();
                 continue;
@@ -231,7 +279,6 @@ private ProgramType detectProgramType() {
         
         // Apply detection rules
         ProgramType result = determineProgramType(hasUnit, hasDirectCode, hasMethods, hasClasses);
-        // System.err.println("[DEBUG] Final detection: " + result);
         return result;
         
     } finally {
@@ -239,37 +286,118 @@ private ProgramType detectProgramType() {
         position.set(savedPos);
     }
 }
-    
+
     /**
      * Parse a MODULE program (has unit declaration).
      */
     private ProgramNode parseModuleProgram() {
-        ProgramNode program = ASTFactory.createProgram();
+    ProgramNode program = ASTFactory.createProgram();
 
-        // Must have unit
-        program.unit = parseUnit();
-
-        // Parse imports
-        while (isKeyword(USE)) {
-            if (program.unit.imports == null) {
-                program.unit.imports = parseUseNode();
-            } else {
-                UseNode additionalImports = parseUseNode();
-                program.unit.imports.imports.addAll(additionalImports.imports);
-            }
+    // Must have unit
+    program.unit = parseUnit();
+    
+    // NEW: Register broadcast if specified
+    if (program.unit.mainClassName != null) {
+        try {
+            // Extract package name from unit name
+            String packageName = extractPackageName(program.unit.name);
+            interpreter.getImportResolver().registerBroadcast(
+                packageName, program.unit.mainClassName
+            );
+        } catch (Exception e) {
         }
-
-        // Parse classes only
-        while (!match(EOF)) {
-            if (isVisibilityModifier()) {
-                program.unit.types.add(parseTypeDelegation());
-            } else {
-                throw new ParseError("Modules can only contain class declarations after imports", currentToken().line, currentToken().column);
-            }
-        }
-        
-        return program;
     }
+
+    // Parse imports
+    while (isKeyword(USE)) {
+        if (program.unit.imports == null) {
+            program.unit.imports = parseUseNode();
+        } else {
+            UseNode additionalImports = parseUseNode();
+            program.unit.imports.imports.addAll(additionalImports.imports);
+        }
+    }
+
+    // Parse classes only - UPDATED to handle optional visibility
+    List<TypeNode> typesInFile = new ArrayList<TypeNode>();
+    while (!match(EOF)) {
+        if (isVisibilityModifier() || isClassStartWithoutModifier()) {
+            TypeNode type = parseTypeDelegation();
+            program.unit.types.add(type);
+            typesInFile.add(type);
+        } else {
+            throw new ParseError("Modules can only contain class declarations after imports", 
+                currentToken().line, currentToken().column);
+        }
+    }
+    
+    // NEW: Validate that broadcasted main class exists in this file
+    validateMainClassExistsInFile(program.unit, typesInFile);
+    
+    return program;
+}
+
+private String extractPackageName(String qualifiedName) {
+    if (qualifiedName == null || qualifiedName.isEmpty()) {
+        return "";
+    }
+    
+    // Extract package from qualified name like "my.app.subpackage"
+    int lastDot = qualifiedName.lastIndexOf('.');
+    if (lastDot > 0) {
+        return qualifiedName.substring(0, lastDot);
+    }
+    return qualifiedName;
+}
+
+private void validateMainClassExistsInFile(UnitNode unit, List<TypeNode> typesInFile) {
+    if (unit.mainClassName == null || unit.mainClassName.isEmpty()) {
+        return; // No main class specified, no validation needed
+    }
+    
+    boolean classFound = false;
+    for (TypeNode type : typesInFile) {
+        if (type.name.equals(unit.mainClassName)) {
+            classFound = true;
+            
+            // Additional check: make sure it has a main() method
+            boolean hasMainMethod = false;
+            for (MethodNode method : type.methods) {
+                if ("main".equals(method.methodName)) {
+                    hasMainMethod = true;
+                    break;
+                }
+            }
+            
+            if (!hasMainMethod) {
+                // ADD PROGRAM TYPE CONTEXT DIRECTLY HERE
+                throw new ParseError(
+                    "[MODULE] Broadcasted class '" + unit.mainClassName + 
+                    "' must have a main() method",
+                    currentToken().line, currentToken().column
+                );
+            }
+            break;
+        }
+    }
+    
+    if (!classFound) {
+        // ADD PROGRAM TYPE CONTEXT DIRECTLY HERE
+        throw new ParseError(
+            "[MODULE] Cannot broadcast undefined class '" + unit.mainClassName + "'\n" +
+            "Define " + unit.mainClassName + " in this file before broadcasting it\n" +
+            "Example:\n" +
+            "  unit " + unit.name + " (main: " + unit.mainClassName + ")\n" +
+            "  \n" +
+            "  " + unit.mainClassName + " {\n" +
+            "      share main() {\n" +
+            "          // Your code here\n" +
+            "      }\n" +
+            "  }",
+            currentToken().line, currentToken().column
+        );
+    }
+}
     
     /**
      * Parse a SCRIPT program (direct code only).
@@ -293,7 +421,7 @@ private ProgramType detectProgramType() {
 
         // Parse statements directly
         while (!match(EOF)) {
-            if (isVisibilityModifier() || isMethodDeclarationStart()) {
+            if (isVisibilityModifier() || isClassStartWithoutModifier() || isMethodDeclarationStart()) {  // <<< UPDATED
                 throw new ParseError("Scripts cannot contain method or class declarations", currentToken().line, currentToken().column);
             }
             scriptType.statements.add(statementParser.parseStatement());
@@ -326,6 +454,10 @@ private ProgramType detectProgramType() {
         // Parse method declarations only
         while (!match(EOF)) {
             if (!isMethodDeclarationStart()) {
+                // Check if it's a class (with or without visibility) - that's also an error
+                if (isVisibilityModifier() || isClassStartWithoutModifier()) {  // <<< UPDATED
+                    throw new ParseError("Method scripts cannot contain class declarations", currentToken().line, currentToken().column);
+                }
                 throw new ParseError("Method scripts can only contain method declarations", currentToken().line, currentToken().column);
             }
             methodScriptType.methods.add(declarationParser.parseMethod());
@@ -334,7 +466,7 @@ private ProgramType detectProgramType() {
         program.unit.types.add(methodScriptType);
         return program;
     }
-    
+
     // =========================================================================
     // HELPER METHODS FOR PROGRAM TYPE DETECTION
     // =========================================================================
@@ -407,29 +539,34 @@ private ProgramType detectProgramType() {
     // Expression start
     return isExpressionStart(token);
 }
-    
-    private void skipTypeDeclaration() {
-        // Skip visibility modifier
+
+private void skipTypeDeclaration() {
+    // Skip optional visibility modifier
+    if (isVisibilityModifier()) {
         consume();
-        // Skip type name
-        if (match(ID)) consume();
-        // Skip 'is' and base type if present
-        if (isKeyword(IS)) {
-            consumeKeyword(IS);
-            parseQualifiedName();
-        }
-        // Skip opening brace
-        if (match(LBRACE)) consume(LBRACE);
-        
-        // Skip everything until matching closing brace
-        int braceDepth = 1;
-        while (!match(EOF) && braceDepth > 0) {
-            Token t = currentToken();
-            if (t.symbol == LBRACE) braceDepth++;
-            else if (t.symbol == RBRACE) braceDepth--;
-            consume();
-        }
     }
+    
+    // Skip type name
+    if (match(ID)) consume();
+    
+    // Skip 'is' and base type if present
+    if (isKeyword(IS)) {
+        consumeKeyword(IS);
+        parseQualifiedName();
+    }
+    
+    // Skip opening brace
+    if (match(LBRACE)) consume(LBRACE);
+    
+    // Skip everything until matching closing brace
+    int braceDepth = 1;
+    while (!match(EOF) && braceDepth > 0) {
+        Token t = currentToken();
+        if (t.symbol == LBRACE) braceDepth++;
+        else if (t.symbol == RBRACE) braceDepth--;
+        consume();
+    }
+}
     
     private void skipMethodDeclaration() {
     // Check for builtin modifier
@@ -745,10 +882,12 @@ private void skipForStatement() {
     // Rule 1: Has unit → MUST be Module
     if (hasUnit) {
         if (hasDirectCode) {
-            throw new ParseError("Modules cannot have direct code outside classes.", currentToken().line, currentToken().column);
+            throw new ParseError("[MODULE] Modules cannot have direct code outside classes.", 
+                currentToken().line, currentToken().column);
         }
         if (hasMethods && !hasClasses) {
-            throw new ParseError("Modules cannot have methods outside classes.", currentToken().line, currentToken().column);
+            throw new ParseError("[MODULE] Modules cannot have methods outside classes.", 
+                currentToken().line, currentToken().column);
         }
         return ProgramType.MODULE;
     }
@@ -756,14 +895,16 @@ private void skipForStatement() {
     // Rule 2: Has direct code → Script
     if (hasDirectCode) {
         if (hasMethods) {
-            throw new ParseError("Cannot mix direct code and method declarations.\n" +
+            throw new ParseError("[SCRIPT] Cannot mix direct code and method declarations.\n" +
                                "Either:\n" +
                                "1. Remove methods and keep as script, OR\n" +
                                "2. Remove direct code and make it a method script, OR\n" +
-                               "3. Add 'unit' and classes to make it a module.", currentToken().line, currentToken().column);
+                               "3. Add 'unit' and classes to make it a module.", 
+                currentToken().line, currentToken().column);
         }
         if (hasClasses) {
-            throw new ParseError("Scripts cannot contain class declarations.", currentToken().line, currentToken().column);
+            throw new ParseError("[SCRIPT] Scripts cannot contain class declarations.", 
+                currentToken().line, currentToken().column);
         }
         return ProgramType.SCRIPT;
     }
@@ -771,19 +912,21 @@ private void skipForStatement() {
     // Rule 3: Has methods → Method Script
     if (hasMethods) {
         if (hasClasses) {
-            throw new ParseError("Method scripts cannot contain class declarations.", currentToken().line, currentToken().column);
+            throw new ParseError("[METHOD_SCRIPT] Method scripts cannot contain class declarations.", 
+                currentToken().line, currentToken().column);
         }
         return ProgramType.METHOD_SCRIPT;
     }
     
     // Rule 4: Has classes without unit → ERROR
     if (hasClasses) {
-        throw new ParseError("Classes require 'unit' declaration.\n" +
+        throw new ParseError("[UNKNOWN] Classes require 'unit' declaration.\n" +
                            "Add: unit namespace.name\n" +
-                           "Before your class definitions.", currentToken().line, currentToken().column);
+                           "Before your class definitions.", 
+            currentToken().line, currentToken().column);
     }
     
     // Empty file or unrecognized
-    throw new ParseError("Empty file or unrecognized structure", 1, 1);
+    throw new ParseError("[UNKNOWN] Empty file or unrecognized structure", 1, 1);
 }
 }
