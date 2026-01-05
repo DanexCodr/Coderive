@@ -19,6 +19,17 @@ public class ASTFactory {
     unit.imports = new UseNode();
     unit.types = new ArrayList<TypeNode>();
     unit.resolvedImports = new HashMap<String, ProgramNode>();
+    unit.mainClassName = null;
+    return unit;
+  }
+  
+  public static UnitNode createUnit(String name, String mainClassName) {
+    UnitNode unit = new UnitNode();
+    unit.name = name;
+    unit.imports = new UseNode();
+    unit.types = new ArrayList<TypeNode>();
+    unit.resolvedImports = new HashMap<String, ProgramNode>();
+    unit.mainClassName = mainClassName;
     return unit;
   }
 
@@ -55,12 +66,13 @@ public class ASTFactory {
     return field;
   }
 
-  public static AssignmentNode createAssignment(ExprNode target, ExprNode value) {
+public static AssignmentNode createAssignment(ExprNode target, ExprNode value, boolean isDeclaration) {
     AssignmentNode assignment = new AssignmentNode();
     assignment.left = target;
     assignment.right = value;
+    assignment.isDeclaration = isDeclaration;
     return assignment;
-  }
+}
 
   public static ConstructorCallNode createConstructorCall(String className, List<ExprNode> arguments) {
     ConstructorCallNode call = new ConstructorCallNode();
@@ -237,6 +249,14 @@ public class ASTFactory {
     node.index = index;
     return node;
   }
+
+public static RangeIndexNode createRangeIndex(ExprNode step, ExprNode start, ExprNode end) {
+    return new RangeIndexNode(step, start, end);
+}
+
+public static MultiRangeIndexNode createMultiRangeIndex(List<RangeIndexNode> ranges) {
+    return new MultiRangeIndexNode(ranges);
+}
 
   public static ExprIfNode createIfExpression(
       ExprNode condition, ExprNode thenExpr, ExprNode elseExpr) {
