@@ -3,7 +3,7 @@ package cod.ast;
 import cod.ast.nodes.*;
 import java.util.List;
 
-public interface ASTVisitor<T> {
+public interface VisitorImpl<T> {
     
     // Program structure
     T visit(ProgramNode n);

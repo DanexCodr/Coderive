@@ -3,7 +3,7 @@ package cod.ast;
 import static cod.syntax.Keyword.*;
 import cod.ast.nodes.*;
 
-public class ASTPrinter extends BaseASTVisitor<Void> {
+public class ASTPrinter extends ASTVisitor<Void> {
     private int indent = 0;
     
     private String getIndent() {

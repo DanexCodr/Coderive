@@ -4,7 +4,7 @@ import cod.ast.nodes.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class BaseASTVisitor<T> implements ASTVisitor<T> {
+public abstract class ASTVisitor<T> implements VisitorImpl<T> {
 
   protected T defaultVisit(ASTNode n) {
     return null;
