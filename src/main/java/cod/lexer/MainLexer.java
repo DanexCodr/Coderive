@@ -11,56 +11,6 @@ import static cod.syntax.Symbol.*;
 
 public class MainLexer {
 
-  public enum TokenType {
-    KEYWORD,
-    INT_LIT,
-    FLOAT_LIT,
-    STRING_LIT,
-    BOOL_LIT,
-    ID,
-    SYMBOL,
-    EOF,
-    INVALID,
-    LINE_COMMENT,
-    BLOCK_COMMENT,
-    WS;
-  }
-
-  public static class Token {
-    public final TokenType type;
-    public final String text;
-    public final int line;
-    public final int column;
-    public final Symbol symbol;
-
-    public Token(TokenType type, String text, int line, int column) {
-        this.type = type;
-        this.text = text;
-        this.line = line;
-        this.column = column;
-        this.symbol = null;
-    }
-
-    public Token(TokenType type, String text, int line, int column, Symbol symbol) {
-        this.type = type;
-        this.text = text;
-        this.line = line;
-        this.column = column;
-        this.symbol = symbol;
-    }
-
-    @Override
-    public String toString() {
-        return "Token{" +
-            "type=" + type.name() +
-            ", text='" + text + '\'' +
-            (symbol != null ? ", symbol=" + symbol.name() : "") +
-            ", line=" + line +
-            ", column=" + column +
-            '}';
-    }
-  }
-
   private static final Set<String> KEYWORDS = new HashSet<String>();
 
   static {
@@ -105,14 +55,20 @@ public class MainLexer {
     }
   }
 
-  private Token scanNextToken() {
+private Token scanNextToken() {
     char c = peek();
 
     if (Character.isLetter(c) || c == '_') return readIdentifierOrKeyword();
     if (Character.isDigit(c)) return readNumber();
-    if (c == '"') return readString();
+    
+    if (c == '|' && peek(1) == '"') {
+        return readMultilineString();
+    }
+    if (c == '"') {
+        return readString();
+    }
     return readSymbol();
-  }
+}
 
   private Token readIdentifierOrKeyword() {
     StringBuilder sb = new StringBuilder();
@@ -163,10 +119,9 @@ public class MainLexer {
     String numberText = sb.toString();
     return create(
         isFloat ? TokenType.FLOAT_LIT : TokenType.INT_LIT, numberText);
-}
+  }
 
-// NEW Helper method for MainLexer (Numeric Shorthands)
-private String readSuffix() {
+  private String readSuffix() {
     if (position >= input.length()) return "";
     
     char c1 = peek();
@@ -186,10 +141,9 @@ private String readSuffix() {
     }
     
     return "";
-}
+  }
 
-// NEW Helper method to read the standard 'e' exponent part (Case insensitive)
-private String readExponent() {
+  private String readExponent() {
     if (position >= input.length()) return "";
     
     char c1 = peek();
@@ -212,22 +166,13 @@ private String readExponent() {
             sb.append(consume());
         }
     } else {
-        // If 'e' or 'E' is not followed by a digit (after optional sign), 
-        // backtrack the 'e' or 'E' and treat it as part of identifier/error.
-        // NOTE: In a complete Lexer, this should rollback position, but for simplicity here, 
-        // we'll stop the number read and rely on the parser to handle the trailing characters if any.
-        // Since this is the end of readNumber, any non-digit following 'e' will be part of the ID logic.
-        // Given your current Lexer structure, we must ensure 'e' is followed by a digit.
         if (sb.length() == 1 || (sb.length() == 2 && (sb.charAt(1) == '+' || sb.charAt(1) == '-'))) {
-             // We only consumed 'e' or 'e+' / 'e-', but no digit followed. This is invalid scientific notation.
-             // We return an empty string to signify failure, but a real Lexer needs error handling/backtracking.
-             // For safety, we'll assume a digit must follow for it to be an exponent.
              return "";
         }
     }
     
     return sb.toString();
-}
+  }
 
   private Token readString() {
     StringBuilder sb = new StringBuilder();
@@ -252,117 +197,319 @@ private String readExponent() {
     return create(TokenType.STRING_LIT, sb.toString());
   }
 
-  private Token readSymbol() {
-    char c1 = consume();
-    switch (c1) {
-      // NEW: Pipe support for Union Types (int|text)
-      case '|':
-        return create(PIPE, "|");
-        
-      // NEW: Ampersand support
-      case '&':
-        return create(AMPERSAND, "&");
-
-      // UPDATED: Added := operator
-      case ':':
-        if (peek() == '=') {
-          consume();
-          return create(DOUBLE_COLON_ASSIGN, ":=");
-        } else if (peek() == ':') {
-          consume();
-          return create(DOUBLE_COLON, "::");
-        } else {
-          return create(COLON, ":");
-        }
-        
-      case '=':
-        if (peek() == '=') {
-          consume();
-          return create(EQ, "==");
-        } else {
-          return create(ASSIGN, "=");
-        }
-      case '>':
-        if (peek() == '=') {
-          consume();
-          return create(GTE, ">=");
-        } else {
-          return create(GT, ">");
-        }
-      case '<':
-        if (peek() == '=') {
-          consume();
-          return create(LTE, "<=");
-        } else {
-          return create(LT, "<");
-        }
-      case '!':
-        if (peek() == '=') {
-          consume();
-          return create(NEQ, "!=");
-        } else {
-          return create(BANG, "!");
-        }
-      case '+':
-        if (peek() == '=') {
-          consume();
-          return create(PLUS_ASSIGN, "+=");
-        } else {
-          return create(PLUS, "+");
-        }
-      case '-':
-        if (peek() == '=') {
-          consume();
-          return create(MINUS_ASSIGN, "-=");
-        } else {
-          return create(MINUS, "-");
-        }
-      case '*':
-        if (peek() == '=') {
-          consume();
-          return create(MUL_ASSIGN, "*=");
-        } else {
-          return create(MUL, "*");
-        }
-      case '/':
-        if (peek() == '=') {
-          consume();
-          return create(DIV_ASSIGN, "/=");
-        } else {
-          return create(DIV, "/");
-        }
-      case '~':
-        if (peek() == '>') {
-          consume();
-          return create(TILDE_ARROW, "~>");
-        } else {
-          return create(TokenType.INVALID);
-        }
-      case '?':
-        return create(QUESTION, "?");
-      case '%':
-        return create(MOD, "%");
-      case '.':
-        return create(DOT, ".");
-      case ',':
-        return create(COMMA, ",");
-      case '(':
-        return create(LPAREN, "(");
-      case ')':
-        return create(RPAREN, ")");
-      case '{':
-        return create(LBRACE, "{");
-      case '}':
-        return create(RBRACE, "}");
-      case '[':
-        return create(LBRACKET, "[");
-      case ']':
-        return create(RBRACKET, "]");
-      case '_':
-        return create(UNDERSCORE, "_");
-      default:
-        return create(TokenType.INVALID);
+  // FINAL VERSION: | column determines baseline
+  private Token readMultilineString() {
+    int startLine = line;
+    int startColumn = column;  // | position = BASELINE
+    
+    // Check opening delimiter "|" 
+    if (!(peek() == '|' && peek(1) == '"')) {
+        throw new RuntimeException("Invalid multiline string opening at line " + line + ", column " + column);
     }
+    
+    // The | character's column IS the baseline
+    int baseColumn = startColumn;
+    
+    // Consume opening delimiter
+    consume(); // Consume |
+    consume(); // Consume "
+    
+    // Allow ONLY whitespace after opening delimiter on same line
+    while (position < input.length()) {
+        char after = peek();
+        if (after == '\n' || after == '\r') {
+            break; // End of line reached, valid
+        } else if (!Character.isWhitespace(after)) {
+            position -= 2; // Go back to | position
+            line = startLine;
+            column = startColumn;
+            throw new RuntimeException(
+                "After multiline string opening delimiter '|\"', only whitespace allowed on same line. " +
+                "String content must start on next line. Found: '" + after + "' at line " + line + ", column " + column
+            );
+        }
+        consume(); // Skip whitespace
+    }
+    
+    // Skip the formatting newline after |"
+    if (position < input.length() && peek() == '\n') {
+        consume();
+        line++;
+        column = 1;
+    } else if (position < input.length() && peek() == '\r') {
+        consume(); // \r
+        if (position < input.length() && peek() == '\n') {
+            consume(); // \n in \r\n
+        }
+        line++;
+        column = 1;
+    }
+    
+    List<String> contentLines = new ArrayList<String>();
+    
+    while (position < input.length()) {
+        char c = peek();
+        
+        // Check for closing delimiter "|
+        if (c == '"' && peek(1) == '|') {
+            // CRITICAL: Closing " must align with opening | baseline
+            if (column != baseColumn) {
+                throw new RuntimeException(
+                    "Multiline string closing delimiter '\"|' must align with opening delimiter baseline. " +
+                    "Opening '|' was at column " + baseColumn + ", closing '\"' at column " + column + ". " +
+                    "All content indentation is measured from column " + baseColumn + "."
+                );
+            }
+            
+            // Build dedented result relative to baseline
+            StringBuilder result = new StringBuilder();
+            for (int i = 0; i < contentLines.size(); i++) {
+                if (i > 0) result.append('\n');
+                result.append(contentLines.get(i));
+            }
+            
+            // Consume closing delimiter
+            consume(); // Consume "
+            consume(); // Consume |
+            
+            // Allow: whitespace OR ) . + , after closing delimiter
+            while (position < input.length()) {
+                char after = peek();
+                if (after == '\n' || after == '\r') break;
+                if (Character.isWhitespace(after)) {
+                    consume(); // Skip whitespace
+                    continue;
+                }
+                // These specific connectors are allowed after "|
+                if (after == ')' || after == '.' || after == '+' || after == ',') {
+                    break; // Stop validation - these are valid
+                }
+                
+                // Anything else is an error
+                position -= 2; // Go back to " position
+                line = startLine;
+                column = startColumn;
+                throw new RuntimeException(
+                    "After multiline string closing delimiter '\"|', only whitespace or ')', '.', '+', ',' allowed on same line. " +
+                    "Found: '" + after + "' at line " + line + ", column " + column
+                );
+            }
+            
+            return new Token(TokenType.STRING_LIT, result.toString(), startLine, startColumn);
+        }
+        
+        // Read a content line
+        int lineStartColumn = column;
+        StringBuilder lineBuilder = new StringBuilder();
+        
+        while (position < input.length()) {
+            char ch = peek();
+            if (ch == '\n' || ch == '\r') break;
+            
+            if (ch == '\\') {
+                // Handle escape sequences
+                consume();
+                if (position >= input.length()) {
+                    throw new RuntimeException("Unterminated escape sequence at line " + line);
+                }
+                char escaped = consume();
+                switch (escaped) {
+                    case 'n': lineBuilder.append('\n'); break;
+                    case 't': lineBuilder.append('\t'); break;
+                    case 'r': lineBuilder.append('\r'); break;
+                    case '\\': lineBuilder.append('\\'); break;
+                    case '"': lineBuilder.append('"'); break;
+                    case '|': lineBuilder.append('|'); break;
+                    default: lineBuilder.append('\\').append(escaped); break;
+                }
+            } else {
+                lineBuilder.append(consume());
+            }
+        }
+        
+        String rawLine = lineBuilder.toString();
+        StringBuilder processedLine = new StringBuilder();
+        
+        // Calculate leading whitespace
+        int leadingWhitespace = 0;
+        while (leadingWhitespace < rawLine.length() && 
+               Character.isWhitespace(rawLine.charAt(leadingWhitespace))) {
+            leadingWhitespace++;
+        }
+        
+        // Visual column of first non-whitespace
+        int visualColumn = lineStartColumn + leadingWhitespace;
+        
+        // Check if line is properly indented (must be at or after baseline)
+        if (visualColumn < baseColumn) {
+            throw new RuntimeException(
+                "Multiline string content must be indented to at least baseline column " + baseColumn + ". " +
+                "Line starts at column " + lineStartColumn + " with " + leadingWhitespace + 
+                " whitespace = column " + visualColumn + " which is before baseline."
+            );
+        }
+        
+        // Calculate relative indentation (beyond baseline)
+        int relativeIndent = visualColumn - baseColumn;
+        
+        // Add relative indentation spaces
+        for (int i = 0; i < relativeIndent; i++) {
+            processedLine.append(' ');
+        }
+        
+        // Add actual content (after removing leading whitespace)
+        if (leadingWhitespace < rawLine.length()) {
+            processedLine.append(rawLine.substring(leadingWhitespace));
+        }
+        
+        contentLines.add(processedLine.toString());
+        
+        // Handle line ending
+        if (position < input.length()) {
+            char lineEnd = peek();
+            if (lineEnd == '\n') {
+                consume();
+                line++;
+                column = 1;
+            } else if (lineEnd == '\r') {
+                consume();
+                if (position < input.length() && peek() == '\n') {
+                    consume();
+                }
+                line++;
+                column = 1;
+            }
+        }
+    }
+    
+    throw new RuntimeException(
+        "Unterminated multiline string starting at line " + 
+        startLine + ", column " + startColumn
+    );
+  }
+
+  private Token readSymbol() {
+    char c1 = peek();
+    
+    switch (c1) {
+      case ':': 
+          return process(
+              ":=", DOUBLE_COLON_ASSIGN,
+              "::", DOUBLE_COLON,
+              ":", COLON
+          );
+      case '=':
+          return process(
+              "==", EQ,
+              "=", ASSIGN
+          );
+      case '>':
+          return process(
+              ">=", GTE,
+              ">", GT
+          );
+      case '<':
+          return process(
+              "<=", LTE,
+              "<", LT
+          );
+      case '!':
+          return process(
+              "!=", NEQ,
+              "!", BANG
+          );
+      case '+':
+          return process(
+              "+=", PLUS_ASSIGN,
+              "+", PLUS
+          );
+      case '-':
+          return process(
+              "-=", MINUS_ASSIGN,
+              "-", MINUS
+          );
+      case '*':
+          return process(
+              "*=", MUL_ASSIGN,
+              "*", MUL
+          );
+      case '/':
+          return process(
+              "/=", DIV_ASSIGN,
+              "/", DIV
+          );
+      case '~':
+          return process("~>", TILDE_ARROW);
+      case '|': 
+          // Already handled in scanNextToken for multiline strings
+          return process("|", PIPE);
+      case '&': return process("&", AMPERSAND);
+      case '?': return process("?", QUESTION);
+      case '%': return process("%", MOD);
+      case '.': return process(".", DOT);
+      case ',': return process(",", COMMA);
+      case '(': return process("(", LPAREN);
+      case ')': return process(")", RPAREN);
+      case '{': return process("{", LBRACE);
+      case '}': return process("}", RBRACE);
+      case '[': return process("[", LBRACKET);
+      case ']': return process("]", RBRACKET);
+      case '_': return process("_", UNDERSCORE);
+      default: return create(TokenType.INVALID);
+    }
+  }
+
+  private Token process(Object... patternsAndSymbols) {
+    // Must have an even number of arguments (pattern, symbol pairs)
+    if (patternsAndSymbols.length % 2 != 0) {
+        throw new IllegalArgumentException("process() requires pattern/symbol pairs");
+    }
+    
+    for (int i = 0; i < patternsAndSymbols.length; i += 2) {
+        Object patternObj = patternsAndSymbols[i];
+        Object symbolObj = patternsAndSymbols[i + 1];
+        
+        // Validate types - Java 7 style
+        if (!(patternObj instanceof String)) {
+            throw new IllegalArgumentException(
+                "Pattern at position " + i + " must be String"
+            );
+        }
+        if (!(symbolObj instanceof Symbol)) {
+            throw new IllegalArgumentException(
+                "Symbol at position " + (i + 1) + " must be Symbol"
+            );
+        }
+        
+        String pattern = (String) patternObj;
+        Symbol symbol = (Symbol) symbolObj;
+        
+        if (matches(pattern)) {
+            String text = consume(pattern.length());
+            return create(symbol, text);
+        }
+    }
+    return create(TokenType.INVALID);
+  }
+
+  private boolean matches(String pattern) {
+    if (position + pattern.length() > input.length()) {
+        return false;
+    }
+    for (int i = 0; i < pattern.length(); i++) {
+        if (input.charAt(position + i) != pattern.charAt(i)) {
+            return false;
+        }
+    }
+    return true;
+  }
+
+  private String consume(int length) {
+    StringBuilder result = new StringBuilder();
+    for (int i = 0; i < length; i++) {
+        result.append(consume());
+    }
+    return result.toString();
   }
 
   private Token create(TokenType type, String text) {
