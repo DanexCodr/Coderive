@@ -477,7 +477,7 @@ public class Interpreter {
 
         if (paramType.contains("|")) {
             String activeType = typeSystem.getConcreteType(typeSystem.unwrap(argValue));
-            argValue = new TypedValue(argValue, activeType, paramType);
+            argValue = new TypeValue(argValue, activeType, paramType);
         }
 
         newLocals.put(param.name, argValue);

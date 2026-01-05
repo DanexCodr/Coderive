@@ -3,7 +3,7 @@ package cod.interpreter;
 import cod.ast.nodes.*;
 import cod.interpreter.context.ExecutionContext;
 import cod.interpreter.type.TypeSystem;
-import cod.interpreter.type.TypedValue;
+import cod.interpreter.type.TypeValue;
 import cod.range.MultiRangeSpec;
 import cod.range.RangeSpec;
 
@@ -271,9 +271,9 @@ public class ExpressionHandler {
         leftValue = typeSystem.unwrap(leftValue);
         rightValue = typeSystem.unwrap(rightValue);
         
-        // Case 1: Right side is a type value (TypedValue with activeType == "type")
-        if (rightValue instanceof TypedValue) {
-            TypedValue typeVal = (TypedValue) rightValue;
+        // Case 1: Right side is a type value (TypeValue with activeType == "type")
+        if (rightValue instanceof TypeValue) {
+            TypeValue typeVal = (TypeValue) rightValue;
             if (typeVal.isTypeValue()) {
                 return typeVal.matches(leftValue);
             }

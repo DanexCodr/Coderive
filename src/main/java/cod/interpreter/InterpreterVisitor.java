@@ -102,7 +102,7 @@ if (node.value != null) {
             } else {
                 // NEW: Check if this is a type literal
                 if (expressionHandler.isTypeLiteral(s)) {
-                    return TypedValue.createTypeValue(s);
+                    return TypeValue.createTypeValue(s);
                 }
                 // Regular identifier string
                 return s;
@@ -170,9 +170,9 @@ public Object visit(ArrayNode node) {
         } else {
             Object evaluated = dispatch(element);
             
-            // NEW: Convert type strings to TypedValue for type arrays
+            // NEW: Convert type strings to TypeValue for type arrays
             if (evaluated instanceof String && expressionHandler.isTypeLiteral((String) evaluated)) {
-                evaluated = TypedValue.createTypeValue((String) evaluated);
+                evaluated = TypeValue.createTypeValue((String) evaluated);
             }
             
             result.add(evaluated);
@@ -384,7 +384,7 @@ public Object visit(AssignmentNode node) {
                 }
                 if (type.contains("|")) {
                     String activeType = typeSystem.getConcreteType(typeSystem.unwrap(newValue));
-                    newValue = new TypedValue(newValue, activeType, type);
+                    newValue = new TypeValue(newValue, activeType, type);
                 }
             }
             ctx.locals.put(varName, newValue);
@@ -556,7 +556,7 @@ private void setListMultiRange(List<Object> list, MultiRangeSpec multiRange, Obj
         validateSlotType(ctx, target, value);
         if (declaredType.contains("|")) {
           String activeType = typeSystem.getConcreteType(typeSystem.unwrap(value));
-          value = new TypedValue(value, activeType, declaredType);
+          value = new TypeValue(value, activeType, declaredType);
         }
         ctx.slotValues.put(target, value);
         ctx.slotsInCurrentPath.add(target);
@@ -591,7 +591,7 @@ private void setListMultiRange(List<Object> list, MultiRangeSpec multiRange, Obj
       validateSlotType(ctx, slotTarget, value);
       if (declaredType.contains("|")) {
         String activeType = typeSystem.getConcreteType(typeSystem.unwrap(value));
-        value = new TypedValue(value, activeType, declaredType);
+        value = new TypeValue(value, activeType, declaredType);
       }
       ctx.slotValues.put(slotTarget, value);
       ctx.slotsInCurrentPath.add(slotTarget);
@@ -626,11 +626,11 @@ public Object visit(VarNode node) {
         
         // NEW: Special handling for type variables
         if (TYPE.toString().equals(declaredType)) {
-            // Convert string type literals to TypedValue
+            // Convert string type literals to TypeValue
             if (val instanceof String) {
                 String typeStr = (String) val;
                 if (expressionHandler.isTypeLiteral(typeStr)) {
-                    val = TypedValue.createTypeValue(typeStr);
+                    val = TypeValue.createTypeValue(typeStr);
                 }
             }
         }
@@ -641,7 +641,7 @@ public Object visit(VarNode node) {
         
         if (declaredType.contains("|")) {
             String activeType = typeSystem.getConcreteType(typeSystem.unwrap(val));
-            val = new TypedValue(val, activeType, declaredType);
+            val = new TypeValue(val, activeType, declaredType);
         }
     }
     
