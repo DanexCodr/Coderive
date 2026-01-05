@@ -1,6 +1,6 @@
 package cod.ast.nodes;
 
-import cod.ast.ASTVisitor;
+import cod.ast.VisitorImpl;
 
 public class SlotNode extends ASTNode {
     public String name;
@@ -14,7 +14,7 @@ public class SlotNode extends ASTNode {
     }
     
                @Override
-        public final <T> T accept(ASTVisitor<T> visitor) {
+        public final <T> T accept(VisitorImpl<T> visitor) {
            return visitor.visit(this);
         }
     
