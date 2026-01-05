@@ -1,6 +1,6 @@
 package cod.ast.nodes;
 
-import cod.ast.ASTVisitor;
+import cod.ast.VisitorImpl;
 
 public class VarNode extends StmtNode {
     public String name;
@@ -9,7 +9,7 @@ public class VarNode extends StmtNode {
 
 
            @Override
-        public final <T> T accept(ASTVisitor<T> visitor) {
+        public final <T> T accept(VisitorImpl<T> visitor) {
            return visitor.visit(this);
         }
     
