@@ -7,7 +7,7 @@
 </div>
 <hr>
 <div align="center" style="line-height: 1;"><b>Coderive v0.5.0</b><br>Mobile-First Programming Language<br><br></div>
-  <a href="https://github.com/DanexCodr/Coderive"><img alt="Repository"    src="https://img.shields.io/badge/Project-Coderive-536af5?color=536af5&logoColor=white"/></a><br><br><a href="https://github.com/DanexCodr/Coderive"><img alt="GitHub Stars"
+  <a href="https://github.com/DanexCodr/Coderive"><img alt="Repository"    src="https://img.shields.io/badge/Project-Coderive-536af5?color=536af5&logoColor=white"/></a><br><a href="https://github.com/DanexCodr/Coderive"><img alt="GitHub Stars"
     src="https://img.shields.io/github/stars/DanexCodr/Coderive.svg?color=7289da&logo=github&logoColor=white"/></a><br>
   <a href="https://github.com/DanexCodr/Coderive/discussions"><img alt="Discussions"
     src="https://img.shields.io/badge/💬%20Discussions-Community-ffc107?color=ffc107&logoColor=white"/></a><br>
