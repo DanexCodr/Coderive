@@ -8,14 +8,13 @@
 <hr>
 <div align="center" style="line-height: 1;">
 <center>Coderive v0.5.0</center><br><br>
-  <a href="https://github.com/DanexCodr/Coderive"><img alt="Repository"    src="https://img.shields.io/badge/Project-Coderive-536af5?color=536af5&logoColor=white"/></a>
+  <a href="https://github.com/DanexCodr/Coderive"><img alt="Repository"    src="https://img.shields.io/badge/Project-Coderive-536af5?color=536af5&logoColor=white"/></a><br>
   <a href="https://github.com/DanexCodr/Coderive/discussions"><img alt="Discussions"
-    src="https://img.shields.io/badge/💬%20Discussions-Community-ffc107?color=ffc107&logoColor=white"/></a>
+    src="https://img.shields.io/badge/💬%20Discussions-Community-ffc107?color=ffc107&logoColor=white"/></a><br>
   <a href="https://github.com/DanexCodr/Coderive/issues"><img alt="Issues"
-    src="https://img.shields.io/badge/🐛%20Issues-Report%20Bugs-brightgreen?color=brightgreen&logoColor=white"/></a>
-  <br>
+    src="https://img.shields.io/badge/🐛%20Issues-Report%20Bugs-brightgreen?color=brightgreen&logoColor=white"/></a><br>
   <a href="https://github.com/DanexCodr/Coderive"><img alt="GitHub Stars"
-    src="https://img.shields.io/github/stars/DanexCodr/Coderive.svg?color=7289da&logo=github&logoColor=white"/></a>
+    src="https://img.shields.io/github/stars/DanexCodr/Coderive.svg?color=7289da&logo=github&logoColor=white"/></a><br>
   <a href="https://github.com/DanexCodr/Coderive/blob/main/LICENSE"><img alt="License"
     src="https://img.shields.io/badge/License-MIT-f5de53?&color=f5de53"/></a>
   <br>
