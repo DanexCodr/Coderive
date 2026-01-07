@@ -5,9 +5,9 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/assets/1762666234889.jpg" alt="Coderive Logo" width="60%" />
 </div>
-<center>Coderive v0.5.0</center>
 <hr>
 <div align="center" style="line-height: 1;">
+<center>Coderive v0.5.0</center>
   <a href="https://github.com/DanexCodr/Coderive"><img alt="Repository"    src="https://img.shields.io/badge/Project-Coderive-536af5?color=536af5&logoColor=white"/></a>
   <a href="https://github.com/DanexCodr/Coderive/discussions"><img alt="Discussions"
     src="https://img.shields.io/badge/💬%20Discussions-Community-ffc107?color=ffc107&logoColor=white"/></a>
