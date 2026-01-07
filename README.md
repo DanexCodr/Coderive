@@ -18,7 +18,8 @@
   <a href="https://github.com/DanexCodr/Coderive/blob/main/LICENSE"><img alt="License"
     src="https://img.shields.io/badge/License-MIT-f5de53?&color=f5de53"/></a>
   <br>
-<center>Coderive v0.5.0</center>
+
+  <center>Coderive v0.5.0</center>
   
   <b>Mobile-First Programming Language</b>
 </div>
