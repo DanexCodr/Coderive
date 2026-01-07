@@ -6,7 +6,7 @@
   <img src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/assets/1762666234889.jpg" alt="Coderive Logo" width="60%" />
 </div>
 <hr>
-<div align="center" style="line-height: 1;">Coderive v0.5.0<br><br></div>
+<div align="center" style="line-height: 1;">Coderive v0.5.0<br><b>Mobile-First Programming Language</b><br></div>
   <a href="https://github.com/DanexCodr/Coderive"><img alt="Repository"    src="https://img.shields.io/badge/Project-Coderive-536af5?color=536af5&logoColor=white"/></a><br>
   <a href="https://github.com/DanexCodr/Coderive/discussions"><img alt="Discussions"
     src="https://img.shields.io/badge/💬%20Discussions-Community-ffc107?color=ffc107&logoColor=white"/></a><br>
@@ -16,10 +16,7 @@
     src="https://img.shields.io/github/stars/DanexCodr/Coderive.svg?color=7289da&logo=github&logoColor=white"/></a><br>
   <a href="https://github.com/DanexCodr/Coderive/blob/main/LICENSE"><img alt="License"
     src="https://img.shields.io/badge/License-MIT-f5de53?&color=f5de53"/></a>
-  <br>
-  
-  <b>Mobile-First Programming Language</b>
-</div>
+  <br> 
 
 ## Table of Contents
 
