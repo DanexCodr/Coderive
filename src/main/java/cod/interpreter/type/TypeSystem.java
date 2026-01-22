@@ -1,5 +1,6 @@
 package cod.interpreter.type;
 
+import cod.ast.nodes.ExprNode;
 import cod.range.NaturalArray;
 import static cod.syntax.Keyword.*;
 import java.util.ArrayList;
@@ -11,9 +12,32 @@ public class TypeSystem {
 
     private static final int DECIMAL_SCALE = 20;
 
+    // NEW: Helper to check if value is none
+    private boolean isNoneValue(Object obj) {
+        if (obj == null) return true;
+        if (obj instanceof ExprNode && ((ExprNode) obj).isNone) return true;
+        if (obj instanceof String && "none".equals(obj)) return true;
+        if (obj instanceof TypeValue) {
+            TypeValue tv = (TypeValue) obj;
+            return tv.value == null || isNoneValue(tv.value);
+        }
+        return false;
+    }
+
+    // NEW: Helper to create a none value
+    private Object createNoneValue() {
+        cod.ast.nodes.ExprNode noneNode = new cod.ast.nodes.ExprNode();
+        noneNode.isNone = true;
+        return noneNode;
+    }
+
     public Object unwrap(Object obj) {
         if (obj instanceof TypeValue) {
             return ((TypeValue) obj).value;
+        }
+        // NEW: Handle none literals
+        if (obj instanceof cod.ast.nodes.ExprNode && ((cod.ast.nodes.ExprNode) obj).isNone) {
+            return null;
         }
         return obj;
     }
@@ -44,8 +68,14 @@ public class TypeSystem {
         a = unwrap(a); 
         b = unwrap(b);
         
-        if (a instanceof List || b instanceof List) {
-            throw new RuntimeException("Cannot operate on arrays");
+        // Handle array multiplication
+        if (isArray(a) || isArray(b)) {
+            return multiplyArrayOrScalar(a, b);
+        }
+        
+        // Handle string multiplication (repetition)
+        if ((a instanceof String && isNumeric(b)) || (b instanceof String && isNumeric(a))) {
+            return multiplyString(a, b);
         }
         
         if (a instanceof Integer && b instanceof Integer) {
@@ -57,6 +87,133 @@ public class TypeSystem {
         BigDecimal bdB = toBigDecimal(b);
         Object result = bdA.multiply(bdB);
         return result;
+    }
+    
+    private boolean isArray(Object obj) {
+        return obj instanceof List || obj instanceof NaturalArray;
+    }
+    
+    private boolean isNumeric(Object obj) {
+        return obj instanceof Integer || obj instanceof Long || 
+               obj instanceof Float || obj instanceof Double || 
+               obj instanceof BigDecimal;
+    }
+    
+    private Object multiplyArrayOrScalar(Object a, Object b) {
+        boolean aIsArray = isArray(a);
+        boolean bIsArray = isArray(b);
+        
+        // Array * Array (element-wise)
+        if (aIsArray && bIsArray) {
+            return multiplyArrays(a, b);
+        }
+        
+        // Array * Scalar (broadcast)
+        if (aIsArray) {
+            return multiplyArrayByScalar(a, b);
+        }
+        
+        // Scalar * Array
+        if (bIsArray) {
+            return multiplyArrayByScalar(b, a);
+        }
+        
+        throw new RuntimeException("Cannot multiply: " + a + " * " + b);
+    }
+    
+    private Object multiplyArrays(Object a, Object b) {
+        List<Object> listA = toList(a);
+        List<Object> listB = toList(b);
+        
+        if (listA.size() != listB.size()) {
+            throw new RuntimeException("Arrays must be same size for element-wise multiplication");
+        }
+        
+        List<Object> result = new ArrayList<Object>();
+        for (int i = 0; i < listA.size(); i++) {
+            Object elemA = listA.get(i);
+            Object elemB = listB.get(i);
+            result.add(multiplyNumbers(elemA, elemB));
+        }
+        
+        return result;
+    }
+    
+    private Object multiplyArrayByScalar(Object array, Object scalar) {
+        List<Object> list = toList(array);
+        List<Object> result = new ArrayList<Object>();
+        
+        for (Object elem : list) {
+            result.add(multiplyNumbers(elem, scalar));
+        }
+        
+        // Try to preserve NaturalArray if possible
+        if (array instanceof NaturalArray && scalar instanceof Integer) {
+            NaturalArray natural = (NaturalArray) array;
+            try {
+                return multiplyNaturalArrayByScalar(natural, (Integer) scalar);
+            } catch (Exception e) {
+                // Fall back to list
+            }
+        }
+        
+        return result;
+    }
+    
+    private Object multiplyNaturalArrayByScalar(NaturalArray natural, int scalar) {
+        // For now, just convert to list and multiply
+        // Could optimize later to create new NaturalArray
+        List<Object> result = new ArrayList<Object>();
+        for (Object elem : natural.toList()) {
+            result.add(multiplyNumbers(elem, scalar));
+        }
+        return result;
+    }
+    
+    private Object multiplyString(Object a, Object b) {
+        String str = null;
+        int repeat = 0;
+        
+        if (a instanceof String && isNumeric(b)) {
+            str = (String) a;
+            repeat = toInt(b);
+        } else if (b instanceof String && isNumeric(a)) {
+            str = (String) b;
+            repeat = toInt(a);
+        }
+        
+        if (str != null) {
+            if (repeat < 0) {
+                throw new RuntimeException("Cannot repeat string negative times");
+            }
+            if (repeat == 0) return "";
+            
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < repeat; i++) {
+                sb.append(str);
+            }
+            return sb.toString();
+        }
+        
+        throw new RuntimeException("String multiplication requires String * Integer");
+    }
+    
+    private int toInt(Object obj) {
+        if (obj instanceof Integer) return (Integer) obj;
+        if (obj instanceof Long) return ((Long) obj).intValue();
+        if (obj instanceof BigDecimal) return ((BigDecimal) obj).intValue();
+        throw new RuntimeException("Cannot convert to int: " + obj);
+    }
+
+    @SuppressWarnings("unchecked")    
+    private List<Object> toList(Object obj) {
+        if (obj instanceof List) {
+            return (List<Object>) obj;
+        }
+        if (obj instanceof NaturalArray) {
+            return ((NaturalArray) obj).toList();
+        }
+        throw new RuntimeException("Cannot convert to list: " + obj.getClass());
     }
     
     public Object divideNumbers(Object a, Object b) {
@@ -128,6 +285,14 @@ public class TypeSystem {
 
     public int compare(Object a, Object b) {
         a = unwrap(a); b = unwrap(b);
+        
+        // Handle none/null comparisons
+        boolean aIsNone = isNoneValue(a);
+        boolean bIsNone = isNoneValue(b);
+        if (aIsNone && bIsNone) return 0;
+        if (aIsNone) return -1;
+        if (bIsNone) return 1;
+        
         if (a instanceof String || b instanceof String) {
             return String.valueOf(a).compareTo(String.valueOf(b));
         }
@@ -159,6 +324,12 @@ public class TypeSystem {
                 }
             }
             throw new RuntimeException("Cannot convert '" + value + "' to type");
+        }
+        
+        // NEW: Handle conversion to "none" type
+        if (targetType.equals("none")) {
+            // Always return null for "none" type
+            return createNoneValue();
         }
         
         if (value instanceof BigDecimal) {
@@ -221,6 +392,13 @@ public class TypeSystem {
             }
             return tv.activeType;
         }
+        
+        // NEW: Handle none/null values
+        if (value == null) return "none";
+        if (value instanceof cod.ast.nodes.ExprNode && ((cod.ast.nodes.ExprNode) value).isNone) {
+            return "none";
+        }
+        
         if (value instanceof Integer) return INT.toString();
         if (value instanceof Long) return INT.toString();
         if (value instanceof String) return TEXT.toString();
@@ -257,6 +435,12 @@ public class TypeSystem {
         a = unwrap(a);
         b = unwrap(b);
         
+        // Handle none/null comparisons
+        boolean aIsNone = isNoneValue(a);
+        boolean bIsNone = isNoneValue(b);
+        if (aIsNone && bIsNone) return true;
+        if (aIsNone || bIsNone) return false;
+        
         if (a == null) return b == null;
         if (b == null) return false;
         
@@ -274,7 +458,21 @@ public class TypeSystem {
         String type = typeSig.trim();
 
         if (type.equals(ANY.toString())) return true;
-        if (rawValue == null) return false;
+        
+        // NEW: Check for none value
+        boolean isNoneValue = isNoneValue(rawValue);
+        if (isNoneValue) {
+            // none only validates against "none" type or nullable unions
+            if (type.equals("none")) return true;
+            // Check if it's a nullable union like "int|none"
+            if (type.contains("|")) {
+                List<String> unionParts = splitTopLevel(type, '|');
+                for (String part : unionParts) {
+                    if (part.equals("none")) return true;
+                }
+            }
+            return false;
+        }
 
         List<String> unionParts = splitTopLevel(type, '|');
         if (unionParts.size() > 1) {
@@ -282,6 +480,11 @@ public class TypeSystem {
                 if (validateTypeInternal(part, rawValue, concreteType)) return true;
             }
             return false;
+        }
+
+        // NEW: Early check for "none" type
+        if (type.equals("none")) {
+            return isNoneValue;
         }
 
         if (type.startsWith("[") && type.endsWith("]")) {
@@ -331,8 +534,9 @@ public class TypeSystem {
     private boolean isValidTypeSignature(String str) {
         if (str.isEmpty()) return false;
         
+        // UPDATED: Added "none" to valid primitive types
         if (str.equals("int") || str.equals("float") || str.equals("text") || 
-            str.equals("bool") || str.equals("type")) {
+            str.equals("bool") || str.equals("type") || str.equals("none")) {
             return true;
         }
         
@@ -394,8 +598,10 @@ public class TypeSystem {
             return true;
         }
         
+        // UPDATED: Added "none" to structurally valid types
         if (type.equals(INT.toString()) || type.equals(FLOAT.toString()) || 
-            type.equals(TEXT.toString()) || type.equals(BOOL.toString()) || type.equals(ANY.toString())) {
+            type.equals(TEXT.toString()) || type.equals(BOOL.toString()) || 
+            type.equals(ANY.toString()) || type.equals("none")) {
             return true;
         }
         if (Character.isUpperCase(type.charAt(0))) return true;
@@ -410,10 +616,13 @@ public class TypeSystem {
             return rawValue instanceof List || rawValue instanceof NaturalArray;
         }
         
-        if (type == INT.toString()) return rawValue instanceof Integer || rawValue instanceof Long;
-        else if (type == TEXT.toString()) return rawValue instanceof String;
-        else if (type == FLOAT.toString()) return rawValue instanceof Float || rawValue instanceof Double || rawValue instanceof BigDecimal;
-        else if (type == BOOL.toString()) return rawValue instanceof Boolean;
+        if (type.equals(INT.toString())) return rawValue instanceof Integer || rawValue instanceof Long;
+        else if (type.equals(TEXT.toString())) return rawValue instanceof String;
+        else if (type.equals(FLOAT.toString())) return rawValue instanceof Float || rawValue instanceof Double || rawValue instanceof BigDecimal;
+        else if (type.equals(BOOL.toString())) return rawValue instanceof Boolean;
+        else if (type.equals("none")) {  // NEW
+            return isNoneValue(rawValue);
+        }
         return false; 
     }
 

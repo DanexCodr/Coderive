@@ -59,36 +59,40 @@ public class NaturalArray {
     }
 
     public NaturalArray(RangeNode range, InterpreterVisitor visitor) {
-        this.baseRange = range;
-        this.visitor = visitor;
-        this.cache = null;
-        this.isMutable = false;
+    this.baseRange = range;
+    this.visitor = visitor;
+    this.cache = null;
+    this.isMutable = false;
+    
+    // FIRST: Check if start/end are strings
+    Object rawStart = visitor.dispatch(baseRange.start);
+    Object rawEnd = visitor.dispatch(baseRange.end);
+    
+    if (rawStart instanceof String && rawEnd instanceof String) {
+        // Handle as lexicographical range
+        this.isLexicographicalRange = true;
+        this.startString = (String) rawStart;
+        this.endString = (String) rawEnd;
+        this.isLongOrIntegerRange = false;
         
-        // FIX: Initialize optimistically to true. checkIntegerType will set to false if needed.
-        this.isLongOrIntegerRange = true;
-        
-        // Initialize and validate
-        getStart(); getEnd(); getStep();
-        
-        // Validate step is not INFINITY
-        
-        // Check for lexicographical range
-        if (cachedStart instanceof String && cachedEnd instanceof String && 
-            (baseRange.step == null || (cachedStep instanceof Long && ((Long)cachedStep).longValue() == 1L))) {
-            
-            this.isLexicographicalRange = true;
-            this.startString = (String) cachedStart;
-            this.endString = (String) cachedEnd;
-            this.isLongOrIntegerRange = false;
-            
-            if (!isValidLexString(startString) || !isValidLexString(endString)) {
-                throw new RuntimeException("Lexicographical range bounds must contain only letters (a-z, A-Z).");
-            }
-            if (hierarchicalSequenceToIndex(startString) > hierarchicalSequenceToIndex(endString)) {
-                throw new RuntimeException("Lexicographical range start must come before end.");
-            }
+        // Validate and set cached values
+        if (!isValidLexString(startString) || !isValidLexString(endString)) {
+            throw new RuntimeException("Lexicographical range bounds must contain only letters (a-z, A-Z).");
         }
+        if (hierarchicalSequenceToIndex(startString) > hierarchicalSequenceToIndex(endString)) {
+            throw new RuntimeException("Lexicographical range start must come before end.");
+        }
+        
+        // Set cached values to avoid recomputation
+        this.cachedStart = rawStart;
+        this.cachedEnd = rawEnd;
+        this.cachedStep = (baseRange.step == null) ? 1L : visitor.dispatch(baseRange.step);
+    } else {
+        // Handle as numeric range
+        this.isLongOrIntegerRange = true;
+        getStart(); getEnd(); getStep();
     }
+}
     
     // Lazy range view class
     private class LazyRangeView extends AbstractList<Object> {

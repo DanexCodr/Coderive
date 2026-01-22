@@ -14,6 +14,7 @@ public class MethodNode extends ASTNode {
     public List<ParamNode> parameters = new ArrayList<ParamNode>();
     public List<StmtNode> body = new ArrayList<StmtNode>();
     public boolean isBuiltin = false;
+    public boolean isPolicyMethod = false;
     
                @Override
         public final <T> T accept(VisitorImpl<T> visitor) {

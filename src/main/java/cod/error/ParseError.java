@@ -1,5 +1,8 @@
 package cod.error;
 
+import cod.ast.SourceSpan;
+import cod.lexer.Token;
+
 /**
  * Parser error that encapsulates both the error message and exact location.
  * 
@@ -12,21 +15,49 @@ package cod.error;
  * 
  * This ensures clean error flow without duplication of location information.
  */
+ @SuppressWarnings("serial")
 public class ParseError extends RuntimeException {
     private int line;
     private int column;
+    private SourceSpan sourceSpan;
     
     public ParseError(String message, int line, int column) {
         super(message + " at line " + line + ":" + column);
         this.line = line;
         this.column = column;
+        this.sourceSpan = new SourceSpan(line, column, line, column);
+    }
+    
+    // Constructor with SourceSpan
+    public ParseError(String message, SourceSpan span) {
+        super(message + " at " + (span != null ? span.format() : "unknown location"));
+        this.sourceSpan = span;
+        if (span != null) {
+            this.line = span.startLine;
+            this.column = span.startColumn;
+        }
+    }
+    
+    // Constructor with Token
+    public ParseError(String message, Token token) {
+        this(message, new SourceSpan(token));
+    }
+    
+    // Constructor with two tokens (start and end)
+    public ParseError(String message, Token startToken, Token endToken) {
+        this(message, new SourceSpan(startToken, endToken));
     }
     
     public int getLine() {
-      return line;
+        return line;
     }
     
     public int getColumn() {
-      return column;
+        return column;
+    }
+    
+    // Get source span
+    public SourceSpan getSourceSpan() {
+        return sourceSpan;
     }
 }

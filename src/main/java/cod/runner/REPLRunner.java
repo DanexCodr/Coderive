@@ -1,4 +1,3 @@
-// REPLRunner.java
 package cod.runner;
 
 import cod.ast.ASTFactory;
@@ -21,15 +20,18 @@ import cod.syntax.Keyword;
 
 public class REPLRunner {
 
+private static final String NAME = "REPL";
+
     public static void main(String[] args) {
-        System.out.println("Welcome to the Coderive REPL. Type 'exit' to quit.");
+        System.out.println("Welcome to the Coderive " + NAME + ". Type 'exit' to quit.");
         System.out.println("Special commands: ';reset' to clear state, ';help' for help");
         
         DebugSystem.setLevel(DebugSystem.Level.ERROR);
-        DebugSystem.info("REPL", "Starting Coderive REPL");
+        DebugSystem.info(NAME, "Starting Coderive " + NAME);
         
         Interpreter interpreter = new Interpreter();
-        ObjectInstance globalInstance = new ObjectInstance(ASTFactory.createType("REPLGlobal", Keyword.LOCAL, null));
+        // UPDATED: Pass null as the token parameter to createType
+        ObjectInstance globalInstance = new ObjectInstance(ASTFactory.createType(NAME + "Global", Keyword.LOCAL, null, null));
         Map<String, Object> globalLocals = new HashMap<String, Object>();
         Map<String, Object> globalSlots = new HashMap<String, Object>();
 
@@ -44,13 +46,13 @@ public class REPLRunner {
             }
             
             if (line.equalsIgnoreCase(";exit") || line.equalsIgnoreCase(";quit")) {
-                DebugSystem.info("REPL", "Exiting REPL");
+                DebugSystem.info(NAME, "Exiting" + NAME);
                 break;
             }
             if (line.equalsIgnoreCase(";reset")) {
                 globalLocals.clear();
                 globalSlots.clear();
-                DebugSystem.info("REPL", "State reset");
+                DebugSystem.info(NAME, "State reset");
                 System.out.println("State reset.");
                 continue;
             }
@@ -62,7 +64,7 @@ public class REPLRunner {
             try {
                 String fullInput = line;
                 if (needsMoreInput(line)) {
-                    DebugSystem.debug("REPL", "Detected multi-line input");
+                    DebugSystem.debug(NAME, "Detected multi-line input");
                     fullInput = readMultiLineInput(scanner, line);
                     if (fullInput == null) {
                         continue;
@@ -71,21 +73,21 @@ public class REPLRunner {
 
                 MainLexer lexer = new MainLexer(fullInput);
                 List<Token> tokens = lexer.tokenize();
-                DebugSystem.debug("REPL", "Tokenized: " + tokens.size() + " tokens");
+                DebugSystem.debug(NAME, "Tokenized: " + tokens.size() + " tokens");
 
                 MainParser parser = new MainParser(tokens);
                 StmtNode astNode = parser.parseSingleLine(); 
                 
                 if (astNode == null) {
-                    DebugSystem.warn("REPL", "No AST generated for input");
+                    DebugSystem.warn(NAME, "No AST generated for input");
                     continue;
                 }
                 
-                DebugSystem.debug("REPL", "Parsed AST node: " + astNode.getClass().getSimpleName());
+                DebugSystem.debug(NAME, "Parsed AST node: " + astNode.getClass().getSimpleName());
                 
                 validateREPLNaming(astNode, globalLocals);
 
-                DebugSystem.debug("REPL", "Evaluating statement");
+                DebugSystem.debug(NAME, "Evaluating statement");
                 Object result = interpreter.evalReplStatement(
                     astNode,
                     globalInstance,
@@ -95,32 +97,32 @@ public class REPLRunner {
 
                 if (astNode instanceof ExprNode && result != null) {
                     System.out.println(String.valueOf(result));
-                    DebugSystem.debug("REPL", "Result: " + result);
+                    DebugSystem.debug(NAME, "Result: " + result);
                 }
 
             } catch (Exception e) {
                 System.err.println("Error: " + e.getMessage());
-                DebugSystem.error("REPL", "Error: " + e.getMessage());
+                DebugSystem.error(NAME, "Error: " + e.getMessage());
             }
         }
         scanner.close();
-        System.out.println("Exiting REPL.");
+        System.out.println("Exiting " + NAME + ".");
     }
     
     private static void validateREPLNaming(StmtNode stmt, Map<String, Object> locals) {
-        DebugSystem.debug("REPL", "Validating naming for: " + stmt.getClass().getSimpleName());
+        DebugSystem.debug(NAME, "Validating naming for: " + stmt.getClass().getSimpleName());
         
         if (stmt instanceof VarNode) {
             VarNode var = (VarNode) stmt;
             String varName = var.name;
             
             if (NamingValidator.isPascalCase(varName)) {
-                DebugSystem.error("REPL", "Invalid PascalCase variable: " + varName);
+                DebugSystem.error(NAME, "Invalid PascalCase variable: " + varName);
                 throw new RuntimeException("Variable name '" + varName + "' cannot use PascalCase (reserved for classes)");
             }
             
             if (NamingValidator.isAllCaps(varName) && var.value == null) {
-                DebugSystem.error("REPL", "Constant without value: " + varName);
+                DebugSystem.error(NAME, "Constant without value: " + varName);
                 throw new RuntimeException("Constant '" + varName + "' must have an initial value");
             }
             
@@ -131,19 +133,19 @@ public class REPLRunner {
                 if (target.name != null) {
                     String varName = target.name;
                     if (NamingValidator.isPascalCase(varName)) {
-                        DebugSystem.error("REPL", "Invalid PascalCase assignment: " + varName);
+                        DebugSystem.error(NAME, "Invalid PascalCase assignment: " + varName);
                         throw new RuntimeException("Variable name '" + varName + "' cannot use PascalCase (reserved for classes)");
                     }
                     
                     if (NamingValidator.isAllCaps(varName) && !locals.containsKey(varName)) {
-                        DebugSystem.error("REPL", "Assignment to undeclared constant: " + varName);
+                        DebugSystem.error(NAME, "Assignment to undeclared constant: " + varName);
                         throw new RuntimeException("Cannot assign to undeclared constant '" + varName + "'");
                     }
                 }
             }
         }
         
-        DebugSystem.debug("REPL", "Naming validation passed");
+        DebugSystem.debug(NAME, "Naming validation passed");
     }
 
     private static boolean needsMoreInput(String line) {
@@ -153,7 +155,7 @@ public class REPLRunner {
     }
 
     private static String readMultiLineInput(Scanner scanner, String firstLine) {
-        DebugSystem.debug("REPL", "Starting multi-line input collection");
+        DebugSystem.debug(NAME, "Starting multi-line input collection");
         StringBuilder input = new StringBuilder(firstLine);
         int braceBalance = countChar(firstLine, '{') - countChar(firstLine, '}');
         
@@ -170,7 +172,7 @@ public class REPLRunner {
             System.out.print(" . . ");
         }
         
-        DebugSystem.debug("REPL", "Multi-line input complete, length: " + input.length());
+        DebugSystem.debug(NAME, "Multi-line input complete, length: " + input.length());
         return input.toString();
     }
 
@@ -185,7 +187,7 @@ public class REPLRunner {
     }
 
     private static void printHelp() {
-        System.out.println("Coderive REPL Help:");
+        System.out.println("Coderive" + NAME + " Help:");
         System.out.println("  Expressions: 5 + 3, x * 2, \"hello\" + \" world\"");
         System.out.println("  Variables:   x = 10, name = \"Alice\"");
         System.out.println("  Output:      output \"Hello\"");

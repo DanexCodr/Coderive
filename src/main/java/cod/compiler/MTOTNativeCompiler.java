@@ -335,6 +335,10 @@ public class MTOTNativeCompiler {
             commitSpill(instr.result, dest);
             break;
         }
+        
+        default:
+    throw new IllegalArgumentException(
+        "compileStringOp called with non-string opcode: " + instr.opcode);
     }
 }
 

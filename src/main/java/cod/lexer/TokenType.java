@@ -12,5 +12,6 @@ public enum TokenType {
     INVALID,
     LINE_COMMENT,
     BLOCK_COMMENT,
-    WS;
+    WS,
+    INTERPOL;
   }

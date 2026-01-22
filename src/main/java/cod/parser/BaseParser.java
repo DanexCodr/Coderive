@@ -1,7 +1,11 @@
 package cod.parser;
 
 import cod.error.ParseError;
-
+import cod.lexer.Token;
+import cod.lexer.TokenType;
+import static cod.lexer.TokenType.*;
+import cod.parser.context.*;
+import cod.semantic.TokenValidator;
 import cod.syntax.Keyword;
 import static cod.syntax.Keyword.*;
 import cod.syntax.Symbol;
@@ -9,432 +13,435 @@ import static cod.syntax.Symbol.*;
 
 import java.util.List;
 
-import cod.lexer.Token;
-import cod.lexer.TokenType;
-import static cod.lexer.TokenType.*;
-
-/**
- * Base class for all parser components, handling token stream management and
- * common utility methods. Uses shared PositionHolder for position synchronization.
- */
+/** Base class for all parser components with ParserState integration. */
 public abstract class BaseParser {
-    protected final List<Token> tokens;
-    protected final PositionHolder position;
+  protected final ParserContext ctx;
+  protected final List<Token> tokens;
 
-    public BaseParser(List<Token> tokens, PositionHolder position) {
-        this.tokens = tokens;
-        this.position = position;
+  public BaseParser(ParserContext ctx) {
+    this.ctx = ctx;
+    this.tokens = ctx.getTokens();
+  }
+  
+    protected boolean is(Symbol... sb) {
+    return is(currentToken(), sb);
+  }
+  
+  protected boolean is(Keyword... kw) {
+    return is(currentToken(), kw);
+  }
+  
+  protected boolean is(TokenType... type) {
+    return is(currentToken(), type);
+  }
+  
+  protected boolean is(Token tk, Symbol... sb) {
+    return TokenValidator.is(tk, sb);
+  }
+  
+  protected boolean is(Token tk, Keyword... kw) {
+    return TokenValidator.is(tk, kw);
+  }
+
+  protected boolean is(Token tk, TokenType...  type) {
+    return TokenValidator.is(tk, type);
+  }
+  
+  // === EXPECTATION HELPERS ===
+
+  /**
+   * Expect a specific token type. Consumes the token if it matches.
+   * @throws ParseError if current token doesn't match expected type
+   */
+  protected Token expect(TokenType expectedType) {
+    return ctx.expect(expectedType);
+  }
+
+  /**
+   * Expect a specific symbol. Consumes the token if it matches.
+   * @throws ParseError if current token doesn't match expected symbol
+   */
+  protected Token expect(Symbol expectedSymbol) {
+    return ctx.expect(expectedSymbol);
+  }
+
+  /**
+   * Expect a specific keyword. Consumes the token if it matches.
+   * @throws ParseError if current token doesn't match expected keyword
+   */
+  protected Token expect(Keyword expectedKeyword) {
+    return ctx.expect(expectedKeyword);
+  }
+
+  // === PARSER ACTION INTERFACE ===
+
+  public interface ParserAction<T> {
+    T parse() throws ParseError;
+  }
+
+  // === STATE MANAGEMENT HELPERS ===
+
+  /** Execute a parsing action with state isolation. Returns both the result and the new state. */
+  protected <T> ParseResult<T> withIsolatedState(ParserAction<T> action) {
+    ParserState savedState = ctx.getState();
+    try {
+      T result = action.parse();
+      return ParseResult.success(result, ctx.getState());
+    } catch (ParseError e) {
+      ctx.setState(savedState);
+      throw e;
     }
+  }
+
+  /**
+   * Try a parsing action, returning to original state on failure. Manual backtracking
+   * implementation for Java 7.
+   */
+  protected <T> T attempt(final ParserAction<T> action) {
+    ctx.save(); // Save current state
+    try {
+      T result = action.parse();
+      ctx.commit(); // Success - discard saved state
+      return result;
+    } catch (ParseError e) {
+      ctx.restore(); // Failure - restore saved state
+      throw e;
+    }
+  }
+
+  /** Try a parsing action, returning null on failure (no exception thrown). */
+  protected <T> T tryParse(ParserAction<T> action) {
+    ctx.save(); // Save current state
+    try {
+      T result = action.parse();
+      ctx.commit(); // Success - discard saved state
+      return result;
+    } catch (ParseError e) {
+      ctx.restore(); // Failure - restore saved state
+      return null;
+    }
+  }
+
+  /** Check if a parsing action would succeed without actually parsing. */
+  protected boolean lookahead(ParserAction<Boolean> action) {
+    ctx.save(); // Save current state
+    try {
+      Boolean result = action.parse();
+      ctx.restore(); // Always restore for lookahead
+      return result != null && result;
+    } catch (ParseError e) {
+      ctx.restore(); // Failure - restore saved state
+      return false;
+    }
+  }
+
+  /** Execute parser action in isolated context without affecting main parser. */
+  protected <T> T parseInIsolation(ParserAction<T> action) {
+    ParserState originalState = ctx.getState();
     
-    // --- Token Management ---
-
-    protected Token currentToken() {
-        int pos = position.get();
-        if (pos >= tokens.size()) {
-            // Return synthetic EOF token
-            if (tokens.isEmpty()) {
-                return new Token(EOF, "EOF", 1, 1);
-            }
-            Token last = tokens.get(tokens.size() - 1);
-            return new Token(EOF, "EOF", last.line, last.column + 1);
-        }
-        return tokens.get(pos);
+    try {
+      T result = action.parse();
+      return result;
+    } finally {
+      // Always restore original state
+      ctx.setState(originalState);
     }
+  }
 
-    // UPDATED: Faster, safer bounds checking
-    protected Token peek(int offset) {
-        int targetPos = position.get() + offset;
-        return (targetPos >= 0 && targetPos < tokens.size()) ?
-                tokens.get(targetPos) : null;
-    }
+  /** Override in subclasses to create appropriate parser type. */
+  protected BaseParser createIsolatedParser(ParserContext isolatedCtx) {
+    // Default implementation - subclasses should override
+    return new BaseParser(isolatedCtx) {
+      // Minimal implementation for lookahead
+    };
+  }
 
-protected boolean canKeywordBeMethodName(String keywordText) {
-    return keywordText.equals("in") || 
-           keywordText.equals("all") || 
-           keywordText.equals("any");
-}
+  protected boolean isClassStartWithoutModifier() {
+    Token current = currentToken();
+    if (current == null || current.type != ID) return false;
 
-    // NEW: Fast lookahead helpers
-    protected Token lookahead(int n) {
-        return peek(n);
-    }
-
-    protected Token lookahead() {
-        return peek(1);
-    }
-    
-    // NEW: Helper for scanning loops (moved from DeclarationParser)
-    protected Token lookaheadFrom(int baseOffset, int additionalOffset) {
-        int pos = getPosition() + baseOffset + additionalOffset;
-        return pos >= 0 && pos < tokens.size() ? tokens.get(pos) : null;
-    }
-
-    protected boolean match(Symbol expectedSymbol) {
-        Token current = currentToken();
-        return current.type == TokenType.SYMBOL && current.symbol == expectedSymbol;
-    }
-
-    protected boolean match(TokenType... types) {
-        Token current = currentToken();
-        if (current.type == EOF) {
-            for (TokenType type : types) { 
-                if (type == EOF) return true;
-            }
-            return false;
-        }
-        for (TokenType type : types) {
-            if (current.type == type) return true;
-        }
+    String name = current.text;
+    if (name.length() == 0 || !Character.isUpperCase(name.charAt(0))) {
         return false;
     }
 
-    protected Token consume() {
-        Token token = currentToken();
-        if (token.type != EOF && position.get() < tokens.size()) {
-            position.up();
+    Token next = lookahead(1);
+    if (next == null) return false;
+
+    // Check for: ClassName with Policy { ... }
+    if (is(next, KEYWORD) && is(next, WITH)) {
+        Token afterWith = lookahead(2);
+        if (afterWith != null && is(afterWith, ID)) {
+            Token afterPolicy = lookahead(3);
+            return afterPolicy != null && is(afterPolicy, LBRACE);
         }
-        return token;
+    }
+    
+    if (is(next, LBRACE)) return true;
+
+    if (is(next, KEYWORD) && is(next, IS)) {
+        Token afterIs = lookahead(2);
+        if (afterIs != null && is(afterIs, ID)) {
+            Token afterParent = lookahead(3);
+            return afterParent != null && is(afterParent, LBRACE);
+        }
     }
 
-    protected Token consume(TokenType expectedType) {
-        Token token = currentToken();
-        if (token.type == expectedType) {
-            if (token.type != EOF && position.get() < tokens.size()) {
-                position.up();
-            }
-            return token;
-        }
-        throw new ParseError("Expected " + getTypeName(expectedType) + " but found " + getTypeName(token.type) + " ('" + token.text + "')", token.line, token.column);
-    }
+    return false;
+  }
 
-    protected Token consume(Symbol expectedSymbol) {
-        Token token = currentToken();
-        if (token.type == TokenType.SYMBOL && token.symbol == expectedSymbol) {
-            if (token.type != EOF && position.get() < tokens.size()) {
-                position.up();
-            }
-            return token;
-        }
-        throw new ParseError("Expected " + expectedSymbol + " but found " +
-                getTypeName(token.type) + " ('" + token.text + "')", token.line, token.column);
-    }
-    
-    protected Token consume(boolean condition) {
-         if (condition) return consume();
-         Token current = currentToken();
-         throw new ParseError("Consumption condition not met at: " + current.text +
-             " (" + getTypeName(current.type) + ")", current.line, current.column);
-    }
+  // Method to check for 'with' keyword
+  protected boolean isWithKeyword() {
+    Token token = currentToken();
+    return token != null && is(token, KEYWORD) && is(token, WITH);
+  }
 
-    protected boolean tryConsume(Symbol expectedSymbol) {
-        if (match(expectedSymbol)) {
-            consume(expectedSymbol);
-            return true;
-        }
-        return false;
-    }
+  /** Skip whitespace and comments, updating the parser state. */
+  protected void skipWhitespaceAndComments() {
+    ctx.setState(ctx.getState().skipWhitespaceAndComments());
+  }
 
-    protected boolean tryConsume(TokenType expectedType) {
-        if (match(expectedType)) {
-            consume(expectedType);
-            return true;
-        }
-        return false;
-    }
-    
-    protected boolean isClassStart() {
-        Token current = currentToken();
-        if (current == null) return false;
-        
-        // Check for visibility modifier
-        if (isVisibilityModifier()) {
-            return true;
-        }
-        
-        // Check for class name without modifier (must be PascalCase)
-        return isClassStartWithoutModifier();
-    }
-    
-    protected boolean isClassStartWithoutModifier() {
-        Token current = currentToken();
-        if (current == null || current.type != ID) return false;
-        
-        // Check if it's a class name (must be PascalCase)
-        String name = current.text;
-        if (name.length() == 0 || !Character.isUpperCase(name.charAt(0))) {
-            return false; // Not a class name (starts lowercase)
-        }
-        
-        // Look ahead to see if it's followed by 'is' or '{'
-        Token next = lookahead(1);
-        if (next == null) return false;
-        
-        // Could be: ClassName { ... }
-        if (next.symbol == LBRACE) {
-            return true;
-        }
-        
-        // Could be: ClassName is ParentClass { ... }
-        if (next.type == KEYWORD && IS.toString().equals(next.text)) {
-            Token afterIs = lookahead(2);
-            if (afterIs != null && afterIs.type == ID) {
-                Token afterParent = lookahead(3);
-                return afterParent != null && afterParent.symbol == LBRACE;
-            }
-        }
-        
-        return false;
-    }
-    
-    // --- Keyword and Symbol Helpers ---
+  /** Get current state with whitespace skipped. */
+  protected ParserState getSkippedState() {
+    return ctx.getState().skipWhitespaceAndComments();
+  }
 
-    protected boolean isKeyword(Keyword expectedKeyword) {
-        Token current = currentToken();
-        return current.type == KEYWORD && current.text.equals(expectedKeyword.toString());
-    }
-    
-    protected boolean isKeywordAt(int offset, Keyword expectedKeyword) {
-        Token token = peek(offset);
-        return token != null && token.type == KEYWORD && token.text.equals(expectedKeyword.toString());
-    }
+  // === DELEGATE METHODS ===
 
-    protected void consumeKeyword(Keyword expectedKeyword) {
-        Token token = currentToken();
-        if (token.type == KEYWORD && token.text.equals(expectedKeyword.toString())) {
-            if (position.get() < tokens.size()) {
-                position.up();
-            }
-            return;
-        }
-        throw new ParseError("Expected keyword '" + expectedKeyword.toString() + "' but found " +
-                getTypeName(token.type) + " ('" + token.text + "') ", token.line, token.column);
+  protected Token currentToken() {
+    return ctx.current();
+  }
+
+  protected Token consume() {
+    return ctx.consume();
+  }
+
+  protected boolean tryConsume(TokenType type) {
+    return ctx.tryConsume(type);
+  }
+
+  protected Token peek(int offset) {
+    return ctx.peek(offset);
+  }
+
+  protected boolean tryConsume(Symbol expectedSymbol) {
+    if (is(expectedSymbol)) {
+      consume();
+      return true;
     }
-    
-    protected boolean isSymbolAt(int offset, Symbol symbol) {
-        Token token = peek(offset);
-        return token != null && token.type == SYMBOL && token.symbol == symbol;
-    }
-    
-    protected String getTypeName(TokenType type) {
-        return type.toString();
-    }
-    
-    // NEW: Helper to check if a token starts an expression (moved from ExpressionParser)
-    protected boolean isExpressionStart(Token t) {
-    if (t == null) return false;
-    
-    // Skip whitespace and comments - look for the next real token
-    if (t.type == WS || t.type == LINE_COMMENT || t.type == BLOCK_COMMENT) {
-        return false; // This tells the caller to skip this token
-    }
-    
-    String text = t.text;
-    return t.type == INT_LIT || t.type == FLOAT_LIT || 
-           t.type == STRING_LIT || t.type == BOOL_LIT ||
-           t.type == ID || t.symbol == LPAREN ||
-           t.symbol == LBRACKET || t.symbol == BANG ||
-           t.symbol == PLUS || t.symbol == MINUS ||
-           (t.type == KEYWORD && (
-               NULL.toString().equals(text) || 
-               TRUE.toString().equals(text) || 
-               FALSE.toString().equals(text)
-           ));
-}
-    
-    // --- Generic Grammar Helpers ---
-    
-    protected String parseQualifiedName() {
+    return false;
+  }
+
+  // === BACKTRACKING ===
+
+  protected void save() {
+    ctx.save();
+  }
+
+  protected void restore() {
+    ctx.restore();
+  }
+
+  protected void commit() {
+    ctx.commit();
+  }
+
+  // === ERROR REPORTING ===
+
+  protected ParseError error(String message) {
+    return new ParseError(message, ctx.getLine(), ctx.getColumn());
+  }
+
+  protected ParseError error(String message, Token token) {
+    return new ParseError(message, token.line, token.column);
+  }
+  
+  protected String getTypeName(TokenType type) {
+    return type.toString();
+  }
+
+  // === TYPE PARSING ===
+
+  protected boolean isTypeKeyword(Token token) {
+    return is(token, INT, TEXT, FLOAT, BOOL, TYPE);
+  }
+
+  protected boolean isTypeStart(Token token) {
+    if (token == null) return false;
+    return isTypeKeyword(token) || is(token, ID) || is(token, LPAREN, LBRACKET);
+  }
+
+  protected String parseQualifiedName() {
     StringBuilder name = new StringBuilder();
-    
+
     // First part - must be ID
-    name.append(consume(ID).text);
-    
+    name.append(expect(ID).text);
+
     while (tryConsume(DOT)) {
-        name.append(".");
-        
-        // Next part can be ID OR a keyword that can be a method name
-        Token next = currentToken();
-        if (next.type == ID) {
-            name.append(consume(ID).text);
-        } else if (next.type == KEYWORD && canKeywordBeMethodName(next.text)) {
-            name.append(consume().text);  // consume the keyword
-        } else {
-            throw new ParseError("Expected identifier or method keyword after '.', found: " + 
-                getTypeName(next.type) + " ('" + next.text + "')", next.line, next.column);
-        }
+      name.append(".");
+
+      Token next = currentToken();
+      if (is(next, ID)) {
+        name.append(expect(ID).text);
+      } else if (is(next, KEYWORD) && canKeywordBeMethodName(next)) {
+        name.append(expect(KEYWORD).text);
+      } else {
+        throw error("Expected identifier or method keyword after '.'");
+      }
     }
     return name.toString();
-}
-    
-    protected boolean isTypeKeyword(String text) {
-        // UPDATED: Added TYPE keyword for meta-primitive type
-        return text.equals(INT.toString()) || text.equals(TEXT.toString()) ||
-               text.equals(FLOAT.toString()) || text.equals(BOOL.toString()) ||
-               text.equals(TYPE.toString()); 
-    }
+  }
 
-protected boolean isTypeStart(Token token) {
-    if (token == null) return false;
-    // REMOVED: var keyword from type checking
-    // Checks for (int, text, bool, float, type, ID, LPAREN)
-    // LBRACKET for prefix array types e.g., [int]
-    return isTypeKeyword(token.text) || token.type == ID || token.symbol == LPAREN || token.symbol == LBRACKET;
-}
-     
-    protected boolean skipBrackets(int startOffset) {
-        int p = position.get() + startOffset;
-        while (p < tokens.size() && isSymbolAt(p - position.get(), LBRACKET)) {
-            if (p + 1 >= tokens.size() || !isSymbolAt(p + 1 - position.get(), RBRACKET)) {
-                return false;
-            }
-            p += 2;
-        }
-        return true;
-    }
-    
-/**
- * Skips a complete type definition starting at startPos (relative to tokens list, not parser position).
- * Handles prefix arrays [int], groups (int, int), and unions int|float.
- * Returns the index AFTER the type, or -1 if not a valid type.
- */
-protected int skipType(int startPos) {
-    int pos = startPos;
-    if (pos >= tokens.size()) return -1;
-    
-    Token t = tokens.get(pos);
-    
-    // 1. Handle Prefix Array: [Type] or []
-    if (t.symbol == LBRACKET) {
-        pos++;
-        if (pos >= tokens.size()) return -1;
-        
-        if (tokens.get(pos).symbol == RBRACKET) {
-            // Empty brackets []
-            pos++;
-        } else {
-            // Recursive skip for inner type [int]
-            pos = skipType(pos);
-            if (pos == -1 || pos >= tokens.size()) return -1;
-            
-            if (tokens.get(pos).symbol == RBRACKET) {
-                pos++;
-            } else {
-                return -1;
-            }
-        }
-    } 
-    // 2. Handle Group: (Type, Type)
-    else if (t.symbol == LPAREN) {
-        pos++;
-        while (true) {
-            pos = skipType(pos);
-            if (pos == -1 || pos >= tokens.size()) return -1;
-            
-            Token sep = tokens.get(pos);
-            if (sep.symbol == COMMA) {
-                pos++;
-            } else if (sep.symbol == RPAREN) {
-                pos++;
-                break;
-            } else {
-                return -1;
-            }
-        }
-    } 
-    // 3. Handle Primitive or ID
-    else if (isTypeKeyword(t.text) || t.type == ID) {
-        pos++;
-    } 
-    else {
-        return -1;
-    }
-    
-    // 4. Handle Unions (|)
-    if (pos < tokens.size() && tokens.get(pos).symbol == PIPE) {
-        pos++; // Consume |
-        return skipType(pos); // Recurse for next part
-    }
+  protected boolean canKeywordBeMethodName(Token token) {
+    return is(token, IN, ALL, ANY);
+  }
 
-    return pos;
-}
-
-    /**
- * Entry point for parsing types. 
- * Handles complex structures like: (int, text) | [bool]
- */
-protected String parseTypeReference() {
+  protected String parseTypeReference() {
     StringBuilder type = new StringBuilder();
-    
-    // 1. Parse the first type component
-    if (match(LBRACKET)) {
-        // Prefix Array handling [Type] or []
-        consume(LBRACKET);
-        if (match(RBRACKET)) {
-            // Empty brackets [] -> dynamic array
-            consume(RBRACKET);
-            type.append("[]"); // Just [] for dynamic arrays
-        } else {
-            // Recursively parse inner type
-            String inner = parseTypeReference();
-            consume(RBRACKET);
-            // Keep [type] notation
-            type.append("[").append(inner).append("]");
-        }
-    } else if (match(LPAREN)) {
-        type.append(parseGroupedType());
+
+    if (is(LBRACKET)) {
+      expect(LBRACKET);
+      if (is(RBRACKET)) {
+        expect(RBRACKET);
+        type.append("[]");
+      } else {
+        String inner = parseTypeReference();
+        expect(RBRACKET);
+        type.append("[").append(inner).append("]");
+      }
+    } else if (is(LPAREN)) {
+      type.append(parseGroupedType());
     } else {
-        Token typeToken = currentToken();
-        if (isTypeStart(typeToken) && typeToken.symbol != LBRACKET) {
-            String typeName = consume().text;
-            type.append(typeName);
-        } else {
-            Token current = currentToken();
-            throw new ParseError("Expected type name but got " +
-                getTypeName(current.type) + " ('" + current.text + "')", current.line, current.column);
-        }
+      Token typeToken = currentToken();
+      if (isTypeStart(typeToken) && typeToken.symbol != LBRACKET) {
+        String typeName = consume().text;
+        type.append(typeName);
+      } else {
+        throw error("Expected type name");
+      }
     }
-    
-    // 2. Handle Union types (|)
-    while (match(PIPE)) {
-        consume(PIPE);
-        type.append("|");
-        type.append(parseTypeReference());
+
+    if (tryConsume(QUESTION)) {
+      return type.toString() + "|none";
     }
-    
+
+    while (is(PIPE)) {
+      expect(PIPE);
+      type.append("|");
+      type.append(parseTypeReference());
+    }
+
     return type.toString();
-}
+  }
 
-    /**
-     * Handles Grouped Types: (Type, Type)
-     */
-    private String parseGroupedType() {
-        consume(LPAREN);
-        StringBuilder group = new StringBuilder("(");
-        
-        // Recursively parse the first element
-        group.append(parseTypeReference()); 
-        
-        // Parse subsequent elements
-        while (tryConsume(COMMA)) {
-            group.append(",");
-            group.append(parseTypeReference());
-        }
-        
-        consume(RPAREN);
-        group.append(")");
-        return group.toString();
-    }
-    
-    protected boolean isVisibilityModifier() {
-        return isKeyword(SHARE) || isKeyword(LOCAL);
-    }
-    
-    // --- Position Access (for debugging) ---
+  private String parseGroupedType() {
+    expect(LPAREN);
+    StringBuilder group = new StringBuilder("(");
 
-    /**
-     * Gets the current shared position (for debugging/logging only)
-     */
-    public int getPosition() {
-        return this.position.get();
+    group.append(parseTypeReference());
+
+    while (tryConsume(COMMA)) {
+      group.append(",");
+      group.append(parseTypeReference());
     }
+
+    expect(RPAREN);
+    group.append(")");
+    return group.toString();
+  }
+
+  // === VISIBILITY MODIFIER ===
+
+  protected boolean isVisibilityModifier() {
+    return is(SHARE, LOCAL);
+  }
+
+  protected boolean isVisibilityModifier(Token token) {
+    if (token == null) return false;
+    return is(token, KEYWORD) && is(token, SHARE, LOCAL);
+  }
+
+  // === POSITION ACCESS ===
+
+  public int getPosition() {
+    return ctx.getPosition();
+  }
+
+  public int getLine() {
+    return ctx.getLine();
+  }
+
+  public int getColumn() {
+    return ctx.getColumn();
+  }
+
+  public ParserState getCurrentState() {
+    return ctx.getState();
+  }
+
+  public void setState(ParserState state) {
+    ctx.setState(state);
+  }
+
+  // === LOOKAHEAD HELPERS ===
+
+  protected Token lookahead(int n) {
+    return peek(n);
+  }
+
+  protected Token lookahead() {
+    return peek(1);
+  }
+
+  protected boolean isSymbolAt(int offset, Symbol symbol) {
+    Token token = peek(offset);
+    return token != null && is(token, SYMBOL) && is(token, symbol);
+  }
+
+  // === EXPRESSION START CHECK ===
+
+  protected boolean isExpressionStart(Token t) {
+    if (t == null) return false;
+
+    if (is(t, WS, LINE_COMMENT, BLOCK_COMMENT)) {
+      return false;
+    }
+    return is(t, INT_LIT, FLOAT_LIT, STRING_LIT, BOOL_LIT, ID)
+        || is(t, LPAREN, LBRACKET, BANG, PLUS, MINUS)
+        || (is(t, KEYWORD) && is(t, NONE, TRUE, FALSE, SUPER, THIS));
+  }
+
+  // === CLASS START CHECK ===
+
+  protected boolean isClassStart() {
+    Token current = currentToken();
+    if (current == null) return false;
+
+    if (isVisibilityModifier()) {
+      return true;
+    }
+
+    return isClassStartWithoutModifier();
+  }
+
+  /** Check if we're at the start of a statement. */
+  protected boolean isStatementStart() {
+    Token token = currentToken();
+    if (token == null) return false;
+
+    if (is(token, KEYWORD)) {
+      return is(token, IF, FOR, EXIT, ELSE, ELIF, SKIP, BREAK, SHARE, LOCAL);
+    }
+
+    if (is(token, ID)) {
+      Token next = lookahead(1);
+      if (next != null) {
+        return is(next, COLON, ASSIGN, DOUBLE_COLON_ASSIGN, LBRACKET);
+      }
+    }
+
+    if (is(token, TILDE_ARROW)) return true;
+
+    return false;
+  }
 }

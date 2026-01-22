@@ -1,8 +1,6 @@
 package cod.range.formula;
 
 import cod.ast.nodes.ExprNode;
-import cod.ast.nodes.*;
-import java.util.Map;
 
 public class LoopFormula {
     public final long start;

@@ -1,10 +1,10 @@
 package cod.semantic;
 
 import cod.ast.nodes.*;
-import cod.parser.ProgramType;
+import cod.parser.program.ProgramType;
 import cod.error.ProgramError;
 
-import java.util.List;
+import java.util.*;
 
 /**
  * Validates that a program conforms to the rules of its detected program type.
@@ -42,6 +42,110 @@ public class ProgramValidator {
         }
     }
     
+    // NEW: Validate viral policies across the entire program
+    private static void validateViralPoliciesInProgram(ProgramNode program) {
+        if (program == null || program.unit == null || program.unit.types == null) {
+            return;
+        }
+        
+        // Build map of all types for quick lookup
+        Map<String, TypeNode> typeMap = new HashMap<String, TypeNode>();
+        for (TypeNode type : program.unit.types) {
+            typeMap.put(type.name, type);
+        }
+        
+        // Validate each type's viral policies
+        for (TypeNode type : program.unit.types) {
+            validateTypeViralPolicies(type, typeMap);
+        }
+    }
+    
+    // NEW: Validate viral policies for a specific type
+    private static void validateTypeViralPolicies(TypeNode type, Map<String, TypeNode> typeMap) {
+        if (type == null || type.extendName == null) {
+            return; // No parent, no viral policies
+        }
+        
+        // Collect all ancestor policies
+        List<String> ancestorPolicies = new ArrayList<String>();
+        TypeNode current = type;
+        
+        while (current.extendName != null) {
+            TypeNode parent = typeMap.get(current.extendName);
+            if (parent == null) {
+                break; // Parent not in this file, can't validate
+            }
+            
+            if (parent.implementedPolicies != null) {
+                for (String policyName : parent.implementedPolicies) {
+                    if (!ancestorPolicies.contains(policyName)) {
+                        ancestorPolicies.add(policyName);
+                    }
+                }
+            }
+            
+            current = parent;
+        }
+        
+        // For now, we just collect - actual validation happens in DeclarationParser
+        // This is a placeholder for whole-program validation if needed
+    }
+
+private static void validateClassStructure(TypeNode type) {
+    if (type.fields != null) {
+        Set<String> fieldNames = new HashSet<String>();
+        for (FieldNode field : type.fields) {
+            if (fieldNames.contains(field.name)) {
+                throw new ProgramError(
+                    "Duplicate field declaration in class '" + type.name + "': '" + field.name + "'\n" +
+                    "Fields must have unique names within a class."
+                );
+            }
+            fieldNames.add(field.name);
+        }
+    }
+    
+    if (type.methods != null) {
+        Set<String> methodNames = new HashSet<String>();
+        for (MethodNode method : type.methods) {
+            if (methodNames.contains(method.methodName)) {
+                // Check if it's method overloading (same name, different parameters)
+                boolean isOverload = false;
+                for (MethodNode existing : type.methods) {
+                    if (existing.methodName.equals(method.methodName) && 
+                        !areParametersSame(existing.parameters, method.parameters)) {
+                        isOverload = true;
+                        break;
+                    }
+                }
+                if (!isOverload) {
+                    throw new ProgramError(
+                        "Duplicate method declaration in class '" + type.name + "': '" + method.methodName + "'\n" +
+                        "Methods must have unique names or different parameter signatures."
+                    );
+                }
+            }
+            methodNames.add(method.methodName);
+        }
+    }
+}
+
+// Helper method to check if parameters are the same
+private static boolean areParametersSame(List<ParamNode> params1, List<ParamNode> params2) {
+    if (params1 == null && params2 == null) return true;
+    if (params1 == null || params2 == null) return false;
+    if (params1.size() != params2.size()) return false;
+    
+    for (int i = 0; i < params1.size(); i++) {
+        ParamNode p1 = params1.get(i);
+        ParamNode p2 = params2.get(i);
+        if (!p1.name.equals(p2.name) || !p1.type.equals(p2.type)) {
+            return false;
+        }
+    }
+    return true;
+}
+    
 /**
  * Validates a MODULE program.
  * Rules:
@@ -50,6 +154,7 @@ public class ProgramValidator {
  * 3. Cannot have direct code outside classes
  * 4. Cannot have methods outside classes
  * 5. If main class is specified, it must exist in the module
+ * 6. NEW: No duplicate fields or methods within classes
  */
 private static void validateModule(ProgramNode program) {
     // Rule 1: Must have unit declaration (not "default")
@@ -69,7 +174,15 @@ private static void validateModule(ProgramNode program) {
         );
     }
     
-    // Rules 3 & 4: Check each class
+    // NEW RULE 6: Validate each class's structure (no duplicate fields/methods)
+    for (TypeNode type : program.unit.types) {
+        validateClassStructure(type);
+    }
+    
+    // NEW: Validate viral policies across the program
+    validateViralPoliciesInProgram(program);
+    
+    // Rules 3 & 4: Check each class for direct code outside methods
     for (TypeNode type : program.unit.types) {
         // Check for direct code in classes
         if (type.statements != null && !type.statements.isEmpty()) {
@@ -80,7 +193,6 @@ private static void validateModule(ProgramNode program) {
         }
         
         // package-private (null) and share are both valid in modules
-        
     }
     
     // NEW: Rule 5: Validate main class if specified
@@ -203,7 +315,7 @@ private static void validateMethodScript(ProgramNode program) {
     }
     
     if (!hasMain) {
-        System.err.println("Warning: Method script should have a 'main()' method");
+        System.err.println("Warning: Method script should have a 'main() method");
     }
 }
     

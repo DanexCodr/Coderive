@@ -7,16 +7,17 @@ import cod.interpreter.Interpreter;
 import cod.syntax.Symbol;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import cod.lexer.Token;
 import static cod.lexer.TokenType.*;
+import cod.parser.context.*;
+import cod.parser.program.*;
 import static cod.syntax.Keyword.*;
 import static cod.syntax.Symbol.*;
 
-/**
- * The main parser entry point, responsible for the overall program structure.
- * Uses shared PositionHolder for automatic position synchronization across all parsers.
- * Now includes program type detection and validation for the three-worlds design.
- */
 public class MainParser extends BaseParser {
 
     private final ExpressionParser expressionParser;
@@ -29,385 +30,74 @@ public class MainParser extends BaseParser {
     }
     
     public MainParser(List<Token> tokens, Interpreter interpreter) {
-        // Initialize BaseParser with shared PositionHolder
-        super(tokens, new PositionHolder(0));
-        
-        // All parsers share the same position counter
-        this.expressionParser = new ExpressionParser(tokens, this.position);
-        this.statementParser = new StatementParser(tokens, this.position, expressionParser);
-        this.declarationParser = new DeclarationParser(tokens, this.position, statementParser);
+        super(new ParserContext(new ParserState(tokens)));
+        this.expressionParser = new ExpressionParser(ctx);
+        this.statementParser = new StatementParser(ctx, expressionParser);
+        this.declarationParser = new DeclarationParser(ctx, statementParser, 
+            interpreter != null ? interpreter.getImportResolver() : null);
         this.interpreter = interpreter;
     }
     
-    private Interpreter getInterpreter() {
-        return interpreter;
+    @Override
+    protected BaseParser createIsolatedParser(ParserContext isolatedCtx) {
+        return new MainParser(isolatedCtx.getState().getTokens(), interpreter);
     }
     
-public ProgramNode parseProgram() {
-    // Detect program type first
-    ProgramType programType = detectProgramType();
-    
-    // Reset position for actual parsing
-    position.set(0);
-    
-    // Parse based on program type
-    ProgramNode program = null;
-    // REMOVE THE TRY-CATCH BLOCK - let errors propagate naturally
-    switch (programType) {
-        case MODULE:
-            program = parseModuleProgram();
-            break;
-        case SCRIPT:
-            program = parseScriptProgram();
-            break;
-        case METHOD_SCRIPT:
-            program = parseMethodScriptProgram();
-            break;
-        default:
-            throw new ParseError("Unknown program type: " + programType, 
-                currentToken().line, currentToken().column);
-    }
-    
-    // Set program type
-    program.programType = programType;
-    
-    // Validate program structure
-    cod.semantic.ProgramValidator.validate(program, programType);
-    
-    return program;
-}
-
-    /**
-     * Entry method to parse a single line statement (e.g., for REPL/debugging).
-     */
-    public StmtNode parseSingleLine() {
-        if (match(EOF)) {
-            return null;
-        }
-
-        // Automatic position sharing - no synchronization needed!
-        StmtNode stmt = statementParser.parseStatement();
-
-        if (!match(EOF)) {
-            Token current = currentToken();
-            throw new ParseError("Unexpected token after statement: " +
-                getTypeName(current.type) + " ('" + current.text + "')", current.line, current.column);
-        }
-        return stmt;
-    }
-
-private UnitNode parseUnit() {
-    consumeKeyword(UNIT);
-    String unitName = parseQualifiedName();
-    
-    // NEW: Parse optional main class specification
-    String mainClassName = null;
-    if (match(LPAREN)) {
-        consume(LPAREN);
+    public ProgramNode parseProgram() {
+        ParserState startState = getCurrentState();
         
-        // Expect "main:" identifier followed by colon
-        Token mainToken = currentToken();
-        Token colonToken = lookahead(1);
+        ProgramType programType = detectProgramType();
         
-        if (mainToken == null || colonToken == null || 
-            mainToken.type != ID || !"main".equals(mainToken.text) || 
-            colonToken.symbol != COLON) {
-            throw new ParseError(
-                "Expected 'main:' in unit declaration",
-                mainToken != null ? mainToken.line : currentToken().line,
-                mainToken != null ? mainToken.column : currentToken().column
-            );
+        // Reset to beginning using ParserState
+        setState(startState.withPosition(0));
+        
+        ProgramNode program = null;
+        switch (programType) {
+            case MODULE:
+                program = parseModuleProgram();
+                break;
+            case SCRIPT:
+                program = parseScriptProgram();
+                break;
+            case METHOD_SCRIPT:
+                program = parseMethodScriptProgram();
+                break;
+            default:
+                throw new ParseError("Unknown program type: " + programType, 
+                    getLine(), getColumn());
         }
         
-        consume(); // consume "main" (as ID)
-        consume(COLON);
+        program.programType = programType;
         
-        mainClassName = parseQualifiedName();
+        cod.semantic.ProgramValidator.validate(program, programType);
         
-        consume(RPAREN);
-    }
-    
-    UnitNode unit = ASTFactory.createUnit(unitName);
-    unit.mainClassName = mainClassName;
-    
-    if (isKeyword(USE)) {
-        unit.imports = parseUseNode();
-    }
-    return unit;
-}
-
-private void skipOptionalMainClass() {
-    consume(LPAREN);
-    
-    // Skip "main: ClassName" pattern
-    // Look for: any token "main", then ":", then identifiers/dots, then ")"
-    while (!match(RPAREN) && !match(EOF)) {
-        consume();
-    }
-    if (match(RPAREN)) {
-        consume(RPAREN);
-    }
-}
-
-    private UseNode parseUseNode() {
-        consumeKeyword(USE);
-        consume(LBRACE);
-        List<String> imports = new ArrayList<String>();
-        if (!match(RBRACE)) {
-            imports.add(parseQualifiedName());
-            while (tryConsume(COMMA)) {
-                imports.add(parseQualifiedName());
-            }
-        }
-        consume(RBRACE);
-        UseNode getNode = ASTFactory.createUseNode(imports);
-        return getNode;
+        return program;
     }
 
-    private TypeNode parseTypeDelegation() {
-        // Automatic position sharing - no synchronization needed!
-        return declarationParser.parseType();
-    }
-    
-    // =========================================================================
-    // NEW METHODS FOR THREE-WORLDS DESIGN
-    // =========================================================================
-
-/**
- * Detects the program type based on file structure.
- */
-private ProgramType detectProgramType() {
-    // Save current position
-    int savedPos = position.get();
-    position.set(0);
-    
-    try {
-        boolean hasUnit = false;
-        boolean hasDirectCode = false;
-        boolean hasMethods = false;
-        boolean hasClasses = false;
-        
-        // Track if we're inside imports (skip them)
-        boolean skippingImports = false;
-        
-        // Scan tokens
-        while (!match(EOF)) {
-            Token current = currentToken();
-            
-            // Skip imports (use keyword)
-            if (current.type == KEYWORD && USE.toString().equals(current.text)) {
-                skippingImports = true;
-                consume(); // consume "use"
-                if (match(LBRACE)) {
-                    consume(LBRACE);
-                    skipUntil(RBRACE);
-                }
-                continue;
-            }
-            
-// Check for unit declaration
-if (!hasUnit && current.type == KEYWORD && UNIT.toString().equals(current.text)) {
-    hasUnit = true;
-    consume(); // consume "unit"
-    // Skip unit name
-    if (match(ID)) {
-        parseQualifiedName();
-    }
-    
-    // NEW: Skip optional (main: ClassName)
-    if (match(LPAREN)) {
-        skipOptionalMainClass();
-    }
-    continue;
-}
-            
-            // After unit, we should only see class declarations
-            if (hasUnit) {
-                // Check for class declaration (visibility modifier OR just class name)
-                if (isClassStart()) {
-                    hasClasses = true;
-                    // Skip the class declaration
-                    skipTypeDeclaration();
-                    continue;
-                }
-                // Anything else after unit is an error
-                if (!skippingImports) {
-                    hasDirectCode = true; // This will cause validation error
-                }
-                consume();
-                continue;
-            }
-            
-            // No unit yet, check for other patterns
-            
-            // Check for method declaration (BOTH syntaxes)
-            if (isMethodDeclarationStart()) {
-                hasMethods = true;
-                skipMethodDeclaration();
-                continue;
-            }
-            
-            // --- CRITICAL FIX: Handle ~> as part of method, not direct code ---
-            if (current.symbol == TILDE_ARROW) {
-                // This is likely a method's return arrow
-                // Look back to see if we might have missed a method declaration
-                // For simplicity, treat it as part of a method
-                hasMethods = true;
-                consume(); // skip ~>
-                // Skip the slot assignment expression
-                skipExpression();
-                continue;
-            }
-            
-            // Check for class declaration (without unit - error)
-            if (isClassStart()) {
-                hasClasses = true;
-                skipTypeDeclaration();
-                continue;
-            }
-            
-            // Check for direct code/statements
-            if (looksLikeDirectCode(current)) {
-                hasDirectCode = true;
-                skipStatement();
-                continue;
-            }
-            
-            // Skip other tokens
-            consume();
-        }
-        
-        // Apply detection rules
-        ProgramType result = determineProgramType(hasUnit, hasDirectCode, hasMethods, hasClasses);
-        return result;
-        
-    } finally {
-        // Restore position
-        position.set(savedPos);
-    }
-}
-
-    /**
-     * Parse a MODULE program (has unit declaration).
-     */
     private ProgramNode parseModuleProgram() {
-    ProgramNode program = ASTFactory.createProgram();
-
-    // Must have unit
-    program.unit = parseUnit();
-    
-    // NEW: Register broadcast if specified
-    if (program.unit.mainClassName != null) {
-        try {
-            // Extract package name from unit name
-            String packageName = extractPackageName(program.unit.name);
-            interpreter.getImportResolver().registerBroadcast(
-                packageName, program.unit.mainClassName
-            );
-        } catch (Exception e) {
-        }
-    }
-
-    // Parse imports
-    while (isKeyword(USE)) {
-        if (program.unit.imports == null) {
-            program.unit.imports = parseUseNode();
-        } else {
-            UseNode additionalImports = parseUseNode();
-            program.unit.imports.imports.addAll(additionalImports.imports);
-        }
-    }
-
-    // Parse classes only - UPDATED to handle optional visibility
-    List<TypeNode> typesInFile = new ArrayList<TypeNode>();
-    while (!match(EOF)) {
-        if (isVisibilityModifier() || isClassStartWithoutModifier()) {
-            TypeNode type = parseTypeDelegation();
-            program.unit.types.add(type);
-            typesInFile.add(type);
-        } else {
-            throw new ParseError("Modules can only contain class declarations after imports", 
-                currentToken().line, currentToken().column);
-        }
-    }
-    
-    // NEW: Validate that broadcasted main class exists in this file
-    validateMainClassExistsInFile(program.unit, typesInFile);
-    
-    return program;
-}
-
-private String extractPackageName(String qualifiedName) {
-    if (qualifiedName == null || qualifiedName.isEmpty()) {
-        return "";
-    }
-    
-    // Extract package from qualified name like "my.app.subpackage"
-    int lastDot = qualifiedName.lastIndexOf('.');
-    if (lastDot > 0) {
-        return qualifiedName.substring(0, lastDot);
-    }
-    return qualifiedName;
-}
-
-private void validateMainClassExistsInFile(UnitNode unit, List<TypeNode> typesInFile) {
-    if (unit.mainClassName == null || unit.mainClassName.isEmpty()) {
-        return; // No main class specified, no validation needed
-    }
-    
-    boolean classFound = false;
-    for (TypeNode type : typesInFile) {
-        if (type.name.equals(unit.mainClassName)) {
-            classFound = true;
-            
-            // Additional check: make sure it has a main() method
-            boolean hasMainMethod = false;
-            for (MethodNode method : type.methods) {
-                if ("main".equals(method.methodName)) {
-                    hasMainMethod = true;
-                    break;
-                }
-            }
-            
-            if (!hasMainMethod) {
-                // ADD PROGRAM TYPE CONTEXT DIRECTLY HERE
-                throw new ParseError(
-                    "[MODULE] Broadcasted class '" + unit.mainClassName + 
-                    "' must have a main() method",
-                    currentToken().line, currentToken().column
-                );
-            }
-            break;
-        }
-    }
-    
-    if (!classFound) {
-        // ADD PROGRAM TYPE CONTEXT DIRECTLY HERE
-        throw new ParseError(
-            "[MODULE] Cannot broadcast undefined class '" + unit.mainClassName + "'\n" +
-            "Define " + unit.mainClassName + " in this file before broadcasting it\n" +
-            "Example:\n" +
-            "  unit " + unit.name + " (main: " + unit.mainClassName + ")\n" +
-            "  \n" +
-            "  " + unit.mainClassName + " {\n" +
-            "      share main() {\n" +
-            "          // Your code here\n" +
-            "      }\n" +
-            "  }",
-            currentToken().line, currentToken().column
-        );
-    }
-}
-    
-    /**
-     * Parse a SCRIPT program (direct code only).
-     */
-    private ProgramNode parseScriptProgram() {
         ProgramNode program = ASTFactory.createProgram();
-        program.unit = ASTFactory.createUnit("default");
+        program.unit = parseUnit();
+        
+        // Validate unit against file path if interpreter has file path
+        if (interpreter != null) {
+            String filePath = interpreter.getCurrentFilePath();
+            if (filePath != null) {
+                validateUnitAgainstFilePath(program.unit.name, filePath);
+            }
+        }
+        
+        if (program.unit.mainClassName != null && interpreter != null) {
+            try {
+                String packageName = extractPackageName(program.unit.name);
+                interpreter.getImportResolver().registerBroadcast(
+                    packageName, program.unit.mainClassName
+                );
+            } catch (Exception e) {
+                // Ignore if interpreter is not available
+            }
+        }
 
-        // Parse imports
-        while (isKeyword(USE)) {
+        while (is(USE)) {
             if (program.unit.imports == null) {
                 program.unit.imports = parseUseNode();
             } else {
@@ -416,13 +106,564 @@ private void validateMainClassExistsInFile(UnitNode unit, List<TypeNode> typesIn
             }
         }
 
-        // Create synthetic type to hold statements
-        TypeNode scriptType = ASTFactory.createType("__Script__", SHARE, null);
+        List<TypeNode> typesInFile = new ArrayList<TypeNode>();
+        List<PolicyNode> policiesInFile = new ArrayList<PolicyNode>();
+        
+        while (!is(EOF)) {
+            skipWhitespaceAndComments();
+            
+            // Check what type of declaration this is
+            if (declarationParser.isPolicyDeclaration()) {
+                // Parse policy declaration
+                PolicyNode policy = declarationParser.parsePolicy();
+                program.unit.policies.add(policy);
+                policiesInFile.add(policy);
+            } 
+            else if (isClassStart() || isClassStartWithoutModifier()) {
+                // Parse class declaration
+                TypeNode type = declarationParser.parseType();
+                program.unit.types.add(type);
+                typesInFile.add(type);
+                
+                // Validate that the class implements all required policy methods
+                validateClassImplementsPolicies(type, policiesInFile, program);
+            } 
+            else {
+                Token current = currentToken();
+                if (current != null) {
+                    throw new ParseError(
+                        "Modules can only contain class or policy declarations after imports. " +
+                        "Found: " + current.text + " (" + getTypeName(current.type) + ")",
+                        current);
+                }
+            }
+        }
+        
+        validateMainClassExistsInFile(program.unit, typesInFile);
+        
+        // Validate that policies referenced in class 'with' clauses exist
+        validateImplementedPolicies(program.unit, typesInFile, policiesInFile);
+        
+        // Validate viral policies for each type
+        for (TypeNode type : typesInFile) {
+            // Validate all policy methods in this type
+            declarationParser.validateAllPolicyMethods(type, program);
+            // Validate viral policies inheritance
+            declarationParser.validateClassViralPolicies(type, program);
+        }
+        
+        return program;
+    }
 
-        // Parse statements directly
-        while (!match(EOF)) {
-            if (isVisibilityModifier() || isClassStartWithoutModifier() || isMethodDeclarationStart()) {  // <<< UPDATED
-                throw new ParseError("Scripts cannot contain method or class declarations", currentToken().line, currentToken().column);
+private void validateUnitAgainstFilePath(String unitName, String filePath) {
+    if (filePath == null || unitName == null) return;
+    
+    // === PHASE 0: INSTANT O(1) CHECKS ===
+    
+    // 1. Basic sanity checks
+    if (unitName.isEmpty()) {
+        throw new ParseError("Unit name cannot be empty", getLine(), getColumn());
+    }
+    
+    if (!filePath.endsWith(".cod")) {
+        throw new ParseError("File must have .cod extension", getLine(), getColumn());
+    }
+    
+    // === PHASE 1: EXTRACT DIR NAME (optimized, no File I/O) ===
+    String dirName = extractDirNameNoFileIO(filePath);
+    if (dirName.isEmpty()) {
+        // File in current directory - skip directory checks
+        validateFileInCurrentDirectory(unitName, filePath);
+        return;
+    }
+    
+    // === PHASE 2: ULTRA-FAST CHECKS (your original logic) ===
+    
+    // Get first part of unit name (for dotted or single-word)
+    String firstUnitPart;
+    int dotIndex = unitName.indexOf('.');
+    if (dotIndex != -1) {
+        firstUnitPart = unitName.substring(0, dotIndex);
+    } else {
+        firstUnitPart = unitName;
+    }
+    
+    // 1. First character check (your original logic)
+    if (!firstUnitPart.isEmpty() && !dirName.isEmpty() && 
+        firstUnitPart.charAt(0) != dirName.charAt(0)) {
+        throw new ParseError(
+            "Unit name '" + unitName + "' doesn't match directory '" + dirName + "'",
+            getLine(), getColumn());
+    }
+    
+    // 2. Length sanity (your original logic)
+    int lengthDiff = Math.abs(firstUnitPart.length() - dirName.length());
+    if (lengthDiff > 3) {
+        throw new ParseError(
+            "Unit name '" + unitName + "' doesn't match directory '" + dirName + "'",
+            getLine(), getColumn());
+    }
+    
+    // 3. Last character check (your original logic)
+    if (!firstUnitPart.isEmpty() && !dirName.isEmpty() &&
+        firstUnitPart.charAt(firstUnitPart.length() - 1) != dirName.charAt(dirName.length() - 1)) {
+        throw new ParseError(
+            "Unit name '" + unitName + "' doesn't match directory '" + dirName + "'",
+            getLine(), getColumn());
+    }
+    
+    // === PHASE 3: FULL VALIDATION (only if fast checks pass) ===
+    
+    if (quickPathMatchCheck(unitName, filePath)) {
+        return;
+    }
+    
+    String expectedUnit = calculateExpectedUnit(filePath);
+    if (!unitName.equals(expectedUnit)) {
+        throw new ParseError(
+            "Unit name '" + unitName + "' doesn't match directory structure",
+            getLine(), getColumn());
+    }
+}
+
+private String extractDirNameNoFileIO(String filePath) {
+    int len = filePath.length();
+    
+    // Skip .cod extension if present
+    if (len > 4 && filePath.endsWith(".cod")) {
+        len -= 4;
+    }
+    
+    // Find last separator
+    int lastSeparator = -1;
+    for (int i = len - 1; i >= 0; i--) {
+        char c = filePath.charAt(i);
+        if (c == '/' || c == '\\') {
+            lastSeparator = i;
+            break;
+        }
+    }
+    
+    if (lastSeparator == -1) {
+        return ""; // No directory
+    }
+    
+    // Find previous separator
+    int prevSeparator = -1;
+    for (int i = lastSeparator - 1; i >= 0; i--) {
+        char c = filePath.charAt(i);
+        if (c == '/' || c == '\\') {
+            prevSeparator = i;
+            break;
+        }
+    }
+    
+    if (prevSeparator == -1) {
+        // Directory is from start to last separator
+        return filePath.substring(0, lastSeparator);
+    }
+    
+    // Directory is between separators
+    return filePath.substring(prevSeparator + 1, lastSeparator);
+}
+
+private void validateFileInCurrentDirectory(String unitName, String filePath) {
+    // File is in current directory (no parent directory)
+    // For test files, we can skip strict validation
+    // Just do basic format check
+    if (unitName.isEmpty()) {
+        throw new ParseError("Unit name cannot be empty", getLine(), getColumn());
+    }
+    
+    // Optional: Check if unit looks reasonable
+    if (unitName.contains(" ")) {
+        throw new ParseError("Unit name cannot contain spaces: '" + unitName + "'", 
+            getLine(), getColumn());
+    }
+}
+
+    private boolean quickPathMatchCheck(String unitName, String filePath) {
+        // Convert unit to path format
+        String unitAsPath = unitName.replace('.', '/');
+        
+        // Remove .cod extension
+        String pathWithoutExt = filePath;
+        if (filePath.endsWith(".cod")) {
+            pathWithoutExt = filePath.substring(0, filePath.length() - 4);
+        }
+        
+        // Normalize separators
+        pathWithoutExt = pathWithoutExt.replace('\\', '/');
+        
+        // Check for direct match
+        if (pathWithoutExt.endsWith("/" + unitAsPath) || 
+            pathWithoutExt.equals(unitAsPath)) {
+            return true;
+        }
+        
+        // Check if file is in unit directory
+        int lastSlash = pathWithoutExt.lastIndexOf('/');
+        if (lastSlash != -1) {
+            String parentPath = pathWithoutExt.substring(0, lastSlash);
+            if (parentPath.endsWith("/" + unitAsPath) || 
+                parentPath.equals(unitAsPath)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    private String calculateExpectedUnit(String filePath) {
+        String normalized = filePath.replace('\\', '/');
+        
+        // Find src/main/ in the path
+        String srcMain = "src/main/";
+        int srcMainIndex = normalized.indexOf(srcMain);
+        
+        if (srcMainIndex == -1) {
+            // File not under src/main/, return empty string (will fail validation)
+            return "";
+        }
+        
+        // Get path relative to src/main/
+        String relative = normalized.substring(srcMainIndex + srcMain.length());
+        
+        // Remove .cod extension
+        if (relative.endsWith(".cod")) {
+            relative = relative.substring(0, relative.length() - 4);
+        }
+        
+        // Split into components
+        String[] parts = relative.split("/");
+        List<String> unitParts = new ArrayList<String>();
+        
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i];
+            if (part.isEmpty()) continue;
+            
+            // Check if this looks like a file name (PascalCase for classes/policies)
+            boolean looksLikeFileName = part.length() > 0 && Character.isUpperCase(part.charAt(0));
+            
+            if (i == parts.length - 1 && looksLikeFileName) {
+                // Last component and looks like a class name, skip it
+                // This handles cases like Serializable.cod, Main.cod
+                continue;
+            }
+            
+            unitParts.add(part);
+        }
+        
+        // Join with dots
+        if (unitParts.isEmpty()) {
+            return "";
+        }
+        
+        StringBuilder unitName = new StringBuilder();
+        for (int i = 0; i < unitParts.size(); i++) {
+            if (i > 0) unitName.append(".");
+            unitName.append(unitParts.get(i));
+        }
+        
+        return unitName.toString();
+    }
+
+    private void validateClassImplementsPolicies(TypeNode type, List<PolicyNode> policies, ProgramNode program) {
+        if (type == null || type.implementedPolicies == null || type.implementedPolicies.isEmpty()) {
+            return;
+        }
+        
+        // Build map of available policies (local + imported)
+        Map<String, PolicyNode> policyMap = new HashMap<String, PolicyNode>();
+        
+        // Add local policies
+        for (PolicyNode policy : policies) {
+            policyMap.put(policy.name, policy);
+        }
+        
+        // Try to get imported policies via ImportResolver
+        if (interpreter != null && interpreter.getImportResolver() != null) {
+            for (String policyName : type.implementedPolicies) {
+                if (!policyMap.containsKey(policyName)) {
+                    try {
+                        PolicyNode importedPolicy = interpreter.getImportResolver().findPolicy(policyName);
+                        if (importedPolicy != null) {
+                            policyMap.put(policyName, importedPolicy);
+                        }
+                    } catch (Exception e) {
+                        // Policy not found in imports, will be caught below
+                    }
+                }
+            }
+        }
+        
+        for (String policyName : type.implementedPolicies) {
+            PolicyNode policy = policyMap.get(policyName);
+            
+            if (policy == null) {
+                // Policy not found - will be caught by validateImplementedPolicies
+                continue;
+            }
+            
+            // Get all methods required by this policy (including composed ones)
+            List<PolicyMethodNode> requiredMethods = getAllPolicyMethods(policy, program);
+            
+            // Check each required method
+            for (PolicyMethodNode requiredMethod : requiredMethods) {
+                boolean implementsMethod = false;
+                
+                // Check if class implements this method with 'policy' keyword
+                if (type.methods != null) {
+                    for (MethodNode classMethod : type.methods) {
+                        if (classMethod.methodName.equals(requiredMethod.methodName) && 
+                            classMethod.isPolicyMethod) {
+                            // Method exists and is marked as policy implementation
+                            implementsMethod = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!implementsMethod) {
+                    // Get the token for this specific policy declaration
+                    Token policyToken = null;
+                    if (type.policyTokens != null) {
+                        policyToken = type.policyTokens.get(policyName);
+                    }
+                    
+                    if (policyToken != null) {
+                        // Point to the exact location of the policy name in 'with Accept'
+                        throw new ParseError(
+                            "Class '" + type.name + "' claims to implement policy '" + 
+                            policyName + "'\n" +
+                            "Policy '" + policyName + "' requires method '" + requiredMethod.methodName + "'\n" +
+                            "Add: policy " + requiredMethod.methodName + "(...) { ... } inside the class",
+                            policyToken);
+                    } else {
+                        // Fallback: use current position
+                        throw new ParseError(
+                            "Class '" + type.name + "' claims to implement policy '" + 
+                            policyName + "'\n" +
+                            "Policy '" + policyName + "' requires method '" + requiredMethod.methodName + "'\n" +
+                            "Add: policy " + requiredMethod.methodName + "(...) { ... } inside the class",
+                            getLine(), getColumn());
+                    }
+                }
+            }
+        }
+    }
+
+    // Helper method to get all methods from a policy (including composed policies)
+    private List<PolicyMethodNode> getAllPolicyMethods(PolicyNode policy, ProgramNode program) {
+        List<PolicyMethodNode> allMethods = new ArrayList<PolicyMethodNode>();
+        if (policy == null) {
+            return allMethods;
+        }
+        
+        Set<String> visited = new HashSet<String>();
+        collectPolicyMethodsRecursive(policy, allMethods, visited, program);
+        return allMethods;
+    }
+
+    // Recursive method to collect methods from composed policies
+    private void collectPolicyMethodsRecursive(PolicyNode policy, List<PolicyMethodNode> allMethods, 
+                                              Set<String> visited, ProgramNode program) {
+        if (policy == null || visited.contains(policy.name)) {
+            return;
+        }
+        
+        visited.add(policy.name);
+        
+        // Collect from composed policies first
+        if (policy.composedPolicies != null) {
+            for (String composedName : policy.composedPolicies) {
+                // Try to find the composed policy
+                PolicyNode composedPolicy = null;
+                
+                // Check local policies first
+                if (program.unit.policies != null) {
+                    for (PolicyNode p : program.unit.policies) {
+                        if (p.name.equals(composedName)) {
+                            composedPolicy = p;
+                            break;
+                        }
+                    }
+                }
+                
+                // Check imported policies
+                if (composedPolicy == null && interpreter != null && interpreter.getImportResolver() != null) {
+                    try {
+                        composedPolicy = interpreter.getImportResolver().findPolicy(composedName);
+                    } catch (Exception e) {
+                        // Policy not found
+                    }
+                }
+                
+                if (composedPolicy != null) {
+                    collectPolicyMethodsRecursive(composedPolicy, allMethods, visited, program);
+                }
+            }
+        }
+        
+        // Add local methods
+        if (policy.methods != null) {
+            allMethods.addAll(policy.methods);
+        }
+    }
+
+    private void validateImplementedPolicies(UnitNode unit, List<TypeNode> types, List<PolicyNode> policies) {
+        // Build map of available policies
+        Map<String, PolicyNode> policyMap = new HashMap<String, PolicyNode>();
+        for (PolicyNode policy : policies) {
+            policyMap.put(policy.name, policy);
+        }
+        
+        // Check each class's implemented policies
+        for (TypeNode type : types) {
+            for (String policyName : type.implementedPolicies) {
+                if (!policyMap.containsKey(policyName)) {
+                    throw new ParseError(
+                        "Class '" + type.name + "' implements undefined policy '" + policyName + "'\n" +
+                        "Available policies: " + policyMap.keySet(),
+                        getLine(), getColumn());
+                }
+            }
+        }
+    }
+
+    private UnitNode parseUnit() {
+        Token unitToken = currentToken();
+        expect(UNIT);
+        String unitName = parseQualifiedName();
+        
+        String mainClassName = null;
+        if (is(LPAREN)) {
+            ParserState beforeMainCheck = getCurrentState();
+            
+            expect(LPAREN);
+            
+            Token mainToken = currentToken();
+            Token colonToken = lookahead(1);
+            
+            if (mainToken == null || colonToken == null || 
+                mainToken.type != ID || !mainToken.text.equals("main") || 
+                colonToken.symbol != COLON) {
+                // Not a main declaration, roll back
+                setState(beforeMainCheck);
+            } else {
+                consume(); // "main"
+                expect(COLON);
+                
+                mainClassName = parseQualifiedName();
+                
+                expect(RPAREN);
+            }
+        }
+        
+        UnitNode unit = ASTFactory.createUnit(unitName, unitToken);
+        unit.mainClassName = mainClassName;
+        
+        if (is(USE)) {
+            unit.imports = parseUseNode();
+        }
+        return unit;
+    }
+
+    private String extractPackageName(String qualifiedName) {
+        if (qualifiedName == null || qualifiedName.isEmpty()) {
+            return "";
+        }
+        
+        int lastDot = qualifiedName.lastIndexOf('.');
+        if (lastDot > 0) {
+            return qualifiedName.substring(0, lastDot);
+        }
+        return qualifiedName;
+    }
+
+    private void validateMainClassExistsInFile(UnitNode unit, List<TypeNode> typesInFile) {
+        if (unit.mainClassName == null || unit.mainClassName.isEmpty()) {
+            return;
+        }
+        
+        boolean classFound = false;
+        for (TypeNode type : typesInFile) {
+            if (unit.mainClassName.equals(type.name)) {
+                classFound = true;
+                
+                boolean hasMainMethod = false;
+                for (MethodNode method : type.methods) {
+                    if (method.methodName.equals("main")) {
+                        hasMainMethod = true;
+                        break;
+                    }
+                }
+                
+                if (!hasMainMethod) {
+                    throw new ParseError(
+                        "[MODULE] Broadcasted class '" + unit.mainClassName + 
+                        "' must have a main() method",
+                        getLine(), getColumn());
+                }
+                break;
+            }
+        }
+        
+        if (!classFound) {
+            throw new ParseError(
+                "[MODULE] Cannot broadcast undefined class '" + unit.mainClassName + "'\n" +
+                "Define " + unit.mainClassName + " in this file before broadcasting it\n" +
+                "Example:\n" +
+                "  unit " + unit.name + " (main: " + unit.mainClassName + ")\n" +
+                "  \n" +
+                "  " + unit.mainClassName + " {\n" +
+                "      share main() {\n" +
+                "          // Your code here\n" +
+                "      }\n" +
+                "  }",
+                getLine(), getColumn());
+        }
+    }
+
+    private UseNode parseUseNode() {
+        Token useToken = currentToken();
+        expect(USE);
+        expect(LBRACE);
+        List<String> imports = new ArrayList<String>();
+        if (!is(RBRACE)) {
+            imports.add(parseQualifiedName());
+            while (tryConsume(COMMA)) {
+                imports.add(parseQualifiedName());
+            }
+        }
+        expect(RBRACE);
+        UseNode useNode = ASTFactory.createUseNode(imports, useToken);
+        return useNode;
+    }
+    
+    private ProgramType detectProgramType() {
+        ProgramTypeScanner scanner = new ProgramTypeScanner(getCurrentState().getTokens());
+        return scanner.scan();
+    }
+
+    private ProgramNode parseScriptProgram() {
+        ProgramNode program = ASTFactory.createProgram();
+        program.unit = ASTFactory.createUnit("default", null);
+
+        while (is(USE)) {
+            if (program.unit.imports == null) {
+                program.unit.imports = parseUseNode();
+            } else {
+                UseNode additionalImports = parseUseNode();
+                program.unit.imports.imports.addAll(additionalImports.imports);
+            }
+        }
+
+        TypeNode scriptType = ASTFactory.createType("__Script__", SHARE, null, null);
+
+        while (!is(EOF)) {
+            if (isVisibilityModifier() || isClassStartWithoutModifier() || isMethodDeclarationStart()) {
+                throw new ParseError("Scripts cannot contain method or class declarations", getLine(), getColumn());
             }
             scriptType.statements.add(statementParser.parseStatement());
         }
@@ -431,15 +672,11 @@ private void validateMainClassExistsInFile(UnitNode unit, List<TypeNode> typesIn
         return program;
     }
     
-    /**
-     * Parse a METHOD_SCRIPT program (methods only).
-     */
     private ProgramNode parseMethodScriptProgram() {
         ProgramNode program = ASTFactory.createProgram();
-        program.unit = ASTFactory.createUnit("default");
+        program.unit = ASTFactory.createUnit("default", null);
 
-        // Parse imports
-        while (isKeyword(USE)) {
+        while (is(USE)) {
             if (program.unit.imports == null) {
                 program.unit.imports = parseUseNode();
             } else {
@@ -448,17 +685,14 @@ private void validateMainClassExistsInFile(UnitNode unit, List<TypeNode> typesIn
             }
         }
 
-        // Create synthetic type to hold methods
-        TypeNode methodScriptType = ASTFactory.createType("__MethodScript__", SHARE, null);
+        TypeNode methodScriptType = ASTFactory.createType("__MethodScript__", SHARE, null, null);
 
-        // Parse method declarations only
-        while (!match(EOF)) {
+        while (!is(EOF)) {
             if (!isMethodDeclarationStart()) {
-                // Check if it's a class (with or without visibility) - that's also an error
-                if (isVisibilityModifier() || isClassStartWithoutModifier()) {  // <<< UPDATED
-                    throw new ParseError("Method scripts cannot contain class declarations", currentToken().line, currentToken().column);
+                if (isVisibilityModifier() || isClassStartWithoutModifier()) {
+                    throw new ParseError("Method scripts cannot contain class declarations", getLine(), getColumn());
                 }
-                throw new ParseError("Method scripts can only contain method declarations", currentToken().line, currentToken().column);
+                throw new ParseError("Method scripts can only contain method declarations", getLine(), getColumn());
             }
             methodScriptType.methods.add(declarationParser.parseMethod());
         }
@@ -467,287 +701,184 @@ private void validateMainClassExistsInFile(UnitNode unit, List<TypeNode> typesIn
         return program;
     }
 
-    // =========================================================================
-    // HELPER METHODS FOR PROGRAM TYPE DETECTION
-    // =========================================================================
-    
     private boolean isMethodDeclarationStart() {
-    Token first = currentToken();
-    if (first == null) return false;
-    
-    // Must be local or share keyword
-    if (first.type == KEYWORD) {
-        String text = first.text;
-        if (LOCAL.toString().equals(text) || SHARE.toString().equals(text)) {
-            Token second = lookahead(1);
-            if (second != null && second.type == ID) {
-                Token third = lookahead(2);
-                // Method if followed by '('
-                if (third != null && third.symbol == LPAREN) {
-                    return true;
+        ParserState savedState = getCurrentState();
+        skipWhitespaceAndComments();
+        
+        try {
+            Token first = currentToken();
+            if (first == null) return false;
+            
+            if (is(first, KEYWORD)) {
+                if (is(first, LOCAL, SHARE)) {
+                    Token second = lookahead(1);
+                    if (second != null && is(second, ID)) {
+                        Token third = lookahead(2);
+                        if (third != null && is(third, LPAREN)) {
+                            return true;
+                        }
+                    }
                 }
             }
+            return false;
+        } finally {
+            setState(savedState);
         }
     }
-    return false;
-}
-    
-    private boolean looksLikeDirectCode(Token token) {
-    if (token == null) return false;
-    
-    // --- FIX: ~> is NOT direct code, it's part of method ---
-    if (token.symbol == TILDE_ARROW) {
-        return false; // This is method return syntax
-    }
-    
-    // Keywords that start statements (NOT method declarations)
-    if (token.type == KEYWORD) {
-        String text = token.text;
-        
-        // Check if this is a method declaration start
-        if ("local".equals(text) || "share".equals(text)) {
-            // Look ahead to see if it's a method
-            Token next1 = lookahead(1);
-            Token next2 = lookahead(2);
-            if (next1 != null && next1.type == ID && 
-                next2 != null && next2.symbol == LPAREN) {
-                return false; // It's a method declaration, NOT direct code
-            }
-        }
-        
-        // Only these keywords are direct code
-        return
-               text.equals("if") ||
-               text.equals("for") ||
-               text.equals("exit");
-    }
-    
-    // Variable declaration/assignment
-    if (token.type == ID) {
-        Token next = lookahead(1);
-        if (next != null) {
-            // name := value
-            if (next.symbol == DOUBLE_COLON_ASSIGN) return true;
-            // name = value
-            if (next.symbol == ASSIGN) return true;
-            // name: type or name: type = value
-            if (next.symbol == COLON) return true;
-        }
-        return true; // Could be method call or variable reference
-    }
-    
-    // Expression start
-    return isExpressionStart(token);
-}
 
-private void skipTypeDeclaration() {
-    // Skip optional visibility modifier
-    if (isVisibilityModifier()) {
-        consume();
-    }
-    
-    // Skip type name
-    if (match(ID)) consume();
-    
-    // Skip 'is' and base type if present
-    if (isKeyword(IS)) {
-        consumeKeyword(IS);
-        parseQualifiedName();
-    }
-    
-    // Skip opening brace
-    if (match(LBRACE)) consume(LBRACE);
-    
-    // Skip everything until matching closing brace
-    int braceDepth = 1;
-    while (!match(EOF) && braceDepth > 0) {
-        Token t = currentToken();
-        if (t.symbol == LBRACE) braceDepth++;
-        else if (t.symbol == RBRACE) braceDepth--;
-        consume();
-    }
-}
+    // === STATE-BASED SKIP METHODS ===
     
     private void skipMethodDeclaration() {
-    // Check for builtin modifier
-    boolean isBuiltin = false;
-    if (match(KEYWORD) && BUILTIN.toString().equals(currentToken().text)) {
-        isBuiltin = true;
-        consume(); // skip "builtin"
-    }
-    
-    // Skip modifier (share/local)
-    if (isVisibilityModifier()) {
-        consume();
-    }
-    
-    // Skip method name
-    if (match(ID)) consume();
-    
-    // Skip parameters
-    if (match(LPAREN)) {
-        consume(LPAREN);
-        skipUntil(RPAREN);
-    }
-    
-    // Skip return slots if present
-    if (match(DOUBLE_COLON)) {
-        consume(DOUBLE_COLON);
-        skipSlotContract();
-    }
-    
-    // --- NEW: Builtin methods have no body ---
-    if (isBuiltin) {
-        return; // Builtin methods end here
-    }
-    
-    // Handle both ~> and { syntax (only for non-builtin methods)
-    if (match(TILDE_ARROW)) {
-        consume(TILDE_ARROW);
+        boolean isBuiltin = false;
+        if (is(KEYWORD) && is(BUILTIN)) {
+            isBuiltin = true;
+            consume();
+        }
         
-        // Skip slot assignments properly
-        skipSlotAssignment();
+        if (isVisibilityModifier()) {
+            consume();
+        }
         
-        // Skip additional comma-separated slot assignments
-        while (tryConsume(COMMA)) {
+        if (is(ID)) consume();
+        
+        if (is(LPAREN)) {
+            expect(LPAREN);
+            skipUntil(RPAREN);
+        }
+        
+        if (is(DOUBLE_COLON)) {
+            expect(DOUBLE_COLON);
+            skipSlotContract();
+        }
+        
+        if (isBuiltin) {
+            return;
+        }
+        
+        if (is(TILDE_ARROW)) {
+            expect(TILDE_ARROW);
+            
             skipSlotAssignment();
+            
+            while (tryConsume(COMMA)) {
+                skipSlotAssignment();
+            }
+            
+        } else if (is(LBRACE)) {
+            expect(LBRACE);
+            skipUntil(RBRACE);
         }
-        
-    } else if (match(LBRACE)) {
-        consume(LBRACE);
-        skipUntil(RBRACE);
     }
-}
 
-// NEW helper method
-private void skipSlotAssignment() {
-    // Skip optional slot name and colon
-    if (match(ID)) {
-        Token next = lookahead(1);
-        if (next != null && next.symbol == COLON) {
-            consume(); // skip name
-            consume(); // skip colon
+    private void skipSlotAssignment() {
+        if (is(ID)) {
+            Token next = lookahead(1);
+            if (next != null && is(next, COLON)) {
+                consume();
+                consume();
+            }
         }
+        skipExpression();
     }
-    // Skip the expression
-    skipExpression();
-}
     
     private void skipSlotContract() {
         do {
-            // Skip name: type or just type
-            if (match(ID) && isSymbolAt(1, COLON)) {
-                consume(); // name
-                consume(COLON);
+            if (is(ID) && isSymbolAt(1, COLON)) {
+                consume();
+                expect(COLON);
             }
-            // Skip type
             skipTypeReference();
         } while (tryConsume(COMMA));
     }
     
     private void skipStatement() {
-    Token current = currentToken();
-    
-    if (current.type == KEYWORD) {
-        String text = current.text;
-        if ("if".equals(text)) {
-            skipIfStatement();
-        } else if ("for".equals(text)) {
-            skipForStatement();
-        } else if ("exit".equals(text)) {
-            consume(); // exit
-        } else if ("local".equals(text) || "share".equals(text)) {
-            // Check if this is a method declaration
-            Token next = lookahead(1);
-            if (next != null && next.type == ID) {
-                Token afterNext = lookahead(2);
-                if (afterNext != null && afterNext.symbol == LPAREN) {
-                    // It's a method declaration
-                    skipMethodDeclaration();
+        Token current = currentToken();
+        
+        if (is(current, KEYWORD)) {
+            if (is(current, IF)) {
+                skipIfStatement();
+            } else if (is(current, FOR)) {
+                skipForStatement();
+            } else if (is(current, EXIT)) {
+                consume();
+            } else if (is(current, SHARE, LOCAL)) {
+                // Check if this is a method declaration using state
+                ParserState testState = getCurrentState().skipWhitespaceAndComments();
+                testState = testState.advance().skipWhitespaceAndComments(); // Skip modifier
+                
+                if (testState.currentToken() != null && is(testState.currentToken(), ID)) {
+                    testState = testState.advance().skipWhitespaceAndComments();
+                    if (testState.currentToken() != null && is(testState.currentToken(), LPAREN)) {
+                        // It's a method declaration
+                        skipMethodDeclaration();
+                    } else {
+                        consume();
+                    }
                 } else {
-                    // Not a method, just skip the keyword
                     consume();
                 }
             } else {
                 consume();
             }
+        } else if (is(current, ID)) {
+            skipUntilStatementEnd();
         } else {
-            // Skip other keywords
             consume();
         }
-    } else if (current.type == ID) {
-        // Skip until statement end
-        skipUntilStatementEnd();
-    } else {
-        // Expression or other
-        consume();
     }
-}
 
-private void skipForStatement() {
-    // Skip "for"
-    consumeKeyword(FOR);
-    
-    // Skip iterator name
-    if (match(ID)) consume();
-    
-    // Skip optional "by"
-    if (isKeyword(BY)) {
-        consumeKeyword(BY);
-        // Skip step expression
-        skipExpression();
-    }
-    
-    // Skip "in"
-    if (isKeyword(IN)) {
-        consumeKeyword(IN);
-    }
-    
-    // Skip start expression
-    skipExpression();
-    
-    // Skip "to"
-    if (isKeyword(TO)) {
-        consumeKeyword(TO);
-    } else {
-        // If we don't find "to", just return
-        return;
-    }
-    
-    // Skip end expression
-    skipExpression();
-    
-    // Skip body (could be block or single statement)
-    if (match(LBRACE)) {
-        consume(LBRACE);
-        skipUntil(RBRACE);
-    } else {
-        skipStatement();
-    }
-}
-    
-    private void skipIfStatement() {
-        consumeKeyword(IF);
+    private void skipForStatement() {
+        expect(FOR);
+        
+        if (is(ID)) consume();
+        
+        if (is(BY)) {
+            expect(BY);
+            skipExpression();
+        }
+        
+        if (is(IN)) {
+            expect(IN);
+        }
+        
         skipExpression();
         
-        // Skip then block
-        if (match(LBRACE)) {
-            consume(LBRACE);
+        if (is(TO)) {
+            expect(TO);
+        } else {
+            return;
+        }
+        
+        skipExpression();
+        
+        if (is(LBRACE)) {
+            expect(LBRACE);
+            skipUntil(RBRACE);
+        } else {
+            skipStatement();
+        }
+    }
+    
+    private void skipIfStatement() {
+        expect(IF);
+        skipExpression();
+        
+        if (is(LBRACE)) {
+            expect(LBRACE);
             skipUntil(RBRACE);
         } else {
             skipStatement();
         }
         
-        // Skip else/elif if present
-        while (isKeyword(ELIF) || isKeyword(ELSE)) {
+        while (is(ELIF) || is(ELSE)) {
             consume();
-            if (isKeyword(IF)) {
-                consumeKeyword(IF);
+            if (is(IF)) {
+                expect(IF);
                 skipExpression();
             }
             
-            if (match(LBRACE)) {
-                consume(LBRACE);
+            if (is(LBRACE)) {
+                expect(LBRACE);
                 skipUntil(RBRACE);
             } else {
                 skipStatement();
@@ -756,94 +887,70 @@ private void skipForStatement() {
     }
     
     private void skipExpression() {
-    // UPDATED: Now tracks nesting and handles Commas/Keywords correctly
-    int braceDepth = 0;
-    int parenDepth = 0;
-    int bracketDepth = 0;
+        int braceDepth = 0;
+        int parenDepth = 0;
+        int bracketDepth = 0;
 
-    while (!match(EOF)) {
-        Token t = currentToken();
-        
-        // 1. Handle Nesting
-        if (t.symbol == LBRACE) braceDepth++;
-        else if (t.symbol == RBRACE) braceDepth--;
-        else if (t.symbol == LPAREN) parenDepth++;
-        else if (t.symbol == RPAREN) parenDepth--;
-        else if (t.symbol == LBRACKET) bracketDepth++;
-        else if (t.symbol == RBRACKET) bracketDepth--;
+        while (!is(EOF)) {
+            Token t = currentToken();
+            
+            if (is(t, LBRACE)) braceDepth++;
+            else if (is(t, RBRACE)) braceDepth--;
+            else if (is(t, LPAREN)) parenDepth++;
+            else if (is(t, RPAREN)) parenDepth--;
+            else if (is(t, LBRACKET)) bracketDepth++;
+            else if (is(t,  RBRACKET)) bracketDepth--;
 
-        // If we closed a nesting level that we didn't open in this context (e.g. end of method body), stop.
-        if (braceDepth < 0 || parenDepth < 0 || bracketDepth < 0) {
-            return;
-        }
-
-        // 2. Check Stop Conditions (Only at depth 0)
-        if (braceDepth == 0 && parenDepth == 0 && bracketDepth == 0) {
-            // Stop at COMMA (necessary for slot lists: ~> a, b)
-            if (t.symbol == COMMA) {
+            if (braceDepth < 0 || parenDepth < 0 || bracketDepth < 0) {
                 return;
             }
-            
-            // Stop at keywords that start new statements or declarations
-            if (t.type == KEYWORD) {
-                String text = t.text;
-                if (text.equals(IF.toString()) || 
-                    text.equals(FOR.toString()) || 
-                    text.equals(EXIT.toString()) ||
-                    text.equals(ELSE.toString()) ||
-                    text.equals(ELIF.toString()) ||
-                    // CRITICAL FIX: Stop at method/class modifiers
-                    text.equals("share") || 
-                    text.equals("local") ||
-                    text.equals("unit")) {
-                    return;
+
+            if (braceDepth == 0 && parenDepth == 0 && bracketDepth == 0) {
+                if (is(t, COMMA)) return;
+                
+                if (is(t, KEYWORD)) {
+                    if (is(t, IF, FOR, EXIT, ELSE, ELIF, SHARE, LOCAL, UNIT)) return;
                 }
             }
-        }
 
-        consume();
+            consume();
+        }
     }
-}
     
     private void skipUntil(Symbol symbol) {
-        while (!match(EOF) && !match(symbol)) {
+        while (!is(EOF) && !is(symbol)) {
             Token t = currentToken();
-            if (t.symbol == LBRACE || t.symbol == LPAREN || t.symbol == LBRACKET) {
-                // Skip nested
+            if (is(t, LBRACE, LPAREN, LBRACKET)) {
                 consume();
                 skipUntilMatching(t.symbol);
             } else {
                 consume();
             }
         }
-        if (match(symbol)) consume();
+        if (is(symbol)) consume();
     }
     
     private void skipUntilMatching(Symbol opening) {
         Symbol closing;
-        if (opening == LBRACE) closing = RBRACE;
-        else if (opening == LPAREN) closing = RPAREN;
-        else if (opening == LBRACKET) closing = RBRACKET;
+        if (is(opening, LBRACE)) closing = RBRACE;
+        else if (is(opening, LPAREN)) closing = RPAREN;
+        else if (is(opening, LBRACKET)) closing = RBRACKET;
         else return;
         
         skipUntil(closing);
     }
     
     private void skipUntilStatementEnd() {
-        while (!match(EOF)) {
+        while (!is(EOF)) {
             Token t = currentToken();
             
-            // Statement end markers - NO SEMICOLON IN YOUR LANGUAGE
-            if (t.symbol == RBRACE ||
-                (t.type == KEYWORD && 
-                 (t.text.equals(ELSE.toString()) || t.text.equals("elif") ||
-                  t.text.equals("if") || t.text.equals("for") ||
-                  t.text.equals("exit")))) {
+            if (is(t, RBRACE) ||
+                (is(t, KEYWORD) && 
+                 is(t, ELSE, ELIF, IF, FOR, EXIT))) {
                 break;
             }
             
-            // Skip nested structures
-            if (t.symbol == LBRACE || t.symbol == LPAREN || t.symbol == LBRACKET) {
+            if (is(t, LBRACE, LPAREN, LBRACKET)) {
                 consume();
                 skipUntilMatching(t.symbol);
             } else {
@@ -853,19 +960,19 @@ private void skipForStatement() {
     }
     
     private void skipTypeReference() {
-        if (match(LBRACKET)) {
-            consume(LBRACKET);
-            if (!match(RBRACKET)) {
+        if (is(LBRACKET)) {
+            expect(LBRACKET);
+            if (!is(RBRACKET)) {
                 skipTypeReference();
             }
-            consume(RBRACKET);
-        } else if (match(LPAREN)) {
-            consume(LPAREN);
+            expect(RBRACKET);
+        } else if (is(LPAREN)) {
+            expect(LPAREN);
             skipTypeReference();
             while (tryConsume(COMMA)) {
                 skipTypeReference();
             }
-            consume(RPAREN);
+            expect(RPAREN);
         } else if (isTypeStart(currentToken())) {
             consume();
         }
@@ -875,58 +982,19 @@ private void skipForStatement() {
             skipTypeReference();
         }
     }
-    
-    private ProgramType determineProgramType(boolean hasUnit, boolean hasDirectCode, 
-                                       boolean hasMethods, boolean hasClasses) {
-    
-    // Rule 1: Has unit → MUST be Module
-    if (hasUnit) {
-        if (hasDirectCode) {
-            throw new ParseError("[MODULE] Modules cannot have direct code outside classes.", 
-                currentToken().line, currentToken().column);
+
+    public StmtNode parseSingleLine() {
+        if (is(EOF)) {
+            return null;
         }
-        if (hasMethods && !hasClasses) {
-            throw new ParseError("[MODULE] Modules cannot have methods outside classes.", 
-                currentToken().line, currentToken().column);
+
+        StmtNode stmt = statementParser.parseStatement();
+
+        if (!is(EOF)) {
+            Token current = currentToken();
+            throw new ParseError("Unexpected token after statement: " +
+                getTypeName(current.type) + " ('" + current.text + "')", current);
         }
-        return ProgramType.MODULE;
+        return stmt;
     }
-    
-    // Rule 2: Has direct code → Script
-    if (hasDirectCode) {
-        if (hasMethods) {
-            throw new ParseError("[SCRIPT] Cannot mix direct code and method declarations.\n" +
-                               "Either:\n" +
-                               "1. Remove methods and keep as script, OR\n" +
-                               "2. Remove direct code and make it a method script, OR\n" +
-                               "3. Add 'unit' and classes to make it a module.", 
-                currentToken().line, currentToken().column);
-        }
-        if (hasClasses) {
-            throw new ParseError("[SCRIPT] Scripts cannot contain class declarations.", 
-                currentToken().line, currentToken().column);
-        }
-        return ProgramType.SCRIPT;
-    }
-    
-    // Rule 3: Has methods → Method Script
-    if (hasMethods) {
-        if (hasClasses) {
-            throw new ParseError("[METHOD_SCRIPT] Method scripts cannot contain class declarations.", 
-                currentToken().line, currentToken().column);
-        }
-        return ProgramType.METHOD_SCRIPT;
-    }
-    
-    // Rule 4: Has classes without unit → ERROR
-    if (hasClasses) {
-        throw new ParseError("[UNKNOWN] Classes require 'unit' declaration.\n" +
-                           "Add: unit namespace.name\n" +
-                           "Before your class definitions.", 
-            currentToken().line, currentToken().column);
-    }
-    
-    // Empty file or unrecognized
-    throw new ParseError("[UNKNOWN] Empty file or unrecognized structure", 1, 1);
-}
 }

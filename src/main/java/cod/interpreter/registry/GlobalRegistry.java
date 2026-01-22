@@ -4,19 +4,16 @@ import cod.ast.nodes.*;
 import cod.debug.DebugSystem;
 import cod.interpreter.InterpreterVisitor;
 import cod.interpreter.io.IOHandler;
-import cod.interpreter.type.TypeSystem;
 import java.util.*;
 
 public class GlobalRegistry {
     
     private final Map<String, GlobalFunction> globalFunctions;
     private final BuiltinRegistry builtinRegistry;
-    private final TypeSystem typeSystem;
     private final IOHandler ioHandler;
     
-    public GlobalRegistry(IOHandler ioHandler, TypeSystem typeSystem, BuiltinRegistry builtinRegistry) {
+    public GlobalRegistry(IOHandler ioHandler, BuiltinRegistry builtinRegistry) {
         this.ioHandler = ioHandler;
-        this.typeSystem = typeSystem;
         this.builtinRegistry = builtinRegistry;
         this.globalFunctions = new HashMap<String, GlobalFunction>();
         
@@ -24,46 +21,72 @@ public class GlobalRegistry {
     }
     
     private void registerGlobalFunctions() {
-        registerGlobal("out", new GlobalFunction() {
-            @Override
-            public Object execute(List<ExprNode> arguments, InterpreterVisitor visitor) {
-                StringBuilder result = new StringBuilder();
-                if (arguments != null) {
-                    for (ExprNode arg : arguments) {
-                        Object value = visitor.visit((ASTNode) arg);
-                        result.append(String.valueOf(value));
-                    }
-                }
-                ioHandler.output(result.toString());
-                return null;
-            }
-            
-            @Override
-            public String getSignature() {
-                return "out(...values) -> void";
-            }
-        });
+        registerGlobal("outs", new GlobalFunction() {
+    @Override
+    public Object execute(List<ExprNode> arguments, InterpreterVisitor visitor) {
+        if (arguments == null || arguments.isEmpty()) {
+            ioHandler.output("");  // Empty
+            return null;
+        }
         
-        registerGlobal("outln", new GlobalFunction() {
-            @Override
-            public Object execute(List<ExprNode> arguments, InterpreterVisitor visitor) {
-                StringBuilder result = new StringBuilder();
-                if (arguments != null) {
-                    for (ExprNode arg : arguments) {
-                        Object value = visitor.visit((ASTNode) arg);
-                        result.append(String.valueOf(value));
-                    }
-                }
-                result.append("\n");
-                ioHandler.output(result.toString());
-                return null;
-            }
+        // SINGLE argument: No space
+        if (arguments.size() == 1) {
+            Object value = visitor.visit((ASTNode) arguments.get(0));
+            ioHandler.output(String.valueOf(value));
+            return null;
+        }
+        
+        // MULTIPLE arguments: Auto-space between
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < arguments.size(); i++) {
+            ExprNode arg = arguments.get(i);
+            Object value = visitor.visit((ASTNode) arg);
+            result.append(String.valueOf(value));
             
-            @Override
-            public String getSignature() {
-                return "outln(...values) -> void";
+            if (i < arguments.size() - 1) {
+                result.append(" ");  // AUTO-SPACE! 🚀
             }
-        });
+        }
+        ioHandler.output(result.toString());
+        return null;
+    }
+    
+    @Override
+    public String getSignature() {
+        return "outs(value) -> value | outs(v1, v2, ...) -> auto-spaced";
+    }
+});
+
+registerGlobal("out", new GlobalFunction() {
+    @Override
+    public Object execute(List<ExprNode> arguments, InterpreterVisitor visitor) {
+        if (arguments == null || arguments.isEmpty()) {
+            ioHandler.output("\n");  // Just newline
+            return null;
+        }
+        
+        // SINGLE argument: Add newline
+        if (arguments.size() == 1) {
+            Object value = visitor.visit((ASTNode) arguments.get(0));
+            ioHandler.output(String.valueOf(value) + "\n");
+            return null;
+        }
+        
+        // MULTIPLE arguments: Each on new line
+        StringBuilder result = new StringBuilder();
+        for (ExprNode arg : arguments) {
+            Object value = visitor.visit((ASTNode) arg);
+            result.append(String.valueOf(value)).append("\n");
+        }
+        ioHandler.output(result.toString());
+        return null;
+    }
+    
+    @Override
+    public String getSignature() {
+        return "out(value) -> value\\n | out(v1, v2, ...) -> each on new line";
+    }
+});
         
         registerGlobal("in", new GlobalFunction() {
             @Override

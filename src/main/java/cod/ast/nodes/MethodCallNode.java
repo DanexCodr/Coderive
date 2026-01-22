@@ -10,10 +10,8 @@ public class MethodCallNode extends ExprNode {
     public List<String> argNames; // NEW: Store argument names
     public String qualifiedName;
     public boolean isConstructor = false;
+    public boolean isSuperCall = false;
     
-    public String chainType;
-    public List<ExprNode> chainArguments;
-   
               @Override
         public final <T> T accept(VisitorImpl<T> visitor) {
            return visitor.visit(this);

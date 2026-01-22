@@ -1,9 +1,10 @@
-// BaseRunner.java
 package cod.runner;
 
 import cod.ast.nodes.*;
 import cod.debug.DebugSystem;
-import java.io.*;
+import cod.interpreter.Interpreter; 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
 import java.util.List;
 
 import cod.lexer.*;
@@ -35,42 +36,49 @@ public abstract class BaseRunner {
         void configure(RunnerConfig config);
     }
 
-    protected static final String LOG_TAG = "RUNNER";
-
-    public ProgramNode parse(String filename) throws Exception {
+    protected static final String
+    LOG_TAG = "RUNNER",
+    PARSER = "PARSER",
+    IR = "IR",
+    NATIVE = "NATIVE",
+    INTERPRETER = "INTERPRETER",
+    AST = "AST";
+    
+    
+    //  Parse with interpreter for unit validation
+    public ProgramNode parse(String filename, Interpreter interpreter) throws Exception {
         DebugSystem.debug(LOG_TAG, "Loading source file: " + filename);
-        InputStream is = new FileInputStream(filename);
         
-        String sourceCode = readFileToString(is);
+        // Use Java 7 Files API to read entire file
+        String sourceCode = new String(
+            Files.readAllBytes(Paths.get(filename)), 
+            StandardCharsets.UTF_8
+        );
+        
         DebugSystem.debug(LOG_TAG, "Source length: " + sourceCode.length() + " chars");
         
-        DebugSystem.debug("PARSER", "Tokenizing...");
+        DebugSystem.debug(PARSER, "Tokenizing...");
         MainLexer lexer = new MainLexer(sourceCode);
         List<Token> tokens = lexer.tokenize();
-        DebugSystem.debug("PARSER", "Generated " + tokens.size() + " tokens");
+        DebugSystem.debug(PARSER, "Generated " + tokens.size() + " tokens");
         
-        DebugSystem.debug("PARSER", "Parsing...");
-        MainParser parser = new MainParser(tokens);
+        DebugSystem.debug(PARSER, "Parsing...");
+        MainParser parser = new MainParser(tokens, interpreter);  // PASS INTERPRETER
         
         ProgramNode ast = parser.parseProgram();
-        DebugSystem.debug("PARSER", "Parsing completed successfully");
+        DebugSystem.debug(PARSER, "Parsing completed successfully");
         
         return ast;
     }
 
-    protected String readFileToString(InputStream is) throws Exception {
-        java.util.Scanner scanner = new java.util.Scanner(is).useDelimiter("\\A");
-        return scanner.hasNext() ? scanner.next() : "";
-    }
-
     protected void configureDebugSystem(DebugSystem.Level level) {
         DebugSystem.setLevel(level);
-        DebugSystem.enableCategory("BYTECODE");
-        DebugSystem.enableCategory("MTOT");
+        DebugSystem.enableCategory(IR);
+        DebugSystem.enableCategory(NATIVE);
         DebugSystem.enableCategory(LOG_TAG);
-        DebugSystem.enableCategory("PARSER");
-        DebugSystem.enableCategory("INTERPRETER");
-        DebugSystem.enableCategory("AST");
+        DebugSystem.enableCategory(PARSER);
+        DebugSystem.enableCategory(INTERPRETER);
+        DebugSystem.enableCategory(AST);
         DebugSystem.setShowTimestamp(true);
         DebugSystem.info(LOG_TAG, "DebugSystem configured to level: " + level);
     }

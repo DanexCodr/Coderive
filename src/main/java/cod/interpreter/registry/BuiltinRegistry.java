@@ -4,18 +4,17 @@ import cod.ast.nodes.*;
 import cod.debug.DebugSystem;
 import cod.interpreter.InterpreterVisitor;
 import cod.interpreter.io.IOHandler;
-import cod.interpreter.type.TypeSystem;
 import java.util.*;
 
 public class BuiltinRegistry {
     
     private final Map<String, BuiltinMethod> builtinMethods;
-    private final IOHandler ioHandler;
-    private final TypeSystem typeSystem;
     
-    public BuiltinRegistry(IOHandler ioHandler, TypeSystem typeSystem) {
+    @SuppressWarnings("unused")
+    private final IOHandler ioHandler;
+    
+    public BuiltinRegistry(IOHandler ioHandler) {
         this.ioHandler = ioHandler;
-        this.typeSystem = typeSystem;
         this.builtinMethods = new HashMap<String, BuiltinMethod>();
         
         // Register builtin methods
@@ -23,104 +22,6 @@ public class BuiltinRegistry {
     }
     
     private void registerBuiltins() {
-registerMethod("out", new BuiltinMethod() {
-    @Override
-    public Object execute(MethodCallNode call, InterpreterVisitor visitor) {
-        StringBuilder result = new StringBuilder();
-        if (call.arguments != null) {
-            for (int i = 0; i < call.arguments.size(); i++) {
-                Object value = visitor.visit((ASTNode) call.arguments.get(i));
-                result.append(String.valueOf(value));
-            }
-        }
-        ioHandler.output(result.toString());
-        return null;
-    }
-    
-    @Override
-    public String getSignature() {
-        return "out(...values)";
-    }
-});
-
-registerMethod("outln", new BuiltinMethod() {
-    @Override
-    public Object execute(MethodCallNode call, InterpreterVisitor visitor) {
-        StringBuilder result = new StringBuilder();
-        if (call.arguments != null) {
-            for (int i = 0; i < call.arguments.size(); i++) {
-                Object value = visitor.visit((ASTNode) call.arguments.get(i));
-                result.append(String.valueOf(value));
-            }
-        }
-        result.append("\n");  // Add newline
-        ioHandler.output(result.toString());
-        return null;
-    }
-    
-    @Override
-    public String getSignature() {
-        return "outln(...values)";
-    }
-});
-        
-        // Register in() method
-        registerMethod("in", new BuiltinMethod() {
-            @Override
-            public Object execute(MethodCallNode call, InterpreterVisitor visitor) {
-                // Determine which signature is being used based on arguments
-                int argCount = call.arguments != null ? call.arguments.size() : 0;
-                
-                String expectedType = "text";  // Default
-                String message = "";
-                
-                if (argCount == 0) {
-                    // in() - no arguments
-                    expectedType = "text";
-                } 
-                else if (argCount == 1) {
-                    // in(type) - type specified
-                    Object typeArg = visitor.visit((ASTNode) call.arguments.get(0));
-                    expectedType = String.valueOf(typeArg);
-                }
-                else if (argCount == 2) {
-                    // in(type, message)
-                    Object typeArg = visitor.visit((ASTNode) call.arguments.get(0));
-                    Object messageArg = visitor.visit((ASTNode) call.arguments.get(1));
-                    
-                    expectedType = String.valueOf(typeArg);
-                    message = String.valueOf(messageArg);
-                }
-                else if (argCount == 3) {
-                    // in(type, message, source)
-                    Object typeArg = visitor.visit((ASTNode) call.arguments.get(0));
-                    Object messageArg = visitor.visit((ASTNode) call.arguments.get(1));
-                    Object sourceArg = visitor.visit((ASTNode) call.arguments.get(2));
-                    
-                    expectedType = String.valueOf(typeArg);
-                    message = String.valueOf(messageArg);
-                    String source = String.valueOf(sourceArg);
-                    
-                    // Currently only "stdin" is supported
-                    if (!"stdin".equals(source)) {
-                        throw new RuntimeException("Only 'stdin' source is currently supported for input");
-                    }
-                }
-                
-                // Output the prompt message if provided
-                if (!message.isEmpty()) {
-                    ioHandler.output(message);
-                }
-                
-                // Read input based on expected type
-                return ioHandler.readInput(expectedType);
-            }
-            
-            @Override
-            public String getSignature() {
-                return "in() | in(type) | in(type, message) | in(type, message, source)";
-            }
-        });
         
         // In BuiltinRegistry.java - registerBuiltins() method
 registerMethod("timer", new BuiltinMethod() {

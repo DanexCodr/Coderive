@@ -1,7 +1,7 @@
 package cod.ast.nodes;
 
 import cod.ast.VisitorImpl;
-import cod.parser.ProgramType;
+import cod.parser.program.ProgramType;
 
 public class ProgramNode extends ASTNode {
     public UnitNode unit;

@@ -345,43 +345,36 @@ public class ASTPrinter extends ASTVisitor<Void> {
         return null;
     }
     
-    @Override
-    public Void visit(MethodCallNode node) {
-        print("IDENTIFIER/CALL: " + (node.qualifiedName != null ? node.qualifiedName : node.name));
-        if (node.slotNames != null && !node.slotNames.isEmpty()) {
-            System.out.print(" (slot_cast: ");
-            for (int i = 0; i < node.slotNames.size(); i++) {
-                if (i > 0) System.out.print(", ");
-                System.out.print(node.slotNames.get(i));
-            }
-            System.out.print(")");
+@Override
+public Void visit(MethodCallNode node) {
+    print("IDENTIFIER/CALL: " + (node.qualifiedName != null ? node.qualifiedName : node.name));
+    
+    // Display slot names if present
+    if (node.slotNames != null && !node.slotNames.isEmpty()) {
+        System.out.print(" (slot_cast: ");
+        for (int i = 0; i < node.slotNames.size(); i++) {
+            if (i > 0) System.out.print(", ");
+            System.out.print(node.slotNames.get(i));
         }
-        if (node.chainType != null) {
-            System.out.print(" (chain: " + node.chainType + ")");
-        }
-        System.out.println();
-        
-        if (node.chainArguments != null && !node.chainArguments.isEmpty()) {
-            println("|   CHAIN arguments:");
-            indent += 2;
-            for (ExprNode arg : node.chainArguments) {
-                visit(arg);
-            }
-            indent -= 2;
-        }
-        
-        if (node.arguments != null && !node.arguments.isEmpty()) {
-            println("|   ARGUMENTS:");
-            indent += 2;
-            for (ExprNode arg : node.arguments) {
-                visit(arg);
-            }
-            indent -= 2;
-        } else {
-            println("|   (no arguments)");
-        }
-        return null;
+        System.out.print(")");
     }
+    
+    System.out.println();
+    
+    // Display arguments
+    if (node.arguments != null && !node.arguments.isEmpty()) {
+        println("|   ARGUMENTS:");
+        indent += 2;
+        for (ExprNode arg : node.arguments) {
+            visit(arg);
+        }
+        indent -= 2;
+    } else {
+        println("|   (no arguments)");
+    }
+    
+    return null;
+}
     
     @Override
     public Void visit(ArrayNode node) {

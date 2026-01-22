@@ -19,12 +19,12 @@ public class TypeValue {
         return String.valueOf(value);
     }
     
-    // Helper method to check if this is a type value
+    // NEW: Helper method to check if this is a type value
     public boolean isTypeValue() {
         return "type".equals(activeType);
     }
     
-    // Check if a value matches this type (for type checking with 'is')
+    // NEW: Check if a value matches this type (for type checking with 'is')
     public boolean matches(Object otherValue) {
         if (!isTypeValue()) {
             return false;

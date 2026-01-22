@@ -1,7 +1,0 @@
-number := 5
-outln("The number is " + number)
-if (number % 2) == 0 {
-   outln("The number is even.")
-} else {
-   outln("The number is odd.")
-}

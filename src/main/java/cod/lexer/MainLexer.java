@@ -1,13 +1,9 @@
 package cod.lexer;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
-import static cod.syntax.Keyword.*;
 import cod.syntax.Symbol;
 import static cod.syntax.Symbol.*;
+
+import java.util.*;
 
 public class MainLexer {
 
@@ -71,6 +67,9 @@ private Token scanNextToken() {
 }
 
   private Token readIdentifierOrKeyword() {
+    int startLine = line;
+    int startColumn = column;
+    
     StringBuilder sb = new StringBuilder();
     while (position < input.length() && (Character.isLetterOrDigit(peek()) || peek() == '_')) {
         sb.append(consume());
@@ -78,22 +77,23 @@ private Token scanNextToken() {
     String text = sb.toString();
     
     if (KEYWORDS.contains(text)) {
-        return create(TokenType.KEYWORD, text);
+        return new Token(TokenType.KEYWORD, text, startLine, startColumn);
     }
     
-    return create(TokenType.ID, text);
+    return new Token(TokenType.ID, text, startLine, startColumn);
   }
 
   private Token readNumber() {
+    int startLine = line;
+    int startColumn = column;
+    
     StringBuilder sb = new StringBuilder();
     boolean isFloat = false;
     
-    // 1. Read integer part
     while (position < input.length() && Character.isDigit(peek())) {
         sb.append(consume());
     }
     
-    // 2. Read fractional part
     if (peek() == '.') {
         isFloat = true;
         sb.append(consume());
@@ -102,13 +102,11 @@ private Token scanNextToken() {
         }
     }
     
-    // 3. Read Numeric Shorthand Suffix (K, M, Qi, etc.)
     String suffix = readSuffix();
     if (!suffix.isEmpty()) {
         sb.append(suffix);
         isFloat = true; 
     } else {
-        // 4. NEW: Read Standard Scientific Notation (e/E)
         String exponent = readExponent();
         if (!exponent.isEmpty()) {
             sb.append(exponent);
@@ -117,8 +115,11 @@ private Token scanNextToken() {
     }
     
     String numberText = sb.toString();
-    return create(
-        isFloat ? TokenType.FLOAT_LIT : TokenType.INT_LIT, numberText);
+    return new Token(
+        isFloat ? TokenType.FLOAT_LIT : TokenType.INT_LIT, 
+        numberText, 
+        startLine, 
+        startColumn);
   }
 
   private String readSuffix() {
@@ -126,15 +127,14 @@ private Token scanNextToken() {
     
     char c1 = peek();
     
-    // Check custom suffixes (Case sensitive)
     if (c1 == 'K' || c1 == 'M' || c1 == 'B' || c1 == 'T') {
         return String.valueOf(consume());
     }
     
     if (c1 == 'Q') {
-        consume(); // consume Q
+        consume();
         if (peek() == 'i') {
-            consume(); // consume i
+            consume();
             return "Qi";
         }
         return "Q";
@@ -152,15 +152,13 @@ private Token scanNextToken() {
     }
     
     StringBuilder sb = new StringBuilder();
-    sb.append(consume()); // Consume 'e' or 'E'
+    sb.append(consume());
     
-    // Consume optional sign (+ or -)
     char c2 = peek();
     if (c2 == '+' || c2 == '-') {
         sb.append(consume());
     }
     
-    // Must be followed by at least one digit
     if (position < input.length() && Character.isDigit(peek())) {
         while (position < input.length() && Character.isDigit(peek())) {
             sb.append(consume());
@@ -175,11 +173,20 @@ private Token scanNextToken() {
   }
 
   private Token readString() {
+    int startLine = line;
+    int startColumn = column;
+    
     StringBuilder sb = new StringBuilder();
-    consume(); // Consume opening quote
+    List<Token> interpolations = new ArrayList<>();
+    
+    consume();
+    
     while (position < input.length() && peek() != '"') {
         if (peek() == '\\') {
-            consume(); // consume the backslash
+            consume();
+            if (position >= input.length()) {
+                throw new RuntimeException("Unterminated escape sequence at line " + line);
+            }
             char escaped = consume();
             switch (escaped) {
                 case 'n': sb.append('\n'); break;
@@ -187,40 +194,122 @@ private Token scanNextToken() {
                 case 'r': sb.append('\r'); break;
                 case '\\': sb.append('\\'); break;
                 case '"': sb.append('"'); break;
+                case '{': sb.append('{'); break;
                 default: sb.append('\\').append(escaped); break;
             }
+        } else if (peek() == '{') {
+            int braceLine = line;
+            int braceColumn = column;
+            consume();
+            
+            if (peek() == '}') {
+                throw new RuntimeException(
+                    "Syntax Error: Empty string interpolation at line " + braceLine + 
+                    ", column " + braceColumn + "\n" +
+                    "Interpolation must contain an expression: {expression}\n" +
+                    "If you want a literal '{' character, escape it: \\{"
+                );
+            }
+            
+            if (sb.length() > 0) {
+                interpolations.add(new Token(TokenType.STRING_LIT, sb.toString(), startLine, startColumn));
+                sb = new StringBuilder();
+            }
+            
+            StringBuilder interpolationContent = new StringBuilder();
+            int braceDepth = 1;
+            
+            while (position < input.length() && braceDepth > 0) {
+                char ch = peek();
+                
+                if (ch == '\\') {
+                    interpolationContent.append(consume());
+                    if (position < input.length()) {
+                        interpolationContent.append(consume());
+                    }
+                } else if (ch == '{') {
+                    braceDepth++;
+                    interpolationContent.append(consume());
+                } else if (ch == '}') {
+                    braceDepth--;
+                    if (braceDepth > 0) {
+                        interpolationContent.append(consume());
+                    } else {
+                        consume();
+                    }
+                } else {
+                    interpolationContent.append(consume());
+                }
+            }
+            
+            if (braceDepth > 0) {
+                throw new RuntimeException("Unclosed interpolation at line " + line + ", column " + column);
+            }
+            
+            interpolations.add(new Token(
+                TokenType.INTERPOL,
+                interpolationContent.toString().trim(),
+                line,
+                column - interpolationContent.length() - 1
+            ));
+            
         } else {
             sb.append(consume());
         }
     }
-    if (position < input.length()) consume(); // Consume closing quote
-    return create(TokenType.STRING_LIT, sb.toString());
-  }
-
-  // FINAL VERSION: | column determines baseline
-  private Token readMultilineString() {
-    int startLine = line;
-    int startColumn = column;  // | position = BASELINE
     
-    // Check opening delimiter "|" 
+    if (position < input.length()) {
+        consume();
+    } else {
+        throw new RuntimeException("Unterminated string at line " + startLine + ", column " + startColumn);
+    }
+    
+    if (sb.length() > 0) {
+        interpolations.add(new Token(TokenType.STRING_LIT, sb.toString(), startLine, startColumn));
+    }
+    
+    if (!interpolations.isEmpty()) {
+        StringBuilder compositeText = new StringBuilder("\"");
+        for (Token part : interpolations) {
+            if (part.type == TokenType.STRING_LIT) {
+                compositeText.append(part.text);
+            } else {
+                compositeText.append("{").append(part.text).append("}");
+            }
+        }
+        compositeText.append("\"");
+        
+        return new Token(
+            TokenType.STRING_LIT,
+            compositeText.toString(),
+            startLine,
+            startColumn,
+            interpolations
+        );
+    }
+    
+    return new Token(TokenType.STRING_LIT, sb.toString(), startLine, startColumn);
+}
+
+private Token readMultilineString() {
+    int startLine = line;
+    int startColumn = column;
+    
     if (!(peek() == '|' && peek(1) == '"')) {
         throw new RuntimeException("Invalid multiline string opening at line " + line + ", column " + column);
     }
     
-    // The | character's column IS the baseline
-    int baseColumn = startColumn;
+    int baselineColumn = startColumn;
     
-    // Consume opening delimiter
-    consume(); // Consume |
-    consume(); // Consume "
+    consume();
+    consume();
     
-    // Allow ONLY whitespace after opening delimiter on same line
     while (position < input.length()) {
         char after = peek();
         if (after == '\n' || after == '\r') {
-            break; // End of line reached, valid
+            break;
         } else if (!Character.isWhitespace(after)) {
-            position -= 2; // Go back to | position
+            position -= 2;
             line = startLine;
             column = startColumn;
             throw new RuntimeException(
@@ -228,65 +317,66 @@ private Token scanNextToken() {
                 "String content must start on next line. Found: '" + after + "' at line " + line + ", column " + column
             );
         }
-        consume(); // Skip whitespace
+        consume();
     }
     
-    // Skip the formatting newline after |"
     if (position < input.length() && peek() == '\n') {
         consume();
         line++;
         column = 1;
     } else if (position < input.length() && peek() == '\r') {
-        consume(); // \r
+        consume();
         if (position < input.length() && peek() == '\n') {
-            consume(); // \n in \r\n
+            consume();
         }
         line++;
         column = 1;
     }
     
-    List<String> contentLines = new ArrayList<String>();
+    List<Token> interpolations = new ArrayList<Token>();
+    StringBuilder currentStringPart = new StringBuilder();
+    StringBuilder currentLine = new StringBuilder();
+    
+    int currentColumnInLine = 1;
     
     while (position < input.length()) {
         char c = peek();
         
-        // Check for closing delimiter "|
         if (c == '"' && peek(1) == '|') {
-            // CRITICAL: Closing " must align with opening | baseline
-            if (column != baseColumn) {
-                throw new RuntimeException(
-                    "Multiline string closing delimiter '\"|' must align with opening delimiter baseline. " +
-                    "Opening '|' was at column " + baseColumn + ", closing '\"' at column " + column + ". " +
-                    "All content indentation is measured from column " + baseColumn + "."
-                );
+            validateLineForBaseline(currentLine.toString(), baselineColumn, line);
+            
+            if (column != baselineColumn) {
+throw new RuntimeException(
+    "Multiline string closing delimiter '\"|' must align with opening delimiter baseline. " +
+    "Opening '|' was at column " + baselineColumn + ", closing '\"' at column " + column + ". " +
+    "All content indentation is measured from column " + baselineColumn + ".");
             }
             
-            // Build dedented result relative to baseline
-            StringBuilder result = new StringBuilder();
-            for (int i = 0; i < contentLines.size(); i++) {
-                if (i > 0) result.append('\n');
-                result.append(contentLines.get(i));
+            if (currentLine.length() > 0) {
+                String strippedLine = stripLeftOfBaseline(currentLine.toString(), baselineColumn, line);
+                currentStringPart.append(strippedLine);
+                currentLine.setLength(0);
             }
             
-            // Consume closing delimiter
-            consume(); // Consume "
-            consume(); // Consume |
+            if (currentStringPart.length() > 0) {
+                interpolations.add(new Token(TokenType.STRING_LIT, currentStringPart.toString(), startLine, startColumn));
+            }
             
-            // Allow: whitespace OR ) . + , after closing delimiter
+            consume();
+            consume();
+            
             while (position < input.length()) {
                 char after = peek();
                 if (after == '\n' || after == '\r') break;
                 if (Character.isWhitespace(after)) {
-                    consume(); // Skip whitespace
+                    consume();
                     continue;
                 }
-                // These specific connectors are allowed after "|
                 if (after == ')' || after == '.' || after == '+' || after == ',') {
-                    break; // Stop validation - these are valid
+                    break;
                 }
                 
-                // Anything else is an error
-                position -= 2; // Go back to " position
+                position -= 2;
                 line = startLine;
                 column = startColumn;
                 throw new RuntimeException(
@@ -295,90 +385,227 @@ private Token scanNextToken() {
                 );
             }
             
+            if (!interpolations.isEmpty()) {
+                StringBuilder compositeText = new StringBuilder("|\"");
+                for (Token part : interpolations) {
+                    if (part.type == TokenType.STRING_LIT) {
+                        compositeText.append(part.text);
+                    } else {
+                        compositeText.append("{").append(part.text).append("}");
+                    }
+                }
+                compositeText.append("\"|");
+                
+                return new Token(
+                    TokenType.STRING_LIT,
+                    compositeText.toString(),
+                    startLine,
+                    startColumn,
+                    interpolations
+                );
+            }
+            
+            StringBuilder result = new StringBuilder();
+            for (Token part : interpolations) {
+                if (part.type == TokenType.STRING_LIT) {
+                    result.append(part.text);
+                }
+            }
             return new Token(TokenType.STRING_LIT, result.toString(), startLine, startColumn);
         }
         
-        // Read a content line
-        int lineStartColumn = column;
-        StringBuilder lineBuilder = new StringBuilder();
+        char ch = peek();
         
-        while (position < input.length()) {
-            char ch = peek();
-            if (ch == '\n' || ch == '\r') break;
-            
-            if (ch == '\\') {
-                // Handle escape sequences
-                consume();
-                if (position >= input.length()) {
-                    throw new RuntimeException("Unterminated escape sequence at line " + line);
-                }
-                char escaped = consume();
-                switch (escaped) {
-                    case 'n': lineBuilder.append('\n'); break;
-                    case 't': lineBuilder.append('\t'); break;
-                    case 'r': lineBuilder.append('\r'); break;
-                    case '\\': lineBuilder.append('\\'); break;
-                    case '"': lineBuilder.append('"'); break;
-                    case '|': lineBuilder.append('|'); break;
-                    default: lineBuilder.append('\\').append(escaped); break;
-                }
-            } else {
-                lineBuilder.append(consume());
-            }
-        }
-        
-        String rawLine = lineBuilder.toString();
-        StringBuilder processedLine = new StringBuilder();
-        
-        // Calculate leading whitespace
-        int leadingWhitespace = 0;
-        while (leadingWhitespace < rawLine.length() && 
-               Character.isWhitespace(rawLine.charAt(leadingWhitespace))) {
-            leadingWhitespace++;
-        }
-        
-        // Visual column of first non-whitespace
-        int visualColumn = lineStartColumn + leadingWhitespace;
-        
-        // Check if line is properly indented (must be at or after baseline)
-        if (visualColumn < baseColumn) {
+        if (currentColumnInLine < baselineColumn && !Character.isWhitespace(ch) && ch != '\\' && ch != '{') {
             throw new RuntimeException(
-                "Multiline string content must be indented to at least baseline column " + baseColumn + ". " +
-                "Line starts at column " + lineStartColumn + " with " + leadingWhitespace + 
-                " whitespace = column " + visualColumn + " which is before baseline."
+                "Multiline string violation at line " + line + ", column " + currentColumnInLine + "\n" +
+                "Character '" + ch + "' appears to the left of baseline column " + baselineColumn + "\n" +
+                "All content must start at or right of the opening '|' column (column " + baselineColumn + ")\n" +
+                "Add " + (baselineColumn - currentColumnInLine) + " more spaces before this character"
             );
         }
         
-        // Calculate relative indentation (beyond baseline)
-        int relativeIndent = visualColumn - baseColumn;
-        
-        // Add relative indentation spaces
-        for (int i = 0; i < relativeIndent; i++) {
-            processedLine.append(' ');
-        }
-        
-        // Add actual content (after removing leading whitespace)
-        if (leadingWhitespace < rawLine.length()) {
-            processedLine.append(rawLine.substring(leadingWhitespace));
-        }
-        
-        contentLines.add(processedLine.toString());
-        
-        // Handle line ending
-        if (position < input.length()) {
-            char lineEnd = peek();
-            if (lineEnd == '\n') {
+        if (ch == '\\') {
+            consume();
+            currentColumnInLine++;
+            
+            if (position >= input.length()) {
+                throw new RuntimeException("Unterminated escape sequence at line " + line);
+            }
+            char escaped = consume();
+            currentColumnInLine++;
+            
+            currentLine.append('\\').append(escaped);
+            
+        } else if (ch == '{') {
+            int braceLine = line;
+            int braceColumn = column;
+            consume();
+            currentColumnInLine++;
+            
+            if (currentColumnInLine - 1 < baselineColumn) {
+                throw new RuntimeException(
+                    "Multiline string violation at line " + line + ", column " + (currentColumnInLine - 1) + "\n" +
+                    "Interpolation '{' appears to the left of baseline column " + baselineColumn + "\n" +
+                    "All content must start at or right of the opening '|' column (column " + baselineColumn + ")"
+                );
+            }
+            
+            int savedPos = position;
+            int savedLine = line;
+            int savedColumn = column;
+            int savedColumnInLine = currentColumnInLine;
+            
+            boolean foundOnlyWhitespace = true;
+            boolean foundClosingBrace = false;
+            
+            while (position < input.length()) {
+                char nextChar = peek();
+                
+                if (nextChar == '}') {
+                    foundClosingBrace = true;
+                    break;
+                } else if (Character.isWhitespace(nextChar)) {
+                    consume();
+                    currentColumnInLine++;
+                    if (nextChar == '\n' || nextChar == '\r') {
+                        if (nextChar == '\n') {
+                            line++;
+                            column = 1;
+                            currentColumnInLine = 1;
+                        } else if (nextChar == '\r') {
+                            if (position < input.length() && peek() == '\n') {
+                                consume();
+                                line++;
+                                column = 1;
+                                currentColumnInLine = 1;
+                            }
+                        }
+                    }
+                } else {
+                    foundOnlyWhitespace = false;
+                    break;
+                }
+            }
+            
+            if (foundOnlyWhitespace && foundClosingBrace) {
+                throw new RuntimeException(
+                    "Syntax Error: Empty string interpolation at line " + braceLine + 
+                    ", column " + braceColumn + "\n" +
+                    "Interpolation must contain an expression: {expression}\n" +
+                    "If you want a literal '{' character, escape it: \\{"
+                );
+            }
+            
+            position = savedPos;
+            line = savedLine;
+            column = savedColumn;
+            currentColumnInLine = savedColumnInLine;
+            
+            if (currentLine.length() > 0) {
+                String strippedLine = stripLeftOfBaseline(currentLine.toString(), baselineColumn, line);
+                currentStringPart.append(strippedLine);
+                currentLine.setLength(0);
+            }
+            if (currentStringPart.length() > 0) {
+                interpolations.add(new Token(TokenType.STRING_LIT, currentStringPart.toString(), startLine, startColumn));
+                currentStringPart.setLength(0);
+            }
+            
+            StringBuilder interpolationContent = new StringBuilder();
+            int braceDepth = 1;
+            
+            while (position < input.length() && braceDepth > 0) {
+                char interpolationChar = peek();
+                
+                if (interpolationChar == '\\') {
+                    interpolationContent.append(consume());
+                    currentColumnInLine++;
+                    if (position < input.length()) {
+                        interpolationContent.append(consume());
+                        currentColumnInLine++;
+                    }
+                } else if (interpolationChar == '{') {
+                    braceDepth++;
+                    interpolationContent.append(consume());
+                    currentColumnInLine++;
+                } else if (interpolationChar == '}') {
+                    braceDepth--;
+                    if (braceDepth > 0) {
+                        interpolationContent.append(consume());
+                        currentColumnInLine++;
+                    } else {
+                        consume();
+                        currentColumnInLine++;
+                    }
+                } else if (interpolationChar == '\n' || interpolationChar == '\r') {
+                    if (interpolationChar == '\n') {
+                        interpolationContent.append('\n');
+                        consume();
+                        line++;
+                        column = 1;
+                        currentColumnInLine = 1;
+                    } else if (interpolationChar == '\r') {
+                        consume();
+                        currentColumnInLine++;
+                        if (position < input.length() && peek() == '\n') {
+                            interpolationContent.append('\n');
+                            consume();
+                            line++;
+                            column = 1;
+                            currentColumnInLine = 1;
+                        } else {
+                            interpolationContent.append('\r');
+                        }
+                    }
+                } else {
+                    interpolationContent.append(consume());
+                    currentColumnInLine++;
+                }
+            }
+            
+            if (braceDepth > 0) {
+                throw new RuntimeException("Unclosed interpolation at line " + line + ", column " + column);
+            }
+            
+            interpolations.add(new Token(
+                TokenType.INTERPOL,
+                interpolationContent.toString(),
+                braceLine,
+                braceColumn
+            ));
+            
+        } else if (ch == '}') {
+            throw new RuntimeException(
+                "Unmatched '}' in multiline string at line " + line + ", column " + column +
+                "\nIf you want a literal '}', escape it: \\}"
+            );
+        } else if (ch == '\n' || ch == '\r') {
+            validateLineForBaseline(currentLine.toString(), baselineColumn, line);
+            
+            String strippedLine = stripLeftOfBaseline(currentLine.toString(), baselineColumn, line);
+            currentStringPart.append(strippedLine);
+            currentStringPart.append('\n');
+            currentLine.setLength(0);
+            
+            if (ch == '\n') {
                 consume();
                 line++;
                 column = 1;
-            } else if (lineEnd == '\r') {
+                currentColumnInLine = 1;
+            } else if (ch == '\r') {
                 consume();
                 if (position < input.length() && peek() == '\n') {
                     consume();
                 }
                 line++;
                 column = 1;
+                currentColumnInLine = 1;
             }
+            
+        } else {
+            currentLine.append(consume());
+            currentColumnInLine++;
         }
     }
     
@@ -386,90 +613,121 @@ private Token scanNextToken() {
         "Unterminated multiline string starting at line " + 
         startLine + ", column " + startColumn
     );
-  }
+}
+
+private void validateLineForBaseline(String line, int baselineColumn, int lineNumber) {
+    for (int i = 0; i < baselineColumn - 1 && i < line.length(); i++) {
+        if (!Character.isWhitespace(line.charAt(i))) {
+            throw new RuntimeException(
+                "Multiline string violation at line " + lineNumber + ", column " + (i + 1) + "\n" +
+                "Character '" + line.charAt(i) + "' appears to the left of baseline column " + baselineColumn + "\n" +
+                "All content must start at or right of the opening '|' column"
+            );
+        }
+    }
+}
+
+private String stripLeftOfBaseline(String line, int baselineColumn, int lineNumber) {
+    validateLineForBaseline(line, baselineColumn, lineNumber);
+    
+    if (line.length() >= baselineColumn) {
+        return line.substring(baselineColumn - 1);
+    } else {
+        return "";
+    }
+}
 
   private Token readSymbol() {
+    int startLine = line;
+    int startColumn = column;
+    
     char c1 = peek();
     
+    Token symbolToken = process(startLine, startColumn, c1);
+    if (symbolToken != null) {
+        return symbolToken;
+    }
+    
+    return new Token(TokenType.INVALID, String.valueOf(c1), startLine, startColumn);
+  }
+
+  private Token process(int startLine, int startColumn, char c1) {
     switch (c1) {
       case ':': 
-          return process(
+          return processPatterns(startLine, startColumn,
               ":=", DOUBLE_COLON_ASSIGN,
               "::", DOUBLE_COLON,
               ":", COLON
           );
       case '=':
-          return process(
+          return processPatterns(startLine, startColumn,
               "==", EQ,
               "=", ASSIGN
           );
       case '>':
-          return process(
+          return processPatterns(startLine, startColumn,
               ">=", GTE,
               ">", GT
           );
       case '<':
-          return process(
+          return processPatterns(startLine, startColumn,
               "<=", LTE,
               "<", LT
           );
       case '!':
-          return process(
+          return processPatterns(startLine, startColumn,
               "!=", NEQ,
               "!", BANG
           );
       case '+':
-          return process(
+          return processPatterns(startLine, startColumn,
               "+=", PLUS_ASSIGN,
               "+", PLUS
           );
       case '-':
-          return process(
+          return processPatterns(startLine, startColumn,
               "-=", MINUS_ASSIGN,
               "-", MINUS
           );
       case '*':
-          return process(
+          return processPatterns(startLine, startColumn,
               "*=", MUL_ASSIGN,
               "*", MUL
           );
       case '/':
-          return process(
+          return processPatterns(startLine, startColumn,
               "/=", DIV_ASSIGN,
               "/", DIV
           );
       case '~':
-          return process("~>", TILDE_ARROW);
+          return processPatterns(startLine, startColumn, "~>", TILDE_ARROW);
       case '|': 
-          // Already handled in scanNextToken for multiline strings
-          return process("|", PIPE);
-      case '&': return process("&", AMPERSAND);
-      case '?': return process("?", QUESTION);
-      case '%': return process("%", MOD);
-      case '.': return process(".", DOT);
-      case ',': return process(",", COMMA);
-      case '(': return process("(", LPAREN);
-      case ')': return process(")", RPAREN);
-      case '{': return process("{", LBRACE);
-      case '}': return process("}", RBRACE);
-      case '[': return process("[", LBRACKET);
-      case ']': return process("]", RBRACKET);
-      case '_': return process("_", UNDERSCORE);
-      default: return create(TokenType.INVALID);
+          return processPatterns(startLine, startColumn, "|", PIPE);
+      case '&': return processPatterns(startLine, startColumn, "&", AMPERSAND);
+      case '?': return processPatterns(startLine, startColumn, "?", QUESTION);
+      case '%': return processPatterns(startLine, startColumn, "%", MOD);
+      case '.': return processPatterns(startLine, startColumn, ".", DOT);
+      case ',': return processPatterns(startLine, startColumn, ",", COMMA);
+      case '(': return processPatterns(startLine, startColumn, "(", LPAREN);
+      case ')': return processPatterns(startLine, startColumn, ")", RPAREN);
+      case '{': return processPatterns(startLine, startColumn, "{", LBRACE);
+      case '}': return processPatterns(startLine, startColumn, "}", RBRACE);
+      case '[': return processPatterns(startLine, startColumn, "[", LBRACKET);
+      case ']': return processPatterns(startLine, startColumn, "]", RBRACKET);
+      case '_': return processPatterns(startLine, startColumn, "_", UNDERSCORE);
+      default: return null;
     }
   }
 
-  private Token process(Object... patternsAndSymbols) {
-    // Must have an even number of arguments (pattern, symbol pairs)
+  private Token processPatterns(int startLine, int startColumn, Object... patternsAndSymbols) {
     if (patternsAndSymbols.length % 2 != 0) {
-        throw new IllegalArgumentException("process() requires pattern/symbol pairs");
+        throw new IllegalArgumentException("processPatterns() requires pattern/symbol pairs");
     }
     
     for (int i = 0; i < patternsAndSymbols.length; i += 2) {
         Object patternObj = patternsAndSymbols[i];
         Object symbolObj = patternsAndSymbols[i + 1];
         
-        // Validate types - Java 7 style
         if (!(patternObj instanceof String)) {
             throw new IllegalArgumentException(
                 "Pattern at position " + i + " must be String"
@@ -486,10 +744,10 @@ private Token scanNextToken() {
         
         if (matches(pattern)) {
             String text = consume(pattern.length());
-            return create(symbol, text);
+            return new Token(TokenType.SYMBOL, text, startLine, startColumn, symbol);
         }
     }
-    return create(TokenType.INVALID);
+    return null;
   }
 
   private boolean matches(String pattern) {
@@ -512,16 +770,8 @@ private Token scanNextToken() {
     return result.toString();
   }
 
-  private Token create(TokenType type, String text) {
-    return new Token(type, text, this.line, this.column);
-  }
-
   private Token create(TokenType type) {
     return new Token(type, type.name().toLowerCase(), this.line, this.column);
-  }
-
-  private Token create(Symbol symbol, String text) {
-    return new Token(TokenType.SYMBOL, text, this.line, this.column, symbol);
   }
 
   private void scanLineComment() {
@@ -530,7 +780,7 @@ private Token scanNextToken() {
 
   private void scanBlockComment() {
     consume();
-    consume(); // consume '/*'
+    consume();
     while (position < input.length() - 1) {
       if (peek() == '*' && peek(1) == '/') {
         consume();
