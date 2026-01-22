@@ -10,14 +10,18 @@ import java.util.*;
 import java.io.*;
 
 public class ImportResolver {
-    private Map<String, ProgramNode> importedUnits = new HashMap<>();
-    private Map<String, ProgramNode> loadedPrograms = new HashMap<>();
-    private Map<String, ProgramNode> preloadedImports = new HashMap<>();
-    private Set<String> registeredImports = new HashSet<>();
-    private List<String> importPaths = new ArrayList<>();
+    private Map<String, ProgramNode> importedUnits = new HashMap<String, ProgramNode>();
+    private Map<String, ProgramNode> loadedPrograms = new HashMap<String, ProgramNode>();
+    private Map<String, ProgramNode> preloadedImports = new HashMap<String, ProgramNode>();
+    private Set<String> registeredImports = new HashSet<String>();
+    private List<String> importPaths = new ArrayList<String>();
     private Map<String, String> packageBroadcasts = new HashMap<String, String>();
     
-    // NEW: Register broadcast declarations
+    // Policy registry for cross-file policy resolution
+    private Map<String, PolicyNode> importedPolicies = new HashMap<String, PolicyNode>();
+    private Map<String, String> policyToUnitMap = new HashMap<String, String>(); // Maps policy name -> unit name
+    
+    // Register broadcast declarations
     public void registerBroadcast(String packageName, String mainClassName) {
         if (packageBroadcasts.containsKey(packageName)) {
             // Check for conflicts - multiple broadcasts in same package
@@ -37,21 +41,117 @@ public class ImportResolver {
         }
     }
     
-    // NEW: Get broadcast for package
+    // Get broadcast for package
     public String getBroadcast(String packageName) {
         return packageBroadcasts.get(packageName);
     }
     
-    // NEW: Clear broadcasts (for testing)
+    // Clear broadcasts (for testing)
     public void clearBroadcasts() {
         packageBroadcasts.clear();
     }
+    
+    // Find a policy by qualified name
+    public PolicyNode findPolicy(String qualifiedPolicyName) {
+        DebugSystem.debug("POLICY_RESOLUTION", "findPolicy called for: " + qualifiedPolicyName);
+        
+        // Check if already loaded
+        if (importedPolicies.containsKey(qualifiedPolicyName)) {
+            DebugSystem.debug("POLICY_RESOLUTION", "Policy already loaded: " + qualifiedPolicyName);
+            return importedPolicies.get(qualifiedPolicyName);
+        }
+        
+        // Extract package and policy name
+        int lastDot = qualifiedPolicyName.lastIndexOf('.');
+        String policyName;
+        String importName;
+        
+        if (lastDot == -1) {
+            // Simple name like "Serializable"
+            policyName = qualifiedPolicyName;
+            importName = qualifiedPolicyName;
+        } else {
+            // Qualified name like "io.Serializable"
+            policyName = qualifiedPolicyName.substring(lastDot + 1);
+            importName = qualifiedPolicyName.substring(0, lastDot);
+        }
+        
+        DebugSystem.debug("POLICY_RESOLUTION", "Import part: '" + importName + "', policy: '" + policyName + "'");
+        
+        // Try to resolve the import if not already loaded
+        if (!loadedPrograms.containsKey(importName)) {
+            try {
+                DebugSystem.debug("POLICY_RESOLUTION", "Import not loaded, attempting to load: " + importName);
+                resolveImport(importName);
+            } catch (Exception e) {
+                DebugSystem.error("POLICY_RESOLUTION", "Failed to load import " + importName + ": " + e.getMessage());
+                return null;
+            }
+        }
+        
+        // Search in loaded program for the policy
+        ProgramNode program = loadedPrograms.get(importName);
+        if (program != null && program.unit != null && program.unit.policies != null) {
+            for (PolicyNode policy : program.unit.policies) {
+                if (policy.name.equals(policyName)) {
+                    DebugSystem.debug("POLICY_RESOLUTION", "Found policy: " + policy.name);
+                    // Cache it with full qualified name
+                    importedPolicies.put(qualifiedPolicyName, policy);
+                    policyToUnitMap.put(policyName, program.unit.name);
+                    return policy;
+                }
+            }
+        }
+        
+        // Also check if policy is in any loaded program with simple name
+        // (for backward compatibility)
+        for (Map.Entry<String, ProgramNode> entry : loadedPrograms.entrySet()) {
+            ProgramNode prog = entry.getValue();
+            if (prog != null && prog.unit != null && prog.unit.policies != null) {
+                for (PolicyNode policy : prog.unit.policies) {
+                    if (policy.name.equals(policyName)) {
+                        DebugSystem.debug("POLICY_RESOLUTION", "Found policy by simple name: " + policyName);
+                        // Cache with the qualified name from the unit
+                        String qualified = prog.unit.name + "." + policyName;
+                        importedPolicies.put(qualified, policy);
+                        importedPolicies.put(policyName, policy); // Also cache simple name
+                        policyToUnitMap.put(policyName, prog.unit.name);
+                        return policy;
+                    }
+                }
+            }
+        }
+        
+        DebugSystem.error("POLICY_RESOLUTION", "Policy not found: " + qualifiedPolicyName);
+        DebugSystem.debug("POLICY_RESOLUTION", "Loaded policies: " + importedPolicies.keySet());
+        return null;
+    }
+    
+    // Register a policy from a loaded program
+    public void registerPolicy(String qualifiedName, PolicyNode policy) {
+        importedPolicies.put(qualifiedName, policy);
+        DebugSystem.debug("POLICY_RESOLUTION", "Registered policy: " + qualifiedName);
+        
+        // Also register with simple name for easier lookup
+        if (!importedPolicies.containsKey(policy.name)) {
+            importedPolicies.put(policy.name, policy);
+        }
+    }
+    
+    // Get the unit name for a policy
+    public String getPolicyUnit(String policyName) {
+        return policyToUnitMap.get(policyName);
+    }
+    
+    // Get all registered policies
+    public Set<String> getRegisteredPolicies() {
+        return importedPolicies.keySet();
+    }
 
     public ImportResolver() {
-        // Initialize with default import paths
-        importPaths.add(".");
-        importPaths.add("./lib");
-        importPaths.add("./imports");
+        // Initialize with strict src/main/ path only
+        importPaths.add("src/main");
+        DebugSystem.debug("IMPORTS", "Initialized with strict src/main/ path");
     }
 
     public void addImportPath(String path) {
@@ -70,9 +170,6 @@ public class ImportResolver {
     public ProgramNode resolveImport(String importName) throws Exception {
         DebugSystem.debug("IMPORTS", "resolveImport called for: " + importName);
         
-        // Debug file system first
-        debugFileSystem(importName);
-        
         // Check if already loaded
         if (loadedPrograms.containsKey(importName)) {
             DebugSystem.debug("IMPORTS", "Import already loaded: " + importName);
@@ -85,62 +182,252 @@ public class ImportResolver {
             ProgramNode program = preloadedImports.get(importName);
             loadedPrograms.put(importName, program);
             importedUnits.put(importName, program); // Also add to importedUnits for compatibility
+            
+            // Register policies from the preloaded import
+            if (program.unit != null && program.unit.policies != null) {
+                for (PolicyNode policy : program.unit.policies) {
+                    // Register with unit.policyName format
+                    String qualifiedName = program.unit.name + "." + policy.name;
+                    registerPolicy(qualifiedName, policy);
+                    policyToUnitMap.put(policy.name, program.unit.name);
+                    DebugSystem.debug("IMPORTS", "Registered policy from preloaded import: " + qualifiedName);
+                }
+            }
+            
+            // Register any broadcast from the preloaded import
+            if (program.unit != null && program.unit.mainClassName != null && 
+                !program.unit.mainClassName.isEmpty()) {
+                String packageName = program.unit.name;
+                String mainClassName = program.unit.mainClassName;
+                
+                DebugSystem.debug("BROADCAST", "Registering broadcast from preloaded import '" + 
+                    importName + "': package '" + packageName + "' (main: " + mainClassName + ")");
+                
+                registerBroadcast(packageName, mainClassName);
+            }
+            
             return program;
         }
         
-        List<String> attemptedPaths = new ArrayList<>();
+        // STRICT RULE: importName is the UNIT (directory path)
+        // Try different file naming patterns in that directory
+        
+        List<String> attemptedPaths = new ArrayList<String>();
         ProgramNode program = null;
         
-        // Try different file paths and extensions
-        String[] basePaths = {
-            "",  // current directory
-            "cod/",
-            "src/cod/",
-            "../cod/",
-            "/storage/emulated/0/JavaNIDE/Programming-Language/Coderive/executables/"
-        };
+        // Convert unit name to directory path
+        String dirPath = importName.replace('.', '/');
         
-        String[] extensions = {
-            ".cod",
-            ".txt",
-            ""
-        };
-        
-        // Convert import name to file path (e.g., "cod.Sys" -> "cod/Sys")
-        String filePath = importName.replace('.', '/');
-        
-        for (String basePath : basePaths) {
-            for (String extension : extensions) {
-                String fullPath = basePath + filePath + extension;
-                attemptedPaths.add(fullPath);
-                
-                try {
-                    DebugSystem.debug("IMPORTS", "Trying path: " + fullPath);
-                    program = loadImportFromFile(fullPath);
-                    if (program != null) {
-                        DebugSystem.debug("IMPORTS", "Successfully loaded import from: " + fullPath);
-                        loadedPrograms.put(importName, program);
-                        importedUnits.put(importName, program); // Also add to importedUnits for compatibility
-                        return program;
+        // Try each import path
+        for (String basePath : importPaths) {
+            // Build full directory path
+            String fullDirPath;
+            if (basePath.isEmpty()) {
+                fullDirPath = dirPath;
+            } else {
+                fullDirPath = basePath + "/" + dirPath;
+            }
+            
+            File directory = new File(fullDirPath);
+            
+            if (directory.exists() && directory.isDirectory()) {
+                // Look for .cod files in this directory
+                File[] files = directory.listFiles(new FilenameFilter() {
+                    @Override
+                    public boolean accept(File dir, String name) {
+                        return name.endsWith(".cod");
                     }
-                } catch (Exception e) {
-                    DebugSystem.debug("IMPORTS", "Failed to load from " + fullPath + ": " + e.getMessage());
-                    // Continue to next path
+                });
+                
+                if (files != null && files.length > 0) {
+                    // Try each .cod file in the directory
+                    for (File file : files) {
+                        String filePath = file.getAbsolutePath();
+                        attemptedPaths.add(filePath);
+                        
+                        DebugSystem.debug("IMPORTS", "Trying file in unit directory: " + filePath);
+                        
+                        try {
+                            program = loadImportFromFile(filePath);
+                            if (program != null) {
+                                // VALIDATE: Check if unit declaration matches directory
+                                validateUnitAgainstDirectory(importName, program, filePath);
+                                
+                                DebugSystem.debug("IMPORTS", "Successfully loaded import from: " + filePath);
+                                loadedPrograms.put(importName, program);
+                                importedUnits.put(importName, program);
+                                
+                                // Register policies from the imported program
+                                if (program.unit != null && program.unit.policies != null) {
+                                    for (PolicyNode policy : program.unit.policies) {
+                                        // Register with unit.policyName format
+                                        String qualifiedName = program.unit.name + "." + policy.name;
+                                        registerPolicy(qualifiedName, policy);
+                                        policyToUnitMap.put(policy.name, program.unit.name);
+                                        DebugSystem.debug("IMPORTS", "Registered policy from import: " + qualifiedName);
+                                    }
+                                }
+                                
+                                // Register any broadcast from the imported program
+                                if (program.unit != null && program.unit.mainClassName != null && 
+                                    !program.unit.mainClassName.isEmpty()) {
+                                    String packageName = program.unit.name;
+                                    String mainClassName = program.unit.mainClassName;
+                                    
+                                    DebugSystem.debug("BROADCAST", "Registering broadcast from import '" + 
+                                        importName + "': package '" + packageName + "' (main: " + mainClassName + ")");
+                                    
+                                    registerBroadcast(packageName, mainClassName);
+                                }
+                                
+                                return program;
+                            }
+                        } catch (Exception e) {
+                            DebugSystem.debug("IMPORTS", "Failed to load from " + filePath + ": " + e.getMessage());
+                            // Continue to next file
+                        }
+                    }
                 }
+            }
+            
+            // Also try if it's a file directly (for leaf units like "cod.io" as a file)
+            String filePath = fullDirPath + ".cod";
+            attemptedPaths.add(filePath);
+            
+            DebugSystem.debug("IMPORTS", "Trying as file: " + filePath);
+            
+            try {
+                program = loadImportFromFile(filePath);
+                if (program != null) {
+                    // VALIDATE: Check if unit declaration matches
+                    validateUnitAgainstDirectory(importName, program, filePath);
+                    
+                    DebugSystem.debug("IMPORTS", "Successfully loaded import from: " + filePath);
+                    loadedPrograms.put(importName, program);
+                    importedUnits.put(importName, program);
+                    
+                    // Register policies and broadcasts
+                    if (program.unit != null && program.unit.policies != null) {
+                        for (PolicyNode policy : program.unit.policies) {
+                            String qualifiedName = program.unit.name + "." + policy.name;
+                            registerPolicy(qualifiedName, policy);
+                            policyToUnitMap.put(policy.name, program.unit.name);
+                        }
+                    }
+                    
+                    if (program.unit != null && program.unit.mainClassName != null && 
+                        !program.unit.mainClassName.isEmpty()) {
+                        registerBroadcast(program.unit.name, program.unit.mainClassName);
+                    }
+                    
+                    return program;
+                }
+            } catch (Exception e) {
+                DebugSystem.debug("IMPORTS", "Failed to load from " + filePath + ": " + e.getMessage());
             }
         }
         
-        // UPDATED: Better error message but still throw
-        if (program == null) {
-            String error = "Import not found: " + importName + 
-                          " (searched: " + attemptedPaths + ")";
-            DebugSystem.error("IMPORTS", error);
-            throw new RuntimeException(error);
-        }
-        
-        return program;
+        // If we get here, no file was found
+        String error = "Import not found: " + importName + 
+                      "\nNo .cod files found for unit.\n" +
+                      "Expected directory: src/main/" + dirPath + "/ (with .cod files)\n" +
+                      "Or file: src/main/" + dirPath + ".cod\n" +
+                      "Attempted paths: " + attemptedPaths;
+        DebugSystem.error("IMPORTS", error);
+        throw new RuntimeException(error);
     }
 
+    // VALIDATE: Check if unit declaration matches directory
+    private void validateUnitAgainstDirectory(String expectedUnit, ProgramNode program, String filePath) {
+        if (program.unit == null || program.unit.name == null) {
+            throw new RuntimeException("Program has no unit declaration in file: " + filePath);
+        }
+        
+        String declaredUnit = program.unit.name;
+        
+        if (!declaredUnit.equals(expectedUnit)) {
+            // Calculate what unit should be based on file location
+            String calculatedUnit = calculateUnitFromFilePath(filePath);
+            
+            if (!declaredUnit.equals(calculatedUnit)) {
+                throw new RuntimeException(
+                    "Unit declaration mismatch:\n" +
+                    "  File: " + filePath + "\n" +
+                    "  Declared unit: " + declaredUnit + "\n" +
+                    "  Expected unit: " + calculatedUnit + " (based on file location)\n" +
+                    "  Import requested: " + expectedUnit + "\n" +
+                    "\nUnit should match directory path relative to src/main/"
+                );
+            }
+        }
+    }
+    
+    // Calculate unit name from file path
+    private String calculateUnitFromFilePath(String filePath) {
+        // Convert: src/main/cod/io/Serializable.cod -> cod.io
+        // Convert: src/main/cod/io.cod -> cod.io
+        // Convert: src/main/cod.cod -> cod
+        
+        String normalized = filePath.replace('\\', '/');
+        
+        // Find src/main/ in the path
+        String srcMain = "src/main/";
+        int srcMainIndex = normalized.indexOf(srcMain);
+        
+        if (srcMainIndex == -1) {
+            // Try to find any of our import paths
+            for (String importPath : importPaths) {
+                if (!importPath.isEmpty() && normalized.contains(importPath + "/")) {
+                    int importPathIndex = normalized.indexOf(importPath + "/");
+                    if (importPathIndex != -1) {
+                        String relative = normalized.substring(importPathIndex + importPath.length() + 1);
+                        return calculateUnitFromRelativePath(relative);
+                    }
+                }
+            }
+            throw new RuntimeException("File not under any import path: " + filePath);
+        }
+        
+        String relative = normalized.substring(srcMainIndex + srcMain.length());
+        return calculateUnitFromRelativePath(relative);
+    }
+    
+    private String calculateUnitFromRelativePath(String relativePath) {
+        // Remove .cod extension
+        if (relativePath.endsWith(".cod")) {
+            relativePath = relativePath.substring(0, relativePath.length() - 4);
+        }
+        
+        // Split into components
+        String[] parts = relativePath.split("/");
+        List<String> unitParts = new ArrayList<String>();
+        
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i];
+            if (part.isEmpty()) continue;
+            
+            // Check if this looks like a file name (PascalCase for classes/policies)
+            boolean looksLikeFileName = part.length() > 0 && Character.isUpperCase(part.charAt(0));
+            
+            if (i == parts.length - 1 && looksLikeFileName) {
+                // Last component and looks like a class name, skip it
+                continue;
+            }
+            
+            unitParts.add(part);
+        }
+        
+        // Join with dots
+        StringBuilder unitName = new StringBuilder();
+        for (int i = 0; i < unitParts.size(); i++) {
+            if (i > 0) unitName.append(".");
+            unitName.append(unitParts.get(i));
+        }
+        
+        return unitName.toString();
+    }
+    
+    // Load import from file
     private ProgramNode loadImportFromFile(String filePath) throws Exception {
         File file = new File(filePath);
         if (!file.exists() || !file.isFile()) {
@@ -149,10 +436,11 @@ public class ImportResolver {
         
         DebugSystem.debug("IMPORTS", "Loading import from file: " + filePath);
         
+        BufferedReader reader = null;
         try {
             // Read the file content
             StringBuilder content = new StringBuilder();
-            BufferedReader reader = new BufferedReader(new FileReader(file));
+            reader = new BufferedReader(new FileReader(file));
             String line;
             while ((line = reader.readLine()) != null) {
                 content.append(line).append("\n");
@@ -170,139 +458,146 @@ public class ImportResolver {
             MainParser parser = new MainParser(tokens);
             ProgramNode program = parser.parseProgram();
             
-            DebugSystem.debug("IMPORTS", "Successfully parsed import file using manual parser: " + filePath);
+            DebugSystem.debug("IMPORTS", "Successfully parsed import file: " + filePath);
             return program;
 
         } catch (Exception e) {
             DebugSystem.error("IMPORTS", "Failed to parse import file: " + filePath + " - " + e.getMessage());
-            e.printStackTrace();
             throw new RuntimeException("Failed to parse import file: " + filePath + " - " + e.getMessage(), e);
+        } finally {
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    // Ignore
+                }
+            }
         }
     }
 
-public TypeNode findType(String qualifiedTypeName) {
-    DebugSystem.debug("IMPORTS", "findType called for: " + qualifiedTypeName);
-    
-    // Extract type name and potential import name
-    int lastDot = qualifiedTypeName.lastIndexOf('.');
-    if (lastDot == -1) {
-        // Simple name like "Sys" - need to search all imports
-        DebugSystem.debug("IMPORTS", "Simple type name, searching all imports");
-        return findTypeByName(qualifiedTypeName);
-    }
-    
-    String typeName = qualifiedTypeName.substring(lastDot + 1);
-    String importPart = qualifiedTypeName.substring(0, lastDot);
-    
-    DebugSystem.debug("IMPORTS", "Import part: '" + importPart + "', type: '" + typeName + "'");
-    
-    // First check if we already have a loaded import that matches
-    String actualImportName = null;
-    
-    // Check loaded imports first
-    for (String loadedImport : loadedPrograms.keySet()) {
-        DebugSystem.debug("IMPORTS", "Checking loaded import: " + loadedImport);
+    public TypeNode findType(String qualifiedTypeName) {
+        DebugSystem.debug("IMPORTS", "findType called for: " + qualifiedTypeName);
         
-        if (loadedImport.endsWith("." + importPart) || loadedImport.equals(importPart)) {
-            actualImportName = loadedImport;
-            DebugSystem.debug("IMPORTS", "Found matching loaded import: " + actualImportName);
-            break;
+        // Extract type name and potential import name
+        int lastDot = qualifiedTypeName.lastIndexOf('.');
+        if (lastDot == -1) {
+            // Simple name like "Sys" - need to search all imports
+            DebugSystem.debug("IMPORTS", "Simple type name, searching all imports");
+            return findTypeByName(qualifiedTypeName);
         }
-    }
-    
-    // If not found in loaded imports, check registered imports
-    if (actualImportName == null) {
-        for (String registeredImport : registeredImports) {
-            DebugSystem.debug("IMPORTS", "Checking registered import: " + registeredImport);
+        
+        String typeName = qualifiedTypeName.substring(lastDot + 1);
+        String importPart = qualifiedTypeName.substring(0, lastDot);
+        
+        DebugSystem.debug("IMPORTS", "Import part: '" + importPart + "', type: '" + typeName + "'");
+        
+        // First check if we already have a loaded import that matches
+        String actualImportName = null;
+        
+        // Check loaded imports first
+        for (String loadedImport : loadedPrograms.keySet()) {
+            DebugSystem.debug("IMPORTS", "Checking loaded import: " + loadedImport);
             
-            if (registeredImport.endsWith("." + importPart) || registeredImport.equals(importPart)) {
-                actualImportName = registeredImport;
-                DebugSystem.debug("IMPORTS", "Found matching registered import: " + actualImportName);
+            if (loadedImport.endsWith("." + importPart) || loadedImport.equals(importPart)) {
+                actualImportName = loadedImport;
+                DebugSystem.debug("IMPORTS", "Found matching loaded import: " + actualImportName);
                 break;
             }
         }
-    }
-    
-    // If still not found, use the import part as-is
-    if (actualImportName == null) {
-        actualImportName = importPart;
-        DebugSystem.debug("IMPORTS", "No import matched, using: " + actualImportName);
-    }
-    
-    DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', type: '" + typeName + "'");
-    
-    // Try to resolve the import if not already loaded
-    if (!loadedPrograms.containsKey(actualImportName)) {
-        DebugSystem.debug("IMPORTS", "Import not loaded, trying to resolve: " + actualImportName);
-        try {
-            ProgramNode program = resolveImport(actualImportName);
-            if (program != null) {
-                loadedPrograms.put(actualImportName, program);
-                importedUnits.put(actualImportName, program);
-                registeredImports.remove(actualImportName);
-                DebugSystem.debug("IMPORTS", "Successfully loaded import: " + actualImportName);
-            }
-        } catch (Exception e) {
-            DebugSystem.error("IMPORTS", "Failed to load import " + actualImportName + ": " + e.getMessage());
-            return null;
-        }
-    }
-    
-    // Search through loaded programs for the type
-    DebugSystem.debug("IMPORTS", "Searching for type '" + typeName + "' in loaded program: " + actualImportName);
-    
-    ProgramNode program = loadedPrograms.get(actualImportName);
-    if (program != null && program.unit != null && program.unit.types != null) {
-        for (TypeNode type : program.unit.types) {
-            DebugSystem.debug("IMPORTS", "  Checking type: " + type.name);
-            if (type.name.equals(typeName)) {
-                DebugSystem.debug("IMPORTS", "    *** FOUND TYPE: " + type.name + " ***");
-                return type;
+        
+        // If not found in loaded imports, check registered imports
+        if (actualImportName == null) {
+            for (String registeredImport : registeredImports) {
+                DebugSystem.debug("IMPORTS", "Checking registered import: " + registeredImport);
+                
+                if (registeredImport.endsWith("." + importPart) || registeredImport.equals(importPart)) {
+                    actualImportName = registeredImport;
+                    DebugSystem.debug("IMPORTS", "Found matching registered import: " + actualImportName);
+                    break;
+                }
             }
         }
-    }
-    
-    // Type not found
-    DebugSystem.error("IMPORTS", "*** TYPE NOT FOUND: " + qualifiedTypeName + " ***");
-    DebugSystem.debug("IMPORTS", "Loaded imports: " + loadedPrograms.keySet());
-    DebugSystem.debug("IMPORTS", "Registered imports: " + registeredImports);
-    
-    return null;
-}
-
-private TypeNode findTypeByName(String typeName) {
-    // Search all loaded programs for this type name
-    for (Map.Entry<String, ProgramNode> entry : loadedPrograms.entrySet()) {
-        ProgramNode program = entry.getValue();
+        
+        // If still not found, use the import part as-is
+        if (actualImportName == null) {
+            actualImportName = importPart;
+            DebugSystem.debug("IMPORTS", "No import matched, using: " + actualImportName);
+        }
+        
+        DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', type: '" + typeName + "'");
+        
+        // Try to resolve the import if not already loaded
+        if (!loadedPrograms.containsKey(actualImportName)) {
+            DebugSystem.debug("IMPORTS", "Import not loaded, trying to resolve: " + actualImportName);
+            try {
+                ProgramNode program = resolveImport(actualImportName);
+                if (program != null) {
+                    loadedPrograms.put(actualImportName, program);
+                    importedUnits.put(actualImportName, program);
+                    registeredImports.remove(actualImportName);
+                    DebugSystem.debug("IMPORTS", "Successfully loaded import: " + actualImportName);
+                }
+            } catch (Exception e) {
+                DebugSystem.error("IMPORTS", "Failed to load import " + actualImportName + ": " + e.getMessage());
+                return null;
+            }
+        }
+        
+        // Search through loaded programs for the type
+        DebugSystem.debug("IMPORTS", "Searching for type '" + typeName + "' in loaded program: " + actualImportName);
+        
+        ProgramNode program = loadedPrograms.get(actualImportName);
         if (program != null && program.unit != null && program.unit.types != null) {
             for (TypeNode type : program.unit.types) {
+                DebugSystem.debug("IMPORTS", "  Checking type: " + type.name);
                 if (type.name.equals(typeName)) {
+                    DebugSystem.debug("IMPORTS", "    *** FOUND TYPE: " + type.name + " ***");
                     return type;
                 }
             }
         }
+        
+        // Type not found
+        DebugSystem.error("IMPORTS", "*** TYPE NOT FOUND: " + qualifiedTypeName + " ***");
+        DebugSystem.debug("IMPORTS", "Loaded imports: " + loadedPrograms.keySet());
+        DebugSystem.debug("IMPORTS", "Registered imports: " + registeredImports);
+        
+        return null;
     }
-    
-    // Try loading from registered imports that might contain this type
-    for (String importName : registeredImports) {
-        if (importName.endsWith("." + typeName)) {
-            try {
-                ProgramNode program = resolveImport(importName);
-                if (program != null && program.unit != null && program.unit.types != null) {
-                    for (TypeNode type : program.unit.types) {
-                        if (type.name.equals(typeName)) {
-                            return type;
-                        }
+
+    private TypeNode findTypeByName(String typeName) {
+        // Search all loaded programs for this type name
+        for (Map.Entry<String, ProgramNode> entry : loadedPrograms.entrySet()) {
+            ProgramNode program = entry.getValue();
+            if (program != null && program.unit != null && program.unit.types != null) {
+                for (TypeNode type : program.unit.types) {
+                    if (type.name.equals(typeName)) {
+                        return type;
                     }
                 }
-            } catch (Exception e) {
-                continue;
             }
         }
+        
+        // Try loading from registered imports that might contain this type
+        for (String importName : registeredImports) {
+            if (importName.endsWith("." + typeName)) {
+                try {
+                    ProgramNode program = resolveImport(importName);
+                    if (program != null && program.unit != null && program.unit.types != null) {
+                        for (TypeNode type : program.unit.types) {
+                            if (type.name.equals(typeName)) {
+                                return type;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    continue;
+                }
+            }
+        }
+        
+        return null;
     }
-    
-    return null;
-}
 
     public MethodNode findMethod(String qualifiedMethodName) {
         DebugSystem.debug("IMPORTS", "findMethod called for: " + qualifiedMethodName);
@@ -403,26 +698,37 @@ private TypeNode findTypeByName(String typeName) {
     public void debugFileSystem(String importName) {
         DebugSystem.debug("FILE_SYSTEM", "=== FILE SYSTEM DEBUG for: " + importName + " ===");
         
-        String filePath = importName.replace('.', '/') + ".cod";
-        DebugSystem.debug("FILE_SYSTEM", "Looking for: " + filePath);
+        String dirPath = importName.replace('.', '/');
+        DebugSystem.debug("FILE_SYSTEM", "Looking for unit directory: " + dirPath);
         DebugSystem.debug("FILE_SYSTEM", "Import paths: " + importPaths);
         
         for (String basePath : importPaths) {
-            File file = new File(basePath, filePath);
-            DebugSystem.debug("FILE_SYSTEM", "Path: " + file.getAbsolutePath() + 
-                             " [exists: " + file.exists() + ", isFile: " + file.isFile() + "]");
+            String fullDirPath;
+            if (basePath.isEmpty()) {
+                fullDirPath = dirPath;
+            } else {
+                fullDirPath = basePath + "/" + dirPath;
+            }
             
-            // Also check the directory
-            File dir = file.getParentFile();
-            if (dir != null && dir.exists()) {
-                DebugSystem.debug("FILE_SYSTEM", "Directory contents of " + dir.getAbsolutePath() + ":");
+            File dir = new File(fullDirPath);
+            DebugSystem.debug("FILE_SYSTEM", "Directory: " + dir.getAbsolutePath() + 
+                             " [exists: " + dir.exists() + ", isDirectory: " + dir.isDirectory() + "]");
+            
+            if (dir.exists() && dir.isDirectory()) {
+                DebugSystem.debug("FILE_SYSTEM", "Directory contents:");
                 String[] files = dir.list();
                 if (files != null) {
                     for (String f : files) {
-                        DebugSystem.debug("FILE_SYSTEM", "  - " + f);
+                        DebugSystem.debug("FILE_SYSTEM", "  - " + f + 
+                                         " [dir: " + new File(dir, f).isDirectory() + "]");
                     }
                 }
             }
+            
+            // Also check for file directly
+            File file = new File(fullDirPath + ".cod");
+            DebugSystem.debug("FILE_SYSTEM", "File: " + file.getAbsolutePath() + 
+                             " [exists: " + file.exists() + ", isFile: " + file.isFile() + "]");
         }
         DebugSystem.debug("FILE_SYSTEM", "=== END FILE SYSTEM DEBUG ===");
     }
@@ -432,22 +738,36 @@ private TypeNode findTypeByName(String typeName) {
         DebugSystem.debug("IMPORTS", "Import paths: " + importPaths);
         DebugSystem.debug("IMPORTS", "Loaded imports: " + importedUnits.keySet());
         DebugSystem.debug("IMPORTS", "Registered imports (lazy): " + registeredImports);
+        DebugSystem.debug("IMPORTS", "Registered policies: " + getRegisteredPolicies());
 
         for (Map.Entry<String, ProgramNode> entry : importedUnits.entrySet()) {
             String unitName = entry.getKey();
             ProgramNode program = entry.getValue();
             DebugSystem.debug("IMPORTS", "Unit: " + unitName);
-            if (program != null && program.unit != null && program.unit.types != null) {
-                for (TypeNode type : program.unit.types) {
-                    DebugSystem.debug("IMPORTS", "  Type: " + type.name);
-                    for (MethodNode node : type.methods) {
-                        DebugSystem.debug(
+            if (program != null && program.unit != null) {
+                // Show policies
+                if (program.unit.policies != null && !program.unit.policies.isEmpty()) {
+                    DebugSystem.debug("IMPORTS", "  Policies:");
+                    for (PolicyNode policy : program.unit.policies) {
+                        // UPDATED: Only show composition, not inheritance
+                        DebugSystem.debug("IMPORTS", "    " + policy.name + 
+                            (policy.composedPolicies != null && !policy.composedPolicies.isEmpty() ? 
+                             " with " + policy.composedPolicies : ""));
+                    }
+                }
+                // Show types
+                if (program.unit.types != null) {
+                    for (TypeNode type : program.unit.types) {
+                        DebugSystem.debug("IMPORTS", "  Type: " + type.name);
+                        for (MethodNode node : type.methods) {
+                            DebugSystem.debug(
                                 "IMPORTS",
                                 "    Method: "
-                                        + node.methodName
-                                        + " (params: "
-                                        + node.parameters.size()
-                                        + ")");
+                                    + node.methodName
+                                    + " (params: "
+                                    + node.parameters.size()
+                                    + ")");
+                        }
                     }
                 }
             }
@@ -460,6 +780,15 @@ private TypeNode findTypeByName(String typeName) {
         loadedPrograms.put(qualifiedName, program);
         preloadedImports.put(qualifiedName, program);
         DebugSystem.debug("IMPORTS", "Pre-loaded import into resolver: " + qualifiedName);
+        
+        // Register policies from preloaded import
+        if (program.unit != null && program.unit.policies != null) {
+            for (PolicyNode policy : program.unit.policies) {
+                String qualifiedPolicyName = program.unit.name + "." + policy.name;
+                registerPolicy(qualifiedPolicyName, policy);
+                policyToUnitMap.put(policy.name, program.unit.name);
+            }
+        }
     }
 
     public Set<String> getLoadedImports() {
@@ -467,6 +796,6 @@ private TypeNode findTypeByName(String typeName) {
     }
     
     public Set<String> getRegisteredImports() {
-        return new HashSet<>(registeredImports);
+        return new HashSet<String>(registeredImports);
     }
 }

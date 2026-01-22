@@ -1,13 +1,13 @@
 package cod.semantic;
 
 import cod.ast.nodes.*;
+import cod.ast.ASTFactory;
 import cod.interpreter.*;
 import cod.interpreter.context.*;
 import cod.interpreter.type.*;
 import static cod.syntax.Keyword.*;
 
 import java.util.*;
-import java.math.BigDecimal;
 
 public class ConstructorResolver {
     private final TypeSystem typeSystem;
@@ -75,32 +75,6 @@ public class ConstructorResolver {
             
             current = nextType.extendName;
         }
-    }
-    
-    // NEW: Find parent type
-    private TypeNode findParentType(TypeNode childType, ExecutionContext ctx) {
-        if (childType.extendName == null) {
-            return null;
-        }
-        return findType(childType.extendName, ctx);
-    }
-    
-    // NEW: Get complete inheritance chain
-    private List<TypeNode> getInheritanceChain(TypeNode type, ExecutionContext ctx) {
-        List<TypeNode> chain = new ArrayList<TypeNode>();
-        chain.add(type);
-        
-        TypeNode current = type;
-        while (current.extendName != null) {
-            TypeNode parent = findParentType(current, ctx);
-            if (parent == null) {
-                break;
-            }
-            chain.add(0, parent); // Add parent to beginning (so chain is [root, ..., child])
-            current = parent;
-        }
-        
-        return chain;
     }
     
     private TypeNode findType(String className, ExecutionContext ctx) {
@@ -380,13 +354,175 @@ public class ConstructorResolver {
         return bestMatch;
     }
     
+       // NEW: Validate that a class implements all required policy methods from ancestors (VIRAL)
+    public void validateViralPolicies(TypeNode type, ExecutionContext ctx) {
+        if (type == null) {
+            return;
+        }
+        
+        // Get all policies from ancestors
+        List<String> ancestorPolicies = getAncestorPolicies(type, ctx);
+        
+        // For each ancestor policy, check if this class implements all required methods
+        for (String policyName : ancestorPolicies) {
+            PolicyNode policy = findPolicy(policyName, ctx);
+            if (policy != null) {
+                List<PolicyMethodNode> requiredMethods = getAllPolicyMethods(policy);
+                
+                for (PolicyMethodNode requiredMethod : requiredMethods) {
+                    // Check if this class implements this method
+                    boolean implementsMethod = false;
+                    
+                    // Check in class methods
+                    if (type.methods != null) {
+                        for (MethodNode classMethod : type.methods) {
+                            if (classMethod.methodName.equals(requiredMethod.methodName) && 
+                                classMethod.isPolicyMethod) {
+                                implementsMethod = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (!implementsMethod) {
+                        // Find which ancestor requires this
+                        String requiringAncestor = findRequiringAncestor(type, policyName, ctx);
+                        
+                        throw new ConstructorResolutionException(
+                            type.name,
+                            "Missing policy method implementation: '" + requiredMethod.methodName + 
+                            "' required by ancestor '" + requiringAncestor + 
+                            "' which implements policy '" + policyName + "'",
+                            Collections.<String>emptyList()
+                        );
+                    }
+                }
+            }
+        }
+    }
+    
+    // NEW: Get all policies from ancestors (excluding this class's own)
+    private List<String> getAncestorPolicies(TypeNode type, ExecutionContext ctx) {
+        List<String> ancestorPolicies = new ArrayList<String>();
+        if (type == null || type.extendName == null) {
+            return ancestorPolicies;
+        }
+        
+        TypeNode current = findParentType(type, ctx);
+        while (current != null) {
+            if (current.implementedPolicies != null) {
+                for (String policyName : current.implementedPolicies) {
+                    if (!ancestorPolicies.contains(policyName)) {
+                        ancestorPolicies.add(policyName);
+                    }
+                }
+            }
+            
+            if (current.extendName != null) {
+                current = findParentType(current, ctx);
+            } else {
+                current = null;
+            }
+        }
+        
+        return ancestorPolicies;
+    }
+    
+    // NEW: Find which ancestor first implemented a policy
+    private String findRequiringAncestor(TypeNode child, String policyName, ExecutionContext ctx) {
+        TypeNode current = findParentType(child, ctx);
+        
+        while (current != null) {
+            if (current.implementedPolicies != null && 
+                current.implementedPolicies.contains(policyName)) {
+                return current.name;
+            }
+            
+            if (current.extendName != null) {
+                current = findParentType(current, ctx);
+            } else {
+                current = null;
+            }
+        }
+        
+        return "unknown ancestor";
+    }
+    
+    // NEW: Find a policy (helper method)
+    private PolicyNode findPolicy(String policyName, ExecutionContext ctx) {
+        // Try ImportResolver first
+        if (interpreter != null && interpreter.getImportResolver() != null) {
+            PolicyNode policy = interpreter.getImportResolver().findPolicy(policyName);
+            if (policy != null) {
+                return policy;
+            }
+        }
+        
+        // Check current program
+        if (interpreter != null && interpreter.getCurrentProgram() != null) {
+            ProgramNode program = interpreter.getCurrentProgram();
+            if (program.unit != null && program.unit.policies != null) {
+                for (PolicyNode policy : program.unit.policies) {
+                    if (policy.name.equals(policyName)) {
+                        return policy;
+                    }
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    // NEW: Get all methods from a policy (including composed)
+    private List<PolicyMethodNode> getAllPolicyMethods(PolicyNode policy) {
+        if (policy == null) {
+            return new ArrayList<PolicyMethodNode>();
+        }
+        
+        List<PolicyMethodNode> allMethods = new ArrayList<PolicyMethodNode>();
+        Set<String> visited = new HashSet<String>();
+        
+        collectPolicyMethodsRecursive(policy, allMethods, visited);
+        
+        return allMethods;
+    }
+    
+    // NEW: Recursively collect policy methods
+    private void collectPolicyMethodsRecursive(PolicyNode policy, List<PolicyMethodNode> allMethods, 
+                                              Set<String> visited) {
+        if (policy == null || visited.contains(policy.name)) {
+            return;
+        }
+        
+        visited.add(policy.name);
+        
+        // Collect from composed policies
+        if (policy.composedPolicies != null) {
+            for (String composedName : policy.composedPolicies) {
+                PolicyNode composed = findPolicy(composedName, null);
+                if (composed != null) {
+                    collectPolicyMethodsRecursive(composed, allMethods, visited);
+                }
+            }
+        }
+        
+        // Add local methods
+        if (policy.methods != null) {
+            allMethods.addAll(policy.methods);
+        }
+    }
+    
+    // UPDATED: Create instance with viral policy validation
     private ObjectInstance createInstance(TypeNode type, 
                                          ConstructorMatch match,
                                          ConstructorCallNode call,
                                          ExecutionContext ctx) {
         ObjectInstance obj = new ObjectInstance(type);
         
-        // NEW: Initialize all inherited fields in order from root to leaf
+        // NEW: Validate viral policies before creating instance
+        validateViralPolicies(type, ctx);
+        
+        // Initialize all inherited fields in order from root to leaf
         List<TypeNode> inheritanceChain = getInheritanceChain(type, ctx);
         for (TypeNode chainType : inheritanceChain) {
             initializeFields(chainType, obj);
@@ -398,9 +534,37 @@ public class ConstructorResolver {
             constrCtx.localTypes.put(param.name, param.type);
         }
         
+        // Check for super constructor call at the beginning of constructor body
+        boolean explicitSuperCalled = false;
+        
+        // Look for super constructor call (MethodCallNode with isSuperCall = true)
+        if (!match.constructor.body.isEmpty() && match.constructor.body.get(0) instanceof MethodCallNode) {
+            MethodCallNode firstCall = (MethodCallNode) match.constructor.body.get(0);
+            if (firstCall.isSuperCall) {
+                explicitSuperCalled = true;
+                // Call parent constructor with the provided arguments
+                invokeSuperConstructor(type, firstCall, obj, ctx, constrCtx);
+            }
+        }
+        
+        // If no explicit super call and we have inheritance, call default parent constructor
+        if (!explicitSuperCalled && type.extendName != null) {
+            TypeNode parentType = findParentType(type, ctx);
+            if (parentType != null) {
+                // Find default constructor for parent
+                ConstructorMatch parentMatch = findDefaultConstructor(parentType);
+                if (parentMatch != null) {
+                    invokeParentConstructorSilently(parentType, parentMatch, obj, ctx, constrCtx);
+                }
+            }
+        }
+        
         visitor.pushContext(constrCtx);
         try {
-            for (StmtNode stmt : match.constructor.body) {
+            // Skip the first statement if it was a super constructor call
+            int startIndex = explicitSuperCalled ? 1 : 0;
+            for (int i = startIndex; i < match.constructor.body.size(); i++) {
+                StmtNode stmt = match.constructor.body.get(i);
                 visitor.dispatch(stmt);
             }
         } finally {
@@ -409,6 +573,92 @@ public class ConstructorResolver {
         
         return obj;
     }
+
+
+// NEW: Invoke super constructor explicitly
+private void invokeSuperConstructor(TypeNode childType, MethodCallNode superCall, 
+                                    ObjectInstance childObj, ExecutionContext childCtx,
+                                    ExecutionContext constrCtx) {
+    TypeNode parentType = findParentType(childType, childCtx);
+    if (parentType == null) {
+        throw new ConstructorResolutionException(
+            childType.name,
+            "Cannot call super constructor: parent type not found",
+            Collections.<String>emptyList()
+        );
+    }
+    
+    // Convert MethodCallNode to ConstructorCallNode for parent
+    ConstructorCallNode parentCall = new ConstructorCallNode();
+    parentCall.className = parentType.name;
+    parentCall.arguments = superCall.arguments;
+    parentCall.argNames = superCall.argNames;
+    
+    // Find matching constructor in parent
+    ConstructorMatch parentMatch = findBestMatchingConstructor(parentType, parentCall, childCtx);
+    if (parentMatch == null) {
+        throw new ConstructorResolutionException(
+            childType.name,
+            "No matching parent constructor found for arguments",
+            getConstructorSignatures(parentType.constructors)
+        );
+    }
+    
+    // Create parent context and execute parent constructor
+    ExecutionContext parentConstrCtx = new ExecutionContext(childObj, parentMatch.argumentValues, null, null);
+    
+    for (ParamNode param : parentMatch.constructor.parameters) {
+        parentConstrCtx.localTypes.put(param.name, param.type);
+    }
+    
+    visitor.pushContext(parentConstrCtx);
+    try {
+        for (StmtNode stmt : parentMatch.constructor.body) {
+            visitor.dispatch(stmt);
+        }
+    } finally {
+        visitor.popContext();
+        visitor.pushContext(constrCtx); // Restore child constructor context
+    }
+}
+
+// NEW: Invoke default parent constructor silently (without explicit call)
+private void invokeParentConstructorSilently(TypeNode parentType, ConstructorMatch parentMatch,
+                                            ObjectInstance childObj, ExecutionContext childCtx,
+                                            ExecutionContext constrCtx) {
+    ExecutionContext parentConstrCtx = new ExecutionContext(childObj, parentMatch.argumentValues, null, null);
+    
+    for (ParamNode param : parentMatch.constructor.parameters) {
+        parentConstrCtx.localTypes.put(param.name, param.type);
+    }
+    
+    visitor.pushContext(parentConstrCtx);
+    try {
+        for (StmtNode stmt : parentMatch.constructor.body) {
+            visitor.dispatch(stmt);
+        }
+    } finally {
+        visitor.popContext();
+        visitor.pushContext(constrCtx); // Restore child constructor context
+    }
+}
+
+// NEW: Find default constructor for a type
+private ConstructorMatch findDefaultConstructor(TypeNode type) {
+    if (type.constructors == null || type.constructors.isEmpty()) {
+        ConstructorNode defaultConstructor = createDefaultConstructor(type);
+        return new ConstructorMatch(defaultConstructor, Collections.<String, Object>emptyMap(), 0);
+    }
+    
+    // Look for constructor with no parameters
+    for (ConstructorNode constructor : type.constructors) {
+        if (constructor.parameters == null || constructor.parameters.isEmpty()) {
+            return new ConstructorMatch(constructor, Collections.<String, Object>emptyMap(), 0);
+        }
+    }
+    
+    return null;
+}
     
     private void initializeFields(TypeNode type, ObjectInstance obj) {
         for (FieldNode field : type.fields) {
@@ -439,9 +689,10 @@ public class ConstructorResolver {
         
         for (FieldNode field : type.fields) {
             if (field.value != null) {
-                SlotAssignmentNode fieldInit = new SlotAssignmentNode();
-                fieldInit.slotName = field.name;
-                fieldInit.value = field.value;
+                // UPDATED: Pass null as the token parameter to createIdentifier
+                ExprNode fieldTarget = ASTFactory.createIdentifier(field.name, null);
+                // UPDATED: Pass null as the token parameter to createAssignment
+                AssignmentNode fieldInit = ASTFactory.createAssignment(fieldTarget, field.value, false, null);
                 defaultConstructor.body.add(fieldInit);
             }
         }
@@ -476,26 +727,23 @@ public class ConstructorResolver {
     public Object getFieldFromHierarchy(TypeNode type, String fieldName, ExecutionContext ctx) {
         if (type == null) return null;
         
-        // Check current type's fields
-        TypeNode fieldOwner = findFieldOwnerInHierarchy(type, fieldName, ctx);
-        return fieldOwner != null ? ctx.objectInstance.fields.get(fieldName) : null;
-    }
-    
-    // NEW: Find which type in hierarchy owns this field
-    private TypeNode findFieldOwnerInHierarchy(TypeNode type, String fieldName, ExecutionContext ctx) {
-        if (type == null) return null;
+        // NEW: Extract field name if using "this.field" syntax
+        String actualFieldName = fieldName;
+        if (fieldName != null && fieldName.startsWith("this.")) {
+            actualFieldName = fieldName.substring(5); // Remove "this."
+        }
         
         // Check if current type has the field
         for (FieldNode field : type.fields) {
-            if (field.name.equals(fieldName)) {
-                return type;
+            if (field.name.equals(actualFieldName)) {
+                return ctx.objectInstance.fields.get(actualFieldName);
             }
         }
         
         // Check parent recursively
         if (type.extendName != null) {
             TypeNode parent = findParentType(type, ctx);
-            return findFieldOwnerInHierarchy(parent, fieldName, ctx);
+            return getFieldFromHierarchy(parent, actualFieldName, ctx);
         }
         
         return null;
@@ -521,6 +769,56 @@ public class ConstructorResolver {
         return null;
     }
     
+        // NEW: Helper to get inheritance chain
+    private List<TypeNode> getInheritanceChain(TypeNode type, ExecutionContext ctx) {
+        List<TypeNode> chain = new ArrayList<TypeNode>();
+        if (type == null) {
+            return chain;
+        }
+        
+        // Add parent first (root to leaf order)
+        if (type.extendName != null) {
+            TypeNode parent = findParentType(type, ctx);
+            if (parent != null) {
+                chain.addAll(getInheritanceChain(parent, ctx));
+            }
+        }
+        
+        // Add this type
+        chain.add(type);
+        
+        return chain;
+    }
+    
+    // Existing findParentType method
+    public TypeNode findParentType(TypeNode childType, ExecutionContext ctx) {
+        if (childType.extendName == null) {
+            return null;
+        }
+        
+        // Try to find parent via ImportResolver
+        if (interpreter != null && interpreter.getImportResolver() != null) {
+            TypeNode parent = interpreter.getImportResolver().findType(childType.extendName);
+            if (parent != null) {
+                return parent;
+            }
+        }
+        
+        // Check current program
+        if (interpreter != null && interpreter.getCurrentProgram() != null) {
+            ProgramNode program = interpreter.getCurrentProgram();
+            if (program.unit != null && program.unit.types != null) {
+                for (TypeNode type : program.unit.types) {
+                    if (type.name.equals(childType.extendName)) {
+                        return type;
+                    }
+                }
+            }
+        }
+        
+        return null;
+    }
+    
     private static class ConstructorMatch {
         final ConstructorNode constructor;
         final Map<String, Object> argumentValues;
@@ -533,6 +831,7 @@ public class ConstructorResolver {
         }
     }
     
+    @SuppressWarnings("serial")
     public static class ConstructorResolutionException extends RuntimeException {
         private final List<String> availableSignatures;
         
