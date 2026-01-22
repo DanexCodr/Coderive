@@ -12,10 +12,12 @@ import java.math.BigDecimal;
 public class ExpressionHandler {
     private final TypeSystem typeSystem;
     private final InterpreterVisitor dispatcher;
+    private final TypeHandler typeHandler;
     
     public ExpressionHandler(TypeSystem typeSystem, InterpreterVisitor dispatcher) {
         this.typeSystem = typeSystem;
         this.dispatcher = dispatcher;
+        this.typeHandler = new TypeHandler(typeSystem);  // Initialize TypeHandler
     }
     
     // === Core Expression Evaluation ===
@@ -113,7 +115,7 @@ public class ExpressionHandler {
             case "+":
                 return operand;
             case "!":
-                return !isTruthy(operand);
+                return !typeHandler.isTruthy(operand);  // Use TypeHandler.isTruthy()
             default:
                 throw new RuntimeException("Unknown unary operator: " + node.op);
         }
@@ -133,7 +135,7 @@ public class ExpressionHandler {
         for (ExprNode expr : node.expressions) {
             Object result = dispatcher.dispatch(expr);
             result = typeSystem.unwrap(result);
-            boolean isTruthy = isTruthy(result);
+            boolean isTruthy = typeHandler.isTruthy(result);  // Use TypeHandler.isTruthy()
 
             if (isAll) {
                 if (!isTruthy) return false;
@@ -283,11 +285,8 @@ public class ExpressionHandler {
         if (rightValue instanceof String) {
             String typeString = (String) rightValue;
             
-            // Check if it's a built-in type name
-            if (typeString.equals("int") || typeString.equals("float") || 
-                typeString.equals("text") || typeString.equals("bool") || 
-                typeString.equals("type")) {
-                
+            // Check if it's a built-in type name - use TypeHandler.isTypeLiteral()
+            if (typeHandler.isTypeLiteral(typeString)) {
                 String leftType = typeSystem.getConcreteType(leftValue);
                 return typeString.equals(leftType);
             }
@@ -301,25 +300,5 @@ public class ExpressionHandler {
         
         // Case 3: Regular comparison (fallback)
         return typeSystem.areEqual(leftValue, rightValue);
-    }
-    
-    public boolean isTypeLiteral(String str) {
-        return str.equals("int") || str.equals("float") || str.equals("text") || 
-               str.equals("bool") || str.equals("type") || str.equals("[]") ||
-               str.startsWith("[") || str.startsWith("(") || str.contains("|");
-    }
-    
-    public boolean isTruthy(Object value) {
-        if (value == null) return false;
-        if (value instanceof Boolean) return (Boolean) value;
-        if (value instanceof Number) {
-            if (value instanceof BigDecimal) return ((BigDecimal) value).compareTo(BigDecimal.ZERO) != 0;
-            return ((Number) value).doubleValue() != 0.0;
-        }
-        if (value instanceof String)
-            return !((String) value).isEmpty() && !((String) value).equalsIgnoreCase("false");
-        if (value instanceof java.util.List) return !((java.util.List) value).isEmpty();
-        if (value instanceof cod.range.NaturalArray) return ((cod.range.NaturalArray) value).size() > 0;
-        return true;
     }
 }
