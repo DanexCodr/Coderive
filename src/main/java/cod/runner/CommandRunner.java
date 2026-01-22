@@ -10,6 +10,8 @@ public class CommandRunner extends BaseRunner {
     
     private final Interpreter interpreter;
     
+    private static final String NAME = "COMMAND";
+    
     public CommandRunner() {
         this.interpreter = new Interpreter();
     }
@@ -55,30 +57,30 @@ public class CommandRunner extends BaseRunner {
         
         configureDebugSystem(config.debugLevel);
         
-        DebugSystem.info(LOG_TAG, "Starting CommandRunner execution");
-        DebugSystem.info(LOG_TAG, "Input file: " + config.inputFilename);
+        DebugSystem.info(NAME + LOG_TAG, "Starting CommandRunner execution");
+        DebugSystem.info(NAME + LOG_TAG, "Input file: " + config.inputFilename);
         
         if (config.inputFilename == null || config.inputFilename.isEmpty()) {
             throw new RuntimeException("No input file specified. Usage: CommandRunner <filename> [options]");
         }
         
         DebugSystem.startTimer("parsing");
-        ProgramNode ast = parse(config.inputFilename);
+        ProgramNode ast = parse(config.inputFilename, interpreter);
         if (ast == null) {
             throw new RuntimeException("Parsing failed, AST is null.");
         }
         DebugSystem.stopTimer("parsing");
-        DebugSystem.info(LOG_TAG, "AST built successfully");
+        DebugSystem.info(NAME + LOG_TAG, "AST built successfully");
         
         executeInterpretation(ast);
         
-        DebugSystem.info(LOG_TAG, "CommandRunner execution completed");
+        DebugSystem.info(NAME + LOG_TAG, "CommandRunner execution completed");
     }
     
     private void executeInterpretation(ProgramNode ast) {
-        DebugSystem.info(LOG_TAG, "Starting program interpretation");
+        DebugSystem.info(NAME + LOG_TAG, "Starting program interpretation");
         interpreter.run(ast);
-        DebugSystem.info(LOG_TAG, "Program interpretation completed");
+        DebugSystem.info(NAME + LOG_TAG, "Program interpretation completed");
     }
     
     private void printHelp() {
@@ -101,7 +103,7 @@ public class CommandRunner extends BaseRunner {
             CommandRunner runner = new CommandRunner();
             runner.run(args);
         } catch (Exception e) {
-            DebugSystem.error("COMMAND_RUNNER", "Execution failed: " + e.getMessage());
+            DebugSystem.error(NAME + LOG_TAG, "Execution failed: " + e.getMessage());
             e.printStackTrace();
             System.exit(1);
         }
