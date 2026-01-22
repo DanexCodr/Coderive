@@ -12,7 +12,7 @@ public class RegisterManager {
 
     public RegisterManager(MTOTNativeCompiler compiler) {
         this.registerFile = compiler.cpuProfile.registerFile;
-        this.registerSpiller = new RegisterSpiller(compiler);
+        this.registerSpiller = new RegisterSpiller();
         this.analyzer = new LivenessAnalyzer();
         this.graphAllocator = new GraphColoringAllocator(registerFile, registerSpiller);
     }
@@ -53,14 +53,12 @@ public class RegisterManager {
     }
 
     public static class RegisterSpiller {
-        private final MTOTNativeCompiler compiler;
         private final Map<String, Integer> spillSlots = new HashMap<String, Integer>();
         // FIX: Start offset at -24 to clear the 16 bytes of saved FP/LR.
         private int nextSpillOffset = -24; 
         private int totalSpillSize = 0;
 
-        public RegisterSpiller(MTOTNativeCompiler compiler) {
-            this.compiler = compiler;
+        public RegisterSpiller() {
         }
 
         public void reset() {

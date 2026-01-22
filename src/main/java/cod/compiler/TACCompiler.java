@@ -460,19 +460,7 @@ public class TACCompiler extends ASTVisitor<String> {
         
         return result;
     }
-
-    private String visitStatementExpression(ExprNode expr) {
-        if (expr instanceof MethodCallNode) {
-            MethodCallNode call = (MethodCallNode) expr;
-            // Visit but don't use the result
-            visit(call);
-            return null;
-        } else {
-            // For other expressions, just evaluate
-            return visit(expr);
-        }
-    }
-
+    
     @Override
     public String visit(ExprNode node) {
         System.err.println("DEBUG ExprNode: name=" + node.name + ", value=" + node.value);
@@ -502,7 +490,7 @@ public class TACCompiler extends ASTVisitor<String> {
             return temp;
         }
         
-        if (node.isNull) {
+        if (node.isNone) {
             // null literal
             String temp = newTemp();
             System.err.println("  -> null -> " + temp);
