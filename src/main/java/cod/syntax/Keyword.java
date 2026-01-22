@@ -21,6 +21,8 @@ public enum Keyword {
   IS,
   
   THIS,
+  SUPER,
+  
   IF,
   ELSE,
   ELIF,
@@ -44,12 +46,8 @@ public enum Keyword {
   // metaprimitive type
   TYPE,
   
-  // concurrrency primitive type
-  CONCUR,
-  
-  // for concurrency
-  SYNC,
-  ASYNC,
+  // for policy classes declaration.
+  POLICY,
   WITH,
 
   
@@ -60,7 +58,7 @@ public enum Keyword {
   
   EXIT,
   
-  NULL,
+  NONE,
   TRUE,
   FALSE,
   
