@@ -6,7 +6,7 @@
   <img src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/assets/1762666234889.jpg" alt="Coderive Logo" width="60%" />
 </div>
 <hr>
-<div align="center" style="line-height: 1;"><b>Coderive v0.5.0</b><br>Mobile-First Programming Language<br><br></div>
+<div align="center" style="line-height: 1;"><b>Coderive v0.6.0</b><br>Mobile-First Programming Language<br><br></div>
   <a href="https://github.com/DanexCodr/Coderive"><img alt="Repository"    src="https://img.shields.io/badge/Project-Coderive-536af5?color=536af5&logoColor=white"/></a><br><a href="https://github.com/DanexCodr/Coderive"><img alt="GitHub Stars"
     src="https://img.shields.io/github/stars/DanexCodr/Coderive.svg?color=7289da&logo=github&logoColor=white"/></a><br>
   <a href="https://github.com/DanexCodr/Coderive/discussions"><img alt="Discussions"
@@ -30,7 +30,7 @@
 
 ## 1. Introduction
 
-We present **Coderive v0.5.0**, a mobile-first general programming language designed for **safe, fast, and clear** coding. 
+We present **Coderive v0.6.0**, a mobile-first general programming language designed for **safe, fast, and clear** coding. 
 Coderive features a parser system written in java (manual recursive backtracking) and dual compilation pipeline (bytecode + native code generation).
 Built entirely on mobile devices, Coderive proves that serious compiler development can happen outside traditional environments.
 
