@@ -1,0 +1,7 @@
+number := 5
+out("The number is " + number)
+if (number % 2) == 0 {
+   out("The number is even.")
+} else {
+   out("The number is odd.")
+}

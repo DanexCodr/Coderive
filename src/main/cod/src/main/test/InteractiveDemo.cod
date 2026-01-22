@@ -1,0 +1,335 @@
+unit test
+
+use {
+    lang.Sys
+}
+
+share InteractiveDemo {
+    
+    // Supporting both else-if and elif
+    local calculate(a: int, b: int, op: text)
+    :: formula: int|float, operation: text {  
+        if op == "+" {
+           // Separate return assignments
+           ~> formula: a + b
+           ~> operation: "addition"
+         }
+         else if op == "-"
+           // One line return assignments
+           ~> formula: a - b, operation: "subtraction"
+         else if op == "*"
+           // implicit one line return assignments
+           ~> a * b, "multiplication"
+         else if op == "/"
+           // mixed one line return assignments
+           ~> formula: a / b, "division"
+         else
+           ~> 0, "unknown"
+    }
+
+    // Method with single expression
+    local add(a: int, b: int) ~> a + b
+
+    local haha(a: int) :: x: int, y: int {
+    	// Without '~> value' this will make a compile error
+    }
+
+    
+    // Array demonstration
+    local demonstrateArrays() {
+        out("=== Array Demo ===")
+
+        num1: [] = [1, 2, 3]
+        
+        out("Trying num1: [] = {num1}")  // Interpolation
+        
+        num2: [int] = [2, 3, 4, 5, 6]
+        
+        out("Trying num2: [int] = {num2}")  // Interpolation
+        
+        // With implicitness
+        num3 := [10, 20, 30, 40, 50]
+        out("Trying: num3 := {num3}")  // Interpolation
+        
+        out("First element: {num3[0]}")  // Interpolation
+        out("Last element: {num3[4]}")   // Interpolation
+
+        num3[2] = 99
+        out("After modification: {num3}")  // Interpolation
+    }
+
+    // in() demonstration with ENHANCED VALIDATION
+    local getUserInfo() {
+        out("=== User Registration ===")
+    
+        outs("Enter your name: ")  // Using outs() for same-line prompt
+        name := in()
+    
+        outs("Enter your age: ")   // Same-line prompt
+        age :=  in(int)
+    
+        outs("Enter your height (meters): ")  // Same-line prompt
+        height := in(float)
+    
+        outs("Are you a student? (true/false): ")  // Same-line prompt
+        isStudent := in(bool)
+    
+        // NEW: Showcasing 'all' for comprehensive validation
+        if all[
+            name != "",
+            age >= 0, 
+            age <= 120,
+            height > 0.0,
+            height < 3.0
+       ] {
+            out("")
+            out("Registration Complete!")
+            out("Name: {name}")           // Interpolation
+            out("Age: {age}")             // Interpolation
+            out("Height: {height}m")      // Interpolation
+            out("Student: {isStudent}")   // Interpolation
+        
+            // NEW: Showcasing 'any' for role-based greeting
+            if any[isStudent, age < 25] {
+                out("Welcome young user {name}!")  // Interpolation
+            } else {
+                out("Welcome {name}!")             // Interpolation
+            }
+         } else {
+             out("")
+             out("Registration Failed: Invalid data provided!")
+         }
+    }
+
+    // Calculator with user in() + VALIDATION SHOWCASE
+    local interactiveCalculator() {
+        out("=== Interactive Calculator ===")
+    
+        outs("Enter first number: ")  // Same-line prompt
+        num1 :=  in(int)
+    
+        outs("Enter second number: ")  // Same-line prompt
+        num2 :=  in(int)
+    
+        outs("Enter operation (+, -, *, /): ")  // Same-line prompt
+        op := in()
+    
+        // NEW: Showcasing conditional chains for validation!
+        if op == any["+", "-", "*", "/"] {
+            result, operation := [formula, operation]:calculate(num1, num2, op)
+        
+            out("")
+            out("Calculation Result:")
+            out("{num1} {op} {num2} = {result}")  // Interpolation
+            out("Operation: {operation}")         // Interpolation
+        } else {
+            out("")
+            // Multi-arg out() for vertical error message
+            out("Error: '{op}' is not a valid operation!",
+                "Please use one of: +, -, *, /")
+        }
+    }
+    
+    // Loop demonstration with in()
+    share numberSeries() {
+        out("=== Number Series Generator ===")
+        
+        outs("Enter start number: ")  // Same-line prompt
+        start :=  in(int)
+        
+        outs("Enter end number: ")    // Same-line prompt
+        end :=  in(int)
+        
+        out("Number series from {start} to {end}:")  // Interpolation
+        
+        out("")
+        out("=== DEFAULT STEPS (No 'by' clause) ===")
+        out("Counting up naturally:")
+        for i in 1 to 5 {
+            out("Default step: {i}")  // Interpolation
+        }
+        
+        out("Counting down naturally:")
+        for i in 5 to 1 {
+            out("Default step: {i}")  // Interpolation
+        }
+        
+        out("User range - smart default:")
+        for i in start to end {
+            out("Smart default: {i}")  // Interpolation
+        }
+        
+        out("")
+        out("=== BASIC STEPS ===")
+        outs("Enter step size: ")  // Same-line prompt
+        steps := in(int)
+        
+        for i by steps in start to end {
+            out("Step by {steps}: {i}")  // Interpolation
+        }
+        
+        // Operator prefixes
+        for i by +1 in start to end {
+            out("Step by +1: {i}")  // Interpolation
+        }
+        
+        // Counting down with various methods
+        for i by -1 in 10 to 1 {
+            out("Countdown by -1: {i}")  // Interpolation
+        }
+        
+        out("=== MULTIPLICATIVE STEPS ===")
+        
+        // Multiplicative patterns
+        
+        for i by *2 in 1 to 32 {
+            out("Doubling: {i}")  // Interpolation
+        }
+        
+        exponent := 1
+        powerValue := 2
+        for i in 1 to 6 {
+           out("Power compound: 2^{exponent} = {powerValue}")  // Interpolation
+           exponent = exponent + 1
+           powerValue = powerValue * 2
+        }
+        
+        for i by *+2 in start to end {
+            out("Step by *+2: {i}")  // Interpolation
+        }
+        
+        out("")
+        out("=== DIVISION STEPS ===")
+        
+        // Division patterns
+        for i by /2 in 64 to 2 {
+            out("Halving: {i}")  // Interpolation
+        }
+        
+        for i by /+2 in 32 to 1 {
+            out("Step by /+2: {i}")  // Interpolation
+        }
+        
+        out("")
+        out("=== PRACTICAL PATTERNS ===")
+        out("Powers of 2:")
+        
+        exponent = 1
+        for value by *2 in 2 to 64 {  // Start from 2 (2^1)
+           out("2^{exponent} = {value}")  // Interpolation
+           exponent = exponent + 1
+        }
+        
+        out("Countdown sequences:")
+        // Natural countdown
+        for count in 10 to 1 {
+            out("Natural countdown: {count}")  // Interpolation
+        }
+        
+        // Explicit countdown
+        for count by -1 in 10 to 1 {
+            out("Explicit countdown: {count}")  // Interpolation
+        }
+        
+        grow := 1
+        for i in 1 to 5 {  // Limit iterations
+            out("Growing: {grow}")  // Interpolation
+            grow = grow * 2 + 1
+        }
+        
+        out("Mixed operations:")
+        for mixed in 1 to 20 {
+            out("Mixed default: {mixed}")  // Interpolation
+        }
+        
+        for mixed by +2 in 1 to 20 {
+            out("Mixed +2: {mixed}")  // Interpolation
+        }
+        
+        for mixed by -2 in 20 to 2 {
+            out("Mixed -2: {mixed}")  // Interpolation
+        }
+    }
+    
+    // Additional demo for edge cases
+    share edgeCaseLoops() {
+        out("=== Edge Case Loops ===")
+        
+        // Single element ranges
+        out("Single element:")
+        for i in 5 to 5 {
+            out("Single: {i}")  // Interpolation
+        }
+        
+        // Zero-step ranges
+        out("Zero range up:")
+        for i in 0 to 0 {
+            out("Zero up: {i}")  // Interpolation
+        }
+        
+        out("Zero range down:")
+        for i in 0 to 0 {
+            out("Zero down: {i}")  // Interpolation
+        }
+        
+        // Negative numbers
+        out("Negative ranges:")
+        for i in -5 to -1 {
+            out("Negative up: {i}")  // Interpolation
+        }
+        
+        for i in -1 to -5 {
+            out("Negative down: {i}")  // Interpolation
+        }
+        
+        // Large steps
+        out("Large steps:")
+        for i by 10 in 0 to 50 {
+            out("Large step: {i}")  // Interpolation
+        }
+    }
+    
+    // Main method - program entry point
+    share main() {
+        out("=== CODERIVE INTERACTIVE DEMO ===")
+        out("")
+        
+        // Demonstrate arrays
+        demonstrateArrays()
+        out("")
+        
+        // Get user information
+        getUserInfo() 
+        out("")
+        
+        // Calculator demo
+        interactiveCalculator()
+        out("")
+        
+        // Number series demo
+        numberSeries()
+        out("")
+        
+        // Edge cases
+        edgeCaseLoops()
+        out("")
+        
+        out("=== DEMO COMPLETE ===")
+        out("Thank you for using Coderive!")
+        
+        // Bonus: Show multi-arg out() and outs()
+        out("")
+        out("=== Bonus: New Output Features ===")
+        out("Multi-arg out() - vertical list:")
+        out("Item 1", "Item 2", "Item 3")  // Each on new line
+        
+        out("Multi-arg outs() - horizontal:")
+        outs("Progress:", "25%", "50%", "75%", "100%")
+        out()  // Newline to finish
+        
+        out("Building output with outs():")
+        outs("Loading") 
+        outs(".") outs(".") outs(".")
+        out(" Complete!")
+    }
+}

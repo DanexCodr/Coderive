@@ -1,0 +1,22 @@
+unit test
+
+share IOTest {
+    share main() {
+        out("Test 1 - string: ")
+        s := in(text)
+        out("You entered:", s)
+        
+        out("\nTest 2 - integer: ")
+        i := in(int)
+        out("You entered: ", i)
+ 
+        // Testing auto spacing       
+        out("\nTest 3 - With prompt: ")
+        name := in(text, "Name: ")
+        outs("Hello", name)
+        
+        out("\nTest 4 - Boolean (enter true/false): ")
+        b := in(bool)
+        outs("Boolean:", b)
+    }
+}

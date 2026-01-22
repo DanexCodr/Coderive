@@ -1,0 +1,12 @@
+unit test
+
+Test1 {
+x: int = 5
+y: int = 7
+share main() {
+x := 2
+y := 5
+out(x + y + this.x)
+}
+
+}

@@ -1,0 +1,66 @@
+use {
+    lang.Math
+}
+
+// Test 2 - Should work based on parseTypeReference() output  
+local test2() :: arr: [int] {
+    ~> arr: [1, 2, 3]
+}
+
+    share main() {
+        // Array declaration and initialization
+        numbers: [int] = [1, 2, 3, 4, 5]
+        out("Array: " + numbers)
+        
+        // Array access
+        out("First element: " + numbers[0])
+        out("Third element: " + numbers[2])
+        
+        // String array
+        names: [text] = ["Alice", "Bob", "Charlie"]
+        out("Names: " + names)
+        out("Second name: " + names[1])
+        
+        // Array assignment
+        numbers[0] = 100
+        out("After assignment - First element: " + numbers[0])
+        
+        // Empty array
+        empty := []
+        out("Empty array: " + empty)
+        
+        // Single element array
+        single: [] = [42]
+        out("Single element: " + single[0])
+        
+        x := [1 to 10]
+        out("Simple natural array: " + x[2])
+        
+        out("Big number: " + 9.999Qi)
+        
+        x = [by 2 in 168 to 9.999Qi]
+        out("Multiplicative natural array: ")
+        out("Before mutation: " + x[20000])
+        x[20000] = "hello"
+        out("After mutation: " + x[20000])
+        
+        x = [[1 to 10]]
+        out("Simple nested natural array: " + x[0][2])
+        
+        x = [[1 to 10], [by 2 in 3 to 100]]
+        out("Nested natural array: " + x[1][5])
+        
+        x = ["a" to "Zz"]
+        out("Alphabet natural array: " + x[52])
+        
+        range := [1 to 10]
+        container := [range]
+        out(range[5])
+        out(container[0][1])
+        out(container[0][5])
+
+        // Test string formatting
+        out("Test: |" + "trailing space " + "|")
+        out("Number: " + 40168)
+        out(9.999Qi)
+    }
