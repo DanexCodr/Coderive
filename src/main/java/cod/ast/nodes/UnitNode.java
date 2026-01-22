@@ -9,11 +9,10 @@ import java.util.Map;
 
 public class UnitNode extends ASTNode {
     public String name;
-    public UseNode imports; // CHANGED: from List<String> to UseNode
+    public UseNode imports;
+    public List<PolicyNode> policies = new ArrayList<PolicyNode>();
     public List<TypeNode> types = new ArrayList<TypeNode>();
     public String mainClassName;
-    
-    // Add this field for resolved imports
     public Map<String, ProgramNode> resolvedImports = new HashMap<String, ProgramNode>();
     
                @Override
