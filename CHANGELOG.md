@@ -6,6 +6,7 @@ All notable changes to Coderive are documented in this file.
 
 ### 🚨 Breaking Changes
 - **Replaced out/in methods** - `outln()` → `out()` (auto-newline per arg), `out()` → `outs()` (auto-spacing between args).
+- **Removed ambiguous method chain syntax** - Eliminated `method(any[ args...])` and `method(all[args...])` syntax, keeping only `any[]`/`all[]` array forms for clarity and consistency.
 - **Removed Builtin I/O methods** - `out()`, `outln()`, and `in()` removed from BuiltinRegistry, now only accessible globally via GlobalRegistry.
 - **Project structure standardization** - Moved to `src/main/` project structure for cleaner organization and standardized imports.
 
