@@ -2,6 +2,43 @@
 
 All notable changes to Coderive are documented in this file.
 
+## [v0.6.0] - Powered Up - January 22, 2026
+
+### 🚨 Breaking Changes
+- **Replaced out/in methods** - `outln()` → `out()` (auto-newline per arg), `out()` → `outs()` (auto-spacing between args).
+- **Removed Builtin I/O methods** - `out()`, `outln()`, and `in()` removed from BuiltinRegistry, now only accessible globally via GlobalRegistry.
+- **Project structure standardization** - Moved to `src/main/` project structure for cleaner organization and standardized imports.
+
+### ✨ Major Features
+- **`this` and `super` Keywords** - Fully integrated as object pointers for class instance referencing and parent class access.
+- **Policy Type with Virality** - Introduced Policy type where implementation forces all children (even far descendants) to implement the same Policy.
+- **Enhanced I/O Methods** - 
+  - `out()`: Supports consecutive multi-argument output with auto-newline after each argument
+  - `outs()`: Successive output with automatic spacing between arguments
+- **SourceSpan Integration** - New SourceSpan class for improved line/column handling in error messages and incremental parsing.
+
+### 🔧 Engine & Parser Improvements
+- **Parser Refactoring** - Replaced PositionHolder with proper ParserContext, added ParserState and ParserResult for better maintainability and performance.
+- **Expect Pattern** - Introduced `expect()` pattern for consistent token consumption, fixing "forgot to consume" issues.
+- **InterpreterVisitor Modularization** - Refactored into separate helper classes for cleaner architecture.
+- **Program Type Scanning** - Separated ProgramTypeScanner from MainParser for dedicated program type analysis.
+- **Multiline String Fix** - Fixed baseline handling to use aligned opening/closing delimiters and auto-strip leading whitespace.
+
+### 📦 Architecture & Organization
+- **Package Restructuring** - 
+  - ParseResult, ParserContext, ParserState → `cod.parser.context`
+  - ProgramType and ProgramTypeScanner → `cod.parser.program`
+- **Class Renaming** - 
+  - `InterpreterRunner` → `TestRunner`
+  - `CompilerRunner` → `CompilerTestRunner`
+- **Token Validation** - Introduced TokenValidator for dedicated enum validation.
+- **Demo File Reorganization** - Moved demo files to follow `src/main/` structure.
+- **Fixed Main Broadcasting** - Fully repaired broken `main()` broadcasting feature.
+
+### 🗑️ Cleanup & Removal
+- **Removed Unused Components** - Eliminated unused `Sys.cod` file.
+- **Standardized Project Layout** - Adopted conventional `src/main/` directory structure.
+
 ## [v0.5.0] - Heavy Clean Changes - January 5, 2026
 
 ### 🚨 Breaking Changes
