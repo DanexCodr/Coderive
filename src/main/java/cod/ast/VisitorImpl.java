@@ -17,6 +17,10 @@ public interface VisitorImpl<T> {
     T visit(ParamNode n);
     T visit(ConstructorNode n);
     T visit(ConstructorCallNode n);
+   
+    // Policy declarations
+    T visit(PolicyNode n);
+    T visit(PolicyMethodNode n);
     
     // Statements
     T visit(BlockNode n);

@@ -29,6 +29,16 @@ public abstract class ASTVisitor<T> implements VisitorImpl<T> {
   public T visit(TypeNode n) {
     return n.accept(this);
   }
+  
+    @Override
+  public T visit(PolicyNode n) {
+    return n.accept(this);
+  }
+
+  @Override
+  public T visit(PolicyMethodNode n) {
+    return n.accept(this);
+  }
 
   @Override
   public T visit(FieldNode n) {
