@@ -135,6 +135,8 @@ body.landscape-mode .main-content {
     transform: none !important;
     width: 65% !important;
     left: 35% !important;
+    top: 0;
+    height: 100vh;
 }
 
 /* Disable transition during drag for smooth dragging */
@@ -324,7 +326,7 @@ body.landscape-mode .content-cell {
 
 table {
     width: 100%;
-    height: 100vh;
+    height: 100%;
     border-collapse: collapse;
     table-layout: fixed;
 }
@@ -381,7 +383,7 @@ body.landscape-mode .header-title {
     top: 0;
     left: 0;
     width: 20px;
-    height: 100%;
+    height: 100vh;
     z-index: 998;
 }
 

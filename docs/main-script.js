@@ -11,11 +11,27 @@ function initializeMainContent() {
     document.getElementById('mainHeader').textContent = strings.ui.titles.coderive_language;
     document.getElementById('tagline').textContent = strings.ui.titles.tagline;
     
-    // Set button texts
+    // Set button texts for regular header
     document.getElementById('getStartedBtn').textContent = strings.ui.buttons.get_started;
     document.getElementById('tryEditorBtn').textContent = strings.ui.buttons.try_online_editor;
     document.getElementById('githubBtn').textContent = strings.ui.buttons.view_on_github;
     document.getElementById('openEditorBtn').textContent = strings.ui.buttons.open_online_editor;
+    
+    // Set button texts for landscape header (40/60 layout)
+    const landscapeGetStartedBtn = document.getElementById('landscapeGetStartedBtn');
+    const landscapeTryEditorBtn = document.getElementById('landscapeTryEditorBtn');
+    const landscapeGithubBtn = document.getElementById('landscapeGithubBtn');
+    
+    if (landscapeGetStartedBtn) {
+        landscapeGetStartedBtn.textContent = strings.ui.buttons.get_started;
+    }
+    if (landscapeTryEditorBtn) {
+        landscapeTryEditorBtn.textContent = strings.ui.buttons.try_online_editor;
+    }
+    if (landscapeGithubBtn) {
+        landscapeGithubBtn.textContent = strings.ui.buttons.view_on_github;
+        landscapeGithubBtn.href = strings.metadata.github;
+    }
     
     // Set section titles
     document.getElementById('featuresTitle').textContent = strings.ui.labels.features;
@@ -283,6 +299,29 @@ function setupCopyButtons() {
     setTimeout(setupCopyButtons, 100);
 }
 
+// Function to handle landscape/portrait mode
+function updateLayoutForOrientation() {
+    const isLandscape = window.innerWidth > window.innerHeight && window.innerWidth > 768;
+    
+    if (isLandscape) {
+        document.body.classList.add('landscape-mode');
+    } else {
+        document.body.classList.remove('landscape-mode');
+    }
+}
+
+// Function to update left side width for landscape mode
+function updateLeftSideWidth() {
+    if (document.body.classList.contains('landscape-mode')) {
+        const leftSide = document.querySelector('.landscape-left');
+        if (leftSide) {
+            const width = leftSide.offsetWidth;
+            document.documentElement.style.setProperty('--left-side-width', width + 'px');
+        }
+    }
+}
+
+// Update setupEventListeners function to include width calculation
 function setupEventListeners() {
     // Add code styles
     addCodeStyles();
@@ -296,6 +335,8 @@ function setupEventListeners() {
 
     window.addEventListener('resize', function() {
         document.body.style.overflowX = 'hidden';
+        updateLayoutForOrientation();
+        updateLeftSideWidth(); // Add this line
     });
 
     // Prevent zoom on double-tap (iOS)
@@ -313,4 +354,8 @@ function setupEventListeners() {
         }
         lastTouchEnd = now;
     }, false);
+    
+    // Initial orientation setup
+    updateLayoutForOrientation();
+    setTimeout(updateLeftSideWidth, 100); // Initial width calculation
 }

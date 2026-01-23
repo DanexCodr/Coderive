@@ -235,50 +235,15 @@ function isPortraitMode() {
     return window.innerHeight > window.innerWidth;
 }
 
-// Update layout based on orientation
+// Update the updateLayoutForOrientation function to be less aggressive
 function updateLayoutForOrientation() {
-    if (isPortraitMode()) {
-        // Portrait mode - normal behavior
-        sidePanel.style.width = '70%';
-        sidePanel.style.left = isOpen ? '0' : '-70%';
-        mainContent.style.transform = isOpen ? 'translateX(70%)' : '';
-        mainContent.style.width = '100%';
-        mainContent.style.left = '0';
-        sidePanelToggle.style.display = 'block';
-        edgeSwipeArea.style.display = 'block';
-        
-        if (isOpen) {
-            document.body.classList.add('panel-open');
-            disableTextarea();
-        } else {
-            document.body.classList.remove('panel-open');
-            enableTextarea();
-        }
-        document.body.classList.remove('landscape-mode');
-    } else {
-        // Landscape mode - side by side layout
-        const landscapeWidth = 35; // 70% of 50% = 35%
-        sidePanel.style.width = landscapeWidth + '%';
-        sidePanel.style.left = '0';
-        mainContent.style.transform = 'none';
-        mainContent.style.width = (100 - landscapeWidth) + '%';
-        mainContent.style.left = landscapeWidth + '%';
-        sidePanelToggle.style.display = 'none';
-        edgeSwipeArea.style.display = 'none';
+    const isLandscape = window.innerWidth > window.innerHeight && window.innerWidth > 768;
+    
+    if (isLandscape) {
         document.body.classList.add('landscape-mode');
-        document.body.classList.remove('panel-open');
-        
-        // In landscape, textarea should be enabled since panel is always visible
-        enableTextarea();
+    } else {
+        document.body.classList.remove('landscape-mode');
     }
-    
-    // Update overlay for landscape mode
-    if (!isPortraitMode()) {
-        document.documentElement.style.setProperty('--overlay-opacity', '0');
-    }
-    
-    // Reinitialize slider to ensure proper button positioning
-    setTimeout(initializeSlider, 100);
 }
 
 function ensureCursorVisible() {

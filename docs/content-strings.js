@@ -72,11 +72,6 @@ const strings = {
         icon: "💬"
       },
       {
-        name: "Flexible Parser Options",
-        description: "Choose between ANTLR-based parsing or the custom manual parser for different use cases.",
-        icon: "🔧"
-      },
-      {
         name: "Performance Optimized",
         description: "MTOT (Multi-Target Optimization Technology) compilation for efficient native code generation.",
         icon: "⚡"
@@ -209,16 +204,20 @@ share InteractiveDemo {
         description: "Built entirely on Android devices using Java NIDE, Quickedit, and Termux, proving serious development can happen outside traditional environments."
       },
       {
-        title: "Dual Parser System",
-        description: "Both ANTLR-based grammar parsing and custom recursive descent parser for robust language processing and error recovery."
+        title: "Advanced Constructor Resolution",
+        description: "Intelligent constructor matching with named/positional arguments, default values, and inheritance chain validation. Prevents circular inheritance and ensures proper initialization."
       },
       {
-        title: "Advanced Register Allocation",
-        description: "Hybrid \"future-cost\" spilling algorithm that predicts register usage patterns for optimal performance."
+        title: "Viral Policy System",
+        description: "Unique policy-based programming where policies are viral through inheritance. Ancestor policies automatically propagate to descendant classes, enforcing method implementations."
       },
       {
-        title: "Multi-Target Compilation",
-        description: "Generate native assembly for both ARM64 and x86_64 architectures from a single Java codebase."
+        title: "Smart For-Loop Pattern Recognition",
+        description: "Advanced pattern matching in loops detects conditional assignments, sequence patterns, and optimizes array operations at parse-time for runtime efficiency."
+      },
+      {
+        title: "Type System with Union Types",
+        description: "Sophisticated type handling supporting union types (Int|none), array wildcards ([]), and automatic type inference with validation at multiple scoping levels."
       }
     ],
     footer: {
