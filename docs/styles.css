@@ -33,6 +33,8 @@ body {
     background-color: var(--bg-primary);
     min-height: 100vh;
     overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling for mobile */
+    overscroll-behavior-y: none; /* Prevent pull-to-refresh interference */
 }
 
 /* Top left container - UPDATED WITH SHADOW */
@@ -618,11 +620,6 @@ footer {
     }
 }
 
-/* Smooth scrolling */
-html {
-    scroll-behavior: smooth;
-}
-
 /* ============================================
    LANDSCAPE LAYOUT FOR INDEX.HTML (50/50)
    ============================================ */
@@ -633,6 +630,8 @@ body.landscape-mode {
     flex-direction: row;
     overflow: hidden;
     height: 100vh;
+    position: fixed;
+    width: 100%;
 }
 
 /* Left side - Header section (50% width) */
@@ -662,15 +661,20 @@ body.landscape-mode .landscape-left {
     margin-left: 0;
     transition: margin-left 0.3s ease;
     width: 100%;
-    height: 100vh;
-    overflow-y: auto;
+    height: auto;
+    min-height: 100vh;
+    overflow-y: visible;
     background-color: var(--bg-primary);
+    position: relative;
 }
 
 body.landscape-mode .landscape-right {
     margin-left: 50%;
     width: 50%;
     flex: 1;
+    height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Dynamic margin based on left side width - SIMPLIFIED */
@@ -696,6 +700,7 @@ body.landscape-mode header {
     box-sizing: border-box;
     width: 100%;
     position: relative;
+    -webkit-overflow-scrolling: touch;
 }
 
 body.landscape-mode .landscape-header {
@@ -1152,4 +1157,98 @@ body.desktop-device .btn:hover {
 
 body.desktop-device .feature-card:hover {
     transform: translateY(-5px);
+}
+
+/* ============================================
+   FIXED SCROLLING ISSUES FOR PORTRAIT MODE
+   ============================================ */
+
+/* Fix for portrait mode scrolling */
+body:not(.landscape-mode) {
+    overflow-y: auto;
+    height: auto;
+    min-height: 100vh;
+}
+
+body:not(.landscape-mode) .landscape-right {
+    width: 100%;
+    margin-left: 0;
+    overflow-y: visible;
+    height: auto;
+}
+
+/* Ensure smooth scrolling in portrait */
+@media (max-width: 768px) {
+    body {
+        -webkit-overflow-scrolling: touch;
+        overflow-y: auto;
+        position: relative;
+    }
+    
+    body:not(.landscape-mode) {
+        height: auto;
+        min-height: 100vh;
+    }
+    
+    /* Fix for iOS momentum scrolling */
+    .landscape-right,
+    .code-example,
+    .command {
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* Prevent any fixed height issues */
+body:not(.landscape-mode) header,
+body:not(.landscape-mode) section,
+body:not(.landscape-mode) footer {
+    position: relative;
+}
+
+/* Remove any transform that might interfere with scrolling */
+body:not(.landscape-mode) .landscape-right {
+    transform: none !important;
+}
+
+/* Ensure proper scroll behavior on all devices */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Fix for Android Chrome scrolling */
+@media (max-width: 768px) {
+    html, body {
+        position: relative;
+        height: 100%;
+        min-height: 100vh;
+    }
+    
+    body {
+        overflow-y: scroll;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: none;
+    }
+}
+
+/* Special fix for iOS Safari */
+@supports (-webkit-touch-callout: none) {
+    body {
+        min-height: -webkit-fill-available;
+    }
+    
+    html {
+        height: -webkit-fill-available;
+    }
+}
+
+/* Prevent overscroll effect on body */
+body {
+    overscroll-behavior-y: none;
+}
+
+/* Allow momentum scrolling in scrollable areas */
+.landscape-right,
+.code-example,
+.command {
+    overscroll-behavior-y: contain;
 }

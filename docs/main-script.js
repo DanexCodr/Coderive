@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeMainContent();
     setupCopyButtons();
     setupEventListeners();
+    setupSmoothScrolling(); // Initialize smooth scrolling
 });
 
 function initializeMainContent() {
@@ -368,8 +369,12 @@ function updateLayoutForOrientation() {
     
     if (isLandscape) {
         document.body.classList.add('landscape-mode');
+        document.body.style.overflow = 'hidden';
     } else {
         document.body.classList.remove('landscape-mode');
+        document.body.style.overflow = 'auto';
+        document.body.style.height = 'auto';
+        document.body.style.minHeight = '100vh';
     }
 }
 
@@ -382,6 +387,30 @@ function updateLeftSideWidth() {
             document.documentElement.style.setProperty('--left-side-width', width + 'px');
         }
     }
+}
+
+// Setup smooth scrolling
+function setupSmoothScrolling() {
+    // Remove any existing event listeners that might interfere
+    document.removeEventListener('touchmove', preventDefaultScroll);
+    
+    // Ensure body has proper scrolling
+    if (!document.body.classList.contains('landscape-mode')) {
+        document.body.style.overflowY = 'auto';
+        document.body.style.height = 'auto';
+        document.body.style.minHeight = '100vh';
+    }
+    
+    // Add smooth scroll behavior
+    const scrollableElements = document.querySelectorAll('.code-example, .command');
+    scrollableElements.forEach(el => {
+        el.style.WebkitOverflowScrolling = 'touch';
+    });
+}
+
+// Prevent default scroll handler (if needed)
+function preventDefaultScroll(e) {
+    e.preventDefault();
 }
 
 // Update setupEventListeners function to include width calculation
@@ -397,33 +426,27 @@ function setupEventListeners() {
         setTimeout(function() {
             window.dispatchEvent(new Event('resize'));
             applyMobileStyles(); // Re-apply on orientation change
+            setupSmoothScrolling(); // Re-setup scrolling
         }, 100);
     });
 
     window.addEventListener('resize', function() {
-        document.body.style.overflowX = 'hidden';
+        setupSmoothScrolling();
         updateLayoutForOrientation();
         updateLeftSideWidth();
         applyMobileStyles(); // Re-apply on resize
     });
 
-    // Prevent zoom on double-tap (iOS)
-    document.addEventListener('touchstart', function(event) {
-        if (event.touches.length > 1) {
-            event.preventDefault();
-        }
-    }, { passive: false });
-
-    let lastTouchEnd = 0;
-    document.addEventListener('touchend', function(event) {
-        const now = (new Date()).getTime();
-        if (now - lastTouchEnd <= 300) {
-            event.preventDefault();
-        }
-        lastTouchEnd = now;
-    }, false);
+    // Initialize smooth scrolling for touch devices
+    if ('ontouchstart' in window) {
+        // Use passive event listeners for better performance
+        document.addEventListener('touchmove', function() {}, { passive: true });
+    }
     
     // Initial orientation setup
     updateLayoutForOrientation();
     setTimeout(updateLeftSideWidth, 100); // Initial width calculation
+    
+    // Initial smooth scrolling setup
+    setTimeout(setupSmoothScrolling, 500);
 }
