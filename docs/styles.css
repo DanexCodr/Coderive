@@ -158,6 +158,7 @@ header {
     align-items: center;
     justify-content: center;
     min-height: 40vh;
+    padding-top: 100px; /* Add margin to push content below top-left container */
 }
 
 .header-content {
