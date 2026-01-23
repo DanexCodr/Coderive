@@ -3,7 +3,7 @@
 <!-- markdownlint-disable no-duplicate-header -->
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/assets/1762666234889.jpg" alt="Coderive Logo" width="60%" />
+  <img src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/docs/coderive-logo.jpg" alt="Coderive Logo" width="60%" />
 </div>
 <hr>
 <div align="center" style="line-height: 1;"><b>Coderive v0.6.0</b><br>Mobile-First Programming Language<br><br></div>
