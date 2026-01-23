@@ -1045,3 +1045,111 @@ body.landscape-mode footer {
         font-size: 0.85rem;
     }
 }
+
+/* ============================================
+   MOBILE-SPECIFIC STYLES
+   ============================================ */
+
+/* Mobile device detection class */
+body.mobile-device {
+    /* Increase tap target sizes */
+    --tap-target-min: 44px;
+}
+
+/* Larger touch targets for mobile */
+body.mobile-device .btn,
+body.mobile-device .copy-btn,
+body.mobile-device .side-panel-toggle {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+/* Better spacing for mobile */
+body.mobile-device section {
+    padding: clamp(2rem, 8vw, 3rem) clamp(1rem, 4vw, 1.5rem);
+}
+
+/* Improve readability on mobile */
+body.mobile-device .feature-card p,
+body.mobile-device .runner-card p,
+body.mobile-device .runner-card li {
+    font-size: clamp(1rem, 4vw, 1.1rem) !important;
+    line-height: 1.6;
+}
+
+/* Adjust top-left container for mobile */
+body.mobile-device .top-left-container {
+    padding: 10px 15px;
+    top: 15px;
+    left: 15px;
+}
+
+/* Improve button visibility on mobile */
+body.mobile-device .btn {
+    font-size: clamp(1rem, 4vw, 1.2rem);
+    padding: clamp(0.75rem, 4vw, 1rem) clamp(1.25rem, 5vw, 1.75rem);
+}
+
+/* Larger code copy buttons for mobile */
+body.mobile-device .copy-btn {
+    font-size: 0.9rem;
+    padding: 0 1.5rem;
+    min-width: 70px;
+}
+
+/* Prevent text selection on tap for better UX */
+body.mobile-device {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Allow text selection only where needed */
+body.mobile-device .code-example,
+body.mobile-device .command,
+body.mobile-device textarea {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+/* Optimize landscape mode for mobile */
+@media (orientation: landscape) and (max-height: 500px) {
+    body.mobile-device .landscape-header .btn {
+        padding: 0.5rem 0.8rem;
+        font-size: 0.85rem;
+        min-height: 38px;
+    }
+    
+    body.mobile-device .top-left-container {
+        padding: 8px 12px;
+        top: 8px;
+        left: 8px;
+    }
+}
+
+/* Very small mobile screens */
+@media (max-width: 320px) and (max-height: 600px) {
+    body.mobile-device .top-left-container {
+        padding: 6px 10px;
+        gap: 8px;
+    }
+    
+    body.mobile-device .side-panel-toggle {
+        padding: 10px 14px;
+        font-size: 16px;
+    }
+    
+    body.mobile-device .home-text {
+        font-size: 14px;
+    }
+}
+
+/* Desktop-specific adjustments */
+body.desktop-device .btn:hover {
+    transform: translateY(-2px);
+}
+
+body.desktop-device .feature-card:hover {
+    transform: translateY(-5px);
+}

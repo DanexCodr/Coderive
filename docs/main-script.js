@@ -230,10 +230,6 @@ function populateFooter() {
     });
 }
 
-// REMOVED ALL HIGHLIGHTING FUNCTIONS
-// No more highlightCoderiveCode function
-// No more escapeHtml function (unless needed elsewhere)
-
 // Add CSS class for code styling (without highlighting)
 function addCodeStyles() {
     if (!document.querySelector('#code-styles')) {
@@ -299,6 +295,73 @@ function setupCopyButtons() {
     setTimeout(setupCopyButtons, 100);
 }
 
+// Function to detect mobile device
+function isMobileDevice() {
+    // Method 1: Check user agent for common mobile patterns
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+    
+    // Method 2: Check screen width and touch capability
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const isSmallScreen = window.innerWidth <= 768;
+    
+    // Method 3: Check device pixel ratio and screen orientation
+    const isHighDPR = window.devicePixelRatio > 1;
+    
+    // Combine checks - more reliable
+    return (isMobileUA || (hasTouch && isSmallScreen)) && isHighDPR;
+}
+
+// Function to apply mobile-specific styles
+function applyMobileStyles() {
+    const isMobile = isMobileDevice();
+    const debugElement = document.getElementById('deviceDebug');
+    
+    if (isMobile) {
+        document.body.classList.add('mobile-device');
+        document.body.classList.remove('desktop-device');
+        if (debugElement) {
+            debugElement.textContent = 'Mobile: Yes';
+            debugElement.style.display = 'block';
+        }
+        
+        // Additional mobile-specific adjustments
+        const topLeftContainer = document.querySelector('.top-left-container');
+        if (topLeftContainer) {
+            // Make touch targets larger for mobile
+            const menuButton = topLeftContainer.querySelector('.side-panel-toggle');
+            if (menuButton) {
+                menuButton.style.padding = '12px 16px';
+                menuButton.style.fontSize = '18px';
+            }
+        }
+        
+        // Adjust font sizes for better readability on mobile
+        const body = document.body;
+        body.style.fontSize = '16px'; // Minimum readable size for mobile
+        
+        // Add mobile-specific class to sections for potential future styling
+        const sections = document.querySelectorAll('section');
+        sections.forEach(section => {
+            section.classList.add('mobile-section');
+        });
+    } else {
+        document.body.classList.add('desktop-device');
+        document.body.classList.remove('mobile-device');
+        if (debugElement) {
+            debugElement.textContent = 'Mobile: No';
+            debugElement.style.display = 'block';
+        }
+    }
+    
+    // Auto-hide debug after 3 seconds
+    if (debugElement) {
+        setTimeout(() => {
+            debugElement.style.display = 'none';
+        }, 3000);
+    }
+}
+
 // Function to handle landscape/portrait mode
 function updateLayoutForOrientation() {
     const isLandscape = window.innerWidth > window.innerHeight && window.innerWidth > 768;
@@ -326,17 +389,22 @@ function setupEventListeners() {
     // Add code styles
     addCodeStyles();
     
+    // Apply mobile styles
+    applyMobileStyles();
+    
     // Handle viewport changes
     window.addEventListener('orientationchange', function() {
         setTimeout(function() {
             window.dispatchEvent(new Event('resize'));
+            applyMobileStyles(); // Re-apply on orientation change
         }, 100);
     });
 
     window.addEventListener('resize', function() {
         document.body.style.overflowX = 'hidden';
         updateLayoutForOrientation();
-        updateLeftSideWidth(); // Add this line
+        updateLeftSideWidth();
+        applyMobileStyles(); // Re-apply on resize
     });
 
     // Prevent zoom on double-tap (iOS)
