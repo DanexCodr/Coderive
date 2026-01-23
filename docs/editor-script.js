@@ -2,7 +2,6 @@ let outputButton = document.getElementById("outputButton");
 let codeButton = document.getElementById("codeButton");
 let codeTextarea = document.getElementById("code");
 let buttonSlider = document.getElementById("buttonSlider");
-let lineNumbers = document.getElementById("lineNumbers");
 let headerTitle = document.getElementById("headerTitle");
 let currentMode = 'code';
 let savedCode = '';
@@ -28,10 +27,6 @@ let currentX = 0;
 let isOpen = false;
 let panelStartX = 0;
 
-// Use the exact same values as CSS
-const LINE_HEIGHT = 21;
-const TEXTAREA_TOP_PADDING = 15;
-
 // Enhanced viewport handling for keyboard show/hide
 function checkViewportRestored() {
     const currentViewportHeight = window.innerHeight;
@@ -43,7 +38,6 @@ function checkViewportRestored() {
             restoreOriginalHeights();
             
             setTimeout(() => {
-                updateCurrentLineHighlight();
                 ensureCursorVisible();
             }, 100);
             
@@ -194,7 +188,7 @@ function openPanel() {
     // Reset any inline styles and use CSS classes
     mainContent.style.transform = '';
     sidePanel.style.left = '';
-    sidePanelToggle.textContent = '✕';
+    sidePanelToggle.textContent = strings.ui.buttons.close;
     sidePanelToggle.style.background = '#005a9e';
     
     // Disable textarea when panel is open
@@ -211,7 +205,7 @@ function closePanel() {
     // Reset any inline styles and use CSS classes
     mainContent.style.transform = '';
     sidePanel.style.left = '';
-    sidePanelToggle.textContent = '☰';
+    sidePanelToggle.textContent = strings.ui.buttons.menu;
     sidePanelToggle.style.background = '#007acc';
     
     // Re-enable textarea when panel is closed
@@ -235,11 +229,6 @@ function enableTextarea() {
     codeTextarea.style.cursor = 'text';
     codeTextarea.style.opacity = '1';
 }
-
-// Create current line highlight element
-let currentLineHighlight = document.createElement('div');
-currentLineHighlight.className = 'current-line';
-codeTextarea.parentElement.appendChild(currentLineHighlight);
 
 // Detect device orientation
 function isPortraitMode() {
@@ -292,70 +281,12 @@ function updateLayoutForOrientation() {
     setTimeout(initializeSlider, 100);
 }
 
-// Update line numbers
-function updateLineNumbers() {
-    const lines = codeTextarea.value.split('\n').length;
-    const currentLines = lineNumbers.childElementCount;
-    
-    if (lines > currentLines) {
-        for (let i = currentLines + 1; i <= lines; i++) {
-            const lineNumber = document.createElement('div');
-            lineNumber.textContent = i;
-            lineNumbers.appendChild(lineNumber);
-        }
-    } else if (lines < currentLines) {
-        while (lineNumbers.childElementCount > lines) {
-            lineNumbers.removeChild(lineNumbers.lastChild);
-        }
-    }
-    
-    updateLineNumbersScroll();
-}
-
-function updateLineNumbersScroll() {
-    const scrollTop = codeTextarea.scrollTop;
-    lineNumbers.style.transform = `translateY(${-scrollTop}px)`;
-}
-
-function getCursorLinePosition() {
-    const cursorPosition = codeTextarea.selectionStart;
-    const textUpToCursor = codeTextarea.value.substring(0, cursorPosition);
-    const lines = textUpToCursor.split('\n');
-    const currentLine = lines.length;
-    
-    const currentLineText = lines[lines.length - 1] || '';
-    const cursorInLine = currentLineText.length;
-    
-    return {
-        line: currentLine,
-        positionInLine: cursorInLine,
-        totalLines: codeTextarea.value.split('\n').length
-    };
-}
-
-function updateCurrentLineHighlight() {
-    const cursorPos = getCursorLinePosition();
-    const currentLine = cursorPos.line;
-    
-    const highlightTop = TEXTAREA_TOP_PADDING + (currentLine - 1) * LINE_HEIGHT - codeTextarea.scrollTop;
-    
-    currentLineHighlight.style.top = highlightTop + 'px';
-    currentLineHighlight.style.height = LINE_HEIGHT + 'px';
-}
-
 function ensureCursorVisible() {
-    const cursorPos = getCursorLinePosition();
-    const currentLine = cursorPos.line;
-    
-    const cursorTop = (currentLine - 1) * LINE_HEIGHT;
-    const textareaHeight = codeTextarea.clientHeight;
-    const scrollTop = codeTextarea.scrollTop;
-    
-    if (cursorTop < scrollTop) {
-        codeTextarea.scrollTop = Math.max(0, cursorTop - 10);
-    } else if (cursorTop + LINE_HEIGHT > scrollTop + textareaHeight) {
-        codeTextarea.scrollTop = cursorTop - textareaHeight + LINE_HEIGHT + 10;
-    }
+    // Simple implementation - just scroll to cursor position
+    setTimeout(() => {
+        codeTextarea.scrollTop = codeTextarea.scrollHeight;
+        codeTextarea.scrollLeft = codeTextarea.scrollWidth;
+    }, 0);
 }
 
 function storeOriginalHeights() {
@@ -419,8 +350,6 @@ function setMode(mode) {
         outputButton.classList.add('inactive');
         
         codeTextarea.value = savedCode;
-        updateLineNumbers();
-        updateCurrentLineHighlight();
     } else {
         outputButton.classList.remove('inactive');
         outputButton.classList.add('active');
@@ -429,13 +358,7 @@ function setMode(mode) {
         
         savedCode = codeTextarea.value;
         // Simulate Coderive output
-        codeTextarea.value = "Coderive Output:\n" + 
-                            "Running code...\n" +
-                            "Hello, Coderive!\n" +
-                            "Execution completed successfully.\n" +
-                            "Time: " + new Date().toLocaleTimeString();
-        updateLineNumbers();
-        updateCurrentLineHighlight();
+        codeTextarea.value = simulateCoderiveOutput();
     }
     
     // Update slider position after mode change
@@ -443,11 +366,6 @@ function setMode(mode) {
 }
 
 function initializeEventListeners() {
-    codeTextarea.addEventListener('scroll', function() {
-        updateLineNumbersScroll();
-        updateCurrentLineHighlight();
-    });
-
     codeTextarea.addEventListener('focus', function() {
         this.parentElement.style.borderColor = '#007acc';
         storeOriginalHeights();
@@ -463,33 +381,29 @@ function initializeEventListeners() {
     });
 
     codeTextarea.addEventListener('input', function() {
-        updateLineNumbers();
-        updateCurrentLineHighlight();
         ensureCursorVisible();
     });
 
     codeTextarea.addEventListener('click', function() {
-        setTimeout(updateCurrentLineHighlight, 0);
-        setTimeout(updateCurrentLineHighlight, 50);
         ensureCursorVisible();
     });
 
-    codeTextarea.addEventListener('keyup', function() {
-        updateCurrentLineHighlight();
-        ensureCursorVisible();
-    });
-
-    codeTextarea.addEventListener('keydown', function() {
-        setTimeout(updateCurrentLineHighlight, 0);
-        setTimeout(ensureCursorVisible, 10);
-    });
-
-    document.addEventListener('selectionchange', function() {
-        if (document.activeElement === codeTextarea) {
-            setTimeout(updateCurrentLineHighlight, 0);
+    // Click outside to close panel (when overlay is visible)
+    document.addEventListener('click', function(e) {
+        // Only handle if panel is open in portrait mode
+        if (isPortraitMode() && isOpen) {
+            const isClickOnPanel = sidePanel.contains(e.target);
+            const isClickOnToggle = sidePanelToggle.contains(e.target);
+            const isClickOnEdgeSwipe = edgeSwipeArea.contains(e.target);
+            
+            // If click is on overlay (main content) and not on panel or toggle
+            if (!isClickOnPanel && !isClickOnToggle && !isClickOnEdgeSwipe) {
+                closePanel();
+            }
         }
     });
 
+    // Tab buttons
     codeButton.addEventListener("click", function(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -506,8 +420,10 @@ function initializeEventListeners() {
         }
     });
 
+    // Menu button
     sidePanelToggle.addEventListener("click", function(e) {
         e.preventDefault();
+        e.stopPropagation();
         toggleSidePanel();
     });
 
@@ -518,6 +434,13 @@ function initializeEventListeners() {
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd, { passive: false });
     document.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+    // Close panel on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && isOpen) {
+            closePanel();
+        }
+    });
 
     window.addEventListener('resize', function() {
         if (resizeTimeout) {
@@ -557,9 +480,8 @@ function initializeApp() {
     console.log('Initializing Coderive IDE...');
     initializeButtonWidth();
     initializeSlider();
+    initializeContent(); // Initialize dynamic content
     setMode('code');
-    updateLineNumbers();
-    updateCurrentLineHighlight();
     adjustTextareaToViewport();
     ensureCursorVisible();
     initializeEventListeners();
@@ -574,5 +496,104 @@ document.addEventListener('DOMContentLoaded', initializeApp);
 setTimeout(function() {
     adjustTextareaToViewport();
     ensureCursorVisible();
-    updateCurrentLineHighlight();
 }, 500);
+
+// ===========================
+// CONTENT INITIALIZATION
+// ===========================
+
+// Content initialization
+function initializeContent() {
+    // Set page title
+    document.title = strings.ui.titles.coderive_ide;
+    
+    // Set header title
+    headerTitle.textContent = strings.ui.titles.coderive_ide;
+    
+    // Set button texts
+    codeButton.textContent = strings.ui.buttons.code;
+    outputButton.textContent = strings.ui.buttons.output;
+    
+    // Populate menu items
+    populateMenuItems();
+    
+    // Set placeholder text
+    codeTextarea.placeholder = strings.ui.placeholders.code_editor;
+    
+    // Initialize menu button
+    sidePanelToggle.textContent = strings.ui.buttons.menu;
+}
+
+function populateMenuItems() {
+    const filesList = document.getElementById('filesList');
+    const projectsList = document.getElementById('projectsList');
+    const examplesList = document.getElementById('examplesList');
+    
+    // Clear existing items
+    filesList.innerHTML = '';
+    projectsList.innerHTML = '';
+    examplesList.innerHTML = '';
+    
+    // Set section titles
+    document.getElementById('filesTitle').textContent = strings.ui.navigation.coderive_files;
+    document.getElementById('projectsTitle').textContent = strings.ui.navigation.projects;
+    document.getElementById('examplesTitle').textContent = strings.ui.navigation.examples;
+    
+    // Populate files
+    const files = [
+        strings.ui.menu_items.main_cod,
+        strings.ui.menu_items.utils_cod,
+        strings.ui.menu_items.config_cod
+    ];
+    
+    files.forEach(file => {
+        const li = document.createElement('li');
+        li.textContent = file;
+        li.addEventListener('click', () => {
+            // Handle file selection
+            console.log('Selected file:', file);
+            closePanel();
+        });
+        filesList.appendChild(li);
+    });
+    
+    // Populate projects
+    const projects = [
+        strings.ui.menu_items.myapp,
+        strings.ui.menu_items.demo_project,
+        strings.ui.menu_items.test_suite
+    ];
+    
+    projects.forEach(project => {
+        const li = document.createElement('li');
+        li.textContent = project;
+        li.addEventListener('click', () => {
+            console.log('Selected project:', project);
+            closePanel();
+        });
+        projectsList.appendChild(li);
+    });
+    
+    // Populate examples
+    const examples = [
+        strings.ui.menu_items.hello_world,
+        strings.ui.menu_items.calculator,
+        strings.ui.menu_items.data_structures
+    ];
+    
+    examples.forEach(example => {
+        const li = document.createElement('li');
+        li.textContent = example;
+        li.addEventListener('click', () => {
+            console.log('Selected example:', example);
+            closePanel();
+        });
+        examplesList.appendChild(li);
+    });
+}
+
+// Update the output simulation to use dynamic content
+function simulateCoderiveOutput() {
+    const now = new Date();
+    return strings.ui.placeholders.output_simulation + now.toLocaleTimeString();
+}

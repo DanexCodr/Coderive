@@ -1,0 +1,498 @@
+:root {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-tertiary: #2d2d30;
+    --accent-primary: #007acc;
+    --accent-hover: #005a9e;
+    --text-primary: #ffffff;
+    --text-secondary: #858585;
+    --border-color: #333;
+    --code-bg: #0d1117;
+    --code-accent: #58a6ff;
+}
+
+/* Add JetBrains Mono font-face to main styles */
+@font-face {
+    font-family: 'JetBrains Mono';
+    src: url('JetBrainsMono-Light.ttf') format('truetype');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--text-primary);
+    background-color: var(--bg-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+header {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    padding: clamp(1.5rem, 5vw, 2rem) 1rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40vh;
+}
+
+.header-content {
+    max-width: 800px;
+    width: 100%;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 clamp(0.5rem, 3vw, 1rem);
+    width: 100%;
+}
+
+h1 {
+    font-size: clamp(2rem, 8vw, 3rem);
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+    word-wrap: break-word;
+}
+
+.tagline {
+    font-size: clamp(1rem, 4vw, 1.5rem);
+    margin-bottom: clamp(1rem, 4vw, 1.5rem);
+    font-weight: 300;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--accent-primary);
+    color: var(--text-primary);
+    padding: clamp(0.5rem, 3vw, 0.75rem) clamp(1rem, 4vw, 1.5rem);
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    margin: clamp(0.25rem, 2vw, 0.5rem);
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: clamp(0.9rem, 3vw, 1rem);
+    white-space: nowrap;
+    min-height: 44px;
+}
+
+.btn:hover {
+    background-color: var(--accent-hover);
+    transform: translateY(-2px);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    border: 2px solid var(--accent-primary);
+}
+
+.btn-secondary:hover {
+    background-color: rgba(0, 122, 204, 0.1);
+}
+
+section {
+    padding: clamp(2rem, 6vw, 4rem) clamp(0.5rem, 3vw, 1rem);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.section-title {
+    text-align: center;
+    margin-bottom: clamp(1.5rem, 5vw, 3rem);
+    color: var(--text-primary);
+    position: relative;
+    font-size: clamp(1.5rem, 6vw, 2.5rem);
+}
+
+.section-title::after {
+    content: '';
+    display: block;
+    width: clamp(60px, 20vw, 80px);
+    height: 4px;
+    background-color: var(--accent-primary);
+    margin: 0.5rem auto;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+    gap: clamp(1rem, 4vw, 2rem);
+    width: 100%;
+}
+
+.feature-card {
+    background-color: var(--bg-secondary);
+    border-radius: 8px;
+    padding: clamp(1rem, 4vw, 2rem);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease;
+    border: 1px solid var(--border-color);
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+}
+
+.feature-icon {
+    font-size: clamp(2rem, 8vw, 2.5rem);
+    color: var(--accent-primary);
+    margin-bottom: 1rem;
+}
+
+.feature-card h3 {
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    font-size: clamp(1.1rem, 4vw, 1.3rem);
+}
+
+.feature-card p {
+    color: var(--text-secondary);
+    font-size: clamp(0.9rem, 3vw, 1rem);
+    line-height: 1.5;
+}
+
+.code-type {
+    color: #ff7b72;
+    font-weight: bold;
+}
+
+.code-example {
+    background-color: var(--code-bg);
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    margin: clamp(1rem, 3vw, 1.5rem) 0;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    border: 1px solid var(--border-color);
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+}
+
+.code-example pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: clamp(0.8rem, 3vw, 0.9rem);
+    line-height: 1.4;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+.code-keyword {
+    color: #ff7b72;
+}
+
+.code-function {
+    color: #d2a8ff;
+}
+
+.code-string {
+    color: #a5d6ff;
+}
+
+.code-comment {
+    color: #8b949e;
+}
+
+.code-operator {
+    color: #79c0ff;
+}
+
+.code-slot {
+    color: #7ee787;
+}
+
+.code-number {
+    color: #79c0ff;
+}
+
+.runners {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+    gap: clamp(1rem, 4vw, 1.5rem);
+    justify-content: center;
+    width: 100%;
+}
+
+.runner-card {
+    background-color: var(--bg-secondary);
+    border-radius: 8px;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+}
+
+.runner-card h3 {
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    font-size: clamp(1.1rem, 4vw, 1.3rem);
+}
+
+.runner-card h3::before {
+    content: '▶';
+    margin-right: 0.5rem;
+    color: #27ae60;
+}
+
+.runner-card p {
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    font-size: clamp(0.9rem, 3vw, 1rem);
+    flex-grow: 1;
+}
+
+.runner-card ul {
+    list-style-type: none;
+    margin-left: 1rem;
+    margin-bottom: 1rem;
+}
+
+.runner-card li {
+    margin-bottom: 0.5rem;
+    position: relative;
+    color: var(--text-secondary);
+    font-size: clamp(0.85rem, 3vw, 0.9rem);
+}
+
+.runner-card li::before {
+    content: '•';
+    color: var(--accent-primary);
+    position: absolute;
+    left: -1rem;
+}
+
+.command-container {
+    position: relative;
+    background-color: var(--bg-primary);
+    border-left: 4px solid var(--accent-primary);
+    border-radius: 0 4px 4px 0;
+    margin: 0.5rem 0;
+    overflow: hidden;
+}
+
+.command {
+    padding: clamp(0.5rem, 2vw, 0.75rem);
+    padding-right: 4.5rem;
+    font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
+    color: var(--text-primary);
+    font-size: clamp(0.8rem, 3vw, 0.9rem);
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    background-color: var(--bg-primary);
+}
+
+.copy-btn {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--accent-primary);
+    border: none;
+    color: white;
+    padding: 0 1rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    min-width: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.copy-btn:hover {
+    background: var(--accent-hover);
+}
+
+.copy-btn.copied {
+    background: #27ae60;
+}
+
+.try-editor {
+    text-align: center;
+    background: var(--bg-secondary);
+    padding: clamp(2rem, 6vw, 3rem) clamp(1rem, 4vw, 1rem);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.try-editor h2 {
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    font-size: clamp(1.3rem, 5vw, 2rem);
+}
+
+.try-editor p {
+    margin-bottom: clamp(1.5rem, 5vw, 2rem);
+    color: var(--text-secondary);
+    font-size: clamp(0.9rem, 3vw, 1.1rem);
+}
+
+.language-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+    gap: clamp(1rem, 3vw, 1.5rem);
+    margin-top: 2rem;
+}
+
+.feature-item {
+    background: var(--bg-secondary);
+    padding: clamp(1rem, 3vw, 1.5rem);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.feature-item h4 {
+    color: var(--accent-primary);
+    margin-bottom: 0.5rem;
+    font-size: clamp(1rem, 3vw, 1.1rem);
+}
+
+.feature-item p {
+    color: var(--text-secondary);
+    font-size: clamp(0.8rem, 3vw, 0.9rem);
+    line-height: 1.4;
+}
+
+.cta-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: clamp(0.5rem, 2vw, 1rem);
+    align-items: center;
+}
+
+footer {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    text-align: center;
+    padding: clamp(1.5rem, 5vw, 2rem) clamp(0.5rem, 3vw, 1rem);
+    border-top: 1px solid var(--border-color);
+}
+
+.footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: clamp(1rem, 3vw, 1.5rem);
+    margin: 1rem 0;
+}
+
+.footer-links a {
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: color 0.3s ease;
+    font-size: clamp(0.9rem, 3vw, 1rem);
+}
+
+.footer-links a:hover {
+    color: var(--accent-primary);
+}
+
+/* Landscape orientation optimizations */
+@media (orientation: landscape) and (max-height: 600px) {
+    header {
+        min-height: 60vh;
+        padding: 1rem;
+    }
+    
+    section {
+        padding: 1.5rem 1rem;
+    }
+    
+    .feature-card {
+        min-height: 180px;
+        padding: 1rem;
+    }
+    
+    .runner-card {
+        min-height: 250px;
+        padding: 1rem;
+    }
+    
+    .code-example {
+        margin: 1rem 0;
+        padding: 1rem;
+    }
+}
+
+/* Very small screens */
+@media (max-width: 320px) {
+    .container {
+        padding: 0 0.25rem;
+    }
+    
+    .btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+        min-height: 40px;
+    }
+    
+    .feature-card, .runner-card {
+        padding: 0.75rem;
+    }
+    
+    .copy-btn {
+        padding: 0 0.75rem;
+        font-size: 0.7rem;
+        min-width: 50px;
+    }
+    
+    .command {
+        padding-right: 3.5rem;
+    }
+}
+
+/* Large screens */
+@media (min-width: 1200px) {
+    .container {
+        padding: 0 2rem;
+    }
+    
+    header {
+        min-height: 50vh;
+    }
+}
+
+/* Print styles */
+@media print {
+    .btn, .copy-btn {
+        display: none;
+    }
+    
+    .feature-card:hover {
+        transform: none;
+    }
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}

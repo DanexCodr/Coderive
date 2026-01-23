@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Coderive IDE</title>
+    <title id="pageTitle">Coderive IDE</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="editor-styles.css">
 </head>
@@ -10,27 +10,21 @@
     <div class="side-panel" id="sidePanel">
         <div class="side-panel-content">
             <div class="side-panel-section">
-                <h3>Coderive Files</h3>
-                <ul>
-                    <li>main.cod</li>
-                    <li>utils.cod</li>
-                    <li>config.cod</li>
+                <h3 id="filesTitle">Coderive Files</h3>
+                <ul id="filesList">
+                    <!-- Dynamically populated -->
                 </ul>
             </div>
             <div class="side-panel-section">
-                <h3>Projects</h3>
-                <ul>
-                    <li>MyApp</li>
-                    <li>DemoProject</li>
-                    <li>TestSuite</li>
+                <h3 id="projectsTitle">Projects</h3>
+                <ul id="projectsList">
+                    <!-- Dynamically populated -->
                 </ul>
             </div>
             <div class="side-panel-section">
-                <h3>Examples</h3>
-                <ul>
-                    <li>Hello World</li>
-                    <li>Calculator</li>
-                    <li>Data Structures</li>
+                <h3 id="examplesTitle">Examples</h3>
+                <ul id="examplesList">
+                    <!-- Dynamically populated -->
                 </ul>
             </div>
         </div>
@@ -58,11 +52,8 @@
                 <tr>
                     <td colspan="2" class="content-cell">
                         <div class="code-container">
-                            <div class="line-numbers-container">
-                                <div class="line-numbers" id="lineNumbers"></div>
-                            </div>
                             <div class="editor-wrapper">
-                                <textarea id="code" rows="20" cols="80" placeholder="// Welcome to Coderive IDE&#10;// Start typing your Coderive code here...&#10;&#10;output &quot;Hello, Coderive!&quot;">output "Hello, Coderive!"</textarea>
+                                <textarea id="code" rows="20" cols="80" placeholder="// Welcome to Coderive IDE&#10;// Start typing your Coderive code here...&#10;&#10;out(&quot;Hello, Coderive!&quot;)">out("Hello, Coderive!")</textarea>
                             </div>
                         </div>
                     </td>
@@ -74,6 +65,8 @@
     <!-- Edge swipe area for opening panel -->
     <div class="edge-swipe-area" id="edgeSwipeArea"></div>
 
+    <!-- Load content strings -->
+    <script src="content-strings.js"></script>
     <script src="editor-script.js"></script>
 </body>
 </html>

@@ -3,701 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coderive - Modern Programming Language</title>
-    <style>
-        :root {
-            --bg-primary: #1e1e1e;
-            --bg-secondary: #252526;
-            --bg-tertiary: #2d2d30;
-            --accent-primary: #007acc;
-            --accent-hover: #005a9e;
-            --text-primary: #ffffff;
-            --text-secondary: #858585;
-            --border-color: #333;
-            --code-bg: #0d1117;
-            --code-accent: #58a6ff;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: var(--text-primary);
-            background-color: var(--bg-primary);
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-        
-        header {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            padding: clamp(1.5rem, 5vw, 2rem) 1rem;
-            text-align: center;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 40vh;
-        }
-        
-        .header-content {
-            max-width: 800px;
-            width: 100%;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 clamp(0.5rem, 3vw, 1rem);
-            width: 100%;
-        }
-        
-        h1 {
-            font-size: clamp(2rem, 8vw, 3rem);
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-            word-wrap: break-word;
-        }
-        
-        .tagline {
-            font-size: clamp(1rem, 4vw, 1.5rem);
-            margin-bottom: clamp(1rem, 4vw, 1.5rem);
-            font-weight: 300;
-            color: var(--text-secondary);
-            line-height: 1.4;
-        }
-        
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background-color: var(--accent-primary);
-            color: var(--text-primary);
-            padding: clamp(0.5rem, 3vw, 0.75rem) clamp(1rem, 4vw, 1.5rem);
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: bold;
-            transition: all 0.3s ease;
-            margin: clamp(0.25rem, 2vw, 0.5rem);
-            border: none;
-            cursor: pointer;
-            font-family: inherit;
-            font-size: clamp(0.9rem, 3vw, 1rem);
-            white-space: nowrap;
-            min-height: 44px;
-        }
-        
-        .btn:hover {
-            background-color: var(--accent-hover);
-            transform: translateY(-2px);
-        }
-        
-        .btn-secondary {
-            background-color: transparent;
-            border: 2px solid var(--accent-primary);
-        }
-        
-        .btn-secondary:hover {
-            background-color: rgba(0, 122, 204, 0.1);
-        }
-        
-        section {
-            padding: clamp(2rem, 6vw, 4rem) clamp(0.5rem, 3vw, 1rem);
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .section-title {
-            text-align: center;
-            margin-bottom: clamp(1.5rem, 5vw, 3rem);
-            color: var(--text-primary);
-            position: relative;
-            font-size: clamp(1.5rem, 6vw, 2.5rem);
-        }
-        
-        .section-title::after {
-            content: '';
-            display: block;
-            width: clamp(60px, 20vw, 80px);
-            height: 4px;
-            background-color: var(--accent-primary);
-            margin: 0.5rem auto;
-        }
-        
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-            gap: clamp(1rem, 4vw, 2rem);
-            width: 100%;
-        }
-        
-        .feature-card {
-            background-color: var(--bg-secondary);
-            border-radius: 8px;
-            padding: clamp(1rem, 4vw, 2rem);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-            transition: transform 0.3s ease;
-            border: 1px solid var(--border-color);
-            min-height: 200px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-        
-        .feature-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .feature-icon {
-            font-size: clamp(2rem, 8vw, 2.5rem);
-            color: var(--accent-primary);
-            margin-bottom: 1rem;
-        }
-        
-        .feature-card h3 {
-            margin-bottom: 1rem;
-            color: var(--text-primary);
-            font-size: clamp(1.1rem, 4vw, 1.3rem);
-        }
-        
-        .feature-card p {
-            color: var(--text-secondary);
-            font-size: clamp(0.9rem, 3vw, 1rem);
-            line-height: 1.5;
-        }
-        
-        .code-example {
-            background-color: var(--code-bg);
-            color: var(--text-primary);
-            border-radius: 8px;
-            padding: clamp(1rem, 3vw, 1.5rem);
-            margin: clamp(1rem, 3vw, 1.5rem) 0;
-            overflow-x: auto;
-            font-family: 'Fira Code', 'Courier New', monospace;
-            border: 1px solid var(--border-color);
-            position: relative;
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        .code-example pre {
-            margin: 0;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-size: clamp(0.8rem, 3vw, 0.9rem);
-            line-height: 1.4;
-        }
-        
-        .code-keyword {
-            color: #ff7b72;
-        }
-        
-        .code-function {
-            color: #d2a8ff;
-        }
-        
-        .code-string {
-            color: #a5d6ff;
-        }
-        
-        .code-comment {
-            color: #8b949e;
-        }
-        
-        .code-operator {
-            color: #79c0ff;
-        }
-        
-        .code-slot {
-            color: #7ee787;
-        }
-        
-        .code-number {
-            color: #79c0ff;
-        }
-        
-        .runners {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
-            gap: clamp(1rem, 4vw, 1.5rem);
-            justify-content: center;
-            width: 100%;
-        }
-        
-        .runner-card {
-            background-color: var(--bg-secondary);
-            border-radius: 8px;
-            padding: clamp(1rem, 3vw, 1.5rem);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-            border: 1px solid var(--border-color);
-            min-height: 300px;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .runner-card h3 {
-            color: var(--text-primary);
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            font-size: clamp(1.1rem, 4vw, 1.3rem);
-        }
-        
-        .runner-card h3::before {
-            content: '▶';
-            margin-right: 0.5rem;
-            color: #27ae60;
-        }
-        
-        .runner-card p {
-            color: var(--text-secondary);
-            margin-bottom: 1rem;
-            font-size: clamp(0.9rem, 3vw, 1rem);
-            flex-grow: 1;
-        }
-        
-        .runner-card ul {
-            list-style-type: none;
-            margin-left: 1rem;
-            margin-bottom: 1rem;
-        }
-        
-        .runner-card li {
-            margin-bottom: 0.5rem;
-            position: relative;
-            color: var(--text-secondary);
-            font-size: clamp(0.85rem, 3vw, 0.9rem);
-        }
-        
-        .runner-card li::before {
-            content: '•';
-            color: var(--accent-primary);
-            position: absolute;
-            left: -1rem;
-        }
-        
-        .command-container {
-            position: relative;
-            background-color: var(--bg-primary);
-            border-left: 4px solid var(--accent-primary);
-            border-radius: 0 4px 4px 0;
-            margin: 0.5rem 0;
-            overflow: hidden;
-        }
-        
-        .command {
-            padding: clamp(0.5rem, 2vw, 0.75rem);
-            padding-right: 4.5rem;
-            font-family: 'Courier New', Courier, monospace;
-            color: var(--text-primary);
-            font-size: clamp(0.8rem, 3vw, 0.9rem);
-            overflow-x: auto;
-            white-space: nowrap;
-            -webkit-overflow-scrolling: touch;
-            background-color: var(--bg-primary);
-        }
-        
-        .copy-btn {
-            position: absolute;
-            right: 0;
-            top: 0;
-            bottom: 0;
-            background: var(--accent-primary);
-            border: none;
-            color: white;
-            padding: 0 1rem;
-            cursor: pointer;
-            font-size: 0.8rem;
-            font-family: inherit;
-            transition: all 0.3s ease;
-            min-width: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .copy-btn:hover {
-            background: var(--accent-hover);
-        }
-        
-        .copy-btn.copied {
-            background: #27ae60;
-        }
-        
-        .try-editor {
-            text-align: center;
-            background: var(--bg-secondary);
-            padding: clamp(2rem, 6vw, 3rem) clamp(1rem, 4vw, 1rem);
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-        }
-        
-        .try-editor h2 {
-            margin-bottom: 1rem;
-            color: var(--text-primary);
-            font-size: clamp(1.3rem, 5vw, 2rem);
-        }
-        
-        .try-editor p {
-            margin-bottom: clamp(1.5rem, 5vw, 2rem);
-            color: var(--text-secondary);
-            font-size: clamp(0.9rem, 3vw, 1.1rem);
-        }
-        
-        .language-features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
-            gap: clamp(1rem, 3vw, 1.5rem);
-            margin-top: 2rem;
-        }
-        
-        .feature-item {
-            background: var(--bg-secondary);
-            padding: clamp(1rem, 3vw, 1.5rem);
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-        }
-        
-        .feature-item h4 {
-            color: var(--accent-primary);
-            margin-bottom: 0.5rem;
-            font-size: clamp(1rem, 3vw, 1.1rem);
-        }
-        
-        .feature-item p {
-            color: var(--text-secondary);
-            font-size: clamp(0.8rem, 3vw, 0.9rem);
-            line-height: 1.4;
-        }
-        
-        .cta-buttons {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: clamp(0.5rem, 2vw, 1rem);
-            align-items: center;
-        }
-        
-        footer {
-            background-color: var(--bg-tertiary);
-            color: var(--text-primary);
-            text-align: center;
-            padding: clamp(1.5rem, 5vw, 2rem) clamp(0.5rem, 3vw, 1rem);
-            border-top: 1px solid var(--border-color);
-        }
-        
-        .footer-links {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: clamp(1rem, 3vw, 1.5rem);
-            margin: 1rem 0;
-        }
-        
-        .footer-links a {
-            color: var(--text-primary);
-            text-decoration: none;
-            transition: color 0.3s ease;
-            font-size: clamp(0.9rem, 3vw, 1rem);
-        }
-        
-        .footer-links a:hover {
-            color: var(--accent-primary);
-        }
-        
-        /* Landscape orientation optimizations */
-        @media (orientation: landscape) and (max-height: 600px) {
-            header {
-                min-height: 60vh;
-                padding: 1rem;
-            }
-            
-            section {
-                padding: 1.5rem 1rem;
-            }
-            
-            .feature-card {
-                min-height: 180px;
-                padding: 1rem;
-            }
-            
-            .runner-card {
-                min-height: 250px;
-                padding: 1rem;
-            }
-            
-            .code-example {
-                margin: 1rem 0;
-                padding: 1rem;
-            }
-        }
-        
-        /* Very small screens */
-        @media (max-width: 320px) {
-            .container {
-                padding: 0 0.25rem;
-            }
-            
-            .btn {
-                padding: 0.4rem 0.8rem;
-                font-size: 0.8rem;
-                min-height: 40px;
-            }
-            
-            .feature-card, .runner-card {
-                padding: 0.75rem;
-            }
-            
-            .copy-btn {
-                padding: 0 0.75rem;
-                font-size: 0.7rem;
-                min-width: 50px;
-            }
-            
-            .command {
-                padding-right: 3.5rem;
-            }
-        }
-        
-        /* Large screens */
-        @media (min-width: 1200px) {
-            .container {
-                padding: 0 2rem;
-            }
-            
-            header {
-                min-height: 50vh;
-            }
-        }
-        
-        /* Print styles */
-        @media print {
-            .btn, .copy-btn {
-                display: none;
-            }
-            
-            .feature-card:hover {
-                transform: none;
-            }
-        }
-        
-        /* Smooth scrolling */
-        html {
-            scroll-behavior: smooth;
-        }
-    </style>
+    <title id="mainTitle">Coderive - Modern Programming Language</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <header>
-        <div class="header-content">
-            <h1>Coderive</h1>
-            <p class="tagline">A modern, expressive programming language with interpreter and compiler capabilities</p>
-            <div class="cta-buttons">
-                <a href="#getting-started" class="btn">Get Started</a>
-                <a href="editor.html" class="btn btn-secondary">Try Online Editor</a>
-                <a href="https://github.com/DanexCodr/Coderive" class="btn btn-secondary">View on GitHub</a>
+<header>
+    <div class="container">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap;">
+            <img src="coderive-logo.jpg" alt="Coderive Logo" 
+                 style="height: 150px; width: auto; border-radius: 8px;">
+            <div>
+                <h1 id="mainHeader">Coderive</h1>
+                <p class="tagline" id="tagline">A modern, expressive programming language with interpreter and compiler capabilities</p>
             </div>
         </div>
-    </header>
+        <div class="cta-buttons" style="text-align: center;">
+            <a href="#getting-started" class="btn" id="getStartedBtn">Get Started</a>
+            <a href="editor.html" class="btn btn-secondary" id="tryEditorBtn">Try Online Editor</a>
+            <a href="https://github.com/DanexCodr/Coderive" class="btn btn-secondary" id="githubBtn">View on GitHub</a>
+        </div>
+    </div>
+</header>
     
     <section id="features">
         <div class="container">
-            <h2 class="section-title">Key Features</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">⚙️</div>
-                    <h3>Dual Execution Modes</h3>
-                    <p>Run code immediately with the interpreter or compile to bytecode and native assembly for performance.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔍</div>
-                    <h3>Advanced Linting</h3>
-                    <p>Built-in static analysis to catch potential issues before execution with configurable linting rules.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">💬</div>
-                    <h3>Interactive REPL</h3>
-                    <p>Experiment with code in real-time using the interactive Read-Eval-Print-Loop environment.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔧</div>
-                    <h3>Flexible Parser Options</h3>
-                    <p>Choose between ANTLR-based parsing or the custom manual parser for different use cases.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Performance Optimized</h3>
-                    <p>MTOT (Multi-Target Optimization Technology) compilation for efficient native code generation.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📱</div>
-                    <h3>Mobile-First Development</h3>
-                    <p>Built entirely on mobile devices, proving serious development can happen anywhere.</p>
-                </div>
+            <h2 class="section-title" id="featuresTitle">Key Features</h2>
+            <div class="features-grid" id="featuresGrid">
+                <!-- Dynamically populated -->
             </div>
         </div>
     </section>
     
     <section id="code-examples">
         <div class="container">
-            <h2 class="section-title">Language Examples</h2>
+            <h2 class="section-title" id="examplesTitle">Language Examples</h2>
             
-            <h3 style="color: var(--text-primary); margin-bottom: 1rem; font-size: clamp(1.1rem, 4vw, 1.4rem);">Interactive Demo with Multi-Return Slots</h3>
-            <div class="code-example">
-                <pre><code><span class="code-keyword">unit</span> sample <span class="code-keyword">get</span> {
-    cod.Math
-}
-
-<span class="code-keyword">share</span> InteractiveDemo {
-    
-    <span class="code-comment">// Multi-return slot declaration</span>
-    <span class="code-slot">~|</span> formula, operation
-    <span class="code-keyword">local</span> <span class="code-function">calculate</span>(<span class="code-keyword">int</span> a, <span class="code-keyword">int</span> b, <span class="code-keyword">string</span> op) {  
-        <span class="code-keyword">if</span> op == <span class="code-string">"+"</span> {
-            <span class="code-slot">~</span> formula a <span class="code-operator">+</span> b
-            <span class="code-slot">~</span> operation <span class="code-string">"addition"</span>
-        } <span class="code-keyword">else if</span> op == <span class="code-string">"-"</span> {
-            <span class="code-slot">~</span> formula a <span class="code-operator">-</span> b  
-            <span class="code-slot">~</span> operation <span class="code-string">"subtraction"</span>
-        }
-    }
-    
-    <span class="code-keyword">share</span> <span class="code-function">main</span>() {
-        <span class="code-function">output</span> <span class="code-string">"=== CODERIVE INTERACTIVE DEMO ==="</span>
-        
-        <span class="code-comment">// Using multi-return values</span>
-        result, operationType = [formula, operation]:<span class="code-function">calculate</span>(<span class="code-number">10</span>, <span class="code-number">5</span>, <span class="code-string">"+"</span>)
-        <span class="code-function">output</span> <span class="code-string">"Result:"</span> <span class="code-operator">+</span> result <span class="code-operator">+</span> <span class="code-string">", Operation:"</span> <span class="code-operator">+</span> operationType
-    }
-}</code></pre>
+            <h3 style="color: var(--text-primary); margin-bottom: 1rem; font-size: clamp(1.1rem, 4vw, 1.4rem);" id="demoTitle">Interactive Demo with Multi-Return Slots</h3>
+            <div class="code-example" id="demoExample">
+                <!-- Dynamically populated -->
             </div>
 
-            <h3 style="color: var(--text-primary); margin-top: clamp(2rem, 6vw, 3rem); margin-bottom: 1rem; font-size: clamp(1.1rem, 4vw, 1.4rem);">Smart For-Loops with Complex Steps</h3>
-            <div class="code-example">
-                <pre><code><span class="code-keyword">share</span> <span class="code-function">numberSeries</span>() {
-    <span class="code-function">output</span> <span class="code-string">"=== Smart For-Loops ==="</span>
-    
-    <span class="code-comment">// Multiplicative steps</span>
-    <span class="code-keyword">for</span> i <span class="code-keyword">by</span> <span class="code-operator">*2</span> <span class="code-keyword">in</span> <span class="code-number">1</span> <span class="code-keyword">to</span> <span class="code-number">32</span> {
-        <span class="code-function">output</span> <span class="code-string">"Doubling:"</span> <span class="code-operator">+</span> i  <span class="code-comment">// 1, 2, 4, 8, 16, 32</span>
-    }
-    
-    <span class="code-comment">// Compound assignment steps</span>
-    <span class="code-keyword">for</span> i <span class="code-keyword">by</span> i <span class="code-operator">+=</span> <span class="code-number">2</span> <span class="code-keyword">in</span> <span class="code-number">1</span> <span class="code-keyword">to</span> <span class="code-number">10</span> {
-        <span class="code-function">output</span> <span class="code-string">"Step +2:"</span> <span class="code-operator">+</span> i  <span class="code-comment">// 1, 3, 5, 7, 9</span>
-    }
-    
-    <span class="code-comment">// Division steps</span>
-    <span class="code-keyword">for</span> i <span class="code-keyword">by</span> <span class="code-operator">/2</span> <span class="code-keyword">in</span> <span class="code-number">64</span> <span class="code-keyword">to</span> <span class="code-number">2</span> {
-        <span class="code-function">output</span> <span class="code-string">"Halving:"</span> <span class="code-operator">+</span> i  <span class="code-comment">// 64, 32, 16, 8, 4, 2</span>
-    }
-}</code></pre>
+            <h3 style="color: var(--text-primary); margin-top: clamp(2rem, 6vw, 3rem); margin-bottom: 1rem; font-size: clamp(1.1rem, 4vw, 1.4rem);" id="loopsTitle">Smart For-Loops with Complex Steps</h3>
+            <div class="code-example" id="loopsExample">
+                <!-- Dynamically populated -->
             </div>
 
-            <div class="language-features">
-                <div class="feature-item">
-                    <h4>Multi-Return Slots</h4>
-                    <p>Declare multiple return values with ~| syntax and assign with ~ operator</p>
-                </div>
-                <div class="feature-item">
-                    <h4>Smart For-Loops</h4>
-                    <p>Support for multiplicative (*2), divisive (/2), and compound (i+=1) steps</p>
-                </div>
-                <div class="feature-item">
-                    <h4>Flexible Control Flow</h4>
-                    <p>Support for both else-if and elif syntax with clean block structure</p>
-                </div>
-                <div class="feature-item">
-                    <h4>Array Support</h4>
-                    <p>Native array literals with indexing and modification capabilities</p>
-                </div>
+            <div class="language-features" id="languageFeatures">
+                <!-- Dynamically populated -->
             </div>
         </div>
     </section>
     
     <section id="runners">
         <div class="container">
-            <h2 class="section-title">Execution Runners</h2>
-            <div class="runners">
-                <div class="runner-card">
-                    <h3>InterpreterRunner</h3>
-                    <p>Execute Coderive code directly with the interpreter for fast development cycles.</p>
-                    <ul>
-                        <li>Immediate code execution</li>
-                        <li>Built-in debugging support</li>
-                        <li>AST visualization option</li>
-                    </ul>
-                    <div class="command-container">
-                        <div class="command">java -cp coderive.jar cod.runner.InterpreterRunner program.cod</div>
-                        <button class="copy-btn">Copy</button>
-                    </div>
-                </div>
-                <div class="runner-card">
-                    <h3>CompilerRunner</h3>
-                    <p>Compile Coderive code to bytecode or native assembly for deployment.</p>
-                    <ul>
-                        <li>Bytecode compilation</li>
-                        <li>Native assembly output</li>
-                        <li>MTOT optimization</li>
-                    </ul>
-                    <div class="command-container">
-                        <div class="command">java -cp coderive.jar cod.runner.CompilerRunner --native program.cod</div>
-                        <button class="copy-btn">Copy</button>
-                    </div>
-                </div>
-                <div class="runner-card">
-                    <h3>CommandRunner</h3>
-                    <p>Unified runner with multiple execution modes in a single command.</p>
-                    <ul>
-                        <li>Interpret or compile</li>
-                        <li>Flexible output options</li>
-                        <li>All features in one tool</li>
-                    </ul>
-                    <div class="command-container">
-                        <div class="command">java -cp coderive.jar cod.runner.CommandRunner -c program.cod</div>
-                        <button class="copy-btn">Copy</button>
-                    </div>
-                </div>
-                <div class="runner-card">
-                    <h3>CoderiveREPL</h3>
-                    <p>Interactive environment for experimenting with Coderive code.</p>
-                    <ul>
-                        <li>Real-time evaluation</li>
-                        <li>Multi-line input support</li>
-                        <li>State management</li>
-                    </ul>
-                    <div class="command-container">
-                        <div class="command">java -cp coderive.jar cod.runner.CoderiveREPL</div>
-                        <button class="copy-btn">Copy</button>
-                    </div>
-                </div>
+            <h2 class="section-title" id="runnersTitle">Execution Runners</h2>
+            <div class="runners" id="runnersGrid">
+                <!-- Dynamically populated -->
             </div>
         </div>
     </section>
     
     <section id="technical">
         <div class="container">
-            <h2 class="section-title">Technical Innovations</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <h3>Mobile-First Architecture</h3>
-                    <p>Built entirely on Android devices using Java NIDE, Quickedit, and Termux, proving serious development can happen outside traditional environments.</p>
-                </div>
-                <div class="feature-card">
-                    <h3>Dual Parser System</h3>
-                    <p>Both ANTLR-based grammar parsing and custom recursive descent parser for robust language processing and error recovery.</p>
-                </div>
-                <div class="feature-card">
-                    <h3>Advanced Register Allocation</h3>
-                    <p>Hybrid "future-cost" spilling algorithm that predicts register usage patterns for optimal performance.</p>
-                </div>
-                <div class="feature-card">
-                    <h3>Multi-Target Compilation</h3>
-                    <p>Generate native assembly for both ARM64 and x86_64 architectures from a single Java codebase.</p>
-                </div>
+            <h2 class="section-title" id="techTitle">Technical Innovations</h2>
+            <div class="features-grid" id="techGrid">
+                <!-- Dynamically populated -->
             </div>
         </div>
     </section>
@@ -705,140 +75,36 @@
     <section id="try-online">
         <div class="container">
             <div class="try-editor">
-                <h2>Try Coderive Online</h2>
-                <p>Experience Coderive right in your browser with our online editor. No installation required.</p>
-                <a href="editor.html" class="btn">Open Online Editor</a>
+                <h2 id="tryTitle">Try Coderive Online</h2>
+                <p id="tryDescription">Experience Coderive right in your browser with our online editor. No installation required.</p>
+                <a href="editor.html" class="btn" id="openEditorBtn">Open Online Editor</a>
             </div>
         </div>
     </section>
     
     <section id="getting-started">
         <div class="container">
-            <h2 class="section-title">Getting Started</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <h3>1. Installation</h3>
-                    <p>Clone the repository and build the project:</p>
-                    <div class="command-container">
-                        <div class="command">git clone https://github.com/DanexCodr/Coderive.git
-cd Coderive
-./gradlew build</div>
-                        <button class="copy-btn">Copy</button>
-                    </div>
-                </div>
-                <div class="feature-card">
-                    <h3>2. Write Your First Program</h3>
-                    <p>Create a simple Coderive program:</p>
-                    <div class="code-example" style="margin: 1rem 0; padding: 1rem;">
-                        <pre><code><span class="code-function">output</span> <span class="code-string">"Hello, Coderive!"</span></code></pre>
-                    </div>
-                </div>
-                <div class="feature-card">
-                    <h3>3. Run Your Code</h3>
-                    <p>Execute your program with the interpreter:</p>
-                    <div class="command-container">
-                        <div class="command">java -cp build/libs/coderive.jar cod.runner.InterpreterRunner hello.cod</div>
-                        <button class="copy-btn">Copy</button>
-                    </div>
-                </div>
+            <h2 class="section-title" id="gettingStartedTitle">Getting Started</h2>
+            <div class="features-grid" id="gettingStartedGrid">
+                <!-- Dynamically populated -->
             </div>
         </div>
     </section>
     
     <footer>
         <div class="container">
-            <div class="footer-links">
-                <a href="https://github.com/DanexCodr/Coderive">GitHub</a>
-                <a href="#features">Features</a>
-                <a href="#getting-started">Documentation</a>
-                <a href="mailto:danisonnunez001@gmail.com">Contact</a>
+            <div class="footer-links" id="footerLinks">
+                <!-- Dynamically populated -->
             </div>
-            <p>&copy; 2025 Coderive Project. All rights reserved.</p>
-            <p style="margin-top: 1rem; color: var(--text-secondary); font-size: clamp(0.8rem, 3vw, 0.9rem);">
+            <p id="copyright">&copy; 2025 Coderive Project. All rights reserved.</p>
+            <p style="margin-top: 1rem; color: var(--text-secondary); font-size: clamp(0.8rem, 3vw, 0.9rem);" id="builtWith">
                 Built with passion and persistence on mobile devices — proving that innovation knows no hardware boundaries.
             </p>
         </div>
     </footer>
 
-    <script>
-        // Handle viewport changes on orientation change
-        window.addEventListener('orientationchange', function() {
-            // Force a reflow to ensure proper rendering
-            setTimeout(function() {
-                window.dispatchEvent(new Event('resize'));
-            }, 100);
-        });
-
-        // Handle resize events for better mobile experience
-        window.addEventListener('resize', function() {
-            // Ensure content stays within viewport
-            document.body.style.overflowX = 'hidden';
-        });
-
-        // Prevent zoom on double-tap (iOS)
-        document.addEventListener('touchstart', function(event) {
-            if (event.touches.length > 1) {
-                event.preventDefault();
-            }
-        }, { passive: false });
-
-        let lastTouchEnd = 0;
-        document.addEventListener('touchend', function(event) {
-            const now = (new Date()).getTime();
-            if (now - lastTouchEnd <= 300) {
-                event.preventDefault();
-            }
-            lastTouchEnd = now;
-        }, false);
-
-        // Copy to clipboard function
-        function copyToClipboard(button) {
-            const commandContainer = button.parentElement;
-            const commandElement = commandContainer.querySelector('.command');
-            const textToCopy = commandElement.textContent || commandElement.innerText;
-            
-            // Create a temporary textarea element
-            const textarea = document.createElement('textarea');
-            textarea.value = textToCopy;
-            textarea.style.position = 'fixed';
-            textarea.style.opacity = '0';
-            document.body.appendChild(textarea);
-            
-            // Select and copy the text
-            textarea.select();
-            textarea.setSelectionRange(0, 99999); // For mobile devices
-            
-            try {
-                const successful = document.execCommand('copy');
-                if (successful) {
-                    // Show success feedback
-                    const originalText = button.textContent;
-                    button.textContent = 'Copied!';
-                    button.classList.add('copied');
-                    
-                    // Revert back after 2 seconds
-                    setTimeout(() => {
-                        button.textContent = originalText;
-                        button.classList.remove('copied');
-                    }, 2000);
-                }
-            } catch (err) {
-                console.error('Failed to copy text: ', err);
-            }
-            
-            // Clean up
-            document.body.removeChild(textarea);
-        }
-
-        // Add click handlers to all copy buttons
-        document.addEventListener('DOMContentLoaded', function() {
-            const copyButtons = document.querySelectorAll('.copy-btn');
-            copyButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    copyToClipboard(this);
-                });
-            });
-        });
-    </script>
+    <!-- Load content strings -->
+    <script src="content-strings.js"></script>
+    <script src="main-script.js"></script>
 </body>
 </html>
