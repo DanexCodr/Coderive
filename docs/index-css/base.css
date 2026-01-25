@@ -1,0 +1,143 @@
+/* ============================================
+   BASE STYLES & SCROLLING FIXES
+   ============================================ */
+
+/* Remove old snackbar styles */
+.snackbar,
+.snackbar-link,
+.snackbar-link::after {
+    display: none;
+}
+
+/* Editor-specific */
+body.editor-page .top-left-container {
+    background: rgba(20, 20, 20, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* Fix for portrait mode scrolling */
+body:not(.landscape-mode) {
+    overflow-y: auto;
+    height: auto;
+    min-height: 100vh;
+}
+
+body:not(.landscape-mode) .landscape-right {
+    width: 100%;
+    margin-left: 0;
+    overflow-y: visible;
+    height: auto;
+}
+
+/* Ensure smooth scrolling in portrait */
+@media (max-width: 768px) {
+    body {
+        -webkit-overflow-scrolling: touch;
+        overflow-y: auto;
+        position: relative;
+    }
+    
+    body:not(.landscape-mode) {
+        height: auto;
+        min-height: 100vh;
+    }
+    
+    .landscape-right,
+    .code-example,
+    .command {
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* Prevent any fixed height issues */
+body:not(.landscape-mode) header,
+body:not(.landscape-mode) section,
+body:not(.landscape-mode) footer {
+    position: relative;
+}
+
+/* Remove any transform that might interfere with scrolling */
+body:not(.landscape-mode) .landscape-right {
+    transform: none !important;
+}
+
+/* Ensure proper scroll behavior on all devices */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Fix for Android Chrome scrolling */
+@media (max-width: 768px) {
+    html, body {
+        position: relative;
+        height: 100%;
+        min-height: 100vh;
+    }
+    
+    body {
+        overflow-y: scroll;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: none;
+    }
+}
+
+/* Special fix for iOS Safari */
+@supports (-webkit-touch-callout: none) {
+    body {
+        min-height: -webkit-fill-available;
+    }
+    
+    html {
+        height: -webkit-fill-available;
+    }
+}
+
+/* Prevent overscroll effect on body */
+body {
+    overscroll-behavior-y: none;
+}
+
+/* Allow momentum scrolling in scrollable areas */
+.landscape-right,
+.code-example,
+.command {
+    overscroll-behavior-y: contain;
+}
+
+/* Add padding to #getting-started section to account for top menu - ONLY IN PORTRAIT MODE */
+body:not(.landscape-mode) #getting-started {
+    scroll-margin-top: 80px;
+}
+
+/* For mobile devices in portrait mode, make the offset even larger */
+body.mobile-device:not(.landscape-mode) #getting-started {
+    scroll-margin-top: 120px;
+}
+
+/* In landscape mode, the top-left container is positioned differently, so we don't need this offset */
+body.landscape-mode #getting-started {
+    scroll-margin-top: 0;
+}
+
+/* Ensure top-left container is always properly displayed */
+.top-left-container {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+/* Prevent any interference from other styles */
+.home-text {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+/* Smooth transition for visual changes */
+.top-left-container,
+.top-left-container .side-panel-toggle,
+.home-text {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}

@@ -1,0 +1,248 @@
+/* ============================================ */
+/* DRAWER SLIDE ANIMATION - FIXED */
+/* ============================================ */
+
+/* Disable any existing transitions that might interfere */
+.top-left-container {
+    transition: all 0.3s ease !important;
+}
+
+/* Portrait mode animations - FIXED */
+body.drawer-visible:not(.landscape-mode) .side-panel-toggle {
+    transform: translateX(250px) !important;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+body:not(.drawer-visible):not(.landscape-mode) .side-panel-toggle {
+    transform: translateX(0) !important;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+/* Fade out Home text when drawer opens */
+body.drawer-visible:not(.landscape-mode) .home-text {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Fade in Home text when drawer closes */
+body:not(.drawer-visible):not(.landscape-mode) .home-text {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: all 0.3s ease 0.1s !important;
+}
+
+/* Make the CONTAINER BACKGROUND transparent but keep button visible - FIXED */
+body.drawer-visible:not(.landscape-mode) .top-left-container {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    min-width: 60px !important;
+    padding-right: 10px !important;
+    transition: all 0.3s ease !important;
+}
+
+/* IMPORTANT: DO NOT set container opacity to 0 - only make background transparent */
+/* The button will remain visible because it's not affected by container's background */
+
+/* Restore container when drawer closes */
+body:not(.drawer-visible):not(.landscape-mode) .top-left-container {
+    background: rgba(30, 30, 30, 0.95) !important;
+    backdrop-filter: blur(4px) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.3),
+        0 0 0 1px rgba(255, 255, 255, 0.05),
+        0 0 15px rgba(255, 255, 255, 0.03) !important;
+    min-width: 120px !important;
+    padding: 10px 15px !important;
+    transition: all 0.3s ease 0.1s !important;
+}
+
+/* Ensure the container stays in its original position with margin */
+.top-left-container {
+    position: fixed;
+    top: 15px !important;
+    left: 15px !important;
+    margin: 0 !important;
+    transform: translateX(0);
+    will-change: transform;
+    z-index: 1002 !important;
+    /* Important: Don't set opacity on container itself */
+    opacity: 1 !important;
+}
+
+/* Drawer overlay should be behind the menu */
+body.drawer-visible .drawer-overlay {
+    z-index: 899;
+}
+
+body.drawer-visible .drawer {
+    z-index: 900;
+}
+
+/* Landscape mode - Only move the button, not the container */
+body.landscape-mode.drawer-visible .side-panel-toggle {
+    transform: translateX(200px) !important;
+    transition: transform 0.3s ease !important;
+}
+
+body.landscape-mode:not(.drawer-visible) .side-panel-toggle {
+    transform: translateX(0) !important;
+    transition: transform 0.3s ease !important;
+}
+
+/* Also hide Home text in landscape mode when drawer opens */
+body.landscape-mode.drawer-visible .home-text {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Make the CONTAINER BACKGROUND transparent in landscape too - FIXED */
+body.landscape-mode.drawer-visible .top-left-container {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    min-width: 60px !important;
+    padding-right: 10px !important;
+    transition: all 0.3s ease !important;
+}
+
+/* In landscape mode, container stays fixed */
+body.landscape-mode.drawer-visible .top-left-container {
+    left: 15px !important; /* Container doesn't move */
+    transform: translateX(0) !important;
+    transition: all 0.3s ease !important;
+}
+
+body.landscape-mode:not(.drawer-visible) .top-left-container {
+    left: 15px !important;
+    transform: translateX(0) !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Add a subtle visual feedback for the menu button */
+body.drawer-visible:not(.landscape-mode) .side-panel-toggle {
+    background: var(--accent-hover) !important;
+    animation: buttonPulseDrawer 0.3s ease;
+}
+
+@keyframes buttonPulseDrawer {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Home text stays in place always - no animation needed */
+.home-text {
+    transition: none !important;
+    transform: translateX(0) !important;
+}
+
+/* Mobile-specific adjustments for portrait */
+@media (max-width: 768px) and (orientation: portrait) {
+    body.drawer-visible:not(.landscape-mode) .side-panel-toggle {
+        transform: translateX(250px) !important;
+        transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+    }
+    
+    /* Adjust for smaller drawer on mobile */
+    @media (max-width: 600px) {
+        body.drawer-visible:not(.landscape-mode) .side-panel-toggle {
+            transform: translateX(200px) !important;
+        }
+        
+        /* Smaller container when drawer open on mobile */
+        body.drawer-visible:not(.landscape-mode) .top-left-container {
+            min-width: 50px !important;
+            padding-right: 8px !important;
+            background: transparent !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+        }
+    }
+    
+    @media (max-width: 400px) {
+        body.drawer-visible:not(.landscape-mode) .side-panel-toggle {
+            transform: translateX(180px) !important;
+        }
+        
+        /* Even smaller container on very small screens */
+        body.drawer-visible:not(.landscape-mode) .top-left-container {
+            min-width: 45px !important;
+            padding-right: 6px !important;
+            background: transparent !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+        }
+    }
+}
+
+/* Landscape mode adjustments for different screen sizes */
+@media (orientation: landscape) and (max-height: 500px) {
+    body.landscape-mode.drawer-visible .side-panel-toggle {
+        transform: translateX(180px) !important; /* Drawer is narrower on very short screens */
+    }
+    
+    /* Adjust container size for small landscape */
+    body.landscape-mode.drawer-visible .top-left-container {
+        min-width: 50px !important;
+        padding-right: 8px !important;
+        background: transparent !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
+    }
+}
+
+/* Fix for when drawer is open and window is resized */
+body.drawer-visible .top-left-container {
+    pointer-events: auto;
+}
+
+/* Ensure proper z-index ordering */
+.top-left-container {
+    z-index: 1002 !important;
+}
+
+.drawer {
+    z-index: 900 !important;
+}
+
+.drawer-overlay {
+    z-index: 899 !important;
+}
+
+/* Smooth initial appearance */
+.top-left-container {
+    opacity: 0;
+    animation: fadeInTopMenu 0.5s ease 0.3s forwards;
+}
+
+@keyframes fadeInTopMenu {
+    to {
+        opacity: 1;
+    }
+}
+
+/* Prevent initial animation interference */
+body:not(.loaded) .top-left-container {
+    animation: none;
+    opacity: 1;
+}

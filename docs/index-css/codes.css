@@ -1,0 +1,64 @@
+/* ============================================
+   CODE STYLES
+   ============================================ */
+.code-type {
+    color: #ff7b72;
+    font-weight: bold;
+}
+
+.code-example {
+    background-color: var(--code-bg);
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    margin: clamp(1rem, 3vw, 1.5rem) 0;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    /* Make ALL borders blue */
+    border: 2px solid var(--accent-primary);
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.code-example pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    font-size: clamp(0.8rem, 3vw, 0.9rem);
+    line-height: 1.4;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.code-keyword {
+    color: #ff7b72;
+}
+
+.code-function {
+    color: #d2a8ff;
+}
+
+.code-string {
+    color: #a5d6ff;
+}
+
+.code-comment {
+    color: #8b949e;
+}
+
+.code-operator {
+    color: #79c0ff;
+}
+
+.code-slot {
+    color: #7ee787;
+}
+
+.code-number {
+    color: #79c0ff;
+}

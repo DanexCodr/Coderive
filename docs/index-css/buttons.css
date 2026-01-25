@@ -1,0 +1,345 @@
+/* ============================================
+   BUTTONS & INTERACTIVE ELEMENTS
+   ============================================ */
+
+/* Menu button in top-left container - SPECIFIC STYLING */
+.top-left-container .side-panel-toggle {
+    background: var(--accent-primary);
+    color: var(--text-primary);
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    flex-shrink: 0;
+    box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    margin: 0;
+}
+
+/* Menu button (general) */
+.side-panel-toggle:not(.top-left-container .side-panel-toggle) {
+    background: var(--accent-primary);
+    color: var(--text-primary);
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    flex-shrink: 0;
+    box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
+}
+
+.side-panel-toggle:hover {
+    background: var(--accent-hover);
+    box-shadow: 
+        0 3px 6px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+}
+
+.side-panel-toggle:active {
+    transform: translateY(0);
+    box-shadow: 
+        0 1px 2px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Drawer toggle specific styles */
+body.drawer-visible .side-panel-toggle {
+    background: var(--accent-hover);
+}
+
+/* Hide drawer toggle in landscape mode */
+body.landscape-mode .side-panel-toggle {
+    display: none !important;
+}
+
+/* Button pulse animation */
+@keyframes buttonPulse {
+    0% {
+        box-shadow: 
+            0 2px 4px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    50% {
+        box-shadow: 
+            0 2px 8px rgba(0, 122, 204, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    100% {
+        box-shadow: 
+            0 2px 4px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+}
+
+.side-panel-toggle:active {
+    animation: buttonPulse 0.2s ease;
+}
+
+/* General buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--accent-primary);
+    color: var(--text-primary);
+    padding: clamp(0.5rem, 3vw, 0.75rem) clamp(1rem, 4vw, 1.5rem);
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    margin: clamp(0.25rem, 2vw, 0.5rem);
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: clamp(0.9rem, 3vw, 1rem);
+    white-space: nowrap;
+    min-height: 44px;
+}
+
+.btn:hover {
+    background-color: var(--accent-hover);
+    transform: translateY(-2px);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    border: 2px solid var(--accent-primary);
+}
+
+.btn-secondary:hover {
+    background-color: rgba(0, 122, 204, 0.1);
+}
+
+/* Drawer-specific button styles */
+.drawer-btn {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.95rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+    margin: 0.25rem 0;
+}
+
+.drawer-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    transform: translateX(2px);
+}
+
+.drawer-btn.active {
+    background: rgba(0, 122, 204, 0.1);
+    color: var(--accent-primary);
+    border-left: 3px solid var(--accent-primary);
+}
+
+.drawer-btn-icon {
+    margin-right: 0.75rem;
+    font-size: 1.1rem;
+    width: 20px;
+    text-align: center;
+}
+
+.drawer-btn-text {
+    flex: 1;
+}
+
+.drawer-btn-badge {
+    background: var(--accent-primary);
+    color: var(--text-primary);
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 10px;
+    margin-left: 0.5rem;
+}
+
+/* Drawer section buttons */
+.drawer-section-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: none;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+    margin: 0.5rem 0;
+    border-left: 2px solid transparent;
+}
+
+.drawer-section-btn:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-left: 2px solid var(--accent-primary);
+}
+
+.drawer-section-btn.active {
+    background: rgba(0, 122, 204, 0.15);
+    border-left: 3px solid var(--accent-primary);
+}
+
+/* Drawer toggle button in mobile portrait - REMOVED POSITIONING */
+@media (max-width: 600px) and (orientation: portrait) {
+    .side-panel-toggle {
+        /* REMOVED: position: fixed, top: 15px, left: 15px */
+        min-width: 44px;
+        min-height: 44px;
+        font-size: 18px;
+        padding: 12px;
+        box-shadow: 
+            0 2px 4px rgba(0, 0, 0, 0.3),
+            0 0 15px rgba(255, 255, 255, 0.05);
+    }
+    
+    /* REMOVED: When drawer is open on mobile, position toggle over drawer */
+}
+
+/* Drawer button adjustments for landscape */
+@media (orientation: landscape) {
+    .drawer-btn {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.85rem;
+    }
+    
+    .drawer-btn-icon {
+        margin-right: 0.6rem;
+        font-size: 1rem;
+    }
+}
+
+/* Very small screens */
+@media (max-width: 320px) {
+    .side-panel-toggle {
+        min-width: 40px;
+        min-height: 40px;
+        padding: 10px;
+        font-size: 16px;
+    }
+    
+    .drawer-btn {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.85rem;
+    }
+    
+    .drawer-btn-icon {
+        margin-right: 0.5rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* Drawer button focus states for accessibility */
+.drawer-btn:focus,
+.drawer-section-btn:focus,
+.side-panel-toggle:focus {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+/* Disabled button state */
+.btn:disabled,
+.drawer-btn:disabled,
+.side-panel-toggle:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.btn:disabled:hover,
+.drawer-btn:disabled:hover,
+.side-panel-toggle:disabled:hover {
+    background-color: var(--accent-primary);
+    transform: none;
+}
+
+.btn-secondary:disabled:hover {
+    background-color: transparent;
+}
+
+/* Drawer button groups */
+.drawer-btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0.5rem 0;
+}
+
+.drawer-btn-group .drawer-btn {
+    margin: 0;
+    border-radius: 0;
+}
+
+.drawer-btn-group .drawer-btn:first-child {
+    border-radius: 4px 4px 0 0;
+}
+
+.drawer-btn-group .drawer-btn:last-child {
+    border-radius: 0 0 4px 4px;
+}
+
+/* Drawer action buttons (more prominent) */
+.drawer-action-btn {
+    background: rgba(0, 122, 204, 0.15);
+    color: var(--accent-primary);
+    font-weight: 600;
+    border: 1px solid rgba(0, 122, 204, 0.3);
+}
+
+.drawer-action-btn:hover {
+    background: rgba(0, 122, 204, 0.25);
+    color: var(--text-primary);
+}
+
+/* Drawer toggle button animation */
+.side-panel-toggle {
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+/* Smooth icon change animation */
+.side-panel-toggle::before {
+    content: '';
+    display: block;
+    transition: opacity 0.2s ease;
+}
+
+/* For mobile touch feedback */
+@media (hover: none) and (pointer: coarse) {
+    .side-panel-toggle:active,
+    .drawer-btn:active,
+    .drawer-section-btn:active {
+        transform: scale(0.95);
+        transition: transform 0.1s ease;
+    }
+}
