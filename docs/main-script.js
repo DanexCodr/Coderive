@@ -3,7 +3,8 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeMainContent();
     setupCopyButtons();
     setupEventListeners();
-    setupSmoothScrolling(); // Initialize smooth scrolling
+    setupSmoothScrolling();
+    handlePageLoad(); // Initialize page load handling
 });
 
 function initializeMainContent() {
@@ -242,8 +243,32 @@ function addCodeStyles() {
                 font-size: clamp(0.8rem, 3vw, 0.9rem);
                 line-height: 1.4;
                 display: block;
-                white-space: pre-wrap;
-                word-wrap: break-word;
+                max-width: 100%;
+                color: #c9d1d9;
+            }
+            
+            /* Style the pre element for better wrapping */
+            .code-example pre {
+                max-width: 100%;
+                overflow-x: auto;
+            }
+            
+            /* Add some color to the wrapper */
+            .code-example {
+                background: linear-gradient(145deg, #0d1117, #161b22);
+                border: 1px solid #58a6ff;
+                padding: 5px;
+                position: relative;
+            }
+            
+            /* Add a subtle corner accent */
+            .code-example::after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                right: 0;
+                background: linear-gradient(135deg, transparent 50%, #007acc 50%);
+                border-radius: 0 0 8px 0;
             }
         `;
         document.head.appendChild(style);
@@ -363,21 +388,6 @@ function applyMobileStyles() {
     }
 }
 
-// Function to handle landscape/portrait mode
-function updateLayoutForOrientation() {
-    const isLandscape = window.innerWidth > window.innerHeight && window.innerWidth > 768;
-    
-    if (isLandscape) {
-        document.body.classList.add('landscape-mode');
-        document.body.style.overflow = 'hidden';
-    } else {
-        document.body.classList.remove('landscape-mode');
-        document.body.style.overflow = 'auto';
-        document.body.style.height = 'auto';
-        document.body.style.minHeight = '100vh';
-    }
-}
-
 // Function to update left side width for landscape mode
 function updateLeftSideWidth() {
     if (document.body.classList.contains('landscape-mode')) {
@@ -413,7 +423,112 @@ function preventDefaultScroll(e) {
     e.preventDefault();
 }
 
-// Update setupEventListeners function to include width calculation
+// ============================================
+// DRAWER FUNCTIONALITY
+// ============================================
+
+// Drawer variables
+let drawerVisible = true; // Start with drawer visible on desktop
+let drawer = document.getElementById('mainDrawer');
+let drawerToggle = document.getElementById('drawerToggle');
+let drawerOverlay = document.getElementById('drawerOverlay');
+
+// Function to handle page load
+function handlePageLoad() {
+    // Add loaded class after a short delay to prevent initial animation
+    setTimeout(() => {
+        document.body.classList.add('loaded');
+    }, 500);
+    
+    // Remove any conflicting inline styles
+    const topLeftContainer = document.querySelector('.top-left-container');
+    if (topLeftContainer) {
+        topLeftContainer.style.transform = '';
+        topLeftContainer.style.transition = '';
+    }
+}
+
+// Initialize drawer based on screen size
+function initializeDrawer() {
+    const isSmallScreen = window.innerWidth <= 600;
+    const topLeftContainer = document.querySelector('.top-left-container');
+    
+    // Reset position first
+    if (topLeftContainer) {
+        topLeftContainer.style.transform = '';
+        topLeftContainer.style.transition = '';
+    }
+    
+    if (isSmallScreen) {
+        // On small screens, start with drawer hidden
+        drawerVisible = false;
+        document.body.classList.remove('drawer-visible');
+        drawerToggle.textContent = '☰';
+        drawerToggle.setAttribute('aria-label', 'Open navigation menu');
+        drawerToggle.style.background = '#007acc';
+    } else {
+        // On larger screens, start with drawer hidden
+        drawerVisible = false;
+        document.body.classList.remove('drawer-visible');
+        drawerToggle.textContent = '☰';
+        drawerToggle.setAttribute('aria-label', 'Open navigation menu');
+        drawerToggle.style.background = '#007acc';
+    }
+}
+
+// Toggle drawer function
+function toggleDrawer() {
+    drawerVisible = !drawerVisible;
+    
+    if (drawerVisible) {
+        document.body.classList.add('drawer-visible');
+        drawerToggle.textContent = '✕';
+        drawerToggle.setAttribute('aria-label', 'Close navigation menu');
+        drawerToggle.style.background = '#005a9e';
+    } else {
+        document.body.classList.remove('drawer-visible');
+        drawerToggle.textContent = '☰';
+        drawerToggle.setAttribute('aria-label', 'Open navigation menu');
+        drawerToggle.style.background = '#007acc';
+    }
+    
+    // Ensure top-left container gets the proper classes
+    const topLeftContainer = document.querySelector('.top-left-container');
+    if (topLeftContainer) {
+        // Force reflow to ensure animation triggers
+        topLeftContainer.offsetHeight;
+    }
+    
+    localStorage.setItem('drawerState', drawerVisible ? 'open' : 'closed');
+}
+
+// Update the updateLayoutForOrientation function
+function updateLayoutForOrientation() {
+    const isLandscape = window.innerWidth > window.innerHeight && window.innerWidth > 768;
+    
+    if (isLandscape) {
+        document.body.classList.add('landscape-mode');
+        document.body.style.overflow = 'hidden';
+        
+        // Hide drawer toggle by default in landscape
+        drawerToggle.style.display = 'none';
+        
+        // Close drawer when entering landscape mode
+        if (drawerVisible) {
+            toggleDrawer();
+        }
+    } else {
+        document.body.classList.remove('landscape-mode');
+        document.body.style.overflow = 'auto';
+        document.body.style.height = 'auto';
+        document.body.style.minHeight = '100vh';
+        
+        // Show toggle button in portrait
+        drawerToggle.style.display = 'flex';
+    }
+}
+
+// Setup event listeners
 function setupEventListeners() {
     // Add code styles
     addCodeStyles();
@@ -421,12 +536,42 @@ function setupEventListeners() {
     // Apply mobile styles
     applyMobileStyles();
     
+    // Initialize drawer
+    initializeDrawer();
+    
+    // Drawer toggle
+    drawerToggle.addEventListener('click', toggleDrawer);
+    
+    // Close drawer when clicking overlay (mobile only)
+    drawerOverlay.addEventListener('click', function() {
+        if (window.innerWidth <= 600) {
+            toggleDrawer();
+        }
+    });
+    
+    // Close drawer on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && drawerVisible && window.innerWidth <= 600) {
+            toggleDrawer();
+        }
+    });
+    
     // Handle viewport changes
     window.addEventListener('orientationchange', function() {
         setTimeout(function() {
             window.dispatchEvent(new Event('resize'));
             applyMobileStyles(); // Re-apply on orientation change
             setupSmoothScrolling(); // Re-setup scrolling
+            
+            // Update drawer state based on new orientation
+            initializeDrawer();
+            
+            // Reset drawer position
+            const topLeftContainer = document.querySelector('.top-left-container');
+            if (topLeftContainer) {
+                topLeftContainer.style.transform = '';
+                topLeftContainer.style.transition = '';
+            }
         }, 100);
     });
 
@@ -435,6 +580,16 @@ function setupEventListeners() {
         updateLayoutForOrientation();
         updateLeftSideWidth();
         applyMobileStyles(); // Re-apply on resize
+        
+        // Update drawer on resize
+        initializeDrawer();
+        
+        // Reset drawer position
+        const topLeftContainer = document.querySelector('.top-left-container');
+        if (topLeftContainer) {
+            topLeftContainer.style.transform = '';
+            topLeftContainer.style.transition = '';
+        }
     });
 
     // Initialize smooth scrolling for touch devices

@@ -144,13 +144,13 @@ const strings = {
       interactive_demo: {
         title: "Interactive Demo with Multi-Return Slots",
         code: `
-unit test
+  unit test
 
-get {
+  get {
     cod.Math
-}
+  }
 
-share InteractiveDemo {
+  share InteractiveDemo {
     
     // Multi-return slot declaration
     local calculate(a: int, b: int, op: text)
@@ -171,8 +171,8 @@ share InteractiveDemo {
         result, operationType = [formula, operation]:calculate(10, 5, "+")
         out("Result: {result}, Operation: {operationType}")
     }
-}
-`
+  }
+ `
       },
       smart_for_loops: {
         title: "Smart For-Loops with Complex Steps",

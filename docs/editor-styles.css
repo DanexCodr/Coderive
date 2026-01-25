@@ -60,9 +60,10 @@ body.landscape-mode .side-panel {
     transition: none;
 }
 
+/* ADJUSTED: Menu button with reduced top margin */
 .side-panel-toggle {
     position: fixed;
-    top: 10px;
+    top: 7px; /* Reduced from 10px to 7px */
     left: 10px;
     background: var(--accent-primary);
     color: var(--text-primary);
@@ -174,7 +175,7 @@ body.panel-open .main-content::before {
     opacity: 0.5;
 }
 
-/* Button container - glued buttons */
+/* Button container - glued buttons - KEEP AS FLEX */
 .button-container {
     display: flex;
     flex-wrap: nowrap;
@@ -186,6 +187,7 @@ body.panel-open .main-content::before {
     background: transparent;
     margin-right: 0;
     width: 120px;
+    vertical-align: middle; /* Add this for vertical alignment */
 }
 
 .button-slider {
@@ -331,6 +333,7 @@ table {
     table-layout: fixed;
 }
 
+/* FIXED: Header row with proper vertical alignment */
 .header-row {
     height: 50px;
     background-color: var(--bg-tertiary);
@@ -338,44 +341,60 @@ table {
     border-bottom: 1px solid var(--border-color);
 }
 
-/* Fix table cell widths for proper button positioning */
+/* FIXED: Ensure table cells are vertically centered */
+.header-row td {
+    vertical-align: middle !important;
+    height: 50px;
+}
+
+/* FIXED: First cell - Coderive IDE text */
 .header-row td:first-child {
     width: auto;
     padding-left: 15px;
+    vertical-align: middle;
 }
 
+/* FIXED: Last cell - button container */
 .header-row td:last-child {
     width: 140px;
     padding-right: 15px;
     max-width: 140px;
     min-width: 140px;
+    vertical-align: middle;
+    text-align: right;
 }
 
-/* Fix table cell widths for landscape mode */
-body.landscape-mode .header-row td:first-child {
-    width: auto;
-    padding-left: 15px;
+/* FIXED: Header title - properly centered vertically */
+.header-title {
+    color: var(--text-primary);
+    font-family: Arial, sans-serif;
+    font-size: 1.5rem; /* Approximate size 5 in Arial */
+    font-weight: bold;
+    line-height: 1; /* Ensure proper line height */
+    margin: 0;
+    padding: 0;
+    display: inline-block;
+    vertical-align: middle;
 }
 
-body.landscape-mode .header-row td:last-child {
-    width: 140px;
-    padding-right: 15px;
-    max-width: 140px;
-    min-width: 140px;
+/* Keep the original padding for portrait mode */
+.header-title {
+    padding-left: 45px;
+}
+
+/* Adjust for landscape mode */
+body.landscape-mode .header-title {
+    padding-left: 0;
+}
+
+/* Ensure the button container is properly positioned in the table cell */
+td:last-child .button-container {
+    display: flex; /* KEEP THIS - buttons stay side-by-side */
+    margin-left: auto; /* Push to right within cell */
 }
 
 tr:last-child {
     vertical-align: top;
-}
-
-.header-title {
-    padding-left: 45px;
-    color: var(--text-primary);
-}
-
-/* Adjust header title for landscape mode */
-body.landscape-mode .header-title {
-    padding-left: 0;
 }
 
 .edge-swipe-area {
