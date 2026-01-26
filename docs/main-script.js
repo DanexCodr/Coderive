@@ -11,7 +11,18 @@ function initializeMainContent() {
     // Set page title and header
     document.title = strings.ui.titles.main_page;
     document.getElementById('mainHeader').textContent = strings.ui.titles.coderive_language;
-    document.getElementById('tagline').textContent = strings.ui.titles.tagline;
+    
+    // Set tagline with "Learn More..." link - ADDED DOT AFTER CAPABILITIES
+    const tagline = document.getElementById('tagline');
+    if (tagline) {
+        tagline.innerHTML = strings.ui.titles.tagline + '. <span class="learn-more-link">Learn More...</span>';
+    }
+    
+    // Set landscape tagline as well - ADDED DOT AFTER CAPABILITIES
+    const landscapeTagline = document.querySelector('.landscape-header .tagline');
+    if (landscapeTagline) {
+        landscapeTagline.innerHTML = strings.ui.titles.tagline + '. <span class="learn-more-link">Learn More...</span>';
+    }
     
     // Set button texts for regular header
     document.getElementById('getStartedBtn').textContent = strings.ui.buttons.get_started;
@@ -50,8 +61,8 @@ function initializeMainContent() {
     document.getElementById('copyright').textContent = strings.ui.messages.copyright;
     document.getElementById('builtWith').textContent = strings.ui.messages.footer_built_with;
     
-    // Populate features
-    populateFeatures();
+    // Populate features with VIEWPAGER
+    createViewPager();
     
     // Populate code examples
     populateCodeExamples();
@@ -69,20 +80,287 @@ function initializeMainContent() {
     populateFooter();
 }
 
-function populateFeatures() {
-    const featuresGrid = document.getElementById('featuresGrid');
-    featuresGrid.innerHTML = '';
+// VIEWPAGER Implementation
+let viewPagerCurrentIndex = 0;
+let viewPagerIsDragging = false;
+let viewPagerStartX = 0;
+let viewPagerCurrentX = 0;
+let viewPagerTotalSlides = strings.content.features.length;
+
+function createViewPager() {
+    const featuresSection = document.getElementById('features');
+    const container = featuresSection.querySelector('.container');
     
-    strings.content.features.forEach(feature => {
-        const card = document.createElement('div');
-        card.className = 'feature-card';
-        card.innerHTML = `
-            <div class="feature-icon">${feature.icon}</div>
-            <h3>${feature.name}</h3>
-            <p>${feature.description}</p>
-        `;
-        featuresGrid.appendChild(card);
+    // Create viewpager HTML structure WITH CONSISTENT CONTENT CONTAINER
+    container.innerHTML = `
+        <h2 class="section-title" id="featuresTitle">${strings.ui.labels.features}</h2>
+        <div class="viewpager-container">
+            <div class="viewpager-wrapper">
+                <div class="viewpager">
+                    ${strings.content.features.map((feature, index) => `
+                        <div class="viewpager-slide" data-index="${index}">
+                            <div class="viewpager-content">
+                                <div class="feature-icon">${feature.icon}</div>
+                                <h3>${feature.name}</h3>
+                                <p>${feature.description}</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="viewpager-controls">
+                    <button class="viewpager-nav prev-btn" aria-label="Previous feature">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
+                            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                        </svg>
+                    </button>
+                    
+                    <div class="viewpager-indicators">
+                        ${strings.content.features.map((_, index) => `
+                            <button class="viewpager-indicator ${index === 0 ? 'active' : ''}" 
+                                    data-index="${index}" 
+                                    aria-label="Go to feature ${index + 1}">
+                            </button>
+                        `).join('')}
+                    </div>
+                    
+                    <button class="viewpager-nav next-btn" aria-label="Next feature">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
+                            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Initialize viewpager
+    setupViewPager();
+}
+
+function setupViewPager() {
+    const viewpager = document.querySelector('.viewpager');
+    const prevBtn = document.querySelector('.viewpager-nav.prev-btn');
+    const nextBtn = document.querySelector('.viewpager-nav.next-btn');
+    const indicators = document.querySelectorAll('.viewpager-indicator');
+    
+    // Set initial position
+    updateViewPagerPosition();
+    
+    // Navigation buttons - FIXED: No rubber band effect at boundaries
+    prevBtn.addEventListener('click', () => {
+        if (viewPagerCurrentIndex > 0) {
+            goToSlide(viewPagerCurrentIndex - 1);
+        }
+        // REMOVED: Rubber band effect at start
     });
+    
+    nextBtn.addEventListener('click', () => {
+        if (viewPagerCurrentIndex < viewPagerTotalSlides - 1) {
+            goToSlide(viewPagerCurrentIndex + 1);
+        }
+        // REMOVED: Rubber band effect at end
+    });
+    
+    // Indicators
+    indicators.forEach(indicator => {
+        indicator.addEventListener('click', () => {
+            const targetIndex = parseInt(indicator.dataset.index);
+            if (targetIndex !== viewPagerCurrentIndex) {
+                goToSlide(targetIndex);
+            }
+        });
+    });
+    
+    // Touch events for mobile swipe
+    viewpager.addEventListener('touchstart', handleTouchStart, { passive: true });
+    viewpager.addEventListener('touchmove', handleTouchMove, { passive: true });
+    viewpager.addEventListener('touchend', handleTouchEnd);
+    
+    // Mouse events for desktop drag
+    viewpager.addEventListener('mousedown', handleMouseDown);
+    viewpager.addEventListener('mousemove', handleMouseMove);
+    viewpager.addEventListener('mouseup', handleMouseUp);
+    viewpager.addEventListener('mouseleave', handleMouseUp);
+}
+
+function goToSlide(targetIndex) {
+    if (targetIndex < 0 || targetIndex >= viewPagerTotalSlides) return;
+    
+    // Snap animation
+    const currentSlide = document.querySelector(`.viewpager-slide[data-index="${viewPagerCurrentIndex}"]`);
+    const direction = targetIndex > viewPagerCurrentIndex ? 'next' : 'prev';
+    
+    // Apply snap effect to current slide
+    applySnapEffect(currentSlide, direction);
+    
+    // Update position
+    viewPagerCurrentIndex = targetIndex;
+    updateViewPagerPosition();
+    updateViewPagerIndicators();
+}
+
+function updateViewPagerPosition() {
+    const viewpager = document.querySelector('.viewpager');
+    const slideWidth = 100; // percentage
+    const translateX = -viewPagerCurrentIndex * slideWidth;
+    
+    viewpager.style.transform = `translateX(${translateX}%) translateZ(0)`;
+    viewpager.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+}
+
+function updateViewPagerIndicators() {
+    const indicators = document.querySelectorAll('.viewpager-indicator');
+    indicators.forEach((indicator, index) => {
+        if (index === viewPagerCurrentIndex) {
+            indicator.classList.add('active');
+        } else {
+            indicator.classList.remove('active');
+        }
+    });
+}
+
+// SNAP EFFECTS
+function applySnapEffect(slide, direction) {
+    slide.classList.remove('snap-left', 'snap-right');
+    
+    // Force reflow
+    void slide.offsetWidth;
+    
+    if (direction === 'next') {
+        slide.classList.add('snap-right');
+    } else {
+        slide.classList.add('snap-left');
+    }
+    
+    // Remove class after animation
+    setTimeout(() => {
+        slide.classList.remove('snap-left', 'snap-right');
+    }, 300);
+}
+
+// REMOVED: applyRubberBandEffect function
+
+// TOUCH HANDLERS
+function handleTouchStart(e) {
+    viewPagerIsDragging = true;
+    viewPagerStartX = e.touches[0].clientX;
+    viewPagerCurrentX = viewPagerStartX;
+    
+    const viewpager = document.querySelector('.viewpager');
+    viewpager.style.transition = 'none';
+}
+
+function handleTouchMove(e) {
+    if (!viewPagerIsDragging) return;
+    
+    viewPagerCurrentX = e.touches[0].clientX;
+    const diff = viewPagerCurrentX - viewPagerStartX;
+    
+    // Apply drag transform with resistance at boundaries
+    const viewpager = document.querySelector('.viewpager');
+    const slideWidth = window.innerWidth;
+    const baseTranslate = -viewPagerCurrentIndex * 100;
+    
+    // Calculate drag with rubber band effect at boundaries
+    let dragPercent = (diff / slideWidth) * 100;
+    
+    // Add resistance at boundaries
+    if ((viewPagerCurrentIndex === 0 && diff > 0) || 
+        (viewPagerCurrentIndex === viewPagerTotalSlides - 1 && diff < 0)) {
+        dragPercent *= 0.3; // Reduced movement at boundaries
+    }
+    
+    const translateX = baseTranslate + dragPercent;
+    viewpager.style.transform = `translateX(${translateX}%) translateZ(0)`;
+}
+
+function handleTouchEnd() {
+    if (!viewPagerIsDragging) return;
+    
+    viewPagerIsDragging = false;
+    const viewpager = document.querySelector('.viewpager');
+    viewpager.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+    
+    const diff = viewPagerCurrentX - viewPagerStartX;
+    const slideWidth = window.innerWidth;
+    const threshold = slideWidth * 0.1; // 10% threshold
+    
+    // Determine if we should change slide
+    if (Math.abs(diff) > threshold) {
+        if (diff > 0 && viewPagerCurrentIndex > 0) {
+            // Swipe right - go previous
+            goToSlide(viewPagerCurrentIndex - 1);
+        } else if (diff < 0 && viewPagerCurrentIndex < viewPagerTotalSlides - 1) {
+            // Swipe left - go next
+            goToSlide(viewPagerCurrentIndex + 1);
+        } else {
+            // At boundary - just snap back (NO RUBBER BAND)
+            updateViewPagerPosition();
+        }
+    } else {
+        // Not enough movement - snap back to current
+        updateViewPagerPosition();
+    }
+}
+
+// MOUSE HANDLERS (for desktop)
+function handleMouseDown(e) {
+    viewPagerIsDragging = true;
+    viewPagerStartX = e.clientX;
+    viewPagerCurrentX = viewPagerStartX;
+    
+    const viewpager = document.querySelector('.viewpager');
+    viewpager.style.transition = 'none';
+    viewpager.style.cursor = 'grabbing';
+}
+
+function handleMouseMove(e) {
+    if (!viewPagerIsDragging) return;
+    
+    viewPagerCurrentX = e.clientX;
+    const diff = viewPagerCurrentX - viewPagerStartX;
+    
+    const viewpager = document.querySelector('.viewpager');
+    const slideWidth = viewpager.clientWidth;
+    const baseTranslate = -viewPagerCurrentIndex * 100;
+    
+    let dragPercent = (diff / slideWidth) * 100;
+    
+    // Add resistance at boundaries
+    if ((viewPagerCurrentIndex === 0 && diff > 0) || 
+        (viewPagerCurrentIndex === viewPagerTotalSlides - 1 && diff < 0)) {
+        dragPercent *= 0.3;
+    }
+    
+    const translateX = baseTranslate + dragPercent;
+    viewpager.style.transform = `translateX(${translateX}%) translateZ(0)`;
+}
+
+function handleMouseUp() {
+    if (!viewPagerIsDragging) return;
+    
+    viewPagerIsDragging = false;
+    const viewpager = document.querySelector('.viewpager');
+    viewpager.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+    viewpager.style.cursor = 'grab';
+    
+    const diff = viewPagerCurrentX - viewPagerStartX;
+    const slideWidth = viewpager.clientWidth;
+    const threshold = slideWidth * 0.1;
+    
+    if (Math.abs(diff) > threshold) {
+        if (diff > 0 && viewPagerCurrentIndex > 0) {
+            goToSlide(viewPagerCurrentIndex - 1);
+        } else if (diff < 0 && viewPagerCurrentIndex < viewPagerTotalSlides - 1) {
+            goToSlide(viewPagerCurrentIndex + 1);
+        } else {
+            // At boundary - just snap back (NO RUBBER BAND)
+            updateViewPagerPosition();
+        }
+    } else {
+        updateViewPagerPosition();
+    }
 }
 
 function populateCodeExamples() {
@@ -269,6 +547,20 @@ function addCodeStyles() {
                 right: 0;
                 background: linear-gradient(135deg, transparent 50%, #007acc 50%);
                 border-radius: 0 0 8px 0;
+            }
+            
+            /* Learn More link styling */
+            .learn-more-link {
+                color: #007acc;
+                text-decoration: underline;
+                font-weight: 500;
+                cursor: pointer;
+                transition: color 0.3s ease;
+            }
+            
+            .learn-more-link:hover {
+                color: #005a9e;
+                text-decoration: underline;
             }
         `;
         document.head.appendChild(style);

@@ -182,17 +182,17 @@ const strings = {
     
     // Multiplicative steps
     for i by *2 in 1 to 32 {
-        out("Doubling:")  // 1, 2, 4, 8, 16, 32
+        out("Doubling:" + i)  // 1, 2, 4, 8, 16, 32
     }
     
     // Compound assignment steps
     for i by i += 2 in 1 to 10 {
-        out("Step +2:")  // 1, 3, 5, 7, 9
+        out("Step +2:" + i)  // 1, 3, 5, 7, 9
     }
     
     // Division steps
     for i by /2 in 64 to 2 {
-        out("Halving:")  // 64, 32, 16, 8, 4, 2
+        out("Halving:" + i)  // 64, 32, 16, 8, 4, 2
     }
   }
   `
