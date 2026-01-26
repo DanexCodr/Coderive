@@ -12,7 +12,7 @@ body.landscape-mode {
     width: 100%;
 }
 
-/* Left side - Header section (50% width) */
+/* Left side - Header section (50% width) - UPDATED TO SCROLLABLE */
 .landscape-left {
     display: none;
     flex: 0 0 50%;
@@ -31,6 +31,9 @@ body.landscape-mode .landscape-left {
     display: flex;
     flex-direction: column;
     width: 50%;
+    /* Make it scrollable */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Right side - Content section (50% width) */
@@ -53,6 +56,7 @@ body.landscape-mode .landscape-right {
     height: 100vh;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    /* REMOVED: padding-bottom: 40px; - Now handled by footer bottom-spacer */
 }
 
 body.landscape-mode .landscape-right {
@@ -64,20 +68,24 @@ body.landscape-mode header {
     display: none;
 }
 
-/* Landscape header */
+/* Landscape header - UPDATED TO SCROLLABLE */
 .landscape-header {
     display: none;
     padding: 0;
     text-align: center;
-    height: 100vh;
+    min-height: 100vh; /* Changed from height to min-height */
     background-color: var(--bg-tertiary);
     border-right: 1px solid var(--border-color);
-    overflow-y: auto;
+    overflow-y: visible; /* Changed from auto to visible */
     overflow-x: hidden;
     box-sizing: border-box;
     width: 100%;
     position: relative;
     -webkit-overflow-scrolling: touch;
+    /* Add padding-bottom for space at the end */
+    padding-bottom: 40px;
+    display: flex;
+    flex-direction: column;
 }
 
 body.landscape-mode .landscape-header {
@@ -131,7 +139,7 @@ body.landscape-mode .landscape-right .section-title {
     font-size: clamp(1.5rem, 6vw, 2.5rem) !important;
 }
 
-/* Landscape header content */
+/* Landscape header content - ADD BOTTOM SPACE */
 .landscape-header-content {
     width: 100%;
     max-width: 90%;
@@ -142,6 +150,7 @@ body.landscape-mode .landscape-right .section-title {
     flex-direction: column;
     align-items: center;
     gap: 0.5rem;
+    flex: 1;
 }
 
 .landscape-header-content img {

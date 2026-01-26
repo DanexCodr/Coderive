@@ -1,6 +1,6 @@
-/* ============================================
-   MOBILE-SPECIFIC STYLES
-   ============================================ */
+/* ============================================ */
+/* MOBILE-SPECIFIC STYLES */
+/* ============================================ */
 
 /* Mobile device detection class */
 body.mobile-device {
@@ -10,7 +10,9 @@ body.mobile-device {
 /* Larger touch targets for mobile */
 body.mobile-device .btn,
 body.mobile-device .copy-btn,
-body.mobile-device .side-panel-toggle {
+body.mobile-device .side-panel-toggle,
+body.mobile-device .viewpager-nav,
+body.mobile-device .viewpager-indicator {
     min-height: 44px;
     min-width: 44px;
 }
@@ -23,7 +25,8 @@ body.mobile-device section {
 /* Improve readability on mobile */
 body.mobile-device .feature-card p,
 body.mobile-device .runner-card p,
-body.mobile-device .runner-card li {
+body.mobile-device .runner-card li,
+body.mobile-device .viewpager-content p {
     font-size: clamp(1rem, 4vw, 1.1rem) !important;
     line-height: 1.6;
 }
@@ -90,9 +93,71 @@ body.mobile-device {
 /* Allow text selection only where needed */
 body.mobile-device .code-example,
 body.mobile-device .command,
-body.mobile-device textarea {
+body.mobile-device textarea,
+body.mobile-device .viewpager-content {
     -webkit-user-select: text;
     user-select: text;
+}
+
+/* ViewPager mobile adjustments */
+body.mobile-device .viewpager {
+    height: 260px;
+    cursor: default !important;
+}
+
+body.mobile-device .viewpager-slide {
+    padding: 1rem;
+}
+
+body.mobile-device .viewpager-content {
+    padding: 1.2rem;
+    backdrop-filter: blur(5px);
+}
+
+body.mobile-device .viewpager-content .feature-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+body.mobile-device .viewpager-content h3 {
+    font-size: 1.2rem;
+    margin-bottom: 0.8rem;
+}
+
+body.mobile-device .viewpager-content p {
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+body.mobile-device .viewpager-controls {
+    padding: 1rem;
+}
+
+body.mobile-device .viewpager-nav {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+}
+
+body.mobile-device .viewpager-indicators {
+    gap: 0.6rem;
+}
+
+body.mobile-device .viewpager-indicator {
+    width: 9px;
+    height: 9px;
+    min-width: 9px;
+    min-height: 9px;
+}
+
+/* Touch device specific */
+body.mobile-device .viewpager:active {
+    cursor: default;
+}
+
+body.mobile-device .viewpager-slide:active {
+    opacity: 0.95;
 }
 
 /* Optimize landscape mode for mobile */
@@ -124,6 +189,60 @@ body.mobile-device textarea {
         padding-bottom: 10px !important;
         padding-right: 5rem !important;
     }
+    
+    /* ViewPager in mobile landscape */
+    body.mobile-device .viewpager {
+        height: 180px;
+    }
+    
+    body.mobile-device .viewpager-slide {
+        padding: 0.75rem;
+    }
+    
+    body.mobile-device .viewpager-content {
+        padding: 0.8rem;
+    }
+    
+    body.mobile-device .viewpager-content .feature-icon {
+        font-size: 1.8rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    body.mobile-device .viewpager-content h3 {
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    body.mobile-device .viewpager-content p {
+        font-size: 0.8rem;
+        line-height: 1.4;
+    }
+    
+    body.mobile-device .viewpager-controls {
+        padding: 0.8rem;
+        gap: 1rem;
+    }
+    
+    body.mobile-device .viewpager-nav {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        min-height: 36px;
+    }
+    
+    body.mobile-device .viewpager-nav svg {
+        width: 18px;
+        height: 18px;
+    }
+    
+    body.mobile-device .viewpager-indicators {
+        gap: 0.4rem;
+    }
+    
+    body.mobile-device .viewpager-indicator {
+        width: 7px;
+        height: 7px;
+    }
 }
 
 /* Very small mobile screens */
@@ -153,6 +272,60 @@ body.mobile-device textarea {
     body.mobile-device .command {
         padding-right: 4.5rem !important;
         font-size: 0.75rem !important;
+    }
+    
+    /* ViewPager on very small screens */
+    body.mobile-device .viewpager {
+        height: 230px;
+    }
+    
+    body.mobile-device .viewpager-slide {
+        padding: 0.75rem;
+    }
+    
+    body.mobile-device .viewpager-content {
+        padding: 1rem;
+    }
+    
+    body.mobile-device .viewpager-content .feature-icon {
+        font-size: 2rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    body.mobile-device .viewpager-content h3 {
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    body.mobile-device .viewpager-content p {
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+    
+    body.mobile-device .viewpager-controls {
+        padding: 0.8rem;
+        gap: 0.8rem;
+    }
+    
+    body.mobile-device .viewpager-nav {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        min-height: 38px;
+    }
+    
+    body.mobile-device .viewpager-nav svg {
+        width: 18px;
+        height: 18px;
+    }
+    
+    body.mobile-device .viewpager-indicators {
+        gap: 0.5rem;
+    }
+    
+    body.mobile-device .viewpager-indicator {
+        width: 8px;
+        height: 8px;
     }
 }
 
@@ -241,4 +414,26 @@ body.desktop-device .feature-card:hover {
         0 0 0 1px rgba(255, 255, 255, 0.05),
         inset 0 1px 0 rgba(255, 255, 255, 0.03),
         0 0 15px rgba(255, 255, 255, 0.03) !important;
+}
+
+/* ViewPager touch improvements for mobile */
+body.mobile-device .viewpager-wrapper {
+    -webkit-tap-highlight-color: transparent;
+}
+
+body.mobile-device .viewpager-slide {
+    -webkit-tap-highlight-color: rgba(0, 122, 204, 0.1);
+}
+
+/* Prevent iOS text size adjustment */
+body.mobile-device .viewpager-content h3,
+body.mobile-device .viewpager-content p {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+/* Improve touch scrolling for ViewPager */
+body.mobile-device .viewpager {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
 }

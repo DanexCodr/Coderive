@@ -7,9 +7,9 @@
     transition: all 0.3s ease !important;
 }
 
-/* Portrait mode animations - FIXED */
+/* Portrait mode animations - FIXED - ALIGN BUTTON TO DRAWER EDGE */
 body.drawer-visible:not(.landscape-mode) .side-panel-toggle {
-    transform: translateX(250px) !important;
+    transform: translateX(calc(280px)) !important;
     transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
 }
 
@@ -47,9 +47,6 @@ body.drawer-visible:not(.landscape-mode) .top-left-container {
     transition: all 0.3s ease !important;
 }
 
-/* IMPORTANT: DO NOT set container opacity to 0 - only make background transparent */
-/* The button will remain visible because it's not affected by container's background */
-
 /* Restore container when drawer closes */
 body:not(.drawer-visible):not(.landscape-mode) .top-left-container {
     background: rgba(30, 30, 30, 0.95) !important;
@@ -73,7 +70,6 @@ body:not(.drawer-visible):not(.landscape-mode) .top-left-container {
     transform: translateX(0);
     will-change: transform;
     z-index: 1002 !important;
-    /* Important: Don't set opacity on container itself */
     opacity: 1 !important;
 }
 
@@ -88,7 +84,7 @@ body.drawer-visible .drawer {
 
 /* Landscape mode - Only move the button, not the container */
 body.landscape-mode.drawer-visible .side-panel-toggle {
-    transform: translateX(200px) !important;
+    transform: translateX(calc(250px)) !important;
     transition: transform 0.3s ease !important;
 }
 
@@ -121,7 +117,7 @@ body.landscape-mode.drawer-visible .top-left-container {
 
 /* In landscape mode, container stays fixed */
 body.landscape-mode.drawer-visible .top-left-container {
-    left: 15px !important; /* Container doesn't move */
+    left: 15px !important;
     transform: translateX(0) !important;
     transition: all 0.3s ease !important;
 }
@@ -159,14 +155,14 @@ body.drawer-visible:not(.landscape-mode) .side-panel-toggle {
 /* Mobile-specific adjustments for portrait */
 @media (max-width: 768px) and (orientation: portrait) {
     body.drawer-visible:not(.landscape-mode) .side-panel-toggle {
-        transform: translateX(250px) !important;
+        transform: translateX(calc(280px)) !important;
         transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
     }
     
     /* Adjust for smaller drawer on mobile */
     @media (max-width: 600px) {
         body.drawer-visible:not(.landscape-mode) .side-panel-toggle {
-            transform: translateX(200px) !important;
+            transform: translateX(calc(230px)) !important;
         }
         
         /* Smaller container when drawer open on mobile */
@@ -181,7 +177,7 @@ body.drawer-visible:not(.landscape-mode) .side-panel-toggle {
     
     @media (max-width: 400px) {
         body.drawer-visible:not(.landscape-mode) .side-panel-toggle {
-            transform: translateX(180px) !important;
+            transform: translateX(calc(200px)) !important;
         }
         
         /* Even smaller container on very small screens */
@@ -198,7 +194,7 @@ body.drawer-visible:not(.landscape-mode) .side-panel-toggle {
 /* Landscape mode adjustments for different screen sizes */
 @media (orientation: landscape) and (max-height: 500px) {
     body.landscape-mode.drawer-visible .side-panel-toggle {
-        transform: translateX(180px) !important; /* Drawer is narrower on very short screens */
+        transform: translateX(calc(180px)) !important;
     }
     
     /* Adjust container size for small landscape */

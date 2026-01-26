@@ -1,6 +1,6 @@
-/* ============================================
-   RESPONSIVE STYLES
-   ============================================ */
+/* ============================================ */
+/* RESPONSIVE STYLES */
+/* ============================================ */
 
 /* Landscape orientation optimizations */
 @media (orientation: landscape) and (max-height: 600px) {
@@ -27,6 +27,8 @@
         margin: 1rem 0;
         padding: 1rem;
     }
+    
+    /* ViewPager landscape styles removed - now handled in viewpager.css */
 }
 
 /* Very small screens */
@@ -68,6 +70,58 @@
     .home-text {
         font-size: 12px;
     }
+    
+    /* ViewPager on very small screens */
+    .viewpager {
+        height: 240px;
+    }
+    
+    .viewpager-slide {
+        padding: 0.75rem;
+    }
+    
+    .viewpager-content {
+        padding: 1rem;
+    }
+    
+    .viewpager-content .feature-icon {
+        font-size: 1.8rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .viewpager-content h3 {
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .viewpager-content p {
+        font-size: 0.8rem;
+        line-height: 1.4;
+    }
+    
+    .viewpager-controls {
+        padding: 0.8rem;
+        gap: 0.8rem;
+    }
+    
+    .viewpager-nav {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .viewpager-nav svg {
+        width: 18px;
+        height: 18px;
+    }
+    
+    .viewpager-indicators {
+        gap: 0.4rem;
+    }
+    
+    .viewpager-indicator {
+        width: 7px;
+        height: 7px;
+    }
 }
 
 /* Large screens */
@@ -78,6 +132,59 @@
     
     header {
         min-height: 50vh;
+    }
+    
+    /* ViewPager on large screens */
+    .viewpager {
+        height: 350px;
+    }
+    
+    .viewpager-slide {
+        padding: 3rem;
+    }
+    
+    .viewpager-content {
+        padding: 2.5rem;
+        max-width: 900px;
+    }
+    
+    .viewpager-content .feature-icon {
+        font-size: 4rem;
+        margin-bottom: 2rem;
+    }
+    
+    .viewpager-content h3 {
+        font-size: 2rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .viewpager-content p {
+        font-size: 1.3rem;
+        line-height: 1.7;
+    }
+    
+    .viewpager-controls {
+        padding: 2rem;
+        gap: 2.5rem;
+    }
+    
+    .viewpager-nav {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .viewpager-nav svg {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .viewpager-indicators {
+        gap: 1rem;
+    }
+    
+    .viewpager-indicator {
+        width: 12px;
+        height: 12px;
     }
 }
 
@@ -157,6 +264,11 @@
         min-height: 280px;
         padding: 1rem;
     }
+    
+    /* Ensure ViewPager section has proper spacing */
+    body.landscape-mode .landscape-right #features {
+        padding: 1rem 1rem 0.5rem 1rem;
+    }
 }
 
 /* Very small landscape screens */
@@ -215,15 +327,143 @@
         padding: 0.4rem 0.8rem;
         font-size: 0.85rem;
     }
+    
+    /* Ensure ViewPager section has proper spacing for very small screens */
+    body.landscape-mode .landscape-right #features {
+        padding: 0.75rem 0.75rem 0.25rem 0.75rem;
+    }
+}
+
+/* ViewPager specific responsive - portrait mode only */
+@media (max-width: 768px) {
+    .viewpager-container {
+        padding: 0 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .viewpager-wrapper {
+        border-radius: 12px;
+    }
+    
+    .viewpager-content {
+        border-radius: 8px;
+    }
 }
 
 /* Print styles */
 @media print {
-    .btn, .copy-btn {
+    .btn, .copy-btn, .viewpager-nav, .viewpager-indicator {
         display: none;
     }
     
     .feature-card:hover {
         transform: none;
+    }
+    
+    .viewpager-wrapper {
+        border: 1px solid #ccc;
+        box-shadow: none;
+    }
+    
+    .viewpager {
+        transform: none !important;
+        flex-wrap: wrap;
+        height: auto;
+    }
+    
+    .viewpager-slide {
+        flex: 0 0 50%;
+        min-width: 50%;
+        page-break-inside: avoid;
+        height: auto;
+    }
+    
+    .viewpager-content {
+        box-shadow: none;
+        background: transparent;
+        border: 1px solid #ddd;
+    }
+}
+
+/* Large landscape screens with good height */
+@media (orientation: landscape) and (min-height: 800px) {
+    .landscape-header {
+        padding-top: 40px;
+    }
+    
+    .landscape-header-content img {
+        max-height: 140px;
+    }
+    
+    .landscape-header h1 {
+        font-size: 2.2rem;
+    }
+    
+    .landscape-header .tagline {
+        font-size: 1.2rem;
+    }
+}
+
+/* Tablet landscape optimizations */
+@media (orientation: landscape) and (min-width: 1024px) and (min-height: 768px) {
+    body.landscape-mode .landscape-left {
+        width: 45%;
+    }
+    
+    body.landscape-mode .landscape-right {
+        margin-left: 45%;
+        width: 55%;
+    }
+    
+    .landscape-header-content img {
+        max-height: 150px;
+    }
+    
+    .landscape-header h1 {
+        font-size: 2.5rem;
+    }
+    
+    .landscape-header .version {
+        font-size: 1.3rem;
+    }
+    
+    .landscape-header .tagline {
+        font-size: 1.3rem;
+    }
+    
+    body.landscape-mode .landscape-right .section-title {
+        font-size: 2.2rem !important;
+    }
+}
+
+/* Fix for landscape mode section spacing consistency */
+@media (orientation: landscape) {
+    body.landscape-mode .landscape-right section {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    
+    /* Ensure container has proper max-width in landscape */
+    body.landscape-mode .landscape-right .container {
+        max-width: 100%;
+        padding: 0 0.75rem;
+    }
+}
+
+/* Fix for ViewPager section in landscape - ensure no overflow */
+body.landscape-mode #features {
+    overflow: hidden;
+}
+
+/* Mobile portrait specific adjustments for ViewPager */
+@media (max-width: 768px) and (orientation: portrait) {
+    #features {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    
+    .viewpager-container {
+        margin: 0 auto;
     }
 }
