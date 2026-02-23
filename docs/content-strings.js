@@ -45,8 +45,7 @@ const strings = {
       technical_innovations: "Technical Innovations",
       getting_started: "Getting Started",
       try_online: "Try Coderive Online",
-      demo_title: "Interactive Demo with Multi-Return Slots",
-      loops_title: "Smart For-Loops with Complex Steps"
+      demo_title: "InteractiveDemo.cod - Full Example"
     },
     messages: {
       try_description: "Experience Coderive right in your browser with our online editor. No installation required.",
@@ -140,64 +139,6 @@ const strings = {
         command: "java -cp build/libs/coderive.jar cod.runner.InterpreterRunner hello.cod"
       }
     ],
-    code_examples: {
-      interactive_demo: {
-        title: "Interactive Demo with Multi-Return Slots",
-        code: `
-  unit test
-
-  get {
-    cod.Math
-  }
-
-  share InteractiveDemo {
-    
-    // Multi-return slot declaration
-    local calculate(a: int, b: int, op: text)
-    :: formula: int, operation: text  {  
-        if op == "+" {
-            ~> formula: a + b
-            ~> operation: "addition"
-        } else if op == "-" {
-            ~> formula: a - b  
-            ~> operation: "subtraction"
-        }
-    }
-    
-    share main() {
-        out("=== CODERIVE INTERACTIVE DEMO ===")
-        
-        // Using multi-return values
-        result, operationType = [formula, operation]:calculate(10, 5, "+")
-        out("Result: {result}, Operation: {operationType}")
-    }
-  }
- `
-      },
-      smart_for_loops: {
-        title: "Smart For-Loops with Complex Steps",
-        code: `
-  share numberSeries() {
-    out("=== Smart For-Loops ===")
-    
-    // Multiplicative steps
-    for i by *2 in 1 to 32 {
-        out("Doubling:" + i)  // 1, 2, 4, 8, 16, 32
-    }
-    
-    // Compound assignment steps
-    for i by i += 2 in 1 to 10 {
-        out("Step +2:" + i)  // 1, 3, 5, 7, 9
-    }
-    
-    // Division steps
-    for i by /2 in 64 to 2 {
-        out("Halving:" + i)  // 64, 32, 16, 8, 4, 2
-    }
-  }
-  `
-      }
-    },
     technical_innovations: [
       {
         title: "Mobile-First Architecture",

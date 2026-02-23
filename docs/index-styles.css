@@ -1,5 +1,5 @@
 /* ============================================
-   MAIN CSS ORCHESTRATOR
+   MAIN CSS ORCHESTRATOR - UPDATED
    ============================================ */
 
 /* Import all modular CSS files */
@@ -9,10 +9,11 @@
 @import 'index-css/layout.css';
 @import 'index-css/components.css';
 @import 'index-css/buttons.css';
-@import 'index-css/code.css';
+@import 'index-css/codes.css';
 @import 'index-css/landscape.css';
 @import 'index-css/responsive.css';
 @import 'index-css/mobile.css';
 @import 'index-css/drawer.css';
 @import 'index-css/drawer-animation.css';
 @import 'index-css/viewpager.css';
+@import 'index-css/mobile-touch-fixes.css';

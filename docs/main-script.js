@@ -7,6 +7,29 @@ document.addEventListener('DOMContentLoaded', function() {
     handlePageLoad(); // Initialize page load handling
 });
 
+// GitHub repository information
+const GITHUB_REPO = {
+    owner: 'DanexCodr',
+    repo: 'Coderive',
+    branch: 'main',
+    demoPath: 'src/main/cod/src/main/test/InteractiveDemo.cod'
+};
+
+// Function to fetch file from GitHub
+async function fetchGitHubFile(path) {
+    const url = `https://raw.githubusercontent.com/${GITHUB_REPO.owner}/${GITHUB_REPO.repo}/${GITHUB_REPO.branch}/${path}`;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.text();
+    } catch (error) {
+        console.error('Error fetching file from GitHub:', error);
+        return null;
+    }
+}
+
 function initializeMainContent() {
     // Set page title and header
     document.title = strings.ui.titles.main_page;
@@ -56,7 +79,6 @@ function initializeMainContent() {
     
     // Set dynamic text content
     document.getElementById('demoTitle').textContent = strings.ui.labels.demo_title;
-    document.getElementById('loopsTitle').textContent = strings.ui.labels.loops_title;
     document.getElementById('tryDescription').textContent = strings.ui.messages.try_description;
     document.getElementById('copyright').textContent = strings.ui.messages.copyright;
     document.getElementById('builtWith').textContent = strings.ui.messages.footer_built_with;
@@ -64,7 +86,7 @@ function initializeMainContent() {
     // Populate features with VIEWPAGER
     createViewPager();
     
-    // Populate code examples
+    // Populate code examples (async)
     populateCodeExamples();
     
     // Populate runners
@@ -172,7 +194,7 @@ function setupViewPager() {
         });
     });
     
-    // Touch events for mobile swipe
+    // Touch events for mobile swipe - UPDATED WITH BETTER TOUCH HANDLING
     viewpager.addEventListener('touchstart', handleTouchStart, { passive: true });
     viewpager.addEventListener('touchmove', handleTouchMove, { passive: true });
     viewpager.addEventListener('touchend', handleTouchEnd);
@@ -239,10 +261,15 @@ function applySnapEffect(slide, direction) {
     }, 300);
 }
 
-// REMOVED: applyRubberBandEffect function
-
-// TOUCH HANDLERS
+// TOUCH HANDLERS - UPDATED WITH BETTER TOUCH DETECTION
 function handleTouchStart(e) {
+    // Check if touch is inside a code element
+    const isCodeElement = e.target.closest('.code-example, .code-example-content, .command, pre, code');
+    if (isCodeElement) {
+        // Don't start ViewPager dragging if inside code area
+        return;
+    }
+    
     viewPagerIsDragging = true;
     viewPagerStartX = e.touches[0].clientX;
     viewPagerCurrentX = viewPagerStartX;
@@ -253,6 +280,17 @@ function handleTouchStart(e) {
 
 function handleTouchMove(e) {
     if (!viewPagerIsDragging) return;
+    
+    // Check if touch moved to a code element during drag
+    const touch = e.touches[0];
+    const elementAtTouch = document.elementFromPoint(touch.clientX, touch.clientY);
+    const isCodeElement = elementAtTouch.closest('.code-example, .code-example-content, .command, pre, code');
+    
+    if (isCodeElement) {
+        // Cancel drag if moved to code element
+        handleTouchEnd();
+        return;
+    }
     
     viewPagerCurrentX = e.touches[0].clientX;
     const diff = viewPagerCurrentX - viewPagerStartX;
@@ -306,6 +344,12 @@ function handleTouchEnd() {
 
 // MOUSE HANDLERS (for desktop)
 function handleMouseDown(e) {
+    // Check if click is inside a code element
+    const isCodeElement = e.target.closest('.code-example, .code-example-content, .command, pre, code');
+    if (isCodeElement) {
+        return;
+    }
+    
     viewPagerIsDragging = true;
     viewPagerStartX = e.clientX;
     viewPagerCurrentX = viewPagerStartX;
@@ -363,30 +407,39 @@ function handleMouseUp() {
     }
 }
 
-function populateCodeExamples() {
-    // Interactive demo
+async function populateCodeExamples() {
+    // Show loading indicator
     const demoExample = document.getElementById('demoExample');
+    
+    demoExample.innerHTML = '<div class="loading-indicator">Loading InteractiveDemo.cod from GitHub...</div>';
+    
+    // Fetch the InteractiveDemo.cod file from GitHub
+    const demoCode = await fetchGitHubFile(GITHUB_REPO.demoPath);
+    
+    // Clear loading indicator
     demoExample.innerHTML = '';
-    const demoPre = document.createElement('pre');
-    const demoCode = document.createElement('code');
-    demoCode.className = 'code-example-content';
-    // Just set textContent instead of innerHTML - NO HIGHLIGHTING
-    demoCode.textContent = strings.content.code_examples.interactive_demo.code;
-    demoPre.appendChild(demoCode);
-    demoExample.appendChild(demoPre);
     
-    // Smart for-loops
-    const loopsExample = document.getElementById('loopsExample');
-    loopsExample.innerHTML = '';
-    const loopsPre = document.createElement('pre');
-    const loopsCode = document.createElement('code');
-    loopsCode.className = 'code-example-content';
-    // Just set textContent instead of innerHTML - NO HIGHLIGHTING
-    loopsCode.textContent = strings.content.code_examples.smart_for_loops.code;
-    loopsPre.appendChild(loopsCode);
-    loopsExample.appendChild(loopsPre);
+    if (demoCode) {
+        // Create code element with fetched content
+        const demoPre = document.createElement('pre');
+        const demoCodeElement = document.createElement('code');
+        demoCodeElement.className = 'code-example-content';
+        demoCodeElement.textContent = demoCode;
+        
+        // Add a note that this is from GitHub
+        const noteElement = document.createElement('div');
+        noteElement.className = 'code-note';
+        noteElement.textContent = '📁 Full InteractiveDemo.cod file from GitHub repository';
+        demoExample.appendChild(noteElement);
+        
+        demoPre.appendChild(demoCodeElement);
+        demoExample.appendChild(demoPre);
+    } else {
+        // Show error message if fetch fails
+        demoExample.innerHTML = '<div class="code-note error">❌ Failed to load code from GitHub. Please check your connection and try again.</div>';
+    }
     
-    // Language features
+    // Language features section remains the same
     const languageFeatures = document.getElementById('languageFeatures');
     languageFeatures.innerHTML = '';
     
@@ -523,12 +576,16 @@ function addCodeStyles() {
                 display: block;
                 max-width: 100%;
                 color: #c9d1d9;
+                user-select: text;
+                -webkit-user-select: text;
+                touch-action: pan-y;
             }
             
             /* Style the pre element for better wrapping */
             .code-example pre {
                 max-width: 100%;
                 overflow-x: auto;
+                touch-action: pan-y;
             }
             
             /* Add some color to the wrapper */
@@ -537,6 +594,7 @@ function addCodeStyles() {
                 border: 1px solid #58a6ff;
                 padding: 5px;
                 position: relative;
+                touch-action: pan-y;
             }
             
             /* Add a subtle corner accent */
@@ -561,6 +619,47 @@ function addCodeStyles() {
             .learn-more-link:hover {
                 color: #005a9e;
                 text-decoration: underline;
+            }
+            
+            /* Loading indicator */
+            .loading-indicator {
+                color: var(--text-secondary);
+                text-align: center;
+                padding: 2rem;
+                font-style: italic;
+            }
+            
+            /* Code note */
+            .code-note {
+                font-size: 0.8rem;
+                color: #58a6ff;
+                margin-bottom: 0.5rem;
+                padding: 0.25rem 0.5rem;
+                background: rgba(88, 166, 255, 0.1);
+                border-radius: 4px;
+                display: inline-block;
+            }
+            
+            .code-note.error {
+                color: #f97583;
+                background: rgba(249, 117, 131, 0.1);
+            }
+            
+            /* Mobile touch fixes */
+            @media (max-width: 768px) {
+                .code-example,
+                .code-example *,
+                .command,
+                .command-container,
+                .command * {
+                    touch-action: pan-y !important;
+                    -webkit-overflow-scrolling: touch !important;
+                }
+                
+                body {
+                    touch-action: pan-y !important;
+                    overflow-y: scroll !important;
+                }
             }
         `;
         document.head.appendChild(style);
@@ -663,6 +762,18 @@ function applyMobileStyles() {
         sections.forEach(section => {
             section.classList.add('mobile-section');
         });
+        
+        // Apply mobile touch fixes
+        document.body.style.touchAction = 'pan-y';
+        document.body.style.overflowY = 'scroll';
+        
+        // Make all code elements touch-friendly
+        const codeElements = document.querySelectorAll('.code-example, .code-example *, .command, .command-container');
+        codeElements.forEach(el => {
+            el.style.touchAction = 'pan-y';
+            el.style.userSelect = 'text';
+            el.style.webkitUserSelect = 'text';
+        });
     } else {
         document.body.classList.add('desktop-device');
         document.body.classList.remove('mobile-device');
@@ -701,12 +812,14 @@ function setupSmoothScrolling() {
         document.body.style.overflowY = 'auto';
         document.body.style.height = 'auto';
         document.body.style.minHeight = '100vh';
+        document.body.style.touchAction = 'pan-y';
     }
     
     // Add smooth scroll behavior
     const scrollableElements = document.querySelectorAll('.code-example, .command');
     scrollableElements.forEach(el => {
         el.style.WebkitOverflowScrolling = 'touch';
+        el.style.touchAction = 'pan-y';
     });
 }
 
@@ -738,6 +851,19 @@ function handlePageLoad() {
         topLeftContainer.style.transform = '';
         topLeftContainer.style.transition = '';
     }
+    
+    // Apply initial touch fixes
+    setTimeout(() => {
+        if ('ontouchstart' in window) {
+            // Apply touch fixes after page loads
+            const codeElements = document.querySelectorAll('.code-example, .command');
+            codeElements.forEach(el => {
+                el.style.touchAction = 'pan-y';
+                el.style.webkitUserSelect = 'text';
+                el.style.userSelect = 'text';
+            });
+        }
+    }, 1000);
 }
 
 // Initialize drawer based on screen size
@@ -814,6 +940,7 @@ function updateLayoutForOrientation() {
         document.body.style.overflow = 'auto';
         document.body.style.height = 'auto';
         document.body.style.minHeight = '100vh';
+        document.body.style.touchAction = 'pan-y';
         
         // Show toggle button in portrait
         drawerToggle.style.display = 'flex';
@@ -864,6 +991,14 @@ function setupEventListeners() {
                 topLeftContainer.style.transform = '';
                 topLeftContainer.style.transition = '';
             }
+            
+            // Re-apply touch fixes after orientation change
+            if ('ontouchstart' in window) {
+                const codeElements = document.querySelectorAll('.code-example, .command');
+                codeElements.forEach(el => {
+                    el.style.touchAction = 'pan-y';
+                });
+            }
         }, 100);
     });
 
@@ -887,7 +1022,25 @@ function setupEventListeners() {
     // Initialize smooth scrolling for touch devices
     if ('ontouchstart' in window) {
         // Use passive event listeners for better performance
-        document.addEventListener('touchmove', function() {}, { passive: true });
+        document.addEventListener('touchmove', function(e) {
+            // Allow default touch behavior for scrolling
+            // Only prevent default if we're handling a specific gesture
+            const isCodeElement = e.target.closest('.code-example, .command, pre, code');
+            if (!isCodeElement) {
+                // Allow default scroll behavior
+                return;
+            }
+        }, { passive: true });
+        
+        // Add touch event listener to allow scrolling through code areas
+        document.addEventListener('touchstart', function(e) {
+            // Ensure code areas allow text selection
+            const codeElement = e.target.closest('.code-example, .code-example-content, .command');
+            if (codeElement) {
+                codeElement.style.userSelect = 'text';
+                codeElement.style.webkitUserSelect = 'text';
+            }
+        }, { passive: true });
     }
     
     // Initial orientation setup
@@ -896,4 +1049,10 @@ function setupEventListeners() {
     
     // Initial smooth scrolling setup
     setTimeout(setupSmoothScrolling, 500);
+    
+    // Add global touch handler to ensure scrolling works
+    document.addEventListener('touchmove', function(e) {
+        // Always allow touch move for scrolling
+        // Don't prevent default unless absolutely necessary
+    }, { passive: true });
 }
