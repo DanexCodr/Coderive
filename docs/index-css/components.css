@@ -1,6 +1,6 @@
-/* ============================================ */
-/* COMPONENTS */
-/* ============================================ */
+/* ============================================
+   COMPONENTS - UPDATED WITH TOUCH FIXES
+   ============================================ */
 
 /* Top left container - REMOVED POSITION OFFSET */
 .top-left-container {
@@ -181,7 +181,7 @@ header {
     left: -1rem;
 }
 
-/* Command container */
+/* Command container - UPDATED WITH TOUCH FIXES */
 .command-container {
     position: relative;
     background-color: var(--bg-primary);
@@ -190,6 +190,10 @@ header {
     margin: 0.5rem 0;
     overflow: hidden;
     min-height: 44px;
+    /* ADDED TOUCH FIXES */
+    touch-action: pan-y;
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 .command {
@@ -209,6 +213,10 @@ header {
     height: 100%;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    /* ADDED TOUCH FIXES */
+    touch-action: pan-y;
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 /* Hide scrollbar in WebKit browsers by default */
@@ -378,9 +386,9 @@ body:not(.landscape-mode) footer .bottom-spacer {
     background-color: var(--bg-tertiary);
 }
 
-/* ============================================ */
-/* LAYOUT GRIDS (KEEP THESE - THEY'RE USED IN OTHER SECTIONS) */
-/* ============================================ */
+/* ============================================
+   LAYOUT GRIDS (KEEP THESE - THEY'RE USED IN OTHER SECTIONS)
+   ============================================ */
 
 /* Features grid is now handled by ViewPager in viewpager.css */
 
@@ -426,18 +434,10 @@ body:not(.landscape-mode) footer .bottom-spacer {
     align-items: center;
 }
 
-/* ============================================ */
-/* VIEWPAGER SPECIFIC STYLES (for reference - actual styles are in viewpager.css) */
-/* ============================================ */
+/* ============================================
+   CODE EXAMPLE STYLING - UPDATED WITH TOUCH FIXES
+   ============================================ */
 
-/* NOTE: All ViewPager styles are in viewpager.css file */
-/* This file only contains styles for other components */
-
-/* ============================================ */
-/* MISCELLANEOUS COMPONENTS */
-/* ============================================ */
-
-/* Code example styling */
 .code-example {
     background-color: var(--code-bg);
     color: var(--text-primary);
@@ -453,6 +453,11 @@ body:not(.landscape-mode) footer .bottom-spacer {
     white-space: normal;
     word-wrap: break-word;
     overflow-wrap: break-word;
+    /* CRITICAL TOUCH FIXES */
+    touch-action: pan-y;
+    user-select: text;
+    -webkit-user-select: text;
+    pointer-events: auto;
 }
 
 .code-example pre {
@@ -465,6 +470,23 @@ body:not(.landscape-mode) footer .bottom-spacer {
     font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
     max-width: 100%;
     overflow-x: auto;
+    /* CRITICAL TOUCH FIXES */
+    touch-action: pan-y;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.code-example-content {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    font-size: clamp(0.8rem, 3vw, 0.9rem);
+    line-height: 1.4;
+    display: block;
+    max-width: 100%;
+    color: #c9d1d9;
+    /* CRITICAL TOUCH FIXES */
+    user-select: text;
+    -webkit-user-select: text;
+    touch-action: pan-y;
 }
 
 /* Code syntax highlighting classes (kept for reference) */
@@ -510,9 +532,9 @@ section {
     width: 100%;
 }
 
-/* ============================================ */
-/* MEDIA QUERIES FOR COMPONENTS */
-/* ============================================ */
+/* ============================================
+   MEDIA QUERIES FOR COMPONENTS - UPDATED WITH MOBILE TOUCH FIXES
+   ============================================ */
 
 @media (max-width: 768px) {
     .feature-card,
@@ -531,6 +553,21 @@ section {
     
     .try-editor {
         padding: 1.5rem 1rem;
+    }
+    
+    /* MOBILE TOUCH FIXES */
+    .code-example,
+    .code-example *,
+    .command,
+    .command-container {
+        touch-action: pan-y !important;
+        user-select: text !important;
+        -webkit-user-select: text !important;
+    }
+    
+    body {
+        touch-action: pan-y !important;
+        overflow-y: scroll !important;
     }
 }
 
@@ -571,9 +608,39 @@ section {
         padding: 0 0.8rem;
         font-size: 0.7rem;
     }
+    
+    /* ENHANCED MOBILE TOUCH FIXES */
+    .code-example {
+        padding: 0.75rem;
+    }
+    
+    .code-example pre {
+        font-size: 0.75rem;
+    }
 }
 
 /* Fix for technical innovations card text color */
 #technical .feature-card p {
     color: var(--text-secondary) !important;
+}
+
+/* Mobile touch scrolling fix for all interactive elements */
+@media (hover: none) and (pointer: coarse) {
+    .code-example,
+    .code-example *,
+    .command,
+    .command-container,
+    .command * {
+        touch-action: pan-y !important;
+        -webkit-overflow-scrolling: touch !important;
+        user-select: text !important;
+        -webkit-user-select: text !important;
+    }
+    
+    /* Allow page to scroll when touching code */
+    body {
+        touch-action: pan-y !important;
+        overflow-y: scroll !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
 }

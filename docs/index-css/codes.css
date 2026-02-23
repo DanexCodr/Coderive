@@ -1,5 +1,5 @@
 /* ============================================
-   CODE STYLES
+   CODE STYLES - UPDATED WITH MOBILE TOUCH FIXES
    ============================================ */
 .code-type {
     color: #ff7b72;
@@ -21,6 +21,11 @@
     white-space: normal;
     word-wrap: break-word;
     overflow-wrap: break-word;
+    /* MOBILE TOUCH FIXES */
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 .code-example pre {
@@ -33,6 +38,10 @@
     font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
     max-width: 100%;
     overflow-x: auto;
+    /* MOBILE TOUCH FIXES */
+    touch-action: pan-y;
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 .code-keyword {
@@ -61,4 +70,50 @@
 
 .code-number {
     color: #79c0ff;
+}
+
+/* Mobile-specific touch fixes */
+@media (max-width: 768px) {
+    .code-example,
+    .code-example *,
+    .code-example-content,
+    .code-example pre,
+    .code-example code {
+        touch-action: pan-y !important;
+        -webkit-overflow-scrolling: touch !important;
+        user-select: text !important;
+        -webkit-user-select: text !important;
+        pointer-events: auto !important;
+    }
+    
+    /* Make sure text selection works */
+    .code-example-content {
+        user-select: text !important;
+        -webkit-user-select: text !important;
+    }
+}
+
+/* For very small screens */
+@media (max-width: 480px) {
+    .code-example {
+        padding: 0.75rem;
+        margin: 0.75rem 0;
+    }
+    
+    .code-example pre {
+        font-size: 0.75rem;
+    }
+}
+
+/* Command container specific fixes */
+.command-container {
+    touch-action: pan-y;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.command {
+    touch-action: pan-y;
+    user-select: text;
+    -webkit-user-select: text;
 }

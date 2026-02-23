@@ -1,10 +1,14 @@
-/* ============================================ */
-/* MOBILE-SPECIFIC STYLES */
-/* ============================================ */
+/* ============================================
+   MOBILE-SPECIFIC STYLES - UPDATED WITH TOUCH FIXES
+   ============================================ */
 
 /* Mobile device detection class */
 body.mobile-device {
     --tap-target-min: 44px;
+    touch-action: pan-y !important;
+    overflow-y: scroll !important;
+    height: auto !important;
+    min-height: 100vh !important;
 }
 
 /* Larger touch targets for mobile */
@@ -67,6 +71,10 @@ body.mobile-device .command {
     overflow-x: auto !important;
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
+    /* TOUCH FIXES */
+    touch-action: pan-y !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
 }
 
 /* Hide scrollbar completely on mobile for cleaner look */
@@ -80,9 +88,10 @@ body.mobile-device .command::-webkit-scrollbar {
 /* Ensure command container has proper height */
 body.mobile-device .command-container {
     min-height: var(--tap-target-min, 44px) !important;
+    touch-action: pan-y !important;
 }
 
-/* Prevent text selection on tap for better UX */
+/* Prevent text selection on tap for better UX - but allow it in code areas */
 body.mobile-device {
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
@@ -92,17 +101,24 @@ body.mobile-device {
 
 /* Allow text selection only where needed */
 body.mobile-device .code-example,
+body.mobile-device .code-example *,
 body.mobile-device .command,
+body.mobile-device .command-container,
 body.mobile-device textarea,
-body.mobile-device .viewpager-content {
-    -webkit-user-select: text;
-    user-select: text;
+body.mobile-device .viewpager-content,
+body.mobile-device .code-example-content,
+body.mobile-device pre,
+body.mobile-device code {
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    touch-action: pan-y !important;
 }
 
 /* ViewPager mobile adjustments */
 body.mobile-device .viewpager {
     height: 260px;
     cursor: default !important;
+    touch-action: pan-y;
 }
 
 body.mobile-device .viewpager-slide {
@@ -112,6 +128,7 @@ body.mobile-device .viewpager-slide {
 body.mobile-device .viewpager-content {
     padding: 1.2rem;
     backdrop-filter: blur(5px);
+    touch-action: pan-y;
 }
 
 body.mobile-device .viewpager-content .feature-icon {
@@ -436,4 +453,27 @@ body.mobile-device .viewpager-content p {
 body.mobile-device .viewpager {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
+}
+
+/* CRITICAL FIX: Allow page scrolling when touching code areas */
+body.mobile-device {
+    overflow-y: scroll !important;
+    height: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+
+body.mobile-device .code-example,
+body.mobile-device .code-example *,
+body.mobile-device .command,
+body.mobile-device .command * {
+    touch-action: pan-y !important;
+    pointer-events: auto !important;
+    -webkit-user-select: text !important;
+    user-select: text !important;
+}
+
+/* Ensure the entire page can scroll when touching any element */
+body.mobile-device .landscape-right {
+    touch-action: pan-y !important;
+    overflow-y: auto !important;
 }

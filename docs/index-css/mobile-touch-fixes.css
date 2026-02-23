@@ -1,0 +1,121 @@
+/* ============================================
+   MOBILE TOUCH SCROLLING FIXES
+   ============================================ */
+
+/* Apply to all mobile devices */
+@media (max-width: 768px) {
+    /* Force touch-action on body to allow scrolling */
+    body {
+        touch-action: pan-y !important;
+        overflow-y: scroll !important;
+        height: auto !important;
+        min-height: 100vh !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    
+    /* Allow scrolling through code areas */
+    .code-example,
+    .code-example *,
+    .code-example pre,
+    .code-example code,
+    .code-example-content,
+    .command,
+    .command-container,
+    .command * {
+        touch-action: pan-y !important;
+        pointer-events: auto !important;
+        user-select: text !important;
+        -webkit-user-select: text !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    
+    /* Prevent ViewPager from intercepting touches in code areas */
+    .viewpager-slide .code-example,
+    .viewpager-slide .code-example *,
+    .viewpager-slide .command,
+    .viewpager-slide .command * {
+        pointer-events: auto !important;
+        touch-action: pan-y !important;
+    }
+    
+    /* Ensure the right side content area can scroll */
+    .landscape-right {
+        touch-action: pan-y !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    
+    /* In portrait mode, ensure full page scrolling */
+    body:not(.landscape-mode) {
+        overflow-y: auto !important;
+        height: auto !important;
+    }
+    
+    body:not(.landscape-mode) .landscape-right {
+        overflow-y: visible !important;
+        height: auto !important;
+    }
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 768px) {
+        body {
+            /* Fix for iOS Safari scrolling */
+            -webkit-overflow-scrolling: touch !important;
+            overflow-y: scroll !important;
+            height: 100% !important;
+        }
+        
+        /* Fix for iOS text selection in code areas */
+        .code-example,
+        .code-example *,
+        .command,
+        .command * {
+            -webkit-user-select: text !important;
+            user-select: text !important;
+            -webkit-tap-highlight-color: rgba(0, 122, 204, 0.1);
+        }
+    }
+}
+
+/* Android Chrome specific fixes */
+@supports not (-webkit-touch-callout: none) {
+    @media (max-width: 768px) {
+        /* Fix for Android scrolling */
+        html, body {
+            overflow-y: auto !important;
+            height: auto !important;
+        }
+        
+        /* Improve touch response */
+        .code-example,
+        .command {
+            touch-action: pan-y;
+            -webkit-tap-highlight-color: transparent;
+        }
+    }
+}
+
+/* Very small screen optimization */
+@media (max-width: 360px) {
+    .code-example {
+        padding: 0.5rem !important;
+        margin: 0.5rem 0 !important;
+    }
+    
+    .code-example pre {
+        font-size: 0.7rem !important;
+    }
+    
+    .command {
+        font-size: 0.7rem !important;
+        padding-right: 4rem !important;
+    }
+    
+    .copy-btn {
+        min-width: 50px !important;
+        font-size: 0.65rem !important;
+        padding: 0 0.5rem !important;
+    }
+}
