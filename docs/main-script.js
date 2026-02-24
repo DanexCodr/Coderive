@@ -883,11 +883,43 @@ function toggleDrawer() {
         drawerToggle.textContent = '✕';
         drawerToggle.setAttribute('aria-label', 'Close navigation menu');
         drawerToggle.style.background = '#005a9e';
+        
+        // CRITICAL: When opening drawer, fix the body and ensure content can scroll
+        if (window.innerWidth <= 768) {
+            document.body.style.position = 'fixed';
+            document.body.style.width = '100%';
+            document.body.style.height = '100%';
+            document.body.style.overflow = 'hidden';
+            
+            const landscapeRight = document.querySelector('.landscape-right');
+            if (landscapeRight) {
+                landscapeRight.style.overflowY = 'auto';
+                landscapeRight.style.WebkitOverflowScrolling = 'touch';
+                landscapeRight.style.height = '100%';
+                landscapeRight.style.position = 'relative';
+            }
+        }
     } else {
         document.body.classList.remove('drawer-visible');
         drawerToggle.textContent = '☰';
         drawerToggle.setAttribute('aria-label', 'Open navigation menu');
         drawerToggle.style.background = '#007acc';
+        
+        // CRITICAL: When closing drawer, restore body scrolling
+        if (window.innerWidth <= 768) {
+            document.body.style.position = '';
+            document.body.style.width = '';
+            document.body.style.height = '';
+            document.body.style.overflow = '';
+            
+            const landscapeRight = document.querySelector('.landscape-right');
+            if (landscapeRight) {
+                landscapeRight.style.overflowY = '';
+                landscapeRight.style.WebkitOverflowScrolling = '';
+                landscapeRight.style.height = '';
+                landscapeRight.style.position = '';
+            }
+        }
     }
     
     const topLeftContainer = document.querySelector('.top-left-container');
