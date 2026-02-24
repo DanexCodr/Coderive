@@ -8,7 +8,7 @@ const GITHUB_REPO = {
     owner: 'DanexCodr',
     repo: 'Coderive',
     branch: 'main',
-    examplesPath: 'src/main/cod/src/main/test/'  // Only this is hardcoded
+    examplesPath: 'src/main/cod/src/main/test/'
 };
 
 let exampleFiles = [];
@@ -90,7 +90,6 @@ function renderTabs() {
         tabBtn.setAttribute('data-name', file.name);
         tabBtn.setAttribute('data-url', file.url);
         
-        // Dynamic icon based on file extension only
         const icon = '📄';
         
         tabBtn.innerHTML = `

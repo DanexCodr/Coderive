@@ -149,6 +149,11 @@
             width: 100%;
         }
         
+        /* Remove default header spacing */
+        body:not(.landscape-mode) main {
+            padding-top: 20px;
+        }
+        
         @media (max-width: 768px) {
             .examples-container {
                 padding: 1rem;
@@ -218,7 +223,7 @@
     
     <div class="top-left-container">
         <button class="side-panel-toggle" id="drawerToggle">☰</button>
-        <div class="home-text">Home</div>
+        <div class="home-text">Code Examples</div>  <!-- Changed from "Home" to "Code Examples" -->
     </div>
     
     <div class="landscape-left">
@@ -241,23 +246,7 @@
     </div>
     
     <div class="landscape-right">
-        <header>
-            <div class="container">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap;">
-                    <img src="assets/coderive-logo.jpg" alt="Coderive Logo" 
-                         style="height: 150px; width: auto; border-radius: 8px;">
-                    <div style="display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; justify-content: center;">
-                        <h1 style="margin: 0; padding: 0; line-height: 0.9;">Coderive</h1>
-                        <div style="font-size: 1.2rem; color: var(--text-secondary);">v0.6.0</div>
-                    </div>
-                </div>
-                <div class="cta-buttons" style="text-align: center;">
-                    <a href="index.html" class="btn">Home</a>
-                    <a href="editor.html" class="btn btn-secondary">Try Online Editor</a>
-                    <a href="https://github.com/DanexCodr/Coderive" class="btn btn-secondary">View on GitHub</a>
-                </div>
-            </div>
-        </header>
+        <!-- REMOVED the original header section with logo and title -->
         
         <main>
             <div class="examples-container">
@@ -275,7 +264,7 @@
                 </div>
                 
                 <div class="code-display" id="codeDisplay">
-                    <div class="loading-indicator">Loading examples from GitHub...</div>
+                    <div class="loading-indicator">Loading examples...</div>
                 </div>
             </div>
         </main>
