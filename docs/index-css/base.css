@@ -141,3 +141,51 @@ body.landscape-mode #getting-started {
 .home-text {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* ============================================
+   BASE STYLES & SCROLLING FIXES - ADDITIONS
+   ============================================ */
+
+/* CRITICAL FIX: Ensure scrolling works in all states */
+@media (max-width: 768px) {
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+    }
+    
+    body {
+        display: block;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        position: relative;
+    }
+    
+    /* Fix for drawer open state */
+    body.drawer-visible {
+        overflow: hidden !important;
+        position: fixed !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+    
+    body.drawer-visible .landscape-right {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        height: 100% !important;
+        position: relative !important;
+    }
+    
+    /* Ensure content area is scrollable */
+    .landscape-right {
+        height: auto !important;
+        min-height: 100vh !important;
+        overflow-y: visible !important;
+    }
+    
+    /* Fix for code blocks */
+    .code-example {
+        max-height: none !important;
+        overflow-y: visible !important;
+    }
+}

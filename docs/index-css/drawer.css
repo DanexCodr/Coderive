@@ -1,5 +1,5 @@
 /* ============================================ */
-/* DRAWER CSS - UPDATED */
+/* DRAWER CSS - UPDATED SCROLLING FIXES */
 /* ============================================ */
 
 /* Drawer container - always visible but hidden by default */
@@ -26,6 +26,23 @@ body.drawer-visible .drawer {
     transform: translateX(0);
 }
 
+/* CRITICAL: When drawer is open, fix body and make content scrollable */
+body.drawer-visible {
+    overflow: hidden !important;
+    position: fixed !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+body.drawer-visible .landscape-right {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    height: 100% !important;
+    position: relative !important;
+    transform: none !important;
+    margin-left: 0 !important;
+}
+
 /* Drawer header */
 .drawer-header {
     padding: 1.5rem 1rem;
@@ -50,14 +67,15 @@ body.drawer-visible .drawer {
 /* IMPORTANT: Do NOT adjust main content when drawer is visible in portrait mode */
 /* In landscape mode, drawer should overlay content (not push) since we already have 50/50 layout */
 body.landscape-mode.drawer-visible .landscape-right {
-    margin-left: 50% !important; /* Keep the original 50% margin */
-    width: 50% !important; /* Keep the original 50% width */
+    margin-left: 50% !important;
+    width: 50% !important;
 }
 
 /* In portrait mode, drawer should overlay content, not push it */
 body:not(.landscape-mode).drawer-visible .landscape-right {
     margin-left: 0 !important;
     width: 100% !important;
+    overflow-y: auto !important;
 }
 
 /* Keep top-left container in fixed position regardless of drawer */
@@ -86,14 +104,13 @@ body:not(.landscape-mode).drawer-visible .landscape-right {
 
 /* In landscape mode, drawer should NOT affect top-left container since it overlays */
 body.landscape-mode.drawer-visible .top-left-container {
-    /* Remove any conflicting transform styles from animation CSS */
     transform: none !important;
     transition: left 0.3s ease !important;
 }
 
 /* In portrait mode, drawer should NOT affect top-left container position */
 body:not(.landscape-mode).drawer-visible .top-left-container {
-    left: 15px !important; /* Keep original position */
+    left: 15px !important;
 }
 
 /* Add overlay when drawer is open in portrait mode */
@@ -179,13 +196,14 @@ body:not(.landscape-mode) .side-panel-toggle {
         width: 100% !important;
         position: relative;
         z-index: 1;
+        overflow-y: auto !important;
     }
     
     /* Keep top-left container in place */
     body.drawer-visible .top-left-container {
-    	position: fixed !important;
+        position: fixed !important;
         left: 15px !important;
-        z-index: 1002 !important; /* Above drawer overlay but below drawer */
+        z-index: 1002 !important;
     }
 }
 
@@ -203,7 +221,6 @@ body:not(.landscape-mode) .side-panel-toggle {
     
     body.landscape-mode.drawer-visible .side-panel-toggle {
         display: flex !important;
-        /* Remove any transform that might interfere */
         transform: none !important;
     }
 }
