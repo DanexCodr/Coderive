@@ -1,4 +1,3 @@
-// Populate drawer content
 document.addEventListener('DOMContentLoaded', function() {
     populateDrawerContent();
 });
@@ -7,7 +6,6 @@ function populateDrawerContent() {
     const drawerContent = document.getElementById('drawerContent');
     if (!drawerContent) return;
     
-    // Determine current page for active state
     const currentPage = window.location.pathname.split('/').pop() || 'index.html';
     
     drawerContent.innerHTML = `
@@ -63,12 +61,9 @@ function populateDrawerContent() {
     `;
 }
 
-// Navigation helper
 function navigateTo(url) {
-    // Close drawer if open
     if (document.body.classList.contains('drawer-visible')) {
         document.getElementById('drawerToggle').click();
     }
-    // Navigate
     window.location.href = url;
 }

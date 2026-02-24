@@ -18,16 +18,16 @@
         <div class="drawer-header">
             <h3 class="drawer-title">Navigation</h3>
         </div>
-        <div class="drawer-content">
-            <!-- Content will be added here -->
+        <div class="drawer-content" id="drawerContent">
+            <!-- Will be populated by drawer-content.js -->
         </div>
     </div>
     
-<!-- Menu button with Home text - UPDATED WITH SHADOW -->
-<div class="top-left-container">
-    <button class="side-panel-toggle" id="drawerToggle">☰</button>
-    <div class="home-text">Home</div>
-</div>
+    <!-- Menu button with Home text -->
+    <div class="top-left-container">
+        <button class="side-panel-toggle" id="drawerToggle">☰</button>
+        <div class="home-text">Home</div>
+    </div>
     
     <!-- Left side - Fixed header for landscape mode -->
     <div class="landscape-left">
@@ -88,7 +88,7 @@
             <div class="container">
                 <h2 class="section-title" id="examplesTitle">Language Examples</h2>
                 
-                <h3 style="color: var(--text-primary); margin-bottom: 1rem; font-size: clamp(1.1rem, 4vw, 1.4rem);" id="demoTitle">InteractiveDemo.cod - Full Example</h3>
+                <h3 style="color: var(--text-primary); margin-bottom: 1rem; font-size: clamp(1.1rem, 4vw, 1.4rem);" id="demoTitle">InteractiveDemo.cod - Preview</h3>
                 <div class="code-example" id="demoExample">
                     <!-- Dynamically populated -->
                 </div>
@@ -151,8 +151,9 @@
         </footer>
     </div>
 
-    <!-- Load content strings -->
+    <!-- Load scripts -->
     <script src="content-strings.js"></script>
+    <script src="drawer-content.js"></script>
     <script src="main-script.js"></script>
 </body>
 </html>

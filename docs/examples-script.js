@@ -1,53 +1,81 @@
-// Initialize examples page
 document.addEventListener('DOMContentLoaded', function() {
     initializeExamples();
     setupEventListeners();
     setupDrawer();
 });
 
-// GitHub repository information
 const GITHUB_REPO = {
     owner: 'DanexCodr',
     repo: 'Coderive',
     branch: 'main',
-    examplesPath: 'src/main/cod/src/main/test/'
+    examplesPath: 'src/main/cod/src/main/test/'  // Only this is hardcoded
 };
 
-// Store fetched files
 let exampleFiles = [];
 let currentFile = null;
 
 async function initializeExamples() {
-    // Fetch list of .cod files from the directory
+    const codeDisplay = document.getElementById('codeDisplay');
+    const tabBar = document.getElementById('tabBar');
+    const fileInfo = document.getElementById('fileInfo');
+    
+    tabBar.innerHTML = '<div class="loading-indicator">Loading examples list...</div>';
+    codeDisplay.innerHTML = '';
+    fileInfo.innerHTML = '';
+    
     await fetchExampleFiles();
-    
-    // Setup tab bar
-    renderTabs();
-    
-    // Load first file (InteractiveDemo.cod)
-    if (exampleFiles.length > 0) {
-        await loadFile(exampleFiles[0]);
-    }
 }
 
 async function fetchExampleFiles() {
     const tabBar = document.getElementById('tabBar');
     const codeDisplay = document.getElementById('codeDisplay');
+    const fileInfo = document.getElementById('fileInfo');
     
     try {
-        // For now, we'll define known test files
-        exampleFiles = [
-            { name: 'InteractiveDemo.cod', path: 'InteractiveDemo.cod' },
-            { name: 'SimpleTest.cod', path: 'SimpleTest.cod' },
-            { name: 'ArrayTest.cod', path: 'ArrayTest.cod' },
-            { name: 'LoopTest.cod', path: 'LoopTest.cod' },
-            { name: 'PolicyTest.cod', path: 'PolicyTest.cod' },
-            { name: 'ConstructorTest.cod', path: 'ConstructorTest.cod' }
-        ];
+        const apiUrl = `https://api.github.com/repos/${GITHUB_REPO.owner}/${GITHUB_REPO.repo}/contents/${GITHUB_REPO.examplesPath}?ref=${GITHUB_REPO.branch}`;
+        
+        const response = await fetch(apiUrl);
+        
+        if (!response.ok) {
+            throw new Error(`GitHub API error: ${response.status}`);
+        }
+        
+        const contents = await response.json();
+        
+        exampleFiles = contents
+            .filter(item => item.type === 'file' && item.name.endsWith('.cod'))
+            .map(item => ({
+                name: item.name,
+                path: item.path,
+                url: item.download_url,
+                size: item.size
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+        
+        if (exampleFiles.length === 0) {
+            tabBar.innerHTML = '<div class="error-message">No .cod files found.</div>';
+            return;
+        }
+        
+        renderTabs();
+        
+        if (exampleFiles.length > 0) {
+            await loadFile(exampleFiles[0]);
+        }
         
     } catch (error) {
-        console.error('Error setting up examples:', error);
-        codeDisplay.innerHTML = '<div class="error-message">❌ Failed to load examples list. Please try again later.</div>';
+        console.error('Error fetching file list:', error);
+        
+        tabBar.innerHTML = `
+            <div class="error-message">
+                ❌ Failed to load file list.<br>
+                <span style="font-size: 0.9rem; margin-top: 0.5rem; display: block;">
+                    Please check your connection and try again.
+                </span>
+            </div>
+        `;
+        codeDisplay.innerHTML = '';
+        fileInfo.innerHTML = '';
     }
 }
 
@@ -60,31 +88,22 @@ function renderTabs() {
         tabBtn.className = `tab-btn ${index === 0 ? 'active' : ''}`;
         tabBtn.setAttribute('data-path', file.path);
         tabBtn.setAttribute('data-name', file.name);
+        tabBtn.setAttribute('data-url', file.url);
         
-        // Add file icon based on name
-        let icon = '📄';
-        if (file.name.includes('Interactive')) icon = '🎮';
-        else if (file.name.includes('Simple')) icon = '👋';
-        else if (file.name.includes('Array')) icon = '📊';
-        else if (file.name.includes('Loop')) icon = '🔄';
-        else if (file.name.includes('Policy')) icon = '⚖️';
-        else if (file.name.includes('Constructor')) icon = '🏗️';
+        // Dynamic icon based on file extension only
+        const icon = '📄';
         
         tabBtn.innerHTML = `
             <span class="file-icon">${icon}</span>
-            <span>${file.name}</span>
+            <span class="file-name">${file.name}</span>
+            <span class="file-size">${formatFileSize(file.size)}</span>
         `;
         
         tabBtn.addEventListener('click', () => {
-            // Remove active class from all tabs
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            
-            // Add active class to clicked tab
             tabBtn.classList.add('active');
-            
-            // Load the file
             loadFile(file);
         });
         
@@ -98,20 +117,16 @@ async function loadFile(file) {
     
     currentFile = file;
     
-    // Show loading state
-    codeDisplay.innerHTML = '<div class="loading-indicator">Loading file from GitHub...</div>';
+    codeDisplay.innerHTML = '<div class="loading-indicator">Loading...</div>';
     
-    // Update file info
     fileInfo.innerHTML = `
-        <span class="file-path">📁 ${GITHUB_REPO.examplesPath}${file.path}</span>
-        <span>Fetching from GitHub repository...</span>
+        <span class="file-path">📁 ${file.path}</span>
+        <span class="file-size-badge">${formatFileSize(file.size)}</span>
+        <span class="fetch-status">Fetching...</span>
     `;
     
-    // Fetch file from GitHub
-    const url = `https://raw.githubusercontent.com/${GITHUB_REPO.owner}/${GITHUB_REPO.repo}/${GITHUB_REPO.branch}/${GITHUB_REPO.examplesPath}${file.path}`;
-    
     try {
-        const response = await fetch(url);
+        const response = await fetch(file.url);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -119,13 +134,12 @@ async function loadFile(file) {
         
         const code = await response.text();
         
-        // Update file info with success
         fileInfo.innerHTML = `
-            <span class="file-path">📁 ${GITHUB_REPO.examplesPath}${file.path}</span>
-            <span>✅ Loaded from GitHub</span>
+            <span class="file-path">📁 ${file.path}</span>
+            <span class="file-size-badge">${formatFileSize(file.size)}</span>
+            <span class="fetch-status success">✅ Loaded</span>
         `;
         
-        // Display code
         codeDisplay.innerHTML = `
             <pre><code class="code-example-content">${escapeHtml(code)}</code></pre>
         `;
@@ -133,38 +147,42 @@ async function loadFile(file) {
     } catch (error) {
         console.error('Error fetching file:', error);
         
-        // Update file info with error
         fileInfo.innerHTML = `
-            <span class="file-path">📁 ${GITHUB_REPO.examplesPath}${file.path}</span>
-            <span style="color: #f97583;">❌ Failed to load</span>
+            <span class="file-path">📁 ${file.path}</span>
+            <span class="file-size-badge">${formatFileSize(file.size)}</span>
+            <span class="fetch-status error">❌ Failed</span>
         `;
         
         codeDisplay.innerHTML = `
             <div class="error-message">
-                ❌ Failed to load ${file.name} from GitHub.<br>
-                Please check your connection and try again.
+                ❌ Failed to load file.<br>
+                <span style="font-size: 0.9rem; margin-top: 0.5rem; display: block;">
+                    Please check your connection and try again.
+                </span>
             </div>
         `;
     }
 }
 
-// Helper function to escape HTML special characters
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
-// Setup drawer navigation
 function setupDrawer() {
     const drawerToggle = document.getElementById('drawerToggle');
     const drawerOverlay = document.getElementById('drawerOverlay');
-    const drawer = document.getElementById('mainDrawer');
     
     drawerToggle.addEventListener('click', toggleDrawer);
     drawerOverlay.addEventListener('click', toggleDrawer);
     
-    // Close on escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && document.body.classList.contains('drawer-visible')) {
             toggleDrawer();
@@ -185,9 +203,7 @@ function toggleDrawer() {
     }
 }
 
-// Setup event listeners (orientation changes, etc)
 function setupEventListeners() {
-    // Handle orientation changes
     window.addEventListener('orientationchange', function() {
         setTimeout(() => {
             window.dispatchEvent(new Event('resize'));
@@ -198,7 +214,6 @@ function setupEventListeners() {
         updateLayoutForOrientation();
     });
 
-    // Initial orientation setup
     updateLayoutForOrientation();
 }
 
@@ -214,11 +229,10 @@ function updateLayoutForOrientation() {
     }
 }
 
-// Add CSS for code styling
-(function addCodeStyles() {
-    if (!document.querySelector('#examples-code-styles')) {
+(function addStyles() {
+    if (!document.querySelector('#examples-styles')) {
         const style = document.createElement('style');
-        style.id = 'examples-code-styles';
+        style.id = 'examples-styles';
         style.textContent = `
             .code-example-content {
                 font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
@@ -230,12 +244,46 @@ function updateLayoutForOrientation() {
                 -webkit-user-select: text;
             }
             
-            /* Mobile touch fixes */
+            .file-size {
+                font-size: 0.75rem;
+                color: var(--text-secondary);
+                margin-left: 0.5rem;
+                opacity: 0.7;
+            }
+            
+            .file-size-badge {
+                font-size: 0.75rem;
+                background: rgba(255, 255, 255, 0.1);
+                padding: 0.2rem 0.5rem;
+                border-radius: 4px;
+                color: var(--text-secondary);
+            }
+            
+            .fetch-status {
+                font-size: 0.85rem;
+            }
+            
+            .fetch-status.success {
+                color: #4caf50;
+            }
+            
+            .fetch-status.error {
+                color: #f97583;
+            }
+            
+            .tab-btn {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            
+            .file-name {
+                flex: 1;
+            }
+            
             @media (max-width: 768px) {
-                .code-display,
-                .code-display * {
-                    touch-action: pan-y !important;
-                    -webkit-overflow-scrolling: touch !important;
+                .file-size {
+                    display: none;
                 }
             }
         `;

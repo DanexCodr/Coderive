@@ -10,7 +10,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <!-- Examples specific styles -->
     <style>
-        /* Examples page specific styles */
         .examples-container {
             max-width: 1200px;
             margin: 0 auto;
@@ -33,7 +32,6 @@
             font-size: clamp(1rem, 3vw, 1.1rem);
         }
         
-        /* Tab bar styling */
         .tab-bar {
             display: flex;
             flex-wrap: wrap;
@@ -89,7 +87,6 @@
             font-size: 1.1rem;
         }
         
-        /* Code display area */
         .code-display {
             background: linear-gradient(145deg, #0d1117, #161b22);
             border: 2px solid var(--accent-primary);
@@ -123,6 +120,7 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             color: var(--text-secondary);
             font-size: 0.9rem;
+            flex-wrap: wrap;
         }
         
         .file-path {
@@ -133,12 +131,12 @@
             font-family: monospace;
         }
         
-        /* Loading and error states */
         .loading-indicator {
             color: var(--text-secondary);
             text-align: center;
             padding: 3rem;
             font-style: italic;
+            width: 100%;
         }
         
         .error-message {
@@ -148,9 +146,9 @@
             background: rgba(249, 117, 131, 0.1);
             border-radius: 8px;
             border: 1px solid rgba(249, 117, 131, 0.3);
+            width: 100%;
         }
         
-        /* Responsive adjustments */
         @media (max-width: 768px) {
             .examples-container {
                 padding: 1rem;
@@ -188,7 +186,6 @@
             }
         }
         
-        /* Landscape mode adjustments */
         body.landscape-mode .examples-container {
             padding: 1rem;
         }
@@ -197,7 +194,6 @@
             min-height: 300px;
         }
         
-        /* Mobile touch fixes */
         @media (max-width: 768px) {
             .code-display,
             .code-display * {
@@ -209,26 +205,22 @@
     </style>
 </head>
 <body>
-    <!-- Drawer Overlay (for mobile) -->
     <div class="drawer-overlay" id="drawerOverlay"></div>
     
-    <!-- Drawer (Left Side Panel) -->
     <div class="drawer" id="mainDrawer">
         <div class="drawer-header">
             <h3 class="drawer-title">Navigation</h3>
         </div>
         <div class="drawer-content" id="drawerContent">
-            <!-- Will be populated by drawer-content.js -->
+            <!-- Populated by drawer-content.js -->
         </div>
     </div>
     
-    <!-- Menu button with Home text -->
     <div class="top-left-container">
         <button class="side-panel-toggle" id="drawerToggle">☰</button>
         <div class="home-text">Home</div>
     </div>
     
-    <!-- Left side - Fixed header for landscape mode -->
     <div class="landscape-left">
         <div class="landscape-header">
             <div class="landscape-header-content">
@@ -248,9 +240,7 @@
         </div>
     </div>
     
-    <!-- Right side - Scrollable content -->
     <div class="landscape-right">
-        <!-- Original header (hidden in landscape) -->
         <header>
             <div class="container">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap;">
@@ -276,17 +266,14 @@
                     <p>Browse through Coderive example files from the repository</p>
                 </div>
                 
-                <!-- Tab Bar -->
                 <div class="tab-bar" id="tabBar">
-                    <!-- Tabs will be populated dynamically -->
+                    <!-- Populated dynamically -->
                 </div>
                 
-                <!-- File Info -->
                 <div class="file-info" id="fileInfo">
-                    <!-- File info will be shown here -->
+                    <!-- Populated dynamically -->
                 </div>
                 
-                <!-- Code Display -->
                 <div class="code-display" id="codeDisplay">
                     <div class="loading-indicator">Loading examples from GitHub...</div>
                 </div>
@@ -310,7 +297,6 @@
         </footer>
     </div>
 
-    <!-- Load scripts -->
     <script src="content-strings.js"></script>
     <script src="drawer-content.js"></script>
     <script src="examples-script.js"></script>

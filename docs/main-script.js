@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupCopyButtons();
     setupEventListeners();
     setupSmoothScrolling();
-    handlePageLoad(); // Initialize page load handling
+    handlePageLoad();
 });
 
 // GitHub repository information
@@ -31,29 +31,24 @@ async function fetchGitHubFile(path) {
 }
 
 function initializeMainContent() {
-    // Set page title and header
     document.title = strings.ui.titles.main_page;
     document.getElementById('mainHeader').textContent = strings.ui.titles.coderive_language;
     
-    // Set tagline with "Learn More..." link
     const tagline = document.getElementById('tagline');
     if (tagline) {
         tagline.innerHTML = strings.ui.titles.tagline + '. <span class="learn-more-link">Learn More...</span>';
     }
     
-    // Set landscape tagline as well
     const landscapeTagline = document.querySelector('.landscape-header .tagline');
     if (landscapeTagline) {
         landscapeTagline.innerHTML = strings.ui.titles.tagline + '. <span class="learn-more-link">Learn More...</span>';
     }
     
-    // Set button texts for regular header
     document.getElementById('getStartedBtn').textContent = strings.ui.buttons.get_started;
     document.getElementById('tryEditorBtn').textContent = strings.ui.buttons.try_online_editor;
     document.getElementById('githubBtn').textContent = strings.ui.buttons.view_on_github;
     document.getElementById('openEditorBtn').textContent = strings.ui.buttons.open_online_editor;
     
-    // Set button texts for landscape header
     const landscapeGetStartedBtn = document.getElementById('landscapeGetStartedBtn');
     const landscapeTryEditorBtn = document.getElementById('landscapeTryEditorBtn');
     const landscapeGithubBtn = document.getElementById('landscapeGithubBtn');
@@ -69,7 +64,6 @@ function initializeMainContent() {
         landscapeGithubBtn.href = strings.metadata.github;
     }
     
-    // Set section titles
     document.getElementById('featuresTitle').textContent = strings.ui.labels.features;
     document.getElementById('examplesTitle').textContent = strings.ui.labels.language_examples;
     document.getElementById('runnersTitle').textContent = strings.ui.labels.execution_runners;
@@ -77,28 +71,16 @@ function initializeMainContent() {
     document.getElementById('tryTitle').textContent = strings.ui.labels.try_online;
     document.getElementById('gettingStartedTitle').textContent = strings.ui.labels.getting_started;
     
-    // Set dynamic text content
     document.getElementById('demoTitle').textContent = strings.ui.labels.demo_title;
     document.getElementById('tryDescription').textContent = strings.ui.messages.try_description;
     document.getElementById('copyright').textContent = strings.ui.messages.copyright;
     document.getElementById('builtWith').textContent = strings.ui.messages.footer_built_with;
     
-    // Populate features with VIEWPAGER
     createViewPager();
-    
-    // Populate code examples (async)
     populateCodeExamples();
-    
-    // Populate runners
     populateRunners();
-    
-    // Populate technical innovations
     populateTechnicalInnovations();
-    
-    // Populate getting started
     populateGettingStarted();
-    
-    // Populate footer
     populateFooter();
 }
 
@@ -371,34 +353,27 @@ function handleMouseUp() {
 }
 
 async function populateCodeExamples() {
-    // Show loading indicator
     const demoExample = document.getElementById('demoExample');
     
     demoExample.innerHTML = '<div class="loading-indicator">Loading InteractiveDemo.cod from GitHub...</div>';
     
-    // Fetch the InteractiveDemo.cod file from GitHub
     const demoCode = await fetchGitHubFile(GITHUB_REPO.demoPath);
     
-    // Clear loading indicator
     demoExample.innerHTML = '';
     
     if (demoCode) {
-        // Create container for truncated code
         const codeContainer = document.createElement('div');
         codeContainer.className = 'code-preview-container';
         
-        // Truncate code to first 15-20 lines
         const lines = demoCode.split('\n');
-        const previewLines = lines.slice(0, 18); // Show first 18 lines
+        const previewLines = lines.slice(0, 18);
         const truncatedCode = previewLines.join('\n') + '\n\n// ...';
         
-        // Create code element with truncated content
         const demoPre = document.createElement('pre');
         const demoCodeElement = document.createElement('code');
         demoCodeElement.className = 'code-example-content';
         demoCodeElement.textContent = truncatedCode;
         
-        // Add fade effect container
         const fadeContainer = document.createElement('div');
         fadeContainer.className = 'code-fade-container';
         
@@ -407,7 +382,6 @@ async function populateCodeExamples() {
         codeContainer.appendChild(fadeContainer);
         demoExample.appendChild(codeContainer);
         
-        // Add "See more code examples" button
         const seeMoreContainer = document.createElement('div');
         seeMoreContainer.className = 'see-more-container';
         seeMoreContainer.innerHTML = `
@@ -422,7 +396,6 @@ async function populateCodeExamples() {
         demoExample.appendChild(seeMoreContainer);
         
     } else {
-        // Show error message if fetch fails
         demoExample.innerHTML = `
             <div class="code-note error">❌ Failed to load code from GitHub.</div>
             <div class="see-more-container">
@@ -436,7 +409,6 @@ async function populateCodeExamples() {
         `;
     }
     
-    // Language features section
     const languageFeatures = document.getElementById('languageFeatures');
     languageFeatures.innerHTML = '';
     
@@ -634,7 +606,6 @@ function addCodeStyles() {
                 background: rgba(249, 117, 131, 0.1);
             }
             
-            /* Code preview styles */
             .code-preview-container {
                 position: relative;
                 max-height: 400px;
@@ -693,7 +664,6 @@ function addCodeStyles() {
                 }
             }
             
-            /* Mobile touch fixes */
             @media (max-width: 768px) {
                 .code-example,
                 .code-example *,
@@ -853,7 +823,6 @@ function preventDefaultScroll(e) {
     e.preventDefault();
 }
 
-// Drawer variables
 let drawerVisible = true;
 let drawer = document.getElementById('mainDrawer');
 let drawerToggle = document.getElementById('drawerToggle');
