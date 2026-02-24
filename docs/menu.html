@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coderive · Menu</title>
+    <style>
+        @font-face {
+            font-family: 'JetBrains Mono Light';
+            src: url('assets/JetbrainsMono-Light.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background-color: #121212;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #e0e0e0;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .top-bar {
+            background-color: #1e1e1e;
+            border-bottom: 2px solid #333;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: #e0e0e0;
+            font-size: 28px;
+            cursor: pointer;
+            font-family: 'JetBrains Mono Light', monospace;
+            line-height: 1;
+            padding: 0 8px;
+        }
+        
+        .close-btn:hover {
+            color: #4a6fa5;
+        }
+        
+        .menu-title {
+            font-family: 'JetBrains Mono Light', monospace;
+            font-size: 24px;
+            color: #e0e0e0;
+            font-weight: 300;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            width: 100%;
+            flex: 1;
+        }
+        
+        .menu-section {
+            margin-bottom: 48px;
+        }
+        
+        .section-title {
+            font-family: 'JetBrains Mono Light', monospace;
+            font-size: 20px;
+            color: #e0e0e0;
+            font-weight: 300;
+            margin-bottom: 20px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .menu-items {
+            list-style: none;
+        }
+        
+        .menu-item {
+            margin-bottom: 4px;
+        }
+        
+        .menu-item a {
+            display: block;
+            padding: 16px 20px;
+            color: #b0b0b0;
+            text-decoration: none;
+            font-family: 'JetBrains Mono Light', monospace;
+            font-size: 18px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+        
+        .menu-item a:hover {
+            background-color: #1e1e1e;
+            border-color: #4a6fa5;
+            color: #e0e0e0;
+            transform: translateX(8px);
+        }
+        
+        .menu-item.external a {
+            color: #888;
+            font-size: 16px;
+        }
+        
+        .menu-item.external a:hover {
+            color: #e0e0e0;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 30px 20px;
+            color: #666;
+            font-size: 13px;
+            font-family: 'JetBrains Mono Light', monospace;
+            border-top: 1px solid #222;
+        }
+        
+        @media (max-width: 600px) {
+            .menu-item a {
+                padding: 14px 16px;
+                font-size: 16px;
+            }
+            
+            .menu-item.external a {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <button class="close-btn" onclick="window.location.href='index.html'">✕</button>
+        <span class="menu-title">Menu</span>
+    </div>
+    
+    <div class="container">
+        <!-- Navigation Section -->
+        <div class="menu-section">
+            <h2 class="section-title">Navigation</h2>
+            <ul class="menu-items">
+                <li class="menu-item">
+                    <a href="help/index.html">📚 Documentation</a>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- External Links Section -->
+        <div class="menu-section">
+            <h2 class="section-title">External Links</h2>
+            <ul class="menu-items">
+                <li class="menu-item external">
+                    <a href="https://github.com/DanexCodr/Coderive" target="_blank" rel="noopener">🐙 GitHub</a>
+                </li>
+                <li class="menu-item external">
+                    <a href="https://discord.gg/VqrJSmEgQp" target="_blank" rel="noopener">💬 Discord</a>
+                </li>
+                <li class="menu-item external">
+                    <a href="https://github.com/DanexCodr/Coderive/blob/main/LICENSE" target="_blank" rel="noopener">📄 LICENSE</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="footer">
+        © 2025-<span id="currentYear"></span> DanexCodr · Coderive v0.6.0
+    </div>
+    
+    <script>
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+        
+        // Optional: Close with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                window.location.href = 'index.html';
+            }
+        });
+    </script>
+</body>
+</html>
