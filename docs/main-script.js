@@ -35,13 +35,13 @@ function initializeMainContent() {
     document.title = strings.ui.titles.main_page;
     document.getElementById('mainHeader').textContent = strings.ui.titles.coderive_language;
     
-    // Set tagline with "Learn More..." link - ADDED DOT AFTER CAPABILITIES
+    // Set tagline with "Learn More..." link
     const tagline = document.getElementById('tagline');
     if (tagline) {
         tagline.innerHTML = strings.ui.titles.tagline + '. <span class="learn-more-link">Learn More...</span>';
     }
     
-    // Set landscape tagline as well - ADDED DOT AFTER CAPABILITIES
+    // Set landscape tagline as well
     const landscapeTagline = document.querySelector('.landscape-header .tagline');
     if (landscapeTagline) {
         landscapeTagline.innerHTML = strings.ui.titles.tagline + '. <span class="learn-more-link">Learn More...</span>';
@@ -53,7 +53,7 @@ function initializeMainContent() {
     document.getElementById('githubBtn').textContent = strings.ui.buttons.view_on_github;
     document.getElementById('openEditorBtn').textContent = strings.ui.buttons.open_online_editor;
     
-    // Set button texts for landscape header (40/60 layout)
+    // Set button texts for landscape header
     const landscapeGetStartedBtn = document.getElementById('landscapeGetStartedBtn');
     const landscapeTryEditorBtn = document.getElementById('landscapeTryEditorBtn');
     const landscapeGithubBtn = document.getElementById('landscapeGithubBtn');
@@ -113,7 +113,6 @@ function createViewPager() {
     const featuresSection = document.getElementById('features');
     const container = featuresSection.querySelector('.container');
     
-    // Create viewpager HTML structure WITH CONSISTENT CONTENT CONTAINER
     container.innerHTML = `
         <h2 class="section-title" id="featuresTitle">${strings.ui.labels.features}</h2>
         <div class="viewpager-container">
@@ -156,7 +155,6 @@ function createViewPager() {
         </div>
     `;
     
-    // Initialize viewpager
     setupViewPager();
 }
 
@@ -166,25 +164,20 @@ function setupViewPager() {
     const nextBtn = document.querySelector('.viewpager-nav.next-btn');
     const indicators = document.querySelectorAll('.viewpager-indicator');
     
-    // Set initial position
     updateViewPagerPosition();
     
-    // Navigation buttons - FIXED: No rubber band effect at boundaries
     prevBtn.addEventListener('click', () => {
         if (viewPagerCurrentIndex > 0) {
             goToSlide(viewPagerCurrentIndex - 1);
         }
-        // REMOVED: Rubber band effect at start
     });
     
     nextBtn.addEventListener('click', () => {
         if (viewPagerCurrentIndex < viewPagerTotalSlides - 1) {
             goToSlide(viewPagerCurrentIndex + 1);
         }
-        // REMOVED: Rubber band effect at end
     });
     
-    // Indicators
     indicators.forEach(indicator => {
         indicator.addEventListener('click', () => {
             const targetIndex = parseInt(indicator.dataset.index);
@@ -194,12 +187,10 @@ function setupViewPager() {
         });
     });
     
-    // Touch events for mobile swipe - UPDATED WITH BETTER TOUCH HANDLING
     viewpager.addEventListener('touchstart', handleTouchStart, { passive: true });
     viewpager.addEventListener('touchmove', handleTouchMove, { passive: true });
     viewpager.addEventListener('touchend', handleTouchEnd);
     
-    // Mouse events for desktop drag
     viewpager.addEventListener('mousedown', handleMouseDown);
     viewpager.addEventListener('mousemove', handleMouseMove);
     viewpager.addEventListener('mouseup', handleMouseUp);
@@ -209,14 +200,11 @@ function setupViewPager() {
 function goToSlide(targetIndex) {
     if (targetIndex < 0 || targetIndex >= viewPagerTotalSlides) return;
     
-    // Snap animation
     const currentSlide = document.querySelector(`.viewpager-slide[data-index="${viewPagerCurrentIndex}"]`);
     const direction = targetIndex > viewPagerCurrentIndex ? 'next' : 'prev';
     
-    // Apply snap effect to current slide
     applySnapEffect(currentSlide, direction);
     
-    // Update position
     viewPagerCurrentIndex = targetIndex;
     updateViewPagerPosition();
     updateViewPagerIndicators();
@@ -224,7 +212,7 @@ function goToSlide(targetIndex) {
 
 function updateViewPagerPosition() {
     const viewpager = document.querySelector('.viewpager');
-    const slideWidth = 100; // percentage
+    const slideWidth = 100;
     const translateX = -viewPagerCurrentIndex * slideWidth;
     
     viewpager.style.transform = `translateX(${translateX}%) translateZ(0)`;
@@ -242,11 +230,8 @@ function updateViewPagerIndicators() {
     });
 }
 
-// SNAP EFFECTS
 function applySnapEffect(slide, direction) {
     slide.classList.remove('snap-left', 'snap-right');
-    
-    // Force reflow
     void slide.offsetWidth;
     
     if (direction === 'next') {
@@ -255,20 +240,14 @@ function applySnapEffect(slide, direction) {
         slide.classList.add('snap-left');
     }
     
-    // Remove class after animation
     setTimeout(() => {
         slide.classList.remove('snap-left', 'snap-right');
     }, 300);
 }
 
-// TOUCH HANDLERS - UPDATED WITH BETTER TOUCH DETECTION
 function handleTouchStart(e) {
-    // Check if touch is inside a code element
     const isCodeElement = e.target.closest('.code-example, .code-example-content, .command, pre, code');
-    if (isCodeElement) {
-        // Don't start ViewPager dragging if inside code area
-        return;
-    }
+    if (isCodeElement) return;
     
     viewPagerIsDragging = true;
     viewPagerStartX = e.touches[0].clientX;
@@ -281,13 +260,11 @@ function handleTouchStart(e) {
 function handleTouchMove(e) {
     if (!viewPagerIsDragging) return;
     
-    // Check if touch moved to a code element during drag
     const touch = e.touches[0];
     const elementAtTouch = document.elementFromPoint(touch.clientX, touch.clientY);
     const isCodeElement = elementAtTouch.closest('.code-example, .code-example-content, .command, pre, code');
     
     if (isCodeElement) {
-        // Cancel drag if moved to code element
         handleTouchEnd();
         return;
     }
@@ -295,18 +272,15 @@ function handleTouchMove(e) {
     viewPagerCurrentX = e.touches[0].clientX;
     const diff = viewPagerCurrentX - viewPagerStartX;
     
-    // Apply drag transform with resistance at boundaries
     const viewpager = document.querySelector('.viewpager');
     const slideWidth = window.innerWidth;
     const baseTranslate = -viewPagerCurrentIndex * 100;
     
-    // Calculate drag with rubber band effect at boundaries
     let dragPercent = (diff / slideWidth) * 100;
     
-    // Add resistance at boundaries
     if ((viewPagerCurrentIndex === 0 && diff > 0) || 
         (viewPagerCurrentIndex === viewPagerTotalSlides - 1 && diff < 0)) {
-        dragPercent *= 0.3; // Reduced movement at boundaries
+        dragPercent *= 0.3;
     }
     
     const translateX = baseTranslate + dragPercent;
@@ -322,33 +296,24 @@ function handleTouchEnd() {
     
     const diff = viewPagerCurrentX - viewPagerStartX;
     const slideWidth = window.innerWidth;
-    const threshold = slideWidth * 0.1; // 10% threshold
+    const threshold = slideWidth * 0.1;
     
-    // Determine if we should change slide
     if (Math.abs(diff) > threshold) {
         if (diff > 0 && viewPagerCurrentIndex > 0) {
-            // Swipe right - go previous
             goToSlide(viewPagerCurrentIndex - 1);
         } else if (diff < 0 && viewPagerCurrentIndex < viewPagerTotalSlides - 1) {
-            // Swipe left - go next
             goToSlide(viewPagerCurrentIndex + 1);
         } else {
-            // At boundary - just snap back (NO RUBBER BAND)
             updateViewPagerPosition();
         }
     } else {
-        // Not enough movement - snap back to current
         updateViewPagerPosition();
     }
 }
 
-// MOUSE HANDLERS (for desktop)
 function handleMouseDown(e) {
-    // Check if click is inside a code element
     const isCodeElement = e.target.closest('.code-example, .code-example-content, .command, pre, code');
-    if (isCodeElement) {
-        return;
-    }
+    if (isCodeElement) return;
     
     viewPagerIsDragging = true;
     viewPagerStartX = e.clientX;
@@ -371,7 +336,6 @@ function handleMouseMove(e) {
     
     let dragPercent = (diff / slideWidth) * 100;
     
-    // Add resistance at boundaries
     if ((viewPagerCurrentIndex === 0 && diff > 0) || 
         (viewPagerCurrentIndex === viewPagerTotalSlides - 1 && diff < 0)) {
         dragPercent *= 0.3;
@@ -399,7 +363,6 @@ function handleMouseUp() {
         } else if (diff < 0 && viewPagerCurrentIndex < viewPagerTotalSlides - 1) {
             goToSlide(viewPagerCurrentIndex + 1);
         } else {
-            // At boundary - just snap back (NO RUBBER BAND)
             updateViewPagerPosition();
         }
     } else {
@@ -420,26 +383,60 @@ async function populateCodeExamples() {
     demoExample.innerHTML = '';
     
     if (demoCode) {
-        // Create code element with fetched content
+        // Create container for truncated code
+        const codeContainer = document.createElement('div');
+        codeContainer.className = 'code-preview-container';
+        
+        // Truncate code to first 15-20 lines
+        const lines = demoCode.split('\n');
+        const previewLines = lines.slice(0, 18); // Show first 18 lines
+        const truncatedCode = previewLines.join('\n') + '\n\n// ...';
+        
+        // Create code element with truncated content
         const demoPre = document.createElement('pre');
         const demoCodeElement = document.createElement('code');
         demoCodeElement.className = 'code-example-content';
-        demoCodeElement.textContent = demoCode;
+        demoCodeElement.textContent = truncatedCode;
         
-        // Add a note that this is from GitHub
-        const noteElement = document.createElement('div');
-        noteElement.className = 'code-note';
-        noteElement.textContent = '📁 Full InteractiveDemo.cod file from GitHub repository';
-        demoExample.appendChild(noteElement);
+        // Add fade effect container
+        const fadeContainer = document.createElement('div');
+        fadeContainer.className = 'code-fade-container';
         
         demoPre.appendChild(demoCodeElement);
-        demoExample.appendChild(demoPre);
+        codeContainer.appendChild(demoPre);
+        codeContainer.appendChild(fadeContainer);
+        demoExample.appendChild(codeContainer);
+        
+        // Add "See more code examples" button
+        const seeMoreContainer = document.createElement('div');
+        seeMoreContainer.className = 'see-more-container';
+        seeMoreContainer.innerHTML = `
+            <a href="examples.html" class="see-more-link">
+                See more code examples
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </a>
+        `;
+        
+        demoExample.appendChild(seeMoreContainer);
+        
     } else {
         // Show error message if fetch fails
-        demoExample.innerHTML = '<div class="code-note error">❌ Failed to load code from GitHub. Please check your connection and try again.</div>';
+        demoExample.innerHTML = `
+            <div class="code-note error">❌ Failed to load code from GitHub.</div>
+            <div class="see-more-container">
+                <a href="examples.html" class="see-more-link">
+                    See more code examples
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </a>
+            </div>
+        `;
     }
     
-    // Language features section remains the same
+    // Language features section
     const languageFeatures = document.getElementById('languageFeatures');
     languageFeatures.innerHTML = '';
     
@@ -534,7 +531,6 @@ function populateGettingStarted() {
             const pre = document.createElement('pre');
             const code = document.createElement('code');
             code.className = 'code-example-content';
-            // Just set textContent instead of innerHTML - NO HIGHLIGHTING
             code.textContent = step.code_example;
             
             pre.appendChild(code);
@@ -563,7 +559,6 @@ function populateFooter() {
     });
 }
 
-// Add CSS class for code styling (without highlighting)
 function addCodeStyles() {
     if (!document.querySelector('#code-styles')) {
         const style = document.createElement('style');
@@ -581,14 +576,12 @@ function addCodeStyles() {
                 touch-action: pan-y;
             }
             
-            /* Style the pre element for better wrapping */
             .code-example pre {
                 max-width: 100%;
                 overflow-x: auto;
                 touch-action: pan-y;
             }
             
-            /* Add some color to the wrapper */
             .code-example {
                 background: linear-gradient(145deg, #0d1117, #161b22);
                 border: 1px solid #58a6ff;
@@ -597,7 +590,6 @@ function addCodeStyles() {
                 touch-action: pan-y;
             }
             
-            /* Add a subtle corner accent */
             .code-example::after {
                 content: '';
                 position: absolute;
@@ -607,7 +599,6 @@ function addCodeStyles() {
                 border-radius: 0 0 8px 0;
             }
             
-            /* Learn More link styling */
             .learn-more-link {
                 color: #007acc;
                 text-decoration: underline;
@@ -621,7 +612,6 @@ function addCodeStyles() {
                 text-decoration: underline;
             }
             
-            /* Loading indicator */
             .loading-indicator {
                 color: var(--text-secondary);
                 text-align: center;
@@ -629,7 +619,6 @@ function addCodeStyles() {
                 font-style: italic;
             }
             
-            /* Code note */
             .code-note {
                 font-size: 0.8rem;
                 color: #58a6ff;
@@ -643,6 +632,65 @@ function addCodeStyles() {
             .code-note.error {
                 color: #f97583;
                 background: rgba(249, 117, 131, 0.1);
+            }
+            
+            /* Code preview styles */
+            .code-preview-container {
+                position: relative;
+                max-height: 400px;
+                overflow: hidden;
+            }
+            
+            .code-fade-container {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 100px;
+                background: linear-gradient(to bottom, transparent, #0d1117);
+                pointer-events: none;
+            }
+            
+            .see-more-container {
+                text-align: center;
+                margin-top: 1.5rem;
+                padding-top: 0.5rem;
+            }
+            
+            .see-more-link {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.5rem;
+                color: var(--accent-primary);
+                text-decoration: none;
+                font-weight: 500;
+                font-size: 1rem;
+                padding: 0.75rem 1.5rem;
+                border-radius: 4px;
+                background: rgba(0, 122, 204, 0.1);
+                transition: all 0.3s ease;
+                border: 1px solid transparent;
+            }
+            
+            .see-more-link:hover {
+                background: rgba(0, 122, 204, 0.15);
+                border-color: var(--accent-primary);
+                transform: translateY(-2px);
+            }
+            
+            .see-more-link svg {
+                transition: transform 0.3s ease;
+            }
+            
+            .see-more-link:hover svg {
+                transform: translateX(4px);
+            }
+            
+            @media (max-width: 768px) {
+                .see-more-link {
+                    padding: 0.6rem 1.2rem;
+                    font-size: 0.95rem;
+                }
             }
             
             /* Mobile touch fixes */
@@ -666,7 +714,6 @@ function addCodeStyles() {
     }
 }
 
-// Copy to clipboard function (updated to use dynamic strings)
 function copyToClipboard(button) {
     const commandContainer = button.parentElement;
     const commandElement = commandContainer.querySelector('.command');
@@ -708,28 +755,19 @@ function setupCopyButtons() {
         });
     });
     
-    // Re-setup after dynamic content loads
     setTimeout(setupCopyButtons, 100);
 }
 
-// Function to detect mobile device
 function isMobileDevice() {
-    // Method 1: Check user agent for common mobile patterns
     const userAgent = navigator.userAgent.toLowerCase();
     const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
-    
-    // Method 2: Check screen width and touch capability
     const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     const isSmallScreen = window.innerWidth <= 768;
-    
-    // Method 3: Check device pixel ratio and screen orientation
     const isHighDPR = window.devicePixelRatio > 1;
     
-    // Combine checks - more reliable
     return (isMobileUA || (hasTouch && isSmallScreen)) && isHighDPR;
 }
 
-// Function to apply mobile-specific styles
 function applyMobileStyles() {
     const isMobile = isMobileDevice();
     const debugElement = document.getElementById('deviceDebug');
@@ -742,10 +780,8 @@ function applyMobileStyles() {
             debugElement.style.display = 'block';
         }
         
-        // Additional mobile-specific adjustments
         const topLeftContainer = document.querySelector('.top-left-container');
         if (topLeftContainer) {
-            // Make touch targets larger for mobile
             const menuButton = topLeftContainer.querySelector('.side-panel-toggle');
             if (menuButton) {
                 menuButton.style.padding = '12px 16px';
@@ -753,21 +789,17 @@ function applyMobileStyles() {
             }
         }
         
-        // Adjust font sizes for better readability on mobile
         const body = document.body;
-        body.style.fontSize = '16px'; // Minimum readable size for mobile
+        body.style.fontSize = '16px';
         
-        // Add mobile-specific class to sections for potential future styling
         const sections = document.querySelectorAll('section');
         sections.forEach(section => {
             section.classList.add('mobile-section');
         });
         
-        // Apply mobile touch fixes
         document.body.style.touchAction = 'pan-y';
         document.body.style.overflowY = 'scroll';
         
-        // Make all code elements touch-friendly
         const codeElements = document.querySelectorAll('.code-example, .code-example *, .command, .command-container');
         codeElements.forEach(el => {
             el.style.touchAction = 'pan-y';
@@ -783,7 +815,6 @@ function applyMobileStyles() {
         }
     }
     
-    // Auto-hide debug after 3 seconds
     if (debugElement) {
         setTimeout(() => {
             debugElement.style.display = 'none';
@@ -791,7 +822,6 @@ function applyMobileStyles() {
     }
 }
 
-// Function to update left side width for landscape mode
 function updateLeftSideWidth() {
     if (document.body.classList.contains('landscape-mode')) {
         const leftSide = document.querySelector('.landscape-left');
@@ -802,12 +832,9 @@ function updateLeftSideWidth() {
     }
 }
 
-// Setup smooth scrolling
 function setupSmoothScrolling() {
-    // Remove any existing event listeners that might interfere
     document.removeEventListener('touchmove', preventDefaultScroll);
     
-    // Ensure body has proper scrolling
     if (!document.body.classList.contains('landscape-mode')) {
         document.body.style.overflowY = 'auto';
         document.body.style.height = 'auto';
@@ -815,7 +842,6 @@ function setupSmoothScrolling() {
         document.body.style.touchAction = 'pan-y';
     }
     
-    // Add smooth scroll behavior
     const scrollableElements = document.querySelectorAll('.code-example, .command');
     scrollableElements.forEach(el => {
         el.style.WebkitOverflowScrolling = 'touch';
@@ -823,39 +849,29 @@ function setupSmoothScrolling() {
     });
 }
 
-// Prevent default scroll handler (if needed)
 function preventDefaultScroll(e) {
     e.preventDefault();
 }
 
-// ============================================
-// DRAWER FUNCTIONALITY
-// ============================================
-
 // Drawer variables
-let drawerVisible = true; // Start with drawer visible on desktop
+let drawerVisible = true;
 let drawer = document.getElementById('mainDrawer');
 let drawerToggle = document.getElementById('drawerToggle');
 let drawerOverlay = document.getElementById('drawerOverlay');
 
-// Function to handle page load
 function handlePageLoad() {
-    // Add loaded class after a short delay to prevent initial animation
     setTimeout(() => {
         document.body.classList.add('loaded');
     }, 500);
     
-    // Remove any conflicting inline styles
     const topLeftContainer = document.querySelector('.top-left-container');
     if (topLeftContainer) {
         topLeftContainer.style.transform = '';
         topLeftContainer.style.transition = '';
     }
     
-    // Apply initial touch fixes
     setTimeout(() => {
         if ('ontouchstart' in window) {
-            // Apply touch fixes after page loads
             const codeElements = document.querySelectorAll('.code-example, .command');
             codeElements.forEach(el => {
                 el.style.touchAction = 'pan-y';
@@ -866,26 +882,22 @@ function handlePageLoad() {
     }, 1000);
 }
 
-// Initialize drawer based on screen size
 function initializeDrawer() {
     const isSmallScreen = window.innerWidth <= 600;
     const topLeftContainer = document.querySelector('.top-left-container');
     
-    // Reset position first
     if (topLeftContainer) {
         topLeftContainer.style.transform = '';
         topLeftContainer.style.transition = '';
     }
     
     if (isSmallScreen) {
-        // On small screens, start with drawer hidden
         drawerVisible = false;
         document.body.classList.remove('drawer-visible');
         drawerToggle.textContent = '☰';
         drawerToggle.setAttribute('aria-label', 'Open navigation menu');
         drawerToggle.style.background = '#007acc';
     } else {
-        // On larger screens, start with drawer hidden
         drawerVisible = false;
         document.body.classList.remove('drawer-visible');
         drawerToggle.textContent = '☰';
@@ -894,7 +906,6 @@ function initializeDrawer() {
     }
 }
 
-// Toggle drawer function
 function toggleDrawer() {
     drawerVisible = !drawerVisible;
     
@@ -910,17 +921,14 @@ function toggleDrawer() {
         drawerToggle.style.background = '#007acc';
     }
     
-    // Ensure top-left container gets the proper classes
     const topLeftContainer = document.querySelector('.top-left-container');
     if (topLeftContainer) {
-        // Force reflow to ensure animation triggers
         topLeftContainer.offsetHeight;
     }
     
     localStorage.setItem('drawerState', drawerVisible ? 'open' : 'closed');
 }
 
-// Update the updateLayoutForOrientation function
 function updateLayoutForOrientation() {
     const isLandscape = window.innerWidth > window.innerHeight && window.innerWidth > 768;
     
@@ -928,10 +936,8 @@ function updateLayoutForOrientation() {
         document.body.classList.add('landscape-mode');
         document.body.style.overflow = 'hidden';
         
-        // Hide drawer toggle by default in landscape
         drawerToggle.style.display = 'none';
         
-        // Close drawer when entering landscape mode
         if (drawerVisible) {
             toggleDrawer();
         }
@@ -942,57 +948,42 @@ function updateLayoutForOrientation() {
         document.body.style.minHeight = '100vh';
         document.body.style.touchAction = 'pan-y';
         
-        // Show toggle button in portrait
         drawerToggle.style.display = 'flex';
     }
 }
 
-// Setup event listeners
 function setupEventListeners() {
-    // Add code styles
     addCodeStyles();
-    
-    // Apply mobile styles
     applyMobileStyles();
-    
-    // Initialize drawer
     initializeDrawer();
     
-    // Drawer toggle
     drawerToggle.addEventListener('click', toggleDrawer);
     
-    // Close drawer when clicking overlay (mobile only)
     drawerOverlay.addEventListener('click', function() {
         if (window.innerWidth <= 600) {
             toggleDrawer();
         }
     });
     
-    // Close drawer on Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && drawerVisible && window.innerWidth <= 600) {
             toggleDrawer();
         }
     });
     
-    // Handle viewport changes
     window.addEventListener('orientationchange', function() {
         setTimeout(function() {
             window.dispatchEvent(new Event('resize'));
-            applyMobileStyles(); // Re-apply on orientation change
-            setupSmoothScrolling(); // Re-setup scrolling
-            
-            // Update drawer state based on new orientation
+            applyMobileStyles();
+            setupSmoothScrolling();
             initializeDrawer();
             
-            // Reset drawer position
             const topLeftContainer = document.querySelector('.top-left-container');
             if (topLeftContainer) {
                 topLeftContainer.style.transform = '';
                 topLeftContainer.style.transition = '';
             }
             
-            // Re-apply touch fixes after orientation change
             if ('ontouchstart' in window) {
                 const codeElements = document.querySelectorAll('.code-example, .command');
                 codeElements.forEach(el => {
@@ -1006,12 +997,9 @@ function setupEventListeners() {
         setupSmoothScrolling();
         updateLayoutForOrientation();
         updateLeftSideWidth();
-        applyMobileStyles(); // Re-apply on resize
-        
-        // Update drawer on resize
+        applyMobileStyles();
         initializeDrawer();
         
-        // Reset drawer position
         const topLeftContainer = document.querySelector('.top-left-container');
         if (topLeftContainer) {
             topLeftContainer.style.transform = '';
@@ -1019,22 +1007,15 @@ function setupEventListeners() {
         }
     });
 
-    // Initialize smooth scrolling for touch devices
     if ('ontouchstart' in window) {
-        // Use passive event listeners for better performance
         document.addEventListener('touchmove', function(e) {
-            // Allow default touch behavior for scrolling
-            // Only prevent default if we're handling a specific gesture
             const isCodeElement = e.target.closest('.code-example, .command, pre, code');
             if (!isCodeElement) {
-                // Allow default scroll behavior
                 return;
             }
         }, { passive: true });
         
-        // Add touch event listener to allow scrolling through code areas
         document.addEventListener('touchstart', function(e) {
-            // Ensure code areas allow text selection
             const codeElement = e.target.closest('.code-example, .code-example-content, .command');
             if (codeElement) {
                 codeElement.style.userSelect = 'text';
@@ -1043,16 +1024,10 @@ function setupEventListeners() {
         }, { passive: true });
     }
     
-    // Initial orientation setup
     updateLayoutForOrientation();
-    setTimeout(updateLeftSideWidth, 100); // Initial width calculation
-    
-    // Initial smooth scrolling setup
+    setTimeout(updateLeftSideWidth, 100);
     setTimeout(setupSmoothScrolling, 500);
     
-    // Add global touch handler to ensure scrolling works
     document.addEventListener('touchmove', function(e) {
-        // Always allow touch move for scrolling
-        // Don't prevent default unless absolutely necessary
     }, { passive: true });
 }

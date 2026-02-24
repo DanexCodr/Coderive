@@ -45,7 +45,7 @@ const strings = {
       technical_innovations: "Technical Innovations",
       getting_started: "Getting Started",
       try_online: "Try Coderive Online",
-      demo_title: "InteractiveDemo.cod - Full Example"
+      demo_title: "Code Preview - InteractiveDemo.cod"
     },
     messages: {
       try_description: "Experience Coderive right in your browser with our online editor. No installation required.",
