@@ -1,15 +1,14 @@
 FROM eclipse-temurin:17-jdk
 WORKDIR /app
 
-# Copy your server files
-COPY PlaygroundServer.java .
-COPY lib/ lib/
+# Copy EVERYTHING from server/ (including lib/ with Spark)
+COPY . .
 
-# Download Coderive.jar from GitHub Pages (CORRECT URL)
+# Download Coderive.jar (still need this)
 ADD https://danexcodr.github.io/Coderive/assets/Coderive.jar /app/Coderive.jar
 
-# Compile with both JARs
+# Compile - Spark is already in lib/
 RUN javac -cp "Coderive.jar:lib/*" PlaygroundServer.java
 
-# Run with both JARs
+# Run
 CMD ["java", "-cp", ".:Coderive.jar:lib/*", "PlaygroundServer"]
