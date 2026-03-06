@@ -2,29 +2,51 @@
     'use strict';
     
     const API_URL = 'https://coderive-api.onrender.com/eval';
+    const API_BASE = 'https://coderive-api.onrender.com';
     let history = [];
     let historyIndex = -1;
+    let isPending = false;
     
     function initPlayground() {
-        const status = document.getElementById('apiStatus');
-        status.textContent = '✅ Connected';
-        
         const input = document.getElementById('repl-input');
         input.addEventListener('keydown', handleKeyDown);
         input.focus();
         
         document.getElementById('clearBtn').addEventListener('click', clearConsole);
         document.getElementById('resetBtn').addEventListener('click', resetSession);
+        
+        checkConnection();
+    }
+    
+    async function checkConnection() {
+        const status = document.getElementById('apiStatus');
+        status.textContent = '⏳ Connecting...';
+        try {
+            const response = await fetch(API_BASE, { method: 'GET' });
+            if (response.ok) {
+                status.textContent = '✅ Connected';
+            } else {
+                status.textContent = '❌ Offline';
+            }
+        } catch (e) {
+            status.textContent = '❌ Offline';
+        }
     }
     
     async function submitLine(line) {
-        if (!line.trim()) return;
+        if (!line.trim() || isPending) return;
         
         history.push(line);
         historyIndex = history.length;
         
         appendOutput('>> ' + line, 'input');
-        document.getElementById('repl-input').value = '';
+        
+        const input = document.getElementById('repl-input');
+        input.value = '';
+        input.disabled = true;
+        isPending = true;
+        
+        const loadingLine = appendLoadingLine();
         
         try {
             const response = await fetch(API_URL, {
@@ -35,6 +57,8 @@
                 body: new URLSearchParams({code: line})
             });
             
+            removeLoadingLine(loadingLine);
+            
             const result = await response.text();
             if (result) {
                 result.split('\n').forEach(l => {
@@ -42,7 +66,28 @@
                 });
             }
         } catch (e) {
+            removeLoadingLine(loadingLine);
             appendOutput('Error: ' + e.message, 'error');
+        } finally {
+            isPending = false;
+            input.disabled = false;
+            input.focus();
+        }
+    }
+    
+    function appendLoadingLine() {
+        const output = document.getElementById('repl-output');
+        const line = document.createElement('div');
+        line.className = 'repl-line output repl-loading';
+        line.textContent = '...';
+        output.appendChild(line);
+        output.scrollTop = output.scrollHeight;
+        return line;
+    }
+    
+    function removeLoadingLine(line) {
+        if (line && line.parentNode) {
+            line.parentNode.removeChild(line);
         }
     }
     
@@ -82,6 +127,7 @@
     
     function resetSession() {
         clearConsole();
+        checkConnection();
     }
     
     document.addEventListener('partialsLoaded', initPlayground);
