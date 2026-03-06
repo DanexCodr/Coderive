@@ -26,39 +26,13 @@ public class DebugSystem {
     }
 
     private static Level currentLevel = Level.INFO;
-    private static Set<String> enabledCategories = new HashSet<String>();
     private static boolean showTimestamp = true;
     private static boolean showThread = false;
-    private static Map<String, Long> timers = new HashMap<String, Long>();
+    private static Map<String, Long> timers = new HashMap<String, Long>(); // Stores nanoseconds
     private static SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
-
-    static {
-        enabledCategories.add("AST");
-        enabledCategories.add("METHODS");
-        enabledCategories.add("SLOTS");
-        enabledCategories.add("INTERPRETER");
-    }
 
     public static void setLevel(Level level) {
         currentLevel = level;
-    }
-
-    public static void enableCategory(String category) {
-        enabledCategories.add(category);
-    }
-
-    public static void disableCategory(String category) {
-        enabledCategories.remove(category);
-    }
-
-    public static void enableAllCategories() {
-        enabledCategories.add("AST");
-        enabledCategories.add("METHODS");
-        enabledCategories.add("SLOTS");
-        enabledCategories.add("FIELDS");
-        enabledCategories.add("EXPRESSIONS");
-        enabledCategories.add("INTERPRETER");
-        enabledCategories.add("MEMORY");
     }
 
     public static void setShowTimestamp(boolean show) {
@@ -90,67 +64,71 @@ public class DebugSystem {
     }
 
     public static void methodEntry(String methodName, Map<String, Object> params) {
-        if (shouldLog(Level.DEBUG, "METHODS")) {
+        if (shouldLog(Level.DEBUG)) {
             debug("METHODS", "→ " + methodName + "(" + params + ")");
         }
     }
 
     public static void methodExit(String methodName, Object result) {
-        if (shouldLog(Level.DEBUG, "METHODS")) {
+        if (shouldLog(Level.DEBUG)) {
             debug("METHODS", "← " + methodName + " = " + result);
         }
     }
 
     public static void slotUpdate(String slotName, Object oldValue, Object newValue) {
-        if (shouldLog(Level.DEBUG, "SLOTS")) {
+        if (shouldLog(Level.DEBUG)) {
             debug("SLOTS", "Slot " + slotName + ": " + oldValue + " → " + newValue);
         }
     }
 
     public static void fieldUpdate(String fieldName, Object value) {
-        if (shouldLog(Level.DEBUG, "FIELDS")) {
+        if (shouldLog(Level.DEBUG)) {
             debug("FIELDS", "Field " + fieldName + " = " + value);
         }
     }
 
     public static void startTimer(String name) {
-        if (shouldLog(Level.DEBUG, "PERF")) {
-            timers.put(name, System.currentTimeMillis());
-        }
+        timers.put(name, System.nanoTime()); // Store in nanoseconds
     }
 
-    public static void stopTimer(String name) {
-        if (shouldLog(Level.DEBUG, "PERF")) {
-            Long start = timers.remove(name);
-            if (start != null) {
-                long duration = System.currentTimeMillis() - start;
-                debug("PERF", name + " took " + duration + "ms");
+    public static double stopTimer(String name) {
+        Long start = timers.remove(name);
+        if (start != null) {
+            long durationNs = System.nanoTime() - start;
+            double durationMs = durationNs / 1_000_000.0; // Convert to milliseconds with fraction
+            
+            // Only log if debug level allows
+            if (shouldLog(Level.DEBUG)) {
+                debug("PERF", String.format("%s took %.3f ms", name, durationMs));
             }
+            return durationMs;
         }
+        return -1.0;
     }
 
-    public static long getTimerDuration(String name) {
+    public static double getTimerDuration(String name) {
         Long start = timers.get(name);
         if (start != null) {
-            return System.currentTimeMillis() - start;
+            long durationNs = System.nanoTime() - start;
+            return durationNs / 1_000_000.0; // Return milliseconds as double with fraction
         }
-        return -1;
+        return -1.0;
     }
 
     public static void astBuilding(String nodeType, String details) {
-        if (shouldLog(Level.TRACE, "AST")) {
+        if (shouldLog(Level.TRACE)) {
             trace("AST", "Building " + nodeType + ": " + details);
         }
     }
 
     public static void astComplete(String nodeType, String summary) {
-        if (shouldLog(Level.DEBUG, "AST")) {
+        if (shouldLog(Level.DEBUG)) {
             debug("AST", "Built " + nodeType + " → " + summary);
         }
     }
 
     private static void log(Level level, String category, String message) {
-        if (shouldLog(level, category)) {
+        if (shouldLog(level)) {
             StringBuilder logLine = new StringBuilder();
 
             if (showTimestamp) {
@@ -173,8 +151,9 @@ public class DebugSystem {
         }
     }
 
-    private static boolean shouldLog(Level level, String category) {
-        return level.getLevel() <= currentLevel.getLevel() && enabledCategories.contains(category);
+    private static boolean shouldLog(Level level) {
+        if (currentLevel == Level.OFF) return false;
+        return level.getLevel() <= currentLevel.getLevel();
     }
 
     public static Level getLevel() {
