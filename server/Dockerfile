@@ -1,4 +1,4 @@
-FROM openjdk:7-jdk-alpine
+FROM eclipse-temurin:7
 WORKDIR /app
 COPY server/*.java .
 COPY server/lib/* lib/
