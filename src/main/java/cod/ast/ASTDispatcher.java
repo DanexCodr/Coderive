@@ -23,7 +23,7 @@ public class ASTDispatcher<T> {
     }
 
     public T dispatch(FlatAST ast, int node) {
-        if (node == FlatAST.NULL || ast == null) return defaultResult;
+        if (ast == null || node == FlatAST.NULL) return defaultResult;
         NodeKind k = ast.kind(node);
         NodeOp<T> op = table.get(k);
         return op != null ? op.exec(ast, node) : defaultResult;
