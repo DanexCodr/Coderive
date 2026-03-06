@@ -1,0 +1,100 @@
+<!-- Top section - matches home page -->
+<div class="top-section">
+    <div class="hamburger-group">
+        <button class="hamburger-btn" id="docsDrawerToggle" aria-label="Menu">☰</button>
+        <span class="home-text">Documentation</span>
+    </div>
+</div>
+
+<div class="docs-container">
+    <div class="docs-header">
+        <div class="docs-title-group">
+            <h1 class="docs-title">Coderive Documentation</h1>
+        </div>
+        <a href="#home" class="back-home-btn" data-route="home">← Back to Home</a>
+    </div>
+
+    <div class="docs-section" id="getting-started">
+        <h2>Getting Started</h2>
+        <div class="code-block">
+# Download
+curl -O https://github.com/DanexCodr/Coderive/releases/latest/download/coderive.jar
+
+# Create your first program
+echo 'unit hello
+
+share main() {
+    out("Hello, Coderive!")
+}' > hello.cod
+
+# Run it
+java -jar coderive.jar hello.cod
+        </div>
+    </div>
+
+    <div class="docs-section" id="syntax">
+        <h2>Quick Syntax Overview</h2>
+        <div class="docs-grid">
+            <div class="docs-card">
+                <h3>Variables</h3>
+                <p>Type inference, explicit types, and lazy arrays</p>
+                <div class="docs-code">
+name := "Coderive"
+age: int = 19
+nums := [1 to 1M]
+                </div>
+            </div>
+            
+            <div class="docs-card">
+                <h3>Functions</h3>
+                <p>Lambda syntax and multiple returns</p>
+                <div class="docs-code">
+add := (\a, b) a + b
+
+calc := (\a, b) {
+  ~> sum: a + b
+}
+                </div>
+            </div>
+            
+            <div class="docs-card">
+                <h3>Loops & Ranges</h3>
+                <p>Powerful range syntax with steps</p>
+                <div class="docs-code">
+for i in 1 to 10 by 2 {
+    out(i)
+}
+
+slice := arr[0 to 50 by 5]
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="docs-section">
+        <h2>Resources</h2>
+        <div class="docs-grid">
+            <div class="docs-card">
+                <h3>GitHub Repository</h3>
+                <p>Source code, issues, and contributions</p>
+                <a href="https://github.com/DanexCodr/Coderive" target="_blank" class="docs-link">github.com/DanexCodr/Coderive →</a>
+            </div>
+            
+            <div class="docs-card">
+                <h3>Discord Community</h3>
+                <p>Get help, discuss features, and connect</p>
+                <a href="https://discord.gg/VqrJSmEgQp" target="_blank" class="docs-link">Join Discord →</a>
+            </div>
+            
+            <div class="docs-card">
+                <h3>License</h3>
+                <p>Open source license information</p>
+                <a href="https://github.com/DanexCodr/Coderive/blob/main/LICENSE" target="_blank" class="docs-link">View License →</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="docs-footer">
+        <a href="#" class="back-to-top">↑ Back to Top</a>
+    </div>
+</div>

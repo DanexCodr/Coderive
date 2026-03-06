@@ -1,0 +1,153 @@
+/* menu.css - Drawer/menu specific styles */
+.drawer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    z-index: 1999;
+}
+
+.drawer {
+    position: fixed;
+    top: 0;
+    left: -320px;
+    width: 300px;
+    height: 100%;
+    background-color: #1a1a1a;
+    border-right: 2px solid #333;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+    transition: left 0.3s ease;
+    z-index: 2000;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+body.drawer-open .drawer-overlay {
+    opacity: 1;
+    visibility: visible;
+}
+
+body.drawer-open .drawer {
+    left: 0;
+}
+
+.drawer-header {
+    background-color: #1e1e1e;
+    padding: 20px;
+    border-bottom: 2px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.drawer-title {
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 24px;
+    color: #e0e0e0;
+    font-weight: 300;
+}
+
+.drawer-close {
+    background: none;
+    border: none;
+    color: #e0e0e0;
+    font-size: 28px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono Light', monospace;
+    line-height: 1;
+    padding: 0 8px;
+}
+
+.drawer-close:hover {
+    color: #4a6fa5;
+}
+
+.drawer-content {
+    padding: 20px;
+    flex: 1;
+}
+
+.drawer-section {
+    margin-bottom: 30px;
+}
+
+.drawer-section-title {
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 16px;
+    color: #888;
+    font-weight: 300;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #333;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.drawer-items {
+    list-style: none;
+}
+
+.drawer-item {
+    margin-bottom: 2px;
+}
+
+.drawer-item a {
+    display: block;
+    padding: 12px 16px;
+    color: #b0b0b0;
+    text-decoration: none;
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 16px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.drawer-item a:hover {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    transform: translateX(5px);
+}
+
+.drawer-item.external a {
+    color: #888;
+    font-size: 14px;
+}
+
+.drawer-item.external a:hover {
+    color: #e0e0e0;
+}
+
+.drawer-footer {
+    padding: 20px;
+    border-top: 1px solid #333;
+    text-align: center;
+    color: #666;
+    font-size: 12px;
+    font-family: 'JetBrains Mono Light', monospace;
+}
+
+.hamburger-btn {
+    background: none;
+    border: none;
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 24px;
+    line-height: 1;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #e0e0e0;
+}
+
+.hamburger-btn:hover {
+    opacity: 0.8;
+    color: #4a6fa5;
+}

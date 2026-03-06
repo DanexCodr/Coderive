@@ -88,10 +88,10 @@ public class Linter {
             addWarning(type.name, "TYPE", "Type name '" + type.name + "' should use PascalCase");
         }
         
-        // Check node names
-        for (MethodNode node : type.methods) {
-            if (!NamingValidator.startsWithLowerCase(node.methodName)) {
-                addWarning(type.name, node.methodName, "Method '" + node.methodName + "' should start with lowercase letter");
+        // Check method names
+        for (MethodNode method : type.methods) {
+            if (!NamingValidator.startsWithLowerCase(method.methodName)) {
+                addWarning(type.name, method.methodName, "Method '" + method.methodName + "' should start with lowercase letter");
             }
         }
         
@@ -126,9 +126,9 @@ public class Linter {
         checkNamingConventions(type);
 
         // First pass: Find all defined methods in this type
-        for (MethodNode node : type.methods) {
-            definedMethods.add(node.methodName);
-            methodMap.put(node.methodName, node);
+        for (MethodNode method : type.methods) {
+            definedMethods.add(method.methodName);
+            methodMap.put(method.methodName, method);
         }
         
         // "main" is a special entry point, so it's always considered "used"
@@ -137,15 +137,15 @@ public class Linter {
         }
 
         // Second pass: Visit all methods to find calls and analyze bodies
-        for (MethodNode node : type.methods) {
-            visitMethod(node, type.name);
+        for (MethodNode method : type.methods) {
+            visitMethod(method, type.name);
         }
 
         // Third pass: Analyze the results for this type
         for (String methodName : definedMethods) {
             if (!calledMethods.contains(methodName)) {
-                MethodNode node = methodMap.get(methodName);
-                if ("local".equals(node.visibility)) {
+                MethodNode method = methodMap.get(methodName);
+                if ("local".equals(method.visibility)) {
                     addWarning(
                         type.name, 
                         methodName, 
@@ -156,33 +156,33 @@ public class Linter {
         }
     }
 
-    private void visitMethod(MethodNode node, String typeName) {
-        // Initialize sets for this node
+    private void visitMethod(MethodNode method, String typeName) {
+        // Initialize sets for this method
         this.definedVariables = new HashSet<String>();
         this.usedVariables = new HashSet<String>();
 
         // Add parameters to both sets (parameters are defined and "used" by the caller)
-        for (ParamNode param : node.parameters) {
+        for (ParamNode param : method.parameters) {
             definedVariables.add(param.name);
             usedVariables.add(param.name); 
         }
 
         // Add return slots (they are implicitly defined)
-        for (SlotNode slot : node.returnSlots) {
+        for (SlotNode slot : method.returnSlots) {
             definedVariables.add(slot.name);
         }
 
-        // Visit all statements in the node body
-        for (StmtNode stmt : node.body) {
+        // Visit all statements in the method body
+        for (StmtNode stmt : method.body) {
             visitStatement(stmt);
         }
 
-        // Analyze the results for this node
+        // Analyze the results for this method
         for (String varName : definedVariables) {
             if (!usedVariables.contains(varName)) {
                 // Don't warn about unused slots, that's a different kind of check
                 boolean isSlot = false;
-                for (SlotNode slot : node.returnSlots) {
+                for (SlotNode slot : method.returnSlots) {
                     if (slot.name.equals(varName)) {
                         isSlot = true;
                         break;
@@ -192,7 +192,7 @@ public class Linter {
                 if (!isSlot) {
                     addWarning(
                         typeName, 
-                        node.methodName, 
+                        method.methodName, 
                         "Local variable '" + varName + "' is defined but its value is never used."
                     );
                 }
@@ -203,71 +203,82 @@ public class Linter {
     // --- Statement Visitor ---
 
     private void visitStatement(StmtNode stmt) {
-    if (stmt == null) {
-        return;
-    }
+        if (stmt == null) {
+            return;
+        }
 
-    if (stmt instanceof VarNode) {
-        VarNode var = (VarNode) stmt;
-        definedVariables.add(var.name);
-        visitExpression(var.value);
+        if (stmt instanceof VarNode) {
+            VarNode var = (VarNode) stmt;
+            definedVariables.add(var.name);
+            visitExpression(var.value);
 
-    } else if (stmt instanceof AssignmentNode) {
-        AssignmentNode assign = (AssignmentNode) stmt;
-        visitExpression(assign.right);
-        
-        if (assign.left instanceof ExprNode) {
-            ExprNode left = (ExprNode) assign.left;
-            if (left.name != null) {
-                definedVariables.add(left.name);
+        } else if (stmt instanceof AssignmentNode) {
+            AssignmentNode assign = (AssignmentNode) stmt;
+            visitExpression(assign.right);
+            visitExpression(assign.left);
+
+        } else if (stmt instanceof SlotAssignmentNode) {
+            SlotAssignmentNode assign = (SlotAssignmentNode) stmt;
+            visitExpression(assign.value);
+            if (assign.slotName != null && !"_".equals(assign.slotName)) {
+                usedVariables.add(assign.slotName);
             }
-        }
-        visitExpression(assign.left);
+            
+        } else if (stmt instanceof MultipleSlotAssignmentNode) {
+            MultipleSlotAssignmentNode multiAssign = (MultipleSlotAssignmentNode) stmt;
+            for (SlotAssignmentNode assign : multiAssign.assignments) {
+                visitStatement(assign);
+            }
+            
+        } else if (stmt instanceof StmtIfNode) {
+            StmtIfNode ifNode = (StmtIfNode) stmt;
+            visitExpression(ifNode.condition);
+            for (StmtNode s : ifNode.thenBlock.statements) {
+                visitStatement(s);
+            }
+            for (StmtNode s : ifNode.elseBlock.statements) {
+                visitStatement(s);
+            }
 
-    } else if (stmt instanceof SlotAssignmentNode) {
-        SlotAssignmentNode assign = (SlotAssignmentNode) stmt;
-        visitExpression(assign.value);
-        usedVariables.add(assign.slotName);
-    } else if (stmt instanceof StmtIfNode) {
-        StmtIfNode ifNode = (StmtIfNode) stmt;
-        visitExpression(ifNode.condition);
-        for (StmtNode s : ifNode.thenBlock.statements) {
-            visitStatement(s);
-        }
-        for (StmtNode s : ifNode.elseBlock.statements) {
-            visitStatement(s);
-        }
+        } else if (stmt instanceof ExprIfNode) {
+            ExprIfNode ifExpr = (ExprIfNode) stmt;
+            visitExpression(ifExpr.condition);
+            visitExpression(ifExpr.thenExpr);
+            visitExpression(ifExpr.elseExpr);
+            
+        } else if (stmt instanceof ForNode) {
+            ForNode forNode = (ForNode) stmt;
+            
+            definedVariables.add(forNode.iterator);
+            
+            if (forNode.range != null) {
+                visitExpression(forNode.range.start);
+                visitExpression(forNode.range.end);
+                if (forNode.range.step != null) {
+                    visitExpression(forNode.range.step);
+                }
+            } else if (forNode.arraySource != null) {
+                visitExpression(forNode.arraySource);
+            }
+            
+            for (StmtNode s : forNode.body.statements) {
+                visitStatement(s);
+            }
 
-    } else if (stmt instanceof ForNode) {
-        ForNode forNode = (ForNode) stmt;
-        
-        definedVariables.add(forNode.iterator);
-        
-        if (forNode.range != null) {
-            visitExpression(forNode.range.start);
-            visitExpression(forNode.range.end);
-            visitExpression(forNode.range.step);
-        } else if (forNode.arraySource != null) {
-            visitExpression(forNode.arraySource);
-        }
-        
-        for (StmtNode s : forNode.body.statements) {
-            visitStatement(s);
-        }
+        } else if (stmt instanceof ReturnSlotAssignmentNode) {
+            ReturnSlotAssignmentNode assign = (ReturnSlotAssignmentNode) stmt;
+            visitExpression(assign.methodCall);
+            for (String varName : assign.variableNames) {
+                definedVariables.add(varName);
+            }
+            
+        } else if (stmt instanceof MethodCallNode) {
+            visitExpression((ExprNode) stmt);
 
-    } else if (stmt instanceof MethodCallNode) {
-        visitExpression((ExprNode) stmt);
-
-    } else if (stmt instanceof ReturnSlotAssignmentNode) {
-        ReturnSlotAssignmentNode assign = (ReturnSlotAssignmentNode) stmt;
-        visitExpression(assign.methodCall);
-        for (String varName : assign.variableNames) {
-            definedVariables.add(varName);
+        } else if (stmt instanceof ExprNode) {
+            visitExpression((ExprNode) stmt);
         }
-    } else if (stmt instanceof ExprNode) {
-        visitExpression((ExprNode) stmt);
     }
-}
 
     // --- Expression Visitor ---
 
@@ -276,34 +287,54 @@ public class Linter {
             return;
         }
 
-        if (expr.name != null) {
-            // This is a variable read, e.g., 'output x'
-            usedVariables.add(expr.name);
-        }
-
-        if (expr instanceof UnaryNode) {
-            visitExpression(((UnaryNode) expr).operand);
-
+        // Handle different expression types
+        if (expr instanceof IdentifierNode) {
+            IdentifierNode id = (IdentifierNode) expr;
+            usedVariables.add(id.name);
+            
         } else if (expr instanceof BinaryOpNode) {
-            visitExpression(((BinaryOpNode) expr).left);
-            visitExpression(((BinaryOpNode) expr).right);
+            BinaryOpNode binOp = (BinaryOpNode) expr;
+            visitExpression(binOp.left);
+            visitExpression(binOp.right);
+            
+        } else if (expr instanceof UnaryNode) {
+            UnaryNode unary = (UnaryNode) expr;
+            visitExpression(unary.operand);
 
+        } else if (expr instanceof TypeCastNode) {
+            TypeCastNode cast = (TypeCastNode) expr;
+            visitExpression(cast.expression);
+            
         } else if (expr instanceof ArrayNode) {
-            for (ExprNode elem : ((ArrayNode) expr).elements) {
+            ArrayNode array = (ArrayNode) expr;
+            for (ExprNode elem : array.elements) {
                 visitExpression(elem);
             }
 
         } else if (expr instanceof IndexAccessNode) {
-            visitExpression(((IndexAccessNode) expr).array);
-            visitExpression(((IndexAccessNode) expr).index);
+            IndexAccessNode access = (IndexAccessNode) expr;
+            visitExpression(access.array);
+            visitExpression(access.index);
 
+        } else if (expr instanceof RangeIndexNode) {
+            RangeIndexNode range = (RangeIndexNode) expr;
+            if (range.step != null) visitExpression(range.step);
+            visitExpression(range.start);
+            visitExpression(range.end);
+            
+        } else if (expr instanceof MultiRangeIndexNode) {
+            MultiRangeIndexNode multiRange = (MultiRangeIndexNode) expr;
+            for (RangeIndexNode range : multiRange.ranges) {
+                visitExpression(range);
+            }
+            
         } else if (expr instanceof MethodCallNode) {
             MethodCallNode call = (MethodCallNode) expr;
             
-            // This node is "called"
+            // This method is "called"
             // We only check for local calls, not qualified 'lib.math.sqrt'
             if (call.qualifiedName == null || !call.qualifiedName.contains(".")) {
-                 calledMethods.add(call.name);
+                calledMethods.add(call.name);
             }
 
             // All arguments are "used"
@@ -311,8 +342,47 @@ public class Linter {
                 visitExpression(arg);
             }
 
-        } else if (expr instanceof TypeCastNode) {
-            visitExpression(((TypeCastNode) expr).expression);
+        } else if (expr instanceof PropertyAccessNode) {
+            PropertyAccessNode prop = (PropertyAccessNode) expr;
+            visitExpression(prop.left);
+            visitExpression(prop.right);
+            
+        } else if (expr instanceof EqualityChainNode) {
+            EqualityChainNode chain = (EqualityChainNode) expr;
+            visitExpression(chain.left);
+            for (ExprNode arg : chain.chainArguments) {
+                visitExpression(arg);
+            }
+            
+        } else if (expr instanceof BooleanChainNode) {
+            BooleanChainNode chain = (BooleanChainNode) expr;
+            for (ExprNode e : chain.expressions) {
+                visitExpression(e);
+            }
+            
+        } else if (expr instanceof ThisNode) {
+            // 'this' is always considered used when accessed
+            // No variable to track
+            
+        } else if (expr instanceof SuperNode) {
+            // 'super' is always considered used when accessed
+            // No variable to track
+            
+        } else if (expr instanceof IntLiteralNode ||
+                   expr instanceof FloatLiteralNode ||
+                   expr instanceof TextLiteralNode ||
+                   expr instanceof BoolLiteralNode ||
+                   expr instanceof NoneLiteralNode) {
+            // Literals don't reference variables
+            // Nothing to track
+            
+        } else if (expr instanceof LambdaNode) {
+            // Lambda parameters are defined variables
+            LambdaNode lambda = (LambdaNode) expr;
+            for (ParamNode param : lambda.parameters) {
+                definedVariables.add(param.name);
+                usedVariables.add(param.name); // Parameters are used when lambda is called
+            }
         }
     }
 
@@ -320,7 +390,7 @@ public class Linter {
     
     private void addWarning(String typeName, String methodName, String message) {
         // We don't have line numbers on the nodes yet, so we'll just
-        // provide the type and node context.
+        // provide the type and method context.
         warnings.add("Warning [" + typeName + "." + methodName + "]: " + message);
     }
 

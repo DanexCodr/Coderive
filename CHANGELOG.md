@@ -2,6 +2,10 @@
 
 All notable changes to Coderive are documented in this file.
 
+## [v0.7.0] - Be Structured - March 06, 2026
+
+- To be added
+
 ## [v0.6.0] - Powered Up - January 22, 2026
 
 ### 🚨 Breaking Changes

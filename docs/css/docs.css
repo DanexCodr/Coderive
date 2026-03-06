@@ -1,0 +1,251 @@
+/* docs.css - Documentation page styles */
+
+#docsPage {
+    background-color: #121212;
+    min-height: 100vh;
+}
+
+.docs-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 20px 40px 20px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Fix for top section on docs page */
+#docsPage .top-section {
+    position: relative;
+    width: 100%;
+    background-color: #1e1e1e;
+    border-bottom: 2px solid #333;
+    margin-bottom: 0;
+    z-index: 10;
+}
+
+.docs-header {
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.docs-title-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.docs-title {
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 28px;
+    font-weight: 300;
+    color: #e0e0e0;
+    margin: 0;
+}
+
+.back-home-btn {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border: 1px solid #4a4a4a;
+    padding: 10px 24px;
+    border-radius: 20px;
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 14px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.back-home-btn:hover {
+    background-color: #3a3a3a;
+    border-color: #6a6a6a;
+    transform: translateY(-2px);
+}
+
+.docs-section {
+    margin-bottom: 48px;
+}
+
+.docs-section h2 {
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 24px;
+    font-weight: 300;
+    color: #e0e0e0;
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #2a2a2a;
+}
+
+.docs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+/* Card container - uses flexbox to push link to bottom */
+.docs-card {
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    height: 100%;  /* Make all cards same height in grid */
+}
+
+.docs-card:hover {
+    transform: translateY(-2px);
+    border-color: #4a6fa5;
+}
+
+.docs-card h3 {
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 18px;
+    font-weight: 300;
+    color: #e0e0e0;
+    margin-bottom: 12px;
+}
+
+.docs-card p {
+    color: #b0b0b0;
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+    flex-grow: 1;  /* Pushes link to bottom */
+}
+
+/* Link styling - all links at bottom */
+.docs-link {
+    color: #4a6fa5;
+    text-decoration: none;
+    font-size: 14px;
+    font-family: 'JetBrains Mono Light', monospace;
+    display: inline-block;
+    padding: 8px 12px;
+    background-color: #2a2a2a;
+    border-radius: 6px;
+    border: 1px solid #4a4a4a;
+    transition: all 0.2s ease;
+    max-width: 100%;
+    word-break: break-word;  /* Allow wrapping */
+    line-height: 1.4;
+    align-self: flex-start;  /* Align to left within card */
+    margin-top: auto;  /* Push to bottom (works with flex-grow on p) */
+}
+
+.docs-link:hover {
+    background-color: #3a3a3a;
+    border-color: #4a6fa5;
+    transform: translateY(-1px);
+}
+
+/* GitHub link specific styling (optional) */
+.docs-link[href*="github"] {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.docs-link[href*="github"]::before {
+    content: "🐙";
+    font-size: 16px;
+}
+
+/* Discord link specific styling (optional) */
+.docs-link[href*="discord"]::before {
+    content: "💬";
+    font-size: 16px;
+    margin-right: 6px;
+}
+
+/* License link specific styling (optional) */
+.docs-link[href*="LICENSE"]::before {
+    content: "📄";
+    font-size: 16px;
+    margin-right: 6px;
+}
+
+.docs-code {
+    background-color: #0d0d0d;
+    border: 1px solid #2a2a2a;
+    border-radius: 4px;
+    padding: 12px;
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 13px;
+    color: #e0e0e0;
+    overflow-x: auto;
+    white-space: pre;
+    margin: 12px 0;
+}
+
+.code-block {
+    background-color: #0d0d0d;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 20px;
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 14px;
+    color: #e0e0e0;
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.5;
+    margin: 20px 0;
+}
+
+.docs-footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid #333;
+    text-align: center;
+}
+
+.back-to-top {
+    display: inline-block;
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    text-decoration: none;
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 14px;
+    padding: 10px 24px;
+    border-radius: 20px;
+    border: 1px solid #4a4a4a;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.back-to-top:hover {
+    background-color: #3a3a3a;
+    border-color: #6a6a6a;
+    transform: translateY(-2px);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .docs-title {
+        font-size: 24px;
+    }
+    
+    .docs-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .docs-container {
+        padding: 16px 16px 32px 16px;
+    }
+    
+    .docs-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .docs-link {
+        font-size: 13px;
+        padding: 6px 10px;
+    }
+}

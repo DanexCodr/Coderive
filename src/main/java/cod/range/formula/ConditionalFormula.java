@@ -1,97 +1,76 @@
+// In ConditionalFormula.java
 package cod.range.formula;
 
-import cod.ast.nodes.ExprNode;
-import cod.interpreter.InterpreterVisitor;
+import cod.ast.nodes.*;
+import cod.interpreter.Evaluator;
 import cod.interpreter.context.ExecutionContext;
-
-import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.Map;
+import cod.interpreter.handler.TypeHandler;
+import java.util.*;
 
 public class ConditionalFormula {
     public final long start;
     public final long end;
     public final String indexVar;
-    public final ExprNode condition;
-    public final ExprNode thenExpr;
-    public final ExprNode elseExpr;
+    public final List<ExprNode> conditions;
+    public final List<List<StmtNode>> branchStatements;
+    public final List<StmtNode> elseStatements;
     
-    public ConditionalFormula(long start, long end, String indexVar, 
-                            ExprNode condition, ExprNode thenExpr, ExprNode elseExpr) {
+    public ConditionalFormula(long start, long end, String indexVar,
+                             List<ExprNode> conditions,
+                             List<List<StmtNode>> branchStatements,
+                             List<StmtNode> elseStatements) {
         this.start = start;
         this.end = end;
         this.indexVar = indexVar;
-        this.condition = condition;
-        this.thenExpr = thenExpr;
-        this.elseExpr = elseExpr;
+        this.conditions = conditions != null ? conditions : new ArrayList<ExprNode>();
+        this.branchStatements = branchStatements != null ? branchStatements : new ArrayList<List<StmtNode>>();
+        this.elseStatements = elseStatements != null ? elseStatements : new ArrayList<StmtNode>();
     }
     
     public boolean contains(long index) {
         return index >= start && index <= end;
     }
     
-    public Object evaluate(long index, InterpreterVisitor visitor) {
-    
-    try {
-        // Create evaluation context with index variable
-        ExecutionContext currentCtx = visitor.getCurrentContext();
-        Map<String, Object> mergedLocals = new HashMap<>(currentCtx.locals);
-        mergedLocals.put(indexVar, index);
+    public Object evaluate(long index, Evaluator evaluator, ExecutionContext context) {
+        TypeHandler typeSystem = new TypeHandler(); // or get from somewhere
         
-        ExecutionContext tempCtx = new ExecutionContext(
-            currentCtx.objectInstance,
-            mergedLocals,
-            currentCtx.slotValues,
-            currentCtx.slotTypes,
-            currentCtx.currentClass
-        );
+        // Create base context with index variable
+        ExecutionContext evalCtx = context.copyWithVariable(indexVar, index, null);
         
-        visitor.pushContext(tempCtx);
         try {
-            // Evaluate condition
-            Object condResult = condition.accept(visitor);
-            
-            boolean isTruthy = isTruthy(condResult);
-            
-            // Evaluate appropriate branch
-            Object result;
-            if (isTruthy) {
-                result = thenExpr.accept(visitor);
-            } else {
-                result = elseExpr.accept(visitor);
+            // Try each branch in order
+            for (int i = 0; i < conditions.size(); i++) {
+                Object condResult = evaluator.evaluate(conditions.get(i), evalCtx);
+                if (typeSystem.isTruthy(typeSystem.unwrap(condResult))) {
+                    // Execute branch statements in sequence
+                    return executeStatementSequence(branchStatements.get(i), evaluator, evalCtx);
+                }
             }
-            return result;
+            
+            // No branch matched - execute else statements
+            return executeStatementSequence(elseStatements, evaluator, evalCtx);
+            
+        } catch (Exception e) {
+            throw new RuntimeException("Error evaluating conditional formula at index " + index, e);
+        }
+    }
+    
+    private Object executeStatementSequence(
+            List<StmtNode> statements, Evaluator evaluator, ExecutionContext ctx) {
+        
+        Object lastResult = null;
+        
+        // Create a new scope for temporary variables
+        ctx.pushScope();
+        
+        try {
+            for (StmtNode stmt : statements) {
+                lastResult = evaluator.evaluate(stmt, ctx);
+            }
         } finally {
-            visitor.popContext();
+            ctx.popScope();
         }
-    } catch (Exception e) {
-        e.printStackTrace();
-        return null;
-    }
-}
-    
-    private boolean isTruthy(Object value) {
-    
-    if (value == null) return false;
-    if (value instanceof Boolean) return (Boolean) value;
-    if (value instanceof Number) {
-        if (value instanceof BigDecimal) {
-            BigDecimal bd = (BigDecimal) value;
-            return bd.compareTo(BigDecimal.ZERO) != 0;
-        }
-        double d = ((Number) value).doubleValue();
-        return d != 0.0;
-    }
-    if (value instanceof String) {
-        String s = (String) value;
-        return !s.isEmpty() && !s.equalsIgnoreCase("false");
-    }
-    return true;
-}
-    
-    @Override
-    public String toString() {
-        return String.format("ConditionalFormula[%d to %d]: if (%s) then %s else %s", 
-            start, end, condition, thenExpr, elseExpr);
+        
+        return lastResult;
     }
 }

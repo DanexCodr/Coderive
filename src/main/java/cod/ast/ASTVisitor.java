@@ -29,8 +29,8 @@ public abstract class ASTVisitor<T> implements VisitorImpl<T> {
   public T visit(TypeNode n) {
     return n.accept(this);
   }
-  
-    @Override
+
+  @Override
   public T visit(PolicyNode n) {
     return n.accept(this);
   }
@@ -59,7 +59,7 @@ public abstract class ASTVisitor<T> implements VisitorImpl<T> {
   public T visit(ConstructorNode n) {
     return n.accept(this);
   }
-  
+
   @Override
   public T visit(ConstructorCallNode n) {
     return n.accept(this);
@@ -84,23 +84,22 @@ public abstract class ASTVisitor<T> implements VisitorImpl<T> {
   public T visit(StmtIfNode n) {
     return n.accept(this);
   }
-  
- @Override
+
+  @Override
   public T visit(ExprIfNode n) {
     return n.accept(this);
   }
-  
 
   @Override
   public T visit(ForNode n) {
     return n.accept(this);
   }
-  
+
   @Override
   public T visit(SkipNode n) {
     return n.accept(this);
   }
-  
+
   @Override
   public T visit(BreakNode n) {
     return n.accept(this);
@@ -146,10 +145,10 @@ public abstract class ASTVisitor<T> implements VisitorImpl<T> {
     return n.accept(this);
   }
 
-@Override
-public T visit(BinaryOpNode n) {
+  @Override
+  public T visit(BinaryOpNode n) {
     return defaultVisit(n);
-}
+  }
 
   @Override
   public T visit(UnaryNode n) {
@@ -175,16 +174,16 @@ public T visit(BinaryOpNode n) {
   public T visit(IndexAccessNode n) {
     return n.accept(this);
   }
-  
-@Override
-public T visit(RangeIndexNode n) {
-    return n.accept(this);
-}
 
-@Override
-public T visit(MultiRangeIndexNode n) {
+  @Override
+  public T visit(RangeIndexNode n) {
     return n.accept(this);
-}
+  }
+
+  @Override
+  public T visit(MultiRangeIndexNode n) {
+    return n.accept(this);
+  }
 
   @Override
   public T visit(EqualityChainNode n) {
@@ -200,6 +199,56 @@ public T visit(MultiRangeIndexNode n) {
   public T visit(SlotNode n) {
     return n.accept(this);
   }
+
+  @Override
+  public T visit(LambdaNode n) {
+    return n.accept(this);
+  }
+  
+  @Override
+public T visit(PropertyAccessNode n) {
+    return n.accept(this);
+}
+
+@Override
+public T visit(IdentifierNode n) {
+    return n.accept(this);
+}
+
+@Override
+public T visit(IntLiteralNode n) {
+    return n.accept(this);
+}
+
+@Override
+public T visit(FloatLiteralNode n) {
+    return n.accept(this);
+}
+
+@Override
+public T visit(TextLiteralNode n) {
+    return n.accept(this);
+}
+
+@Override
+public T visit(BoolLiteralNode n) {
+    return n.accept(this);
+}
+
+@Override
+public T visit(NoneLiteralNode n) {
+    return n.accept(this);
+}
+
+@Override
+public T visit(ThisNode n) {
+    return n.accept(this);
+}
+
+@Override
+public T visit(SuperNode n) {
+    return n.accept(this);
+}
 
   @Override
   public final T visit(ASTNode n) {

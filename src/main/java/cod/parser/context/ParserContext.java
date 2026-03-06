@@ -3,8 +3,10 @@ package cod.parser.context;
 import cod.lexer.Token;
 import cod.lexer.TokenType;
 import cod.error.ParseError;
-import cod.semantic.TokenValidator;
 import cod.syntax.*;
+import static cod.util.ObjectChecker.is;
+import static cod.util.ObjectChecker.nil;
+
 import java.util.List;
 import java.util.Stack;
 
@@ -22,31 +24,28 @@ public final class ParserContext {
 
   // === CORE METHODS ===
 
-  public Token current() {
-    return state.currentToken();
+  public Token now() {
+    return state.now();
   }
 
   public Token consume() {
-    Token token = current();
+    Token token = now();
     state = state.advance();
     return token;
   }
   
-  private boolean is(Token tk, Symbol... sb) {
-    return TokenValidator.is(tk, sb);
-  }
-  
-  private boolean is(Token tk, Keyword... kw) {
-    return TokenValidator.is(tk, kw);
-  }
-
-  private boolean is(Token tk, TokenType...  type) {
-    return TokenValidator.is(tk, type);
+    public boolean consume(TokenType expected) {
+    Token token = state.now();
+    if (is(token, expected)) {
+      state = state.advance();
+      return true;
+    }
+    return false;
   }
 
   public Token expect(TokenType expected) throws ParseError {
-    Token token = current();
-    if (token != null && is(token, expected)) {
+    Token token = now();
+    if (is(token, expected)) {
       state = state.advance();
       return token;
     }
@@ -54,15 +53,15 @@ public final class ParserContext {
         "Expected "
             + expected
             + ", got "
-            + (token != null ? token.type : "EOF")
-            + (token != null && token.text != null ? " ('" + token.text + "')" : ""),
-        token != null ? token.line : state.getLine(),
-        token != null ? token.column : state.getColumn());
+            + (nil(token) ? "EOF" : token.type)
+            + (!nil(token) && !nil(token.text) ? " ('" + token.text + "')" : ""),
+        !nil(token) ? token.line : state.getLine(),
+        !nil(token) ? token.column : state.getColumn());
   }
 
   public Token expect(Symbol expected) throws ParseError {
-    Token token = state.currentToken();
-    if (token != null && is(token, TokenType.SYMBOL) && is(token, expected)) {
+    Token token = state.now();
+    if (is(token, expected)) {
       state = state.advance();
       return token;
     }
@@ -70,34 +69,25 @@ public final class ParserContext {
         "Expected symbol '"
             + expected
             + "', got "
-            + (token != null ? token.type : "EOF")
-            + (token != null && token.text != null ? " ('" + token.text + "')" : ""),
-        token != null ? token.line : state.getLine(),
-        token != null ? token.column : state.getColumn());
+            + (nil(token) ? "EOF" : token.type)
+            + (!nil(token) && !nil(token.text) ? " ('" + token.text + "')" : ""),
+        !nil(token) ? token.line : state.getLine(),
+        !nil(token) ? token.column : state.getColumn());
   }
 
   public Token expect(Keyword expected) throws ParseError {
-    Token token = state.currentToken();
-    if (token != null
-        && is(token, TokenType.KEYWORD)
-        && is(token, expected)) {
+    Token token = state.now();
+    if (is(token, expected)) {
       state = state.advance();
       return token;
     }
     throw new ParseError(
         "Expected keyword '"
             + expected
-            + (token != null ? "', got " + token.type + " ('" + token.text + "')" : "', got EOF"),
-        token);
-  }
-
-  public boolean tryConsume(TokenType expected) {
-    Token token = state.currentToken();
-    if (token != null && is(token, expected)) {
-      state = state.advance();
-      return true;
-    }
-    return false;
+            + "', got "
+            + (nil(token) ? "EOF" : token.type + (!nil(token.text) ? " ('" + token.text + "')" : "")),
+        !nil(token) ? token.line : state.getLine(),
+        !nil(token) ? token.column : state.getColumn());
   }
 
   // === BACKTRACKING ===
@@ -112,17 +102,20 @@ public final class ParserContext {
     }
   }
 
-// CRITICAL: Never change to backtrackStack.clear()
   public void commit() {
     if (!backtrackStack.isEmpty()) {
         backtrackStack.pop(); // Just pop, don't clear all
     }
-}
+  }
 
   // === LOOKAHEAD ===
 
-  public Token peek(int offset) {
-    return state.peek(offset);
+  public Token next(int offset) {
+    return state.next(offset);
+  }
+  
+  public Token next() {
+    return next(1);
   }
 
   // === STATE MANAGEMENT ===

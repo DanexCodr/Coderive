@@ -44,45 +44,54 @@ public abstract class BaseRunner {
     INTERPRETER = "INTERPRETER",
     AST = "AST";
     
-    
-    //  Parse with interpreter for unit validation
-    public ProgramNode parse(String filename, Interpreter interpreter) throws Exception {
-        DebugSystem.debug(LOG_TAG, "Loading source file: " + filename);
-        
-        // Use Java 7 Files API to read entire file
-        String sourceCode = new String(
-            Files.readAllBytes(Paths.get(filename)), 
-            StandardCharsets.UTF_8
-        );
-        
-        DebugSystem.debug(LOG_TAG, "Source length: " + sourceCode.length() + " chars");
-        
-        DebugSystem.debug(PARSER, "Tokenizing...");
-        MainLexer lexer = new MainLexer(sourceCode);
-        List<Token> tokens = lexer.tokenize();
-        DebugSystem.debug(PARSER, "Generated " + tokens.size() + " tokens");
-        
-        DebugSystem.debug(PARSER, "Parsing...");
-        MainParser parser = new MainParser(tokens, interpreter);  // PASS INTERPRETER
-        
-        ProgramNode ast = parser.parseProgram();
-        DebugSystem.debug(PARSER, "Parsing completed successfully");
-        
-        return ast;
+    public static void out(String s) {
+      System.out.println(s);
     }
+    
+    public static void outE(String err) {
+      System.err.println(err);
+    }
+    
+    public static void out() {
+      System.out.println();
+    }
+    
+    public static void outE() {
+      System.err.println();
+    }
+    
+public ProgramNode parse(String filename, Interpreter interpreter) throws Exception {
+    DebugSystem.debug(LOG_TAG, "Loading source file: " + filename);
+    
+    // Use Java 7 Files API to read entire file
+    String sourceCode = new String(
+        Files.readAllBytes(Paths.get(filename)), 
+        StandardCharsets.UTF_8
+    );
+    
+    DebugSystem.debug(LOG_TAG, "Source length: " + sourceCode.length() + " chars");
+    DebugSystem.debug(PARSER, "Tokenizing...");
+    
+    MainLexer lexer = new MainLexer(sourceCode);
+    List<Token> tokens = lexer.tokenize();
+
+    DebugSystem.debug(PARSER, "Generated " + tokens.size() + " tokens");
+    
+    DebugSystem.debug(PARSER, "Parsing...");
+    
+    MainParser parser = new MainParser(tokens, interpreter);  // PASS INTERPRETER
+    ProgramNode ast = parser.parseProgram();
+    
+    DebugSystem.debug(PARSER, "Parsing completed successfully");
+   
+    return ast;
+}
 
     protected void configureDebugSystem(DebugSystem.Level level) {
-        DebugSystem.setLevel(level);
-        DebugSystem.enableCategory(IR);
-        DebugSystem.enableCategory(NATIVE);
-        DebugSystem.enableCategory(LOG_TAG);
-        DebugSystem.enableCategory(PARSER);
-        DebugSystem.enableCategory(INTERPRETER);
-        DebugSystem.enableCategory(AST);
-        DebugSystem.setShowTimestamp(true);
-        DebugSystem.info(LOG_TAG, "DebugSystem configured to level: " + level);
-    }
-
+    DebugSystem.setLevel(level);  // THIS IS MISSING!
+    DebugSystem.setShowTimestamp(true);
+    DebugSystem.info(LOG_TAG, "DebugSystem configured to level: " + level);
+}
     protected String extractFilenameFromArgs(String[] args, String defaultFilename) {
         for (String arg : args) {
             if (!arg.startsWith("--") && !arg.equals("-o")) {
@@ -94,7 +103,7 @@ public abstract class BaseRunner {
         return defaultFilename;
     }
 
-    protected RunnerConfig processCommandLineArgs(String[] args, String defaultInputFilename, Configuration configCallback) {
+    protected RunnerConfig processArgs(String[] args, String defaultInputFilename, Configuration configCallback) {
         DebugSystem.debug(LOG_TAG, "Processing command line args, count: " + args.length);
         RunnerConfig config = new RunnerConfig(defaultInputFilename);
         
@@ -112,7 +121,7 @@ public abstract class BaseRunner {
                     i++;
                     DebugSystem.debug(LOG_TAG, "Set output filename: " + config.outputFilename);
                 } else {
-                    System.err.println("Error: -o option requires an output filename.");
+                    outE("Error: -o option requires an output filename.");
                     DebugSystem.error(LOG_TAG, "-o option missing filename");
                 }
             }
@@ -132,8 +141,8 @@ public abstract class BaseRunner {
         return config;
     }
 
-    protected RunnerConfig processCommandLineArgs(String[] args, String defaultInputFilename) {
-        return processCommandLineArgs(args, defaultInputFilename, null);
+    protected RunnerConfig processArgs(String[] args, String defaultInputFilename) {
+        return processArgs(args, defaultInputFilename, null);
     }
 
     public abstract void run(String[] args) throws Exception;

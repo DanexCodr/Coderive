@@ -8,7 +8,7 @@ import cod.ast.VisitorImpl;
 public class AssignmentNode extends StmtNode {
     public ExprNode left;  // The target of the assignment (identifier, index access, etc.)
     public ExprNode right; // The value being assigned
-    public boolean isDeclaration; // NEW: true for :=, false for = (default)
+    public boolean isDeclaration; // true for :=, false for = (default)
     
     public AssignmentNode() {
         this.isDeclaration = false; // Default to assignment

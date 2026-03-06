@@ -1,4 +1,4 @@
-unit test (main: Main)
+unit test
 
 policy Accept {
     accept(n: type) :: type
@@ -14,7 +14,7 @@ ChildNode is Node {
 
 }
 
-Main {
+share Main {
     share main() {
         out("it parsed correctly.")
     }

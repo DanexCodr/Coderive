@@ -1,4 +1,3 @@
-# server/render.yaml
 services:
   - type: web
     name: coderive-api
@@ -6,7 +5,6 @@ services:
     region: singapore
     plan: free
     buildCommand: |
-      echo "📦 Building Coderive API..."
       mkdir -p lib
       curl -L -o lib/spark-core-2.9.4.jar \
         https://repo1.maven.org/maven2/com/sparkjava/spark-core/2.9.4/spark-core-2.9.4.jar
