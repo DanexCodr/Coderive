@@ -1,11 +1,11 @@
 FROM eclipse-temurin:17-jdk
 WORKDIR /app
 
-# Copy everything
-COPY . .
+# Copy ONLY the server folder contents
+COPY server/ .
 
-# Verify
-RUN ls -la /app/
+# Now PlaygroundServer.java is in /app/
+RUN ls -la
 
 # Compile
 RUN javac -cp "lib/*" PlaygroundServer.java
