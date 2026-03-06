@@ -2,9 +2,8 @@
     local calculate(a: int, b: int, op: text)
     :: formula: int|float, operation: text {  
         if op == "+" {
-           // Separate return assignments
-           ~> formula: a + b
-           ~> operation: "addition"
+           // Combined return: both slots in one statement
+           ~> formula: a + b, operation: "addition"
          }
          else if op == "-"
            // One line return assignments
@@ -106,14 +105,15 @@
         outs("Enter operation (+, -, *, /): ")  // Same-line prompt
         op := in()
     
+        // Compute result before checking validity so slot variables are in method scope
+        calcResult, calcOp := [formula, operation]:calculate(num1, num2, op)
+
         // NEW: Showcasing conditional chains for validation!
         if op == any["+", "-", "*", "/"] {
-            result, operation := [formula, operation]:calculate(num1, num2, op)
-
             out("")
             out("Calculation Result:")
-            out("{num1} {op} {num2} = {result}")  // Interpolation
-            out("Operation: {operation}")         // Interpolation
+            out("{num1} {op} {num2} = {calcResult}")  // Interpolation
+            out("Operation: {calcOp}")                // Interpolation
         } else {
             out("")
             // Multi-arg out() for vertical error message

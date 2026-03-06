@@ -64,8 +64,8 @@ share ParameterSkippingDemo {
         out("")
         
         // Test 4: Message with default greeting
-        msg1 := createMessage("Alice", _)
-        out("Test 4: createMessage(\"Alice\", _)")
+        msg1 := createMessage("Alice")
+        out("Test 4: createMessage(\"Alice\") — greeting defaults to \"Hello\"")
         out("  Expected: \"Hello Alice\"")
         out("  Got: \"" + msg1 + "\"")
         out("")
@@ -78,8 +78,8 @@ share ParameterSkippingDemo {
         out("")
         
         // Test 6: Valid skip with default
-        result := multiply(10, _)
-        out("Test 6: multiply(10, _)")
+        result := multiply(10)
+        out("Test 6: multiply(10) — y defaults to 5")
         out("  Expected: 50 (10*5)")
         out("  Got: " + result)
         out("")
@@ -92,8 +92,8 @@ share ParameterSkippingDemo {
         out("")
         
         // Test 8: Greeting skip
-        greeting := sayHello("Charlie", _)
-        out("Test 8: sayHello(\"Charlie\", _)")
+        greeting := sayHello("Charlie")
+        out("Test 8: sayHello(\"Charlie\") — volume defaults to \"normal\"")
         out("  Expected: \"Hello Charlie\"")
         out("  Got: \"" + greeting + "\"")
         out("")

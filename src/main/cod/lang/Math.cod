@@ -10,7 +10,7 @@ share Math {
         } else {
             // Simple square root approximation
             guess: int|float = x / 2
-            for i in 1 to 10 {
+            for i of 1 to 10 {
                 guess = (guess + x / guess) / 2
             }
             ~> guess
@@ -19,7 +19,7 @@ share Math {
     
         share pow(base: int|float, exponent: int|float) :: int|float {
         temp: int|float = 1
-        for i in 1 to exponent {
+        for i of 1 to exponent {
             temp = temp * base
         }
         ~> temp
@@ -47,5 +47,16 @@ share Math {
         } else {
             ~> x
         }
+    }
+
+    share main() {
+        out("=== Math library self-test ===")
+        out("sqrt(9)   = " + sqrt(9))
+        out("sqrt(2)   = " + sqrt(2))
+        out("pow(2, 8) = " + pow(2, 8))
+        out("max(3, 7) = " + max(3, 7))
+        out("min(3.0, 7.0) = " + min(3.0, 7.0))
+        out("abs(-5.0) = " + abs(-5.0))
+        out("=== Done ===")
     }
 }

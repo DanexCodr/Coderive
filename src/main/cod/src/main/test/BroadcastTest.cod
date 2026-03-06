@@ -2,7 +2,8 @@ unit test
 
 Broadcaster {
 
-// empty... this will call the broadcasted() main
-// instead when there is no main() declared inside this class.
+    share main() {
+        out("Broadcaster: no broadcast target found — running standalone.")
+    }
 
 }
