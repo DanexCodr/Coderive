@@ -2,6 +2,7 @@ services:
   - type: web
     name: coderive-api
     runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
     region: singapore
     plan: free
-    dockerfilePath: ./server/Dockerfile

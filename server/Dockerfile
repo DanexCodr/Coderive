@@ -1,9 +1,12 @@
-FROM eclipse-temurin:17-jdk
+# Build stage: compile and package everything with Gradle
+FROM eclipse-temurin:17-jdk AS build
 WORKDIR /app
-COPY server/ .
+COPY . .
+RUN chmod +x gradlew && ./gradlew :server:fatJar --no-daemon
 
-# Wildcard includes ALL jars in lib/
-RUN javac -cp "lib/*" PlaygroundServer.java
-
-# Wildcard works at runtime too!
-CMD ["java", "-cp", ".:lib/*", "PlaygroundServer"]
+# Runtime stage: minimal image with only the fat JAR
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+COPY --from=build /app/server/build/libs/coderive-server.jar app.jar
+EXPOSE 8080
+CMD ["java", "-jar", "app.jar"]
