@@ -7,6 +7,15 @@ repositories {
     mavenCentral()
 }
 
+sourceSets {
+    main {
+        java {
+            srcDirs = ['.']
+            include 'PlaygroundServer.java'
+        }
+    }
+}
+
 dependencies {
     // Spark (this pulls ALL dependencies: Jetty, Servlet, SLF4J API, etc.)
     implementation 'com.sparkjava:spark-core:2.9.4'
@@ -28,6 +37,7 @@ task fatJar(type: Jar) {
         attributes 'Main-Class': 'PlaygroundServer'
     }
     archiveBaseName = 'coderive-server'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
