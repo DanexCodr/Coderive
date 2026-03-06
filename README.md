@@ -3,149 +3,382 @@
 <!-- markdownlint-disable no-duplicate-header -->
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/docs/assets/coderive-logo.jpg" alt="Coderive Logo" width="60%" />
+  <img src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/docs/assets/coderive-logo.jpg" alt="Coderive Logo" width="55%" />
+  <h3>Safe. Fast. Clear.</h3>
+  <p><em>A modern general-purpose programming language built for expressive, safe code.</em></p>
 </div>
-<hr>
-<div align="center" style="line-height: 1;"><b>Coderive v0.7.0</b><br> Programming Language<br><br></div>
-  <a href="https://github.com/DanexCodr/Coderive"><img alt="Repository"    src="https://img.shields.io/badge/Project-Coderive-536af5?color=536af5&logoColor=white"/></a><br><a href="https://github.com/DanexCodr/Coderive"><img alt="GitHub Stars"
-    src="https://img.shields.io/github/stars/DanexCodr/Coderive.svg?color=7289da&logo=github&logoColor=white"/></a><br>
-  <a href="https://github.com/DanexCodr/Coderive/discussions"><img alt="Discussions"
-    src="https://img.shields.io/badge/💬%20Discussions-Community-ffc107?color=ffc107&logoColor=white"/></a><br>
-  <a href="https://github.com/DanexCodr/Coderive/issues"><img alt="Issues"
-    src="https://img.shields.io/badge/🐛%20Issues-Report%20Bugs-brightgreen?color=brightgreen&logoColor=white"/></a><br>
-  <a href="https://github.com/DanexCodr/Coderive/blob/main/LICENSE"><img alt="License"
-    src="https://img.shields.io/badge/License-MIT-f5de53?&color=f5de53"/></a>
-  <br> 
+
+<div align="center">
+
+[![Version](https://img.shields.io/badge/version-0.7.0-536af5?style=flat-square&logo=github)](https://github.com/DanexCodr/Coderive/releases)
+[![Java](https://img.shields.io/badge/requires-Java%207%2B-ed8b00?style=flat-square&logo=openjdk&logoColor=white)](https://adoptium.net/)
+[![License](https://img.shields.io/badge/license-MIT-f5de53?style=flat-square)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/DanexCodr/Coderive?style=flat-square&color=7289da&logo=github)](https://github.com/DanexCodr/Coderive/stargazers)
+[![Discussions](https://img.shields.io/badge/discussions-join-ffc107?style=flat-square&logo=github)](https://github.com/DanexCodr/Coderive/discussions)
+
+</div>
+
+---
 
 ## Table of Contents
 
-[Introduction](#introduction)
+- [What is Coderive?](#what-is-coderive)
+- [Why Coderive?](#why-coderive)
+- [Getting Started](#getting-started)
+- [Language Features](#language-features)
+- [Examples](#examples)
+- [Web Playground](#web-playground)
+- [License](#license)
+- [Contact](#contact)
 
-[Language Features](#language-features)
+---
 
-[Getting Started](#getting-started)
+## What is Coderive?
 
-[License](#license)
+**Coderive** is a modern, interpreted programming language designed around three principles:
 
-[Contact](#contact)
+| Principle | What it means |
+|-----------|--------------|
+| **Safe** | Quantifier-first logic eliminates operator-precedence bugs; typed slots make multi-return values explicit |
+| **Fast** | O(1) lazy arrays and formula-optimized loops handle data at any scale without materialising elements |
+| **Clear** | Human-readable syntax — `all[...]`, `any[...]`, `~>`, `::` — reads like intent, not symbols |
 
-## Introduction
+Coderive features a fully hand-written, modular lexer-parser pipeline (no ANTLR), a recursive-descent parser with backtracking, and an O(1) range system that can represent a quintillion-element array in a few microseconds.
 
-We present **Coderive v0.7.0**, a modern general programming language designed for **safe, fast, and clear** coding. 
-Coderive features a modular lexer-parser system written in java (recursive backtracking architecture) and a novel O(1) range system design.
-Built entirely on a mobile device, Coderive proves that serious programming language development can happen outside traditional environments.
+> **Built on mobile.** Coderive was developed entirely on a phone — Java NIDE, Quickedit, Termux, and AI assistants (DeepSeek, Gemini). Serious language design knows no hardware limits.
 
-**Development Environment: Constraint-Driven Innovation**
+---
 
-The language was developed under the constraint of mobile-only development:
-- **Java NIDE:** Fast Java 7 compiler for Android
-- **Quickedit:** High-performance mobile code editor  
-- **Termux:** Comprehensive Linux environment
-- **AI Assistants:** DeepSeek and Gemini for accelerated debugging
+## Why Coderive?
+
+### ① Quantifier-First Logic
+
+No more `&&` / `||` precedence headaches. Logic reads exactly like its intent.
+
+```python
+# Traditional — what does this evaluate first?
+if a && b || c && d { ... }
+
+# Coderive — crystal clear
+if any[all[a, b], all[c, d]] { ... }
+```
+
+Use `all[]` for AND, `any[]` for OR, nest them freely:
+
+```python
+if all[score >= 60, attempts <= maxAttempts] {
+    out("Passed!")
+}
+
+if role == any["admin", "moderator", "owner"] {
+    out("Access granted for {role}")
+}
+```
+
+---
+
+### ② Multi-Return Slot System
+
+Functions declare named return slots with `::` and assign them with `~>`. Call sites destructure them cleanly.
+
+```python
+local divide(a: int, b: int)
+:: quotient: float, remainder: int, status: text {
+    if b == 0 {
+        ~> 0.0, 0, "division by zero"
+    }
+    ~> a / b, a % b, "ok"
+}
+
+# Destructure only what you need
+q, r, s := [quotient, remainder, status]:divide(17, 5)
+out("{17} ÷ 5 = {q}  remainder {r}  ({s})")
+```
+
+---
+
+### ③ Smart For-Loops
+
+Every step pattern you'll ever need, built into the language:
+
+```python
+for i of 1 to 10          { ... }  # count up
+for i of 10 to 1          { ... }  # auto-reverse
+for i of 1 to 100 by 2    { ... }  # additive step
+for i of 1 to 64  by *2   { ... }  # multiplicative (powers of 2)
+for i of 64 to 1  by /2   { ... }  # divisive (halving)
+for i of 1..32#*2          { ... }  # inline formula shorthand
+```
+
+---
+
+### ④ O(1) Lazy Arrays
+
+Create a quintillion-element array instantly — no memory, no iteration:
+
+```python
+huge : [text] = [0 to 1Qi]   // 1 Quintillion elements, created in < 1 ms
+
+// Loop body detected as a conditional formula — still O(1)
+for i of huge {
+    if i % 2 == 0 { huge[i] = "even" }
+    else          { huge[i] = "odd"  }
+}
+
+out(huge[24000])  // → "even"
+out(huge[24001])  // → "odd"
+```
+
+Range indexing, negative indices, and lexicographic ranges all work out of the box:
+
+```python
+slice    := nums[-5 to -1]           // last 5 elements
+alphabet := ["a" to "z"]            // 26-element letter range
+letters  := ["aa" to "zz"]          // 676-element 2-letter range
+```
+
+---
+
+## Getting Started
+
+### Requirements
+
+- **Java 7 or later** ([Download Adoptium JDK](https://adoptium.net/))
+- Linux, macOS, or Windows (WSL/Git Bash for the installer)
+
+---
+
+### Option 1 — One-command Install (recommended)
+
+Clone the repo and run the installer. It will verify Java, install the runtime, and register the `coderive` command:
+
+```bash
+git clone https://github.com/DanexCodr/Coderive.git
+cd Coderive
+chmod +x install.sh && ./install.sh
+```
+
+After install, add `~/.local/bin` to your PATH if prompted:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Then run your first program:
+
+```bash
+coderive examples/hello.cod
+```
+
+---
+
+### Option 2 — Direct jar execution
+
+If you prefer not to use the installer, run programs directly with Java:
+
+```bash
+java -cp docs/assets/Coderive.jar cod.runner.CommandRunner examples/hello.cod
+```
+
+You can alias this for convenience:
+
+```bash
+alias coderive='java -cp /path/to/Coderive.jar cod.runner.CommandRunner'
+```
+
+---
+
+### Your first program
+
+Create `hello.cod`:
+
+```python
+name := in(text, "What's your name? ")
+out("Hello, {name}! 👋")
+out("Welcome to Coderive.")
+```
+
+Run it:
+
+```bash
+coderive hello.cod
+```
+
+```
+What's your name? Ada
+Hello, Ada! 👋
+Welcome to Coderive.
+```
 
 ---
 
 ## Language Features
 
-### Core Innovations
+### Variables & Types
 
-**Quantifier-First Logic Design**
-Coderive replaces traditional boolean operators with expressive quantifiers:
-
-| Traditional | Coderive |
-|-------------|----------|
-| `A && B && C` | `all[A, B, C]` |
-| `A \|\| B \|\| C` | `any[A, B, C]` |
-| `A && (B \|\| C)` | `all[A, any[B, C]]` |
-
-**Multi-Return Slot System**
 ```python
-    local calculate(int a, int b)
-    :: result: int, operation: text
-    {
-        ~> a + b, "addition"  # Slot assignments
+# Type-inferred declaration
+x := 42
+name := "Coderive"
+ratio := 3.14
+
+# Explicit typed declaration
+count: int = 0
+label: text = "hello"
+
+# Union types
+value: int|float = 9.5
+```
+
+### Input & Output
+
+```python
+out("Hello!")                           # print with newline
+out("A", "B", "C")                      # each arg on its own line
+outs("Loading") outs(".") outs(".")     # print without newline
+
+name    := in(text, "Enter name: ")     # prompt + read text
+age     := in(int,  "Enter age: ")      # prompt + read int
+height  := in(float)                    # read float (no prompt)
+```
+
+### Control Flow
+
+```python
+if all[age >= 18, hasId] {
+    out("Welcome!")
+} else if age >= 16 {
+    out("Almost there.")
+} else {
+    out("Sorry, too young.")
+}
+```
+
+### Functions & Slots
+
+```python
+# Single-expression shorthand
+local square(n: int) ~> n * n
+
+# Multi-return slots
+local stats(a: int, b: int, c: int)
+:: total: int, average: float {
+    sum := a + b + c
+    ~> sum, sum / 3.0
+}
+
+# Call and destructure
+t, avg := [total, average]:stats(10, 20, 30)
+out("Total: {t}, Average: {avg}")
+```
+
+### Default Parameters & Skipping
+
+```python
+local greet(name: text, greeting: text = "Hello") :: msg: text {
+    ~> msg: "{greeting}, {name}!"
+}
+
+result := greet("Alice", _)   # skip optional param — uses default
+```
+
+### Classes & Policies
+
+```python
+policy Printable {
+    print() :: output: text
+}
+
+share Document with Printable {
+    title: text = "Untitled"
+
+    policy print() :: output: text {
+        ~> output: "Document: {this.title}"
     }
-```
 
-**O(1) Lazy Array and Formula-Optimizing Loop**
-
-```python
-       for i of 0 to 1Qi {
-            if i % 2 == 0 {
-                arr[i] = "even"
-            } elif i % 2 == 1 {
-                arr[i] = "odd"
-            }
-        }
-```
-
-**Smart For-Loops**
-
-```python
-for i of 1 to 10 by *2 {  # Complex step patterns
-    # Loop body
-}
-```
-
-**Language Example**
-
-```python
-unit sample.program
-
-use {
-    lang.Math
-}
-
-share InteractiveDemo {
-
-    local calculate(a: int, b: int, op: text)
-    :: formula: int, operation: text
-    {
-        if all[a >= 0, b >= 0] {
-            if op == any["+", "-", "*"] {
-                ~> a + b, "valid operation"
-            }
-        }
-        ~> 0, "invalid"
+    share main() {
+        doc := Document()
+        msg := print():doc
+        out(msg)
     }
 }
 ```
 
-## Getting Started
+### Multi-line Strings
 
-**System Requirements**
+```python
+report := |"
+    Name:  Alice
+    Score: 98
+    Grade: A+
+    "|
+out(report)
+```
 
-· Java 7 or later
+### Numeric Shorthands
 
-· Linux environment (Termux recommended for mobile)
+| Suffix | Value |
+|--------|-------|
+| `1K`   | 1,000 |
+| `1M`   | 1,000,000 |
+| `1B`   | 1,000,000,000 |
+| `1T`   | 1,000,000,000,000 |
+| `1Q`   | 1,000,000,000,000,000 |
+| `1Qi`  | 1,000,000,000,000,000,000 |
+| `1e6`  | 1,000,000 (scientific) |
 
-**Quick Start**
+---
+
+## Examples
+
+The [`examples/`](examples/) directory has ready-to-run programs:
+
+| File | What it shows |
+|------|--------------|
+| [`hello.cod`](examples/hello.cod) | String interpolation, input |
+| [`fizzbuzz.cod`](examples/fizzbuzz.cod) | `all[]` logic, `for…of` loops |
+| [`calculator.cod`](examples/calculator.cod) | Multi-return slots, `any[]` validation |
+| [`smart_loops.cod`](examples/smart_loops.cod) | Additive / multiplicative / divisive steps, inline formula |
+| [`lazy_arrays.cod`](examples/lazy_arrays.cod) | O(1) NaturalArray, formula loops, range indexing, lexicographic ranges |
+
+Run any example:
 
 ```bash
-# Run interpreter
-java -jar coderive.jar program.cod
-
-# Compile to native
-java -jar coderive.jar --native program.cod
+coderive examples/fizzbuzz.cod
+coderive examples/calculator.cod
+coderive examples/smart_loops.cod
+coderive examples/lazy_arrays.cod
 ```
+
+---
+
+## Web Playground
+
+Try Coderive directly in your browser — no install required:
+
+**[→ Launch the Playground](https://danexcodr.github.io/Coderive)**
+
+The playground gives you a full interactive editor with instant output, making it the fastest way to experiment with the language.
+
+---
+
 ## License
 
-This project is licensed under the [MIT License](/LICENSE).
+This project is licensed under the [MIT License](LICENSE).
+
+---
 
 ## Contact
 
-Have questions or want to contribute? 
+Have questions, ideas, or want to contribute?
 
-Join our community discussions:
-
-· [GitHub Discussions](https://github.com/DanexCodr/Coderive/discussions) - Ask questions and share ideas
-
-· [GitHub Issues](https://github.com/DanexCodr/Coderive/issues) - Report bugs and problems
-
-· Developer's Email: danisonnunez001@gmail.com
+- 💬 [GitHub Discussions](https://github.com/DanexCodr/Coderive/discussions) — ask questions, share ideas
+- 🐛 [GitHub Issues](https://github.com/DanexCodr/Coderive/issues) — report bugs
+- 📧 danisonnunez001@gmail.com
 
 ---
 
 <div align="center">
-  <em>Built with passion on mobile devices — proving innovation knows no hardware boundaries.</em>
+  <em>Built with passion on mobile — proving that innovation knows no hardware boundaries.</em>
 </div>
