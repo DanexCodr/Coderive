@@ -1,7 +1,7 @@
 services:
   - type: web
     name: coderive-api
-    runtime: java
+    runtime: java7
     region: singapore
     plan: free
     buildCommand: |
