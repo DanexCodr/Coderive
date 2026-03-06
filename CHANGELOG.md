@@ -2,6 +2,58 @@
 
 All notable changes to Coderive are documented in this file.
 
+## [v0.8.0] - Language Enrichment - March 06, 2026
+
+### ✨ Major Features
+
+- **String Built-in Methods** — Call methods directly on any `text` value using the familiar dot operator. Nine new operations are available out of the box:
+  - `.length` — character count
+  - `.upper()` — convert to uppercase
+  - `.lower()` — convert to lowercase
+  - `.trim()` — strip leading and trailing whitespace
+  - `.contains(sub)` — `true` if the substring `sub` is found
+  - `.startsWith(prefix)` — `true` if the text begins with `prefix`
+  - `.endsWith(suffix)` — `true` if the text ends with `suffix`
+  - `.replace(old, new)` — replace every occurrence of `old` with `new`
+  - `.reversed()` — reverse the characters of the string
+
+  ```python
+  greeting := "  Hello, Coderive!  "
+  out(greeting.trim().upper())                # → "HELLO, CODERIVE!"
+  out(greeting.trim().replace("Hello", "Hi")) # → "Hi, Coderive!"
+  ```
+
+- **Number Built-in Methods** — Call math operations directly on numeric values using the dot operator. Three new operations are available:
+  - `.abs()` — absolute value (preserves the original numeric type)
+  - `.pow(n)` — raise to the power `n`
+  - `.sqrt()` — square root
+
+  ```python
+  n := -42
+  out(n.abs())           # → 42
+  out(2.pow(10))         # → 1024  (literal number works too)
+  out(144.sqrt())        # → 12
+  # Combine freely:
+  out((-3).abs().pow(2)) # → 9
+  ```
+
+### 🔧 Engine Improvements
+
+- **Literal Method Dispatch in InterpreterVisitor** — Extended `visit(MethodCallNode)` to detect when a dot-qualified method call targets a local variable holding a primitive value (text, int, float). The call is forwarded to `LiteralRegistry` for O(1) resolution instead of falling through to the import resolver.
+- **Literal Property Dispatch in PropertyAccessNode** — Extended `visit(PropertyAccessNode)` to handle `MethodCallNode` on the right-hand side, enabling method calls via the property-access path (e.g., when a string literal appears as the direct receiver).
+- **LiteralRegistry expanded** — Registered String-type and `AutoStackingNumber`-type handlers for all new methods. The `AutoStackingNumber` integration ensures that Coderive's native arbitrary-precision number tower participates in `.abs()`, `.pow()`, and `.sqrt()` without precision loss.
+- **Helper utilities in LiteralRegistry** — Added `asText()`, `toDouble()`, and `numberAbs()` helpers for clean, type-safe value extraction inside handler lambdas.
+
+### 📦 New Example Files
+
+- **`examples/string_methods.cod`** — Demonstrates all nine string built-in methods including method chaining.
+- **`examples/number_methods.cod`** — Demonstrates `.abs()`, `.pow()`, and `.sqrt()` including a Pythagorean-theorem calculation.
+
+### 🧪 New Test Files
+
+- **`src/main/cod/src/main/test/StringMethodsTest.cod`** — 12 assertions covering every string method and chaining.
+- **`src/main/cod/src/main/test/NumberMethodsTest.cod`** — 11 assertions covering every number method including edge cases (n=0, n=1) and a combined hypotenuse calculation.
+
 ## [v0.7.0] - Be Structured - March 06, 2026
 
 ### 🚨 Breaking Changes

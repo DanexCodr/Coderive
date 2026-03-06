@@ -1,0 +1,32 @@
+// NumberMethodsTest.cod — Tests for v0.8.0 number built-in methods
+
+share main() {
+
+    // ── .abs() ───────────────────────────────────────────────────
+    n1 := -99
+    out("Test 1 - abs(-99):   {n1.abs()}")   // expected: 99
+
+    pos := 42
+    out("Test 2 - abs(42):    {pos.abs()}")  // expected: 42
+
+    // ── .pow(n) ──────────────────────────────────────────────────
+    base := 2
+    out("Test 3 - 2.pow(0):   {base.pow(0)}")   // expected: 1
+    out("Test 4 - 2.pow(1):   {base.pow(1)}")   // expected: 2
+    out("Test 5 - 2.pow(8):   {base.pow(8)}")   // expected: 256
+    out("Test 6 - 2.pow(10):  {base.pow(10)}")  // expected: 1024
+
+    // ── .sqrt() ──────────────────────────────────────────────────
+    out("Test 7 - sqrt(0):    {0.sqrt()}")     // expected: 0
+    out("Test 8 - sqrt(1):    {1.sqrt()}")     // expected: 1
+    s9 := 9
+    out("Test 9 - sqrt(9):    {s9.sqrt()}")    // expected: 3
+    s100 := 100
+    out("Test 10 - sqrt(100): {s100.sqrt()}")  // expected: 10
+
+    // ── combined ─────────────────────────────────────────────────
+    a := -5
+    b := -12
+    hyp := (a.abs().pow(2) + b.abs().pow(2)).sqrt()
+    out("Test 11 - hypotenuse(5,12): {hyp}")  // expected: 13
+}

@@ -772,6 +772,21 @@ public Object visit(ReturnSlotAssignmentNode node) {
                 }
             }
             
+            if (node.right instanceof MethodCallNode) {
+                MethodCallNode methodCall = (MethodCallNode) node.right;
+                String methodName = methodCall.name;
+                
+                List<Object> evaluatedArgs = new ArrayList<Object>();
+                for (ExprNode arg : methodCall.arguments) {
+                    Object argValue = dispatch(arg);
+                    evaluatedArgs.add(typeSystem.unwrap(argValue));
+                }
+                
+                if (literalRegistry.hasMethod(leftObj, methodName)) {
+                    return literalRegistry.handleMethod(leftObj, methodName, evaluatedArgs, ctx);
+                }
+            }
+            
             if (leftObj instanceof NaturalArray) {
                 NaturalArray natural = (NaturalArray) leftObj;
                 if (natural.hasPendingUpdates()) {
@@ -984,11 +999,16 @@ public Object visit(MethodCallNode node) {
                     String methodName = parts[1];
                     if (ctx.locals().containsKey(receiver)) {
                         Object receiverObj = ctx.locals().get(receiver);
+                        receiverObj = typeSystem.unwrap(receiverObj);
                         if (receiverObj instanceof ObjectInstance) {
                             ObjectInstance objInst = (ObjectInstance) receiverObj;
                             if (objInst.type != null) {
                                 qName = objInst.type.name + "." + methodName;
                             }
+                        } else if (literalRegistry.hasMethod(receiverObj, methodName)) {
+                            return literalRegistry.handleMethod(receiverObj, methodName, evaluatedArgs, ctx);
+                        } else if (literalRegistry.hasProperty(receiverObj, methodName)) {
+                            return literalRegistry.handleProperty(receiverObj, methodName, ctx);
                         }
                     }
                 }

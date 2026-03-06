@@ -10,7 +10,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-0.7.0-536af5?style=flat-square&logo=github)](https://github.com/DanexCodr/Coderive/releases)
+[![Version](https://img.shields.io/badge/version-0.8.0-536af5?style=flat-square&logo=github)](https://github.com/DanexCodr/Coderive/releases)
 [![Java](https://img.shields.io/badge/requires-Java%207%2B-ed8b00?style=flat-square&logo=openjdk&logoColor=white)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-MIT-f5de53?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/DanexCodr/Coderive?style=flat-square&color=7289da&logo=github)](https://github.com/DanexCodr/Coderive/stargazers)
@@ -328,6 +328,67 @@ out(report)
 | `1Qi`  | 1,000,000,000,000,000,000 |
 | `1e6`  | 1,000,000 (scientific) |
 
+### String Built-in Methods
+
+Call methods directly on any `text` value using the dot operator:
+
+```python
+greeting := "  Hello, Coderive!  "
+clean    := greeting.trim()           # remove whitespace
+
+out(clean.upper())                    # → "HELLO, CODERIVE!"
+out(clean.lower())                    # → "hello, coderive!"
+out(clean.length)                     # → 16
+
+out(clean.contains("Coderive"))       # → true
+out(clean.startsWith("Hello"))        # → true
+out(clean.endsWith("!"))              # → true
+
+out(clean.replace("Hello", "Hi"))     # → "Hi, Coderive!"
+out(clean.reversed())                 # → "!eviredoC ,olleH"
+
+# Chaining
+out("  coderive  ".trim().upper())    # → "CODERIVE"
+```
+
+| Method | Description |
+|--------|-------------|
+| `.length` | Number of characters |
+| `.upper()` | Convert to uppercase |
+| `.lower()` | Convert to lowercase |
+| `.trim()` | Remove leading/trailing whitespace |
+| `.contains(sub)` | `true` if `sub` is found |
+| `.startsWith(prefix)` | `true` if text starts with `prefix` |
+| `.endsWith(suffix)` | `true` if text ends with `suffix` |
+| `.replace(old, new)` | Replace every occurrence of `old` with `new` |
+| `.reversed()` | Reverse the characters |
+
+### Number Built-in Methods
+
+Built-in math operations available directly on numeric values:
+
+```python
+n := -42
+out(n.abs())           # → 42
+
+base := 2
+out(base.pow(10))      # → 1024
+
+side := 144
+out(side.sqrt())       # → 12
+
+# Combining methods
+a := -3
+b := -4
+out((a.abs().pow(2) + b.abs().pow(2)).sqrt())   # → 5
+```
+
+| Method | Description |
+|--------|-------------|
+| `.abs()` | Absolute value |
+| `.pow(n)` | Raise to power `n` |
+| `.sqrt()` | Square root |
+
 ---
 
 ## Examples
@@ -341,6 +402,8 @@ The [`examples/`](examples/) directory has ready-to-run programs:
 | [`calculator.cod`](examples/calculator.cod) | Multi-return slots, `any[]` validation |
 | [`smart_loops.cod`](examples/smart_loops.cod) | Additive / multiplicative / divisive steps, inline formula |
 | [`lazy_arrays.cod`](examples/lazy_arrays.cod) | O(1) NaturalArray, formula loops, range indexing, lexicographic ranges |
+| [`string_methods.cod`](examples/string_methods.cod) | String built-in methods (v0.8.0) |
+| [`number_methods.cod`](examples/number_methods.cod) | Number built-in methods (v0.8.0) |
 
 Run any example:
 
@@ -349,6 +412,8 @@ coderive examples/fizzbuzz.cod
 coderive examples/calculator.cod
 coderive examples/smart_loops.cod
 coderive examples/lazy_arrays.cod
+coderive examples/string_methods.cod
+coderive examples/number_methods.cod
 ```
 
 ---

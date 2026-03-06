@@ -1,0 +1,32 @@
+// string_methods.cod — Coderive v0.8.0 string built-in methods demo
+
+greeting := "  Hello, Coderive!  "
+
+// .trim() – strip leading/trailing whitespace
+clean := greeting.trim()
+out("Trimmed  : {clean}")
+
+// .upper() / .lower() – case conversion
+out("Upper    : {clean.upper()}")
+out("Lower    : {clean.lower()}")
+
+// .length – character count
+out("Length   : {clean.length}")
+
+// .contains(sub) – substring check
+out("Contains 'Coderive'  : {clean.contains("Coderive")}")
+out("Contains 'Python'    : {clean.contains("Python")}")
+
+// .startsWith(prefix) / .endsWith(suffix)
+out("Starts with 'Hello'  : {clean.startsWith("Hello")}")
+out("Ends with '!'        : {clean.endsWith("!")}")
+
+// .replace(old, new) – substitution
+out("Replaced : {clean.replace("Hello", "Hi")}")
+
+// .reversed() – reverse the string
+out("Reversed : {clean.reversed()}")
+
+// Chaining multiple methods
+word := "  coderive  "
+out("Chained  : {word.trim().upper()}")

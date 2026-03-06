@@ -1,0 +1,39 @@
+// StringMethodsTest.cod — Tests for v0.8.0 string built-in methods
+
+share main() {
+
+    // ── .trim() ──────────────────────────────────────────────────
+    s := "  hello  "
+    out("Test 1 - trim: {s.trim()}")  // expected: "hello"
+
+    // ── .upper() / .lower() ─────────────────────────────────────
+    word := "Coderive"
+    out("Test 2 - upper: {word.upper()}")  // expected: "CODERIVE"
+    out("Test 3 - lower: {word.lower()}")  // expected: "coderive"
+
+    // ── .length ──────────────────────────────────────────────────
+    out("Test 4 - length: {word.length}")  // expected: 8
+
+    // ── .contains() ──────────────────────────────────────────────
+    out("Test 5 - contains true:  {word.contains("ode")}")   // expected: true
+    out("Test 6 - contains false: {word.contains("xyz")}")   // expected: false
+
+    // ── .startsWith() / .endsWith() ─────────────────────────────
+    out("Test 7 - startsWith: {word.startsWith("Cod")}")   // expected: true
+    out("Test 8 - endsWith:   {word.endsWith("ive")}")     // expected: true
+
+    // ── .replace() ───────────────────────────────────────────────
+    sentence := "The cat sat on the mat"
+    out("Test 9 - replace: {sentence.replace("cat", "dog")}")  // expected: "The dog sat on the mat"
+
+    // ── .reversed() ──────────────────────────────────────────────
+    palindrome := "racecar"
+    out("Test 10 - reversed: {palindrome.reversed()}")  // expected: "racecar"
+
+    abc := "abc"
+    out("Test 11 - reversed: {abc.reversed()}")  // expected: "cba"
+
+    // ── method chaining ──────────────────────────────────────────
+    messy := "   Safe, Fast, Clear   "
+    out("Test 12 - chain: {messy.trim().lower()}")  // expected: "safe, fast, clear"
+}

@@ -1,0 +1,27 @@
+// number_methods.cod — Coderive v0.8.0 number built-in methods demo
+
+// .abs() – absolute value
+neg := -42
+out("abs(-42)      = {neg.abs()}")
+
+negFloat := -3.14
+out("abs(-3.14)    = {negFloat.abs()}")
+
+// .pow(n) – exponentiation
+base := 2
+out("2.pow(10)     = {base.pow(10)}")
+
+three := 3
+out("3.pow(4)      = {three.pow(4)}")
+
+// .sqrt() – square root
+perfect := 144
+out("sqrt(144)     = {perfect.sqrt()}")
+
+approx := 2
+out("sqrt(2)       = {approx.sqrt()}")
+
+// Combining with expressions
+side := 3
+hypotenuse := (side.pow(2) + side.pow(2)).sqrt()
+out("Hypotenuse of 3-3 right triangle = {hypotenuse}")
