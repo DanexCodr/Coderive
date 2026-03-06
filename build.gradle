@@ -1,4 +1,7 @@
 // Root project build file
+// Read version from the VERSION file in the repo root
+version = new File("${rootDir}/VERSION").text.trim()
+
 // Delegates fatJar task to the server subproject
 task fatJar {
     dependsOn ':server:fatJar'
