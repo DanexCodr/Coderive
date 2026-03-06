@@ -9,3 +9,4 @@ server/build/
 *.jar
 !docs/assets/Coderive.jar
 !gradle/wrapper/gradle-wrapper.jar
+!source_.jar
