@@ -7,5 +7,5 @@ server/build/
 # Compiled output
 *.class
 *.jar
-!server/lib/*.jar
+!docs/assets/Coderive.jar
 !gradle/wrapper/gradle-wrapper.jar

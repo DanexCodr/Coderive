@@ -23,8 +23,8 @@ dependencies {
     // SLF4J Simple (logging implementation)
     implementation 'org.slf4j:slf4j-simple:1.7.36'
     
-    // Your language
-    implementation files('lib/Coderive.jar')
+    // Coderive language runtime (pre-built artifact)
+    implementation files('../docs/assets/Coderive.jar')
 }
 
 application {
