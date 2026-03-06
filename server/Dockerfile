@@ -1,12 +1,14 @@
 FROM eclipse-temurin:17-jdk
 WORKDIR /app
 
-# Explicit paths - CLEAR what goes where
-COPY PlaygroundServer.java /app/
-COPY lib/ /app/lib/
+# Copy everything from server/
+COPY . .
 
-ADD https://danexcodr.github.io/Coderive/assets/Coderive.jar /app/Coderive.jar
+# lib/ now contains both:
+# - spark-core-2.9.4.jar
+# - Coderive.jar
+# Compile with all JARs in lib/
+RUN javac -cp "lib/*" PlaygroundServer.java
 
-RUN javac -cp "Coderive.jar:lib/*" PlaygroundServer.java
-
-CMD ["java", "-cp", ".:Coderive.jar:lib/*", "PlaygroundServer"]
+# Run with all JARs in classpath
+CMD ["java", "-cp", ".:lib/*", "PlaygroundServer"]
