@@ -1,9 +1,8 @@
 FROM eclipse-temurin:17-jdk
 WORKDIR /app
 
-# Copy with explicit path
-COPY PlaygroundServer.java /app/
-COPY lib/ /app/lib/
+# Copy everything
+COPY ..
 
 # Verify
 RUN ls -la /app/
