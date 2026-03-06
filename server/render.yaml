@@ -1,4 +1,4 @@
-# render.yaml
+# server/render.yaml
 services:
   - type: web
     name: coderive-api
@@ -7,13 +7,9 @@ services:
     plan: free
     buildCommand: |
       echo "📦 Building Coderive API..."
-      # Create lib directory
       mkdir -p lib
-      # Download SparkJava for the web server
       curl -L -o lib/spark-core-2.9.4.jar \
         https://repo1.maven.org/maven2/com/sparkjava/spark-core/2.9.4/spark-core-2.9.4.jar
-      # Compile the playground server
       javac -cp ".:lib/spark-core-2.9.4.jar" PlaygroundServer.java
-      echo "✅ Build complete!"
     startCommand: |
       java -cp ".:lib/spark-core-2.9.4.jar" PlaygroundServer
