@@ -1,0 +1,37 @@
+name: Sync VERSION to README
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'VERSION'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read VERSION
+        id: ver
+        run: echo "version=$(cat VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Update README.md version strings
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          sed -i -E "s/Coderive v[0-9]+\.[0-9]+\.[0-9]+/Coderive v${VERSION}/g" README.md
+
+      - name: Commit updated README if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet README.md; then
+            echo "README.md already up to date — nothing to commit."
+          else
+            git add README.md
+            git commit -m "chore: sync README version to v${{ steps.ver.outputs.version }} [skip ci]"
+            git push
+          fi

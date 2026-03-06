@@ -26,6 +26,7 @@
     
     function initHome() {
         Coderive.updateYear('.currentYear');
+        Coderive.fetchVersion();
         loadCodeFromGitHub();
     }
     

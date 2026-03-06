@@ -92,6 +92,25 @@ window.Coderive = (function() {
         console.error(`❌ Core error: ${message}`, error);
         // Could show user-friendly message
     }
+
+    // Version fetcher — reads the VERSION file from GitHub and updates all
+    // elements with the class "coderive-version".
+    async function fetchVersion() {
+        const versionUrl = 'https://raw.githubusercontent.com/DanexCodr/Coderive/main/VERSION';
+        try {
+            const response = await fetch(versionUrl);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const version = (await response.text()).trim();
+            console.log(`Core: fetched version ${version}`);
+            document.querySelectorAll('.coderive-version').forEach(function(el) {
+                el.textContent = 'v' + version;
+            });
+            return version;
+        } catch (error) {
+            console.warn('Core: failed to fetch VERSION file:', error);
+            return null;
+        }
+    }
     
     console.log('✅ Core initialized');
     
@@ -103,7 +122,8 @@ window.Coderive = (function() {
         waitForElement,
         loadScript,
         updateYear,
-        handleError
+        handleError,
+        fetchVersion
     };
 })();
 
