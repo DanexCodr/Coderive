@@ -19,10 +19,14 @@
 
 ## Table of Contents
 
-[Introduction](#introduction) 
+[Introduction](#introduction)
+
 [Language Features](#language-features)
+
 [Getting Started](#getting-started)
+
 [License](#license)
+
 [Contact](#contact)
 
 ## Introduction
