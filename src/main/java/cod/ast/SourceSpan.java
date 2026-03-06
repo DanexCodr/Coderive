@@ -13,17 +13,27 @@ public class SourceSpan {
     public final int startColumn;
     public final int endLine;
     public final int endColumn;
+    public final Token startToken;  // ADD THIS
+    public final Token endToken;    // ADD THIS
     
     public SourceSpan(int startLine, int startColumn, int endLine, int endColumn) {
-        this(null, startLine, startColumn, endLine, endColumn);
+        this(null, startLine, startColumn, endLine, endColumn, null, null);
     }
     
     public SourceSpan(String fileName, int startLine, int startColumn, int endLine, int endColumn) {
+        this(fileName, startLine, startColumn, endLine, endColumn, null, null);
+    }
+    
+    // NEW CONSTRUCTOR WITH TOKENS
+    public SourceSpan(String fileName, int startLine, int startColumn, int endLine, int endColumn, 
+                     Token startToken, Token endToken) {
         this.fileName = fileName;
         this.startLine = startLine;
         this.startColumn = startColumn;
         this.endLine = endLine;
         this.endColumn = endColumn;
+        this.startToken = startToken;
+        this.endToken = endToken;
     }
     
     public SourceSpan(Token startToken, Token endToken) {
@@ -32,7 +42,9 @@ public class SourceSpan {
             startToken != null ? startToken.line : 1,
             startToken != null ? startToken.column : 1,
             endToken != null ? endToken.line : 1,
-            endToken != null ? endToken.column + (endToken.text != null ? endToken.text.length() - 1 : 0) : 1
+            endToken != null ? endToken.column + (endToken.text != null ? endToken.text.length() - 1 : 0) : 1,
+            startToken,
+            endToken
         );
     }
     
@@ -44,12 +56,18 @@ public class SourceSpan {
         if (first == null) return second;
         if (second == null) return first;
         
+        // Preserve tokens if possible
+        Token mergedStartToken = first.startToken != null ? first.startToken : second.startToken;
+        Token mergedEndToken = second.endToken != null ? second.endToken : first.endToken;
+        
         return new SourceSpan(
             first.fileName,
             Math.min(first.startLine, second.startLine),
             Math.min(first.startColumn, second.startColumn),
             Math.max(first.endLine, second.endLine),
-            Math.max(first.endColumn, second.endColumn)
+            Math.max(first.endColumn, second.endColumn),
+            mergedStartToken,
+            mergedEndToken
         );
     }
     
@@ -78,5 +96,10 @@ public class SourceSpan {
     
     public String format() {
         return toString();
+    }
+    
+    // Helper method for validators
+    public Token getErrorToken() {
+        return startToken != null ? startToken : endToken;
     }
 }

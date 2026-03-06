@@ -15,7 +15,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     private void println(String message) {
-        print(getIndent() + message + "\n");
+        System.out.print(getIndent() + message + "\n");
     }
     
     @Override
@@ -38,14 +38,13 @@ public class ASTPrinter extends ASTVisitor<Void> {
     
     @Override
     public Void visit(UseNode node) {
-            println("USE imports: " + (node.imports.isEmpty() ? "[]" : node.imports));
-            println("|   ");
+            println("|   USE imports: " + (node.imports.isEmpty() ? "[]" : node.imports));
         return null;
     }
     
     @Override
     public Void visit(TypeNode node) {
-        println("CLASS: " + node.name + " extends: " + node.extendName + " visibility: " + node.visibility + "\n|   |   ");
+        println("|   CLASS TYPE: " + node.name + " extends: " + node.extendName + " visibility: " + node.visibility + "\n|   |   ");
         indent++;
         visitAll(node.fields);
         if (node.constructor != null) visit(node.constructor);
@@ -236,79 +235,66 @@ public class ASTPrinter extends ASTVisitor<Void> {
     
     @Override
     public Void visit(ExprNode node) {
-        // Check if this ExprNode is actually a more specific type (like in original printer)
-        if (node instanceof IndexAccessNode) {
-            // Handle IndexAccessNode that got cast to ExprNode
-            IndexAccessNode idx = (IndexAccessNode) node;
-            println("INDEX ACCESS");
-            println("|   array:");
-            indent += 2;
-            visit(idx.array);
-            indent -= 2;
-            println("|   index:");
-            indent += 2;
-            visit(idx.index);
-            indent -= 2;
-        } else if (node instanceof ArrayNode) {
-            // Handle ArrayNode that got cast to ExprNode
-            ArrayNode arr = (ArrayNode) node;
-            println("ARRAY literal with " + arr.elements.size() + " elements:");
-            indent++;
-            for (int i = 0; i < arr.elements.size(); i++) {
-                println("[" + i + "]:");
-                indent++;
-                visit(arr.elements.get(i));
-                indent--;
-            }
-            indent--;
-        } else if (node instanceof BooleanChainNode) {
-            // Handle BooleanChainNode that got cast to ExprNode
-            BooleanChainNode chain = (BooleanChainNode) node;
-            println("BOOLEAN chain: " + (chain.isAll ? ALL : ANY));
-            indent++;
-            for (ExprNode expr : chain.expressions) {
-                visit(expr);
-            }
-            indent--;
-        } else if (node instanceof EqualityChainNode) {
-            // Handle EqualityChainNode that got cast to ExprNode
-            EqualityChainNode chain = (EqualityChainNode) node;
-            println("EQUALITY chain: " + (chain.isAllChain ? ALL : ANY) + " " + chain.operator);
-            println("|   LEFT:");
-            indent += 2;
-            visit(chain.left);
-            indent -= 2;
-            println("|   CHAIN arguments:");
-            indent += 2;
-            for (ExprNode arg : chain.chainArguments) {
-                visit(arg);
-            }
-            indent -= 2;
-        } else if (node instanceof UnaryNode) {
-            // Handle UnaryNode that got cast to ExprNode
-            UnaryNode unary = (UnaryNode) node;
-            println("UNARY: " + unary.op);
-            indent++;
-            visit(unary.operand);
-            indent--;
-        } else if (node.value != null) {
-            println("value: " + node.value);
-        } else if (node.name != null) {
-            println("IDENTIFIER: " + node.name);
-        } else if (node.left != null && node.right != null && node.op != null) {
-            // This might be a BinaryOpNode that got cast to ExprNode
-            println("|   BINARY operation: " + node.op);
-            println("|   left:");
-            indent += 2;
-            visit(node.left);
-            indent -= 2;
-            println("|   right:");
-            indent += 2;
-            visit(node.right);
-            indent -= 2;
+        // This should never be called directly now since ExprNode is abstract
+        println("EXPR (abstract)");
+        return null;
+    }
+    
+    // === New visit methods for specific expression types ===
+    
+    @Override
+    public Void visit(IdentifierNode node) {
+        println("IDENTIFIER: " + node.name);
+        return null;
+    }
+    
+    @Override
+    public Void visit(IntLiteralNode node) {
+        println("INT LITERAL: " + node.value);
+        return null;
+    }
+    
+    @Override
+    public Void visit(FloatLiteralNode node) {
+        println("FLOAT LITERAL: " + node.value.toString());
+        return null;
+    }
+    
+    @Override
+    public Void visit(TextLiteralNode node) {
+        if (node.isInterpolated) {
+            println("INTERPOLATED TEXT: \"" + node.value + "\"");
         } else {
-            println("EXPR (unresolved - name: " + node.name + ", value: " + node.value + ")");
+            println("TEXT LITERAL: \"" + node.value + "\"");
         }
+        return null;
+    }
+    
+    @Override
+    public Void visit(BoolLiteralNode node) {
+        println("BOOL LITERAL: " + node.value);
+        return null;
+    }
+    
+    @Override
+    public Void visit(NoneLiteralNode node) {
+        println("NONE LITERAL");
+        return null;
+    }
+    
+    @Override
+    public Void visit(ThisNode node) {
+        if (node.className != null) {
+            println("THIS: " + node.className + ".this");
+        } else {
+            println("THIS");
+        }
+        return null;
+    }
+    
+    @Override
+    public Void visit(SuperNode node) {
+        println("SUPER");
         return null;
     }
     
@@ -345,36 +331,36 @@ public class ASTPrinter extends ASTVisitor<Void> {
         return null;
     }
     
-@Override
-public Void visit(MethodCallNode node) {
-    print("IDENTIFIER/CALL: " + (node.qualifiedName != null ? node.qualifiedName : node.name));
-    
-    // Display slot names if present
-    if (node.slotNames != null && !node.slotNames.isEmpty()) {
-        System.out.print(" (slot_cast: ");
-        for (int i = 0; i < node.slotNames.size(); i++) {
-            if (i > 0) System.out.print(", ");
-            System.out.print(node.slotNames.get(i));
+    @Override
+    public Void visit(MethodCallNode node) {
+        print("IDENTIFIER/CALL: " + (node.qualifiedName != null ? node.qualifiedName : node.name));
+        
+        // Display slot names if present
+        if (node.slotNames != null && !node.slotNames.isEmpty()) {
+            System.out.print(" (slot_cast: ");
+            for (int i = 0; i < node.slotNames.size(); i++) {
+                if (i > 0) System.out.print(", ");
+                System.out.print(node.slotNames.get(i));
+            }
+            System.out.print(")");
         }
-        System.out.print(")");
-    }
-    
-    System.out.println();
-    
-    // Display arguments
-    if (node.arguments != null && !node.arguments.isEmpty()) {
-        println("|   ARGUMENTS:");
-        indent += 2;
-        for (ExprNode arg : node.arguments) {
-            visit(arg);
+        
+        System.out.println();
+        
+        // Display arguments
+        if (node.arguments != null && !node.arguments.isEmpty()) {
+            println("|   ARGUMENTS:");
+            indent += 2;
+            for (ExprNode arg : node.arguments) {
+                visit(arg);
+            }
+            indent -= 2;
+        } else {
+            println("|   (no arguments)");
         }
-        indent -= 2;
-    } else {
-        println("|   (no arguments)");
+        
+        return null;
     }
-    
-    return null;
-}
     
     @Override
     public Void visit(ArrayNode node) {
@@ -401,6 +387,40 @@ public Void visit(MethodCallNode node) {
         indent += 2;
         if (node.index != null) visit(node.index);
         indent -= 2;
+        return null;
+    }
+    
+    @Override
+    public Void visit(RangeIndexNode node) {
+        println("RANGE INDEX");
+        if (node.step != null) {
+            println("|   step:");
+            indent += 2;
+            visit(node.step);
+            indent -= 2;
+        }
+        println("|   start:");
+        indent += 2;
+        if (node.start != null) visit(node.start);
+        indent -= 2;
+        println("|   end:");
+        indent += 2;
+        if (node.end != null) visit(node.end);
+        indent -= 2;
+        return null;
+    }
+    
+    @Override
+    public Void visit(MultiRangeIndexNode node) {
+        println("MULTI-RANGE INDEX with " + node.ranges.size() + " ranges:");
+        indent++;
+        for (int i = 0; i < node.ranges.size(); i++) {
+            println("RANGE " + i + ":");
+            indent++;
+            visit(node.ranges.get(i));
+            indent--;
+        }
+        indent--;
         return null;
     }
     
@@ -434,6 +454,33 @@ public Void visit(MethodCallNode node) {
     @Override
     public Void visit(SlotNode node) {
         println("SLOT: " + node.name + " (type: " + node.type + ")");
+        return null;
+    }
+    
+    @Override
+    public Void visit(LambdaNode node) {
+        print("LAMBDA with parameters: ");
+        if (node.parameters != null && !node.parameters.isEmpty()) {
+            for (int i = 0; i < node.parameters.size(); i++) {
+                if (i > 0) System.out.print(", ");
+                System.out.print(node.parameters.get(i).name);
+            }
+        }
+        System.out.println();
+        return null;
+    }
+    
+    @Override
+    public Void visit(PropertyAccessNode node) {
+        println("PROPERTY ACCESS (left HAS right)");
+        println("|   left:");
+        indent += 2;
+        if (node.left != null) visit(node.left);
+        indent -= 2;
+        println("|   right:");
+        indent += 2;
+        if (node.right != null) visit(node.right);
+        indent -= 2;
         return null;
     }
     
