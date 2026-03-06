@@ -1,0 +1,26 @@
+name: Delete Non-Main Branches
+
+on:
+  workflow_dispatch:
+
+jobs:
+  delete-branches:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete all branches except main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${{ github.repository }}/branches" --paginate --jq '.[].name' \
+            | while IFS= read -r branch; do
+                if [ "$branch" = "main" ]; then
+                  echo "Skipping protected branch: main"
+                  continue
+                fi
+                echo "Deleting branch: $branch"
+                gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$branch" \
+                  && echo "  ✓ Deleted: $branch" \
+                  || echo "  ✗ Failed to delete: $branch"
+              done
