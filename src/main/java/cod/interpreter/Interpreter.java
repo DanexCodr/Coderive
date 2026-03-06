@@ -1,56 +1,90 @@
 package cod.interpreter;
 
 import cod.ast.nodes.*;
-import cod.ast.ASTFactory;
 import cod.debug.DebugSystem;
+import cod.error.InternalError;
+import cod.error.ProgramError;
 import cod.interpreter.context.*;
 import cod.interpreter.exception.*;
-import cod.interpreter.io.IOHandler;
 import cod.interpreter.registry.*;
-import cod.interpreter.type.*;
+import cod.interpreter.handler.*;
+import cod.lexer.*;
+import cod.parser.MainParser;
 import cod.semantic.ImportResolver;
 import cod.semantic.ConstructorResolver;
-import cod.syntax.Keyword;
 import static cod.syntax.Keyword.*;
+import static cod.syntax.Symbol.*;
 
 import java.io.File;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 import java.util.*;
 
 public class Interpreter {
 
-  private IOHandler ioHandler = new IOHandler();
-  private ImportResolver importResolver = new ImportResolver();
-  private TypeSystem typeSystem = new TypeSystem();
+  public IOHandler ioHandler;
+  private ImportResolver importResolver;
+  private TypeHandler typeSystem;
   private InterpreterVisitor visitor;
   private ConstructorResolver constructorResolver;
   private ProgramNode currentProgram;
   private BuiltinRegistry builtinRegistry;
   private GlobalRegistry globalRegistry;
-  private String currentFilePath;  // ADD THIS FIELD
+  private LiteralRegistry literalRegistry;
+  private String currentFilePath;
   
-public Interpreter() {
-    this.visitor = new InterpreterVisitor(this, typeSystem);
-    this.constructorResolver = new ConstructorResolver(typeSystem, visitor, this);
-    this.currentProgram = null;
-    builtinRegistry = new BuiltinRegistry(ioHandler);
-    globalRegistry = new GlobalRegistry(ioHandler, builtinRegistry);
-}
-
-  // Add a method to set the file path
-  public void setFilePath(String filePath) {
-      this.currentFilePath = filePath;
-      DebugSystem.debug("INTERPRETER", "Set file path: " + filePath);
+  // Helper class for broadcast info
+  private static class BroadcastInfo {
+    final String mainClassName;
+    final boolean shouldLoad;
+    
+    BroadcastInfo(String mainClassName, boolean shouldLoad) {
+      this.mainClassName = mainClassName;
+      this.shouldLoad = shouldLoad;
+    }
   }
   
-  // Add a getter for the file path
+  public Interpreter() {
+    // Initialize independent components first
+    this.ioHandler = new IOHandler();
+    this.typeSystem = new TypeHandler();
+    this.builtinRegistry = new BuiltinRegistry();
+    this.importResolver = new ImportResolver();
+    
+    // Create global registry (depends on ioHandler and builtinRegistry)
+    this.globalRegistry = new GlobalRegistry(ioHandler, builtinRegistry);
+    
+    // TWO-STEP INITIALIZATION:
+    // 1. Create registry with null evaluator
+    this.literalRegistry = new LiteralRegistry(null);
+    
+    // 2. Create visitor with the registry
+    this.visitor = new InterpreterVisitor(this, typeSystem, literalRegistry);
+    
+    // 3. Now set the evaluator on the registry
+    this.literalRegistry.setEvaluator(this.visitor);
+    
+    // 4. Initialize remaining components
+    this.constructorResolver = new ConstructorResolver(typeSystem, this);
+    this.currentProgram = null;
+  }
+
+  public InterpreterVisitor getVisitor() {
+    return visitor;
+  }
+
+  public void setFilePath(String filePath) {
+    if (filePath == null || filePath.isEmpty()) {
+      throw new InternalError("setFilePath called with null/empty path");
+    }
+    this.currentFilePath = filePath;
+    DebugSystem.debug("INTERPRETER", "Set file path: " + filePath);
+  }
+  
   public String getCurrentFilePath() {
-      return currentFilePath;
+    return currentFilePath;
   }
 
   public ImportResolver getImportResolver() {
@@ -65,7 +99,18 @@ public Interpreter() {
     return globalRegistry;
   }
 
+  public LiteralRegistry getLiteralRegistry() {
+    return literalRegistry;
+  }
+  
+  public TypeHandler getTypeHandler() {
+    return typeSystem;
+  }
+
   boolean shouldReturnEarly(Map<String, Object> slotValues, Set<String> slotsInCurrentPath) {
+    if (slotValues == null || slotsInCurrentPath == null) {
+      throw new InternalError("shouldReturnEarly called with null maps");
+    }
     if (slotsInCurrentPath.isEmpty()) return false;
     for (String slotName : slotsInCurrentPath) {
       if (slotValues.get(slotName) == null) return false;
@@ -75,73 +120,320 @@ public Interpreter() {
   
   public ProgramNode getCurrentProgram() {
     return currentProgram;
-}
-
-  public Object evalReplStatement(
-      StmtNode stmt,
-      ObjectInstance obj,
-      Map<String, Object> locals,
-      Map<String, Object> slotValues) {
-    Map<String, String> slotTypes = new HashMap<String, String>();
-    ExecutionContext ctx = new ExecutionContext(obj, locals, slotValues, slotTypes);
-    visitor.pushContext(ctx);
-    try {
-      return visitor.visit((ASTNode) stmt);
-    } finally {
-      visitor.popContext();
-    }
   }
 
+public Object evalReplStatement(
+    StmtNode stmt,
+    ObjectInstance obj,
+    Map<String, Object> locals,
+    Map<String, Object> slotValues) {
+    
+    if (stmt == null) {
+        throw new InternalError("evalReplStatement called with null stmt");
+    }
+    if (locals == null) {
+        throw new InternalError("evalReplStatement called with null locals");
+    }
+    
+    Map<String, String> slotTypes = new HashMap<String, String>();
+    ExecutionContext ctx = new ExecutionContext(obj, locals, slotValues, slotTypes, typeSystem);
+    visitor.pushContext(ctx);
+    
+    try {
+        Object result = visitor.visit((ASTNode) stmt);
+        
+        // Sync changes back to original locals map!
+        // The ExecutionContext may have modified its internal copy,
+        // so we need to copy back to the original map that REPLRunner holds.
+        locals.clear();
+        locals.putAll(ctx.getLocalsMap());
+        
+        return result;
+    } catch (ProgramError e) {
+        throw e;
+    } catch (Exception e) {
+        throw new InternalError("Unexpected error in REPL evaluation", e);
+    } finally {
+        visitor.popContext();
+    }
+}
+
   public void run(ProgramNode program) {
+    if (program == null) {
+      throw new InternalError("run called with null program");
+    }
+    
     DebugSystem.startTimer("program_execution");
     DebugSystem.info("INTERPRETER", "Starting program execution from: " + 
         (currentFilePath != null ? currentFilePath : "unknown location"));
     
     this.currentProgram = program;
 
-    if (program.programType == null) {
-      DebugSystem.warn("INTERPRETER", "No program type detected, assuming MODULE");
-      runModule(program);
-    } else {
-      switch (program.programType) {
-        case MODULE:
-          runModule(program);
-          break;
-        case SCRIPT:
-          runScript(program);
-          break;
-        case METHOD_SCRIPT:
-          runMethodScript(program);
-          break;
-        default:
-          throw new RuntimeException("Unknown program type: " + program.programType);
+    try {
+      if (program.programType == null) {
+        DebugSystem.warn("INTERPRETER", "No program type detected, assuming MODULE");
+        runModule(program);
+      } else {
+        switch (program.programType) {
+          case MODULE:
+            runModule(program);
+            break;
+          case SCRIPT:
+            runScript(program);
+            break;
+          case METHOD_SCRIPT:
+            runMethodScript(program);
+            break;
+          default:
+            throw new InternalError("Unknown program type: " + program.programType);
+        }
       }
+    } catch (ProgramError e) {
+      throw e;
+    } catch (InternalError e) {
+      throw e;
+    } catch (Exception e) {
+      throw new InternalError("Program execution failed", e);
+    } finally {
+      DebugSystem.stopTimer("program_execution");
+      DebugSystem.info("INTERPRETER", "Program execution completed");
+      ioHandler.close();
     }
-
-    DebugSystem.stopTimer("program_execution");
-    DebugSystem.info("INTERPRETER", "Program execution completed");
-    ioHandler.close();
   }
 
+  // ========== UPDATED BROADCAST DETECTION WITH MODULAR LEXER ==========
+  
+  private void checkForMultipleBroadcasts(String packageName) {
+    if (packageName == null || packageName.isEmpty()) {
+        throw new InternalError("checkForMultipleBroadcasts called with null/empty packageName");
+    }
+    
+    DebugSystem.debug("BROADCAST", "Checking for multiple broadcasts in package: " + packageName);
+    
+    Map<String, String> broadcastMap = new HashMap<String, String>();
+    List<String> broadcastSources = new ArrayList<String>();
+    
+    // First, check if this file has a broadcast (already parsed)
+    if (currentProgram != null && currentProgram.unit != null && 
+        currentProgram.unit.mainClassName != null && !currentProgram.unit.mainClassName.isEmpty()) {
+        broadcastMap.put("current file", currentProgram.unit.mainClassName);
+        broadcastSources.add("Current file (main: " + currentProgram.unit.mainClassName + ")");
+    }
+    
+    // Check all loaded imports for broadcasts in this package
+    if (importResolver != null) {
+        Map<String, ProgramNode> loadedPrograms = importResolver.getLoadedPrograms();
+        for (Map.Entry<String, ProgramNode> entry : loadedPrograms.entrySet()) {
+            ProgramNode program = entry.getValue();
+            if (program != null && program.unit != null && 
+                program.unit.name != null && program.unit.name.equals(packageName) &&
+                program.unit.mainClassName != null && !program.unit.mainClassName.isEmpty()) {
+                
+                String source = "import: " + entry.getKey();
+                broadcastMap.put(source, program.unit.mainClassName);
+                broadcastSources.add(source + " (main: " + program.unit.mainClassName + ")");
+            }
+        }
+    }
+    
+    // If current file path exists, scan the filesystem for other .cod files
+    if (currentFilePath != null) {
+        File currentFile = new File(currentFilePath);
+        File packageDir = currentFile.getParentFile();
+        if (packageDir != null && packageDir.exists()) {
+            File[] files = packageDir.listFiles(new FilenameFilter() {
+                @Override
+                public boolean accept(File dir, String name) {
+                    return name.endsWith(".cod");
+                }
+            });
+            
+            if (files != null) {
+                for (File file : files) {
+                    if (file.getAbsolutePath().equals(currentFilePath)) {
+                        continue;
+                    }
+                    
+                    // Use lexer to extract broadcast information (no false positives)
+                    BroadcastInfo info = extractBroadcastFromFile(file, packageName);
+                    if (info != null) {
+                        String source = "file: " + file.getName();
+                        broadcastMap.put(source, info.mainClassName);
+                        broadcastSources.add(source + " (main: " + info.mainClassName + ")");
+                        
+                        // Optionally load the file if it has types we need
+                        if (info.shouldLoad) {
+                            loadFileIntoSameUnit(file, packageName, currentProgram);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // If more than one broadcast found, throw error
+    if (broadcastMap.size() > 1) {
+        StringBuilder errorMsg = new StringBuilder();
+        errorMsg.append("Multiple broadcast declarations found for package '").append(packageName).append("':\n");
+        
+        for (String sourceInfo : broadcastSources) {
+            errorMsg.append("  - ").append(sourceInfo).append("\n");
+        }
+        
+        errorMsg.append("\nOnly one broadcast allowed per package.\n");
+        errorMsg.append("Solutions:\n");
+        errorMsg.append("1. Remove extra broadcast declarations\n");
+        errorMsg.append("2. Or add your own main() method in this file (takes precedence)\n");
+        errorMsg.append("3. Or use import to explicitly choose which file to use");
+        
+        throw new ProgramError(errorMsg.toString());
+    }
+  }
+  
+  private BroadcastInfo extractBroadcastFromFile(File file, String expectedPackage) {
+    BufferedReader reader = null;
+    try {
+        StringBuilder content = new StringBuilder();
+        reader = new BufferedReader(new FileReader(file));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            content.append(line).append("\n");
+        }
+        reader.close();
+        
+        String fileContent = content.toString();
+        
+        // Use lexer to tokenize and find REAL unit declaration (ignores comments/strings)
+        MainLexer lexer = new MainLexer(fileContent);
+        List<Token> tokens = lexer.tokenize(); // Now returns only meaningful tokens
+        
+        // Find the unit declaration
+        boolean foundUnit = false;
+        String unitName = null;
+        String mainClass = null;
+        
+        for (int i = 0; i < tokens.size(); i++) {
+            Token t = tokens.get(i);
+            
+            // Look for 'unit' keyword
+            if (!foundUnit && t.isKeyword(UNIT)) {
+                foundUnit = true;
+                
+                // Look ahead for the unit name (next ID token)
+                int j = i + 1;
+                while (j < tokens.size()) {
+                    Token next = tokens.get(j);
+                    if (next.type == TokenType.ID) {
+                        unitName = next.text;
+                        j++;
+                        break;
+                    }
+                    j++;
+                }
+                
+                // Look for (main: ...) pattern
+                while (j < tokens.size()) {
+                    Token maybeParen = tokens.get(j);
+                    if (maybeParen.isSymbol(LPAREN)) {
+                        j++;
+                        // Parse inside parentheses
+                        while (j < tokens.size()) {
+                            Token inside = tokens.get(j);
+                            if (inside.type == TokenType.ID && inside.text.equals("main")) {
+                                j++;
+                                if (j < tokens.size() && tokens.get(j).isSymbol(COLON)) {
+                                    j++;
+                                    if (j < tokens.size() && tokens.get(j).type == TokenType.ID) {
+                                        mainClass = tokens.get(j).text;
+                                        break;
+                                    }
+                                }
+                            } else if (inside.isSymbol(RPAREN)) {
+                                break;
+                            }
+                            j++;
+                        }
+                        break;
+                    }
+                    j++;
+                }
+                break;
+            }
+        }
+        
+        // If we found a valid unit with matching package name and main class
+        if (foundUnit && expectedPackage.equals(unitName) && mainClass != null) {
+            // Should load if this file has types we might need
+            return new BroadcastInfo(mainClass, hasTypes(tokens));
+        }
+        
+        return null;
+        
+    } catch (Exception e) {
+        DebugSystem.debug("BROADCAST", "Error extracting broadcast from " + file.getName() + ": " + e.getMessage());
+        return null;
+    } finally {
+        if (reader != null) {
+            try { reader.close(); } catch (IOException e) {}
+        }
+    }
+  }
+  
+  private boolean hasTypes(List<Token> tokens) {
+    // Check if file contains any class declarations
+    for (int i = 0; i < tokens.size(); i++) {
+        Token t = tokens.get(i);
+        
+        // Look for class name (uppercase identifier not followed by '(')
+        if (t.type == TokenType.ID && 
+            t.text.length() > 0 && 
+            Character.isUpperCase(t.text.charAt(0))) {
+            
+            // Check if it's a class (followed by {, is, or with)
+            if (i + 1 < tokens.size()) {
+                Token next = tokens.get(i + 1);
+                if (next.isSymbol(LBRACE) || 
+                    next.isKeyword(IS) || 
+                    next.isKeyword(WITH)) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+  }
+  
+  // ========== END UPDATED BROADCAST DETECTION ==========
+
   private void runModule(ProgramNode program) {
+    if (program == null || program.unit == null) {
+        throw new InternalError("runModule called with null program or unit");
+    }
+    
     UnitNode unit = program.unit;
     initializeImportResolver(unit);
     
-    // NEW: Scan for broadcasts in the same package
+    DebugSystem.debug("BROADCAST", "=== STARTING MODULE EXECUTION ===");
+    DebugSystem.debug("BROADCAST", "Unit name: " + unit.name);
+    DebugSystem.debug("BROADCAST", "Local main class: " + unit.mainClassName);
+    
+    // Enhanced check for multiple broadcasts in the same package (UPDATED)
+    checkForMultipleBroadcasts(unit.name);
+    
     if (unit.mainClassName == null || unit.mainClassName.isEmpty()) {
         scanPackageForBroadcasts(unit.name);
     }
     
-    // NEW: Check for imported broadcasts if no local broadcast
+    String importedBroadcastCheck = importResolver.getBroadcast(unit.name);
+    DebugSystem.debug("BROADCAST", "Imported broadcast check result: " + importedBroadcastCheck);
+    
     String mainClassNameToUse = null;
     boolean useImportedBroadcast = false;
     
     if (unit.mainClassName != null && !unit.mainClassName.isEmpty()) {
-        // Local broadcast takes priority
         mainClassNameToUse = unit.mainClassName;
         DebugSystem.info("INTERPRETER", "Using local broadcast: (main: " + mainClassNameToUse + ")");
     } else {
-        // Check imported broadcasts for this package
         String importedBroadcast = importResolver.getBroadcast(unit.name);
         if (importedBroadcast != null) {
             mainClassNameToUse = importedBroadcast;
@@ -151,9 +443,11 @@ public Interpreter() {
         }
     }
     
+    DebugSystem.debug("BROADCAST", "Main class to use: " + mainClassNameToUse);
+    DebugSystem.debug("BROADCAST", "Is imported broadcast: " + useImportedBroadcast);
+    
     boolean mainExecuted = false;
     
-    // Strategy 1: Look for local main() in any class in this file
     TypeNode localMainClass = null;
     MethodNode localMainMethod = null;
     
@@ -169,63 +463,87 @@ public Interpreter() {
         if (localMainClass != null) break;
     }
     
-    // Rule: Local main() takes priority
     if (localMainClass != null && localMainMethod != null) {
         DebugSystem.methodEntry("main (local)", Collections.<String, Object>emptyMap());
+        DebugSystem.info("BROADCAST", "Found local main() in class: " + localMainClass.name);
         
-        // FIX: Create an empty context before creating the object
-        ExecutionContext emptyContext = new ExecutionContext(null, new HashMap<String, Object>(), null, null);
-        visitor.pushContext(emptyContext);
+        // OPTIMIZED FAST PATH FOR main()
+        ObjectInstance obj = new ObjectInstance(localMainClass);
+        Map<String, Object> locals = new HashMap<String, Object>();
+        ExecutionContext ctx = new ExecutionContext(obj, locals, null, null, typeSystem);
+        
+        visitor.pushContext(ctx);
         
         try {
-            // UPDATED: Pass null as the token parameter to createConstructorCall
-            ObjectInstance obj = constructorResolver.resolveAndCreate(
-                ASTFactory.createConstructorCall(localMainClass.name, new ArrayList<ExprNode>(), null), 
-                emptyContext
-            );
-            
-            Object result = evalMethod(localMainMethod, obj, new HashMap<String, Object>());
-            DebugSystem.methodExit("main", result);
+            if (localMainMethod.body != null) {
+                for (StmtNode stmt : localMainMethod.body) {
+                    visitor.visit((ASTNode) stmt);
+                }
+            }
+            DebugSystem.methodExit("main", null);
             mainExecuted = true;
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Failed to execute local main()", e);
         } finally {
             visitor.popContext();
         }
     }
-    // Strategy 2: Use broadcasted main class (local or imported)
     else if (!mainExecuted && mainClassNameToUse != null) {
         DebugSystem.info("INTERPRETER", "Running " + 
             (useImportedBroadcast ? "imported" : "local") + 
             " broadcasted main class: " + mainClassNameToUse);
         
-        // Find the broadcasted main class
         TypeNode broadcastedClass = null;
         MethodNode broadcastedMainMethod = null;
         
         if (useImportedBroadcast) {
-            // For imported broadcast, we need to find the class in imports
-            broadcastedClass = importResolver.findType(mainClassNameToUse);
-            if (broadcastedClass != null) {
-                // Find main method in the imported class
-                for (MethodNode method : broadcastedClass.methods) {
-                    if ("main".equals(method.methodName) && 
-                        method.parameters.isEmpty()) {
-                        broadcastedMainMethod = method;
+            DebugSystem.debug("BROADCAST", "Searching for imported class: " + mainClassNameToUse);
+            
+            String[] searchPatterns = {
+                mainClassNameToUse,
+                unit.name + "." + mainClassNameToUse,
+            };
+            
+            for (String pattern : searchPatterns) {
+                try {
+                    broadcastedClass = importResolver.findType(pattern);
+                    if (broadcastedClass != null) {
+                        DebugSystem.debug("BROADCAST", "Found class using pattern: " + pattern);
                         break;
                     }
+                } catch (ProgramError e) {
+                    DebugSystem.debug("BROADCAST", "Pattern " + pattern + " not found: " + e.getMessage());
                 }
             }
+            
+            if (broadcastedClass == null) {
+                DebugSystem.debug("BROADCAST", "Searching all loaded imports for class: " + mainClassNameToUse);
+                for (ProgramNode importedProgram : importResolver.getLoadedPrograms().values()) {
+                    if (importedProgram.unit != null && importedProgram.unit.types != null) {
+                        for (TypeNode type : importedProgram.unit.types) {
+                            if (type.name.equals(mainClassNameToUse)) {
+                                broadcastedClass = type;
+                                DebugSystem.debug("BROADCAST", "Found in import: " + importedProgram.unit.name);
+                                break;
+                            }
+                        }
+                    }
+                    if (broadcastedClass != null) break;
+                }
+            }
+            
+            if (broadcastedClass != null) {
+                ExecutionContext searchCtx = new ExecutionContext(null, new HashMap<String, Object>(), null, null, typeSystem);
+                broadcastedMainMethod = constructorResolver.findMethodInHierarchy(broadcastedClass, "main", searchCtx);
+            }
         } else {
-            // Local broadcast (existing code)
             for (TypeNode type : unit.types) {
                 if (type.name.equals(mainClassNameToUse)) {
                     broadcastedClass = type;
-                    for (MethodNode method : type.methods) {
-                        if ("main".equals(method.methodName) && 
-                            method.parameters.isEmpty()) {
-                            broadcastedMainMethod = method;
-                            break;
-                        }
-                    }
+                    ExecutionContext searchCtx = new ExecutionContext(null, new HashMap<String, Object>(), null, null, typeSystem);
+                    broadcastedMainMethod = constructorResolver.findMethodInHierarchy(type, "main", searchCtx);
                     break;
                 }
             }
@@ -233,207 +551,188 @@ public Interpreter() {
         
         if (broadcastedClass != null && broadcastedMainMethod != null) {
             DebugSystem.methodEntry("main (broadcast)", Collections.<String, Object>emptyMap());
+            DebugSystem.info("BROADCAST", "Executing broadcasted main() from class: " + broadcastedClass.name);
             
-            // FIX: Create an empty context before creating the object
-            ExecutionContext emptyContext = new ExecutionContext(null, new HashMap<String, Object>(), null, null);
-            visitor.pushContext(emptyContext);
+            ObjectInstance obj = new ObjectInstance(broadcastedClass);
+            Map<String, Object> locals = new HashMap<String, Object>();
+            ExecutionContext ctx = new ExecutionContext(obj, locals, null, null, typeSystem);
+            
+            visitor.pushContext(ctx);
             
             try {
-                // UPDATED: Pass null as the token parameter to createConstructorCall
-                ObjectInstance obj = constructorResolver.resolveAndCreate(
-                    ASTFactory.createConstructorCall(broadcastedClass.name, new ArrayList<ExprNode>(), null), 
-                    emptyContext
-                );
-                
-                Object result = evalMethod(broadcastedMainMethod, obj, new HashMap<String, Object>());
-                DebugSystem.methodExit("main", result);
+                if (broadcastedMainMethod.body != null) {
+                    for (StmtNode stmt : broadcastedMainMethod.body) {
+                        visitor.visit((ASTNode) stmt);
+                    }
+                }
+                DebugSystem.methodExit("main", null);
                 mainExecuted = true;
+            } catch (ProgramError e) {
+                throw e;
+            } catch (Exception e) {
+                throw new InternalError("Failed to execute broadcasted main()", e);
             } finally {
                 visitor.popContext();
             }
         } else {
             String source = useImportedBroadcast ? "imported broadcast" : "local broadcast";
-            throw new RuntimeException(
-                source + " main class '" + mainClassNameToUse + 
-                "' not found or has no main() method"
-            );
-        }
-    }
-    // Strategy 3: Fallback - any class with main() in the package
-    else {
-        // Legacy behavior: find any main() in package
-        for (TypeNode type : unit.types) {
-            for (MethodNode method : type.methods) {
-                if ("main".equals(method.methodName) && method.parameters.isEmpty()) {
-                    DebugSystem.methodEntry("main (legacy)", Collections.<String, Object>emptyMap());
-                    
-                    // FIX: Create an empty context before creating the object
-                    ExecutionContext emptyContext = new ExecutionContext(null, new HashMap<String, Object>(), null, null);
-                    visitor.pushContext(emptyContext);
-                    
-                    try {
-                        // UPDATED: Pass null as the token parameter to createConstructorCall
-                        ObjectInstance obj = constructorResolver.resolveAndCreate(
-                            ASTFactory.createConstructorCall(type.name, new ArrayList<ExprNode>(), null), 
-                            emptyContext
-                        );
-                        
-                        Object result = evalMethod(method, obj, new HashMap<String, Object>());
-                        DebugSystem.methodExit("main", result);
-                        mainExecuted = true;
-                    } finally {
-                        visitor.popContext();
-                    }
-                    break;
-                }
+            String errorMsg = source + " main class '" + mainClassNameToUse + 
+                "' not found or has no main() method";
+            
+            if (useImportedBroadcast) {
+                errorMsg += "\n\nPossible issues:";
+                errorMsg += "\n1. The broadcasted class might not be in a loaded import";
+                errorMsg += "\n2. The class might exist but doesn't have a main() method";
+                errorMsg += "\n3. There might be multiple broadcasts in the package (check above error)";
+                
+                errorMsg += "\n\nLoaded imports: " + importResolver.getLoadedImports();
             }
-            if (mainExecuted) break;
+            
+            throw new ProgramError(errorMsg);
         }
     }
     
     if (!mainExecuted) {
-        String broadcastInfo = "";
-        String importedBroadcast = importResolver.getBroadcast(unit.name);
-        if (importedBroadcast != null) {
-            broadcastInfo = "\nFound imported broadcast: unit " + unit.name + 
-                           " (main: " + importedBroadcast + ")\n" +
-                           "But class '" + importedBroadcast + "' not found in imports.";
+        String errorMessage = "No executable main() found in package '" + unit.name + "'\n\n" +
+            "This file has no main() method and no local broadcast.\n" +
+            "Options:\n" +
+            "1. Add a class with main() method in this file\n" +
+            "2. Add a broadcast declaration: unit " + unit.name + " (main: YourClass)\n" +
+            "3. If another file broadcasts a main class, ensure only ONE file broadcasts\n" +
+            "   (Multiple broadcasts in same package cause conflicts)";
+        
+        if (currentFilePath != null) {
+            File dir = new File(currentFilePath).getParentFile();
+            if (dir != null && dir.exists()) {
+                File[] codFiles = dir.listFiles(new FilenameFilter() {
+                    @Override
+                    public boolean accept(File d, String name) {
+                        return name.endsWith(".cod") && !name.equals(new File(currentFilePath).getName());
+                    }
+                });
+                
+                if (codFiles != null && codFiles.length > 0) {
+                    errorMessage += "\n\nOther .cod files in package:";
+                    for (File file : codFiles) {
+                        errorMessage += "\n  - " + file.getName();
+                    }
+                }
+            }
         }
         
-        throw new RuntimeException(
-            "No executable main() found in package '" + unit.name + "'\n" +
-            "Add one of:\n" +
-            "1. A class with main() method in this file\n" +
-            "2. A broadcast declaration in this file: unit " + unit.name + 
-               " (main: YourClass)\n" +
-               "   (YourClass must be in same file and have share main())\n" +
-            broadcastInfo
-        );
+        throw new ProgramError(errorMessage);
     }
-}
+  }
 
-private void scanPackageForBroadcasts(String packageName) {
+  private void scanPackageForBroadcasts(String packageName) {
+    if (packageName == null || packageName.isEmpty()) {
+      throw new InternalError("scanPackageForBroadcasts called with null/empty packageName");
+    }
+    
     DebugSystem.debug("BROADCAST", "=== STARTING BROADCAST SCAN ===");
     DebugSystem.debug("BROADCAST", "Scanning package '" + packageName + "' for broadcasts");
     
-    // Get the directory of the current file
-    String currentFilePath = getCurrentFilePath();
     if (currentFilePath == null) {
-        DebugSystem.debug("BROADCAST", "No file path available for scanning");
-        DebugSystem.debug("BROADCAST", "=== BROADCAST SCAN COMPLETE (NO FILE PATH) ===");
-        return;
+      DebugSystem.debug("BROADCAST", "No file path available for scanning");
+      DebugSystem.debug("BROADCAST", "=== BROADCAST SCAN COMPLETE (NO FILE PATH) ===");
+      return;
     }
-    
-    DebugSystem.debug("BROADCAST", "Current file path: " + currentFilePath);
     
     File currentFile = new File(currentFilePath);
     File packageDir = currentFile.getParentFile();
     if (packageDir == null || !packageDir.exists()) {
-        DebugSystem.debug("BROADCAST", "Package directory not found: " + packageDir);
-        DebugSystem.debug("BROADCAST", "=== BROADCAST SCAN COMPLETE (NO DIRECTORY) ===");
-        return;
+      DebugSystem.debug("BROADCAST", "Package directory not found");
+      return;
     }
     
-    DebugSystem.debug("BROADCAST", "Scanning directory: " + packageDir.getAbsolutePath());
-    
-    // List all .cod files in the directory
     File[] files = packageDir.listFiles(new FilenameFilter() {
-        @Override
-        public boolean accept(File dir, String name) {
-            return name.endsWith(".cod");
-        }
+      @Override
+      public boolean accept(File dir, String name) {
+        return name.endsWith(".cod");
+      }
     });
     
-    if (files == null) {
-        DebugSystem.debug("BROADCAST", "No files found in directory");
-        DebugSystem.debug("BROADCAST", "=== BROADCAST SCAN COMPLETE (NO FILES) ===");
-        return;
-    }
-    
-    DebugSystem.debug("BROADCAST", "Found " + files.length + " .cod files in directory");
+    if (files == null) return;
     
     for (File file : files) {
-        DebugSystem.debug("BROADCAST", "Processing file: " + file.getName());
+      if (file.getAbsolutePath().equals(currentFilePath)) {
+        continue;
+      }
+      
+      // Use the lexer-based extraction instead of regex (UPDATED)
+      BroadcastInfo info = extractBroadcastFromFile(file, packageName);
+      if (info != null) {
+        DebugSystem.info("BROADCAST", "Found broadcast in " + file.getName() + ": (main: " + info.mainClassName + ")");
         
-        // Skip the current file
-        if (file.getAbsolutePath().equals(currentFilePath)) {
-            DebugSystem.debug("BROADCAST", "Skipping current file: " + file.getName());
-            continue;
+        importResolver.registerBroadcast(packageName, info.mainClassName);
+        
+        if (info.shouldLoad) {
+          loadFileIntoSameUnit(file, packageName, currentProgram);
         }
         
-        BufferedReader reader = null;
-        try {
-            DebugSystem.debug("BROADCAST", "Checking file for package '" + packageName + "': " + file.getName());
-            
-            // Read file content
-            StringBuilder content = new StringBuilder();
-            reader = new BufferedReader(new FileReader(file));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                content.append(line).append("\n");
-            }
-            
-            String fileContent = content.toString();
-            
-            // Quick check: does this file declare the same package?
-            if (fileContent.contains("unit " + packageName)) {
-                DebugSystem.debug("BROADCAST", "File " + file.getName() + " declares unit " + packageName);
-                
-                // Check if it has a broadcast
-                Pattern broadcastPattern = Pattern.compile(
-                    "unit\\s+" + Pattern.quote(packageName) + "\\s*\\(\\s*main\\s*:\\s*([A-Za-z][A-Za-z0-9_]*)\\s*\\)"
-                );
-                Matcher matcher = broadcastPattern.matcher(fileContent);
-                
-                if (matcher.find()) {
-                    String broadcastClass = matcher.group(1);
-                    DebugSystem.info("BROADCAST", "Found broadcast in " + file.getName() + ": (main: " + broadcastClass + ")");
-                    
-                    // Register the broadcast
-                    importResolver.registerBroadcast(packageName, broadcastClass);
-                    
-                    // Also load the file to make the class available
-                    try {
-                        String importName = file.getName().replace(".cod", "");
-                        ProgramNode importedProgram = importResolver.resolveImport(importName);
-                        if (importedProgram != null) {
-                            DebugSystem.debug("BROADCAST", "Successfully loaded broadcast file: " + file.getName());
-                        }
-                    } catch (Exception e) {
-                        DebugSystem.warn("BROADCAST", "Could not fully load broadcast file " + 
-                            file.getName() + ": " + e.getMessage());
-                    }
-                } else {
-                    DebugSystem.debug("BROADCAST", "File " + file.getName() + " has no broadcast declaration");
-                }
-            } else {
-                DebugSystem.debug("BROADCAST", "File " + file.getName() + " does not declare unit " + packageName);
-            }
-        } catch (Exception e) {
-            DebugSystem.debug("BROADCAST", "Error scanning file " + file.getName() + ": " + e.getMessage());
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    // Ignore close error
-                }
-            }
-        }
-    }
-    
-    // Check if broadcast was registered
-    String registeredBroadcast = importResolver.getBroadcast(packageName);
-    if (registeredBroadcast != null) {
-        DebugSystem.info("BROADCAST", "Broadcast registered for package '" + packageName + "': (main: " + registeredBroadcast + ")");
-    } else {
-        DebugSystem.debug("BROADCAST", "No broadcast found for package '" + packageName + "'");
+        return;
+      }
     }
     
     DebugSystem.debug("BROADCAST", "=== BROADCAST SCAN COMPLETE ===");
-}
+  }
+
+  private void loadFileIntoSameUnit(File file, String unitName, ProgramNode currentProgram) {
+    if (file == null) {
+      throw new InternalError("loadFileIntoSameUnit called with null file");
+    }
+    if (unitName == null || unitName.isEmpty()) {
+      throw new InternalError("loadFileIntoSameUnit called with null/empty unitName");
+    }
+    if (currentProgram == null) {
+      throw new InternalError("loadFileIntoSameUnit called with null currentProgram");
+    }
+    
+    DebugSystem.debug("BROADCAST", "Loading file into same unit: " + file.getName());
+    
+    try {
+      BufferedReader reader = new BufferedReader(new FileReader(file));
+      StringBuilder content = new StringBuilder();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        content.append(line).append("\n");
+      }
+      reader.close();
+      
+      MainLexer lexer = new MainLexer(content.toString());
+      List<Token> tokens = lexer.tokenize();
+      MainParser parser = new MainParser(tokens, this);
+      ProgramNode otherProgram = parser.parseProgram();
+      
+      if (otherProgram.unit != null && otherProgram.unit.types != null) {
+        for (TypeNode type : otherProgram.unit.types) {
+          boolean exists = false;
+          for (TypeNode existingType : currentProgram.unit.types) {
+            if (existingType.name.equals(type.name)) {
+              exists = true;
+              break;
+            }
+          }
+          
+          if (!exists) {
+            currentProgram.unit.types.add(type);
+            DebugSystem.debug("BROADCAST", "Added type to unit: " + type.name);
+          }
+        }
+      }
+      
+      DebugSystem.info("BROADCAST", "Successfully loaded " + file.getName() + " into unit '" + unitName + "'");
+      
+    } catch (Exception e) {
+      throw new InternalError("Failed to load file " + file.getName() + " into unit", e);
+    }
+  }
 
   private void runScript(ProgramNode program) {
+    if (program == null || program.unit == null) {
+        throw new InternalError("runScript called with null program or unit");
+    }
+    
     UnitNode unit = program.unit;
     initializeImportResolver(unit);
 
@@ -442,31 +741,40 @@ private void scanPackageForBroadcasts(String packageName) {
 
     DebugSystem.methodEntry("script", Collections.<String, Object>emptyMap());
 
-    for (TypeNode type : unit.types) {
-      if (type.name != null && type.name.equals("__Script__")) {
-        if (type.statements != null) {
-          for (StmtNode stmt : type.statements) {
-            ExecutionContext ctx = new ExecutionContext(obj, locals, null, null);
-            visitor.pushContext(ctx);
-            try {
-              Object result = visitor.visit((ASTNode) stmt);
-              DebugSystem.debug("INTERPRETER", "Executed script statement: " + stmt.getClass().getSimpleName());
-              if (result != null) {
-                DebugSystem.debug("INTERPRETER", "  Result: " + result);
-              }
-            } finally {
-              visitor.popContext();
+    ExecutionContext ctx = new ExecutionContext(obj, locals, null, null, typeSystem);
+    visitor.pushContext(ctx);
+    
+    try {
+        for (TypeNode type : unit.types) {
+            if (type.name != null && type.name.equals("__Script__")) {
+                if (type.statements != null) {
+                    for (StmtNode stmt : type.statements) {
+                        Object result = visitor.visit((ASTNode) stmt);
+                        DebugSystem.debug("INTERPRETER", "Executed script statement: " + stmt.getClass().getSimpleName());
+                        if (result != null) {
+                            DebugSystem.debug("INTERPRETER", "  Result: " + result);
+                        }
+                    }
+                }
+                break;
             }
-          }
         }
-        break;
-      }
+    } catch (ProgramError e) {
+        throw e;
+    } catch (Exception e) {
+        throw new InternalError("Script execution failed", e);
+    } finally {
+        visitor.popContext();
     }
 
     DebugSystem.methodExit("script", "completed");
   }
 
   private void runMethodScript(ProgramNode program) {
+    if (program == null || program.unit == null) {
+        throw new InternalError("runMethodScript called with null program or unit");
+    }
+    
     UnitNode unit = program.unit;
     initializeImportResolver(unit);
 
@@ -474,82 +782,70 @@ private void scanPackageForBroadcasts(String packageName) {
     TypeNode containerType = null;
 
     for (TypeNode type : unit.types) {
-      if (type.name != null && type.name.equals("__MethodScript__")) {
-        containerType = type;
-        if (type.methods != null) {
-          for (MethodNode node : type.methods) {
-            if ("main".equals(node.methodName)
-                && (node.parameters == null || node.parameters.isEmpty())) {
-              mainMethod = node;
-              break;
+        if (type.name != null && type.name.equals("__MethodScript__")) {
+            containerType = type;
+            if (type.methods != null) {
+                for (MethodNode node : type.methods) {
+                    if ("main".equals(node.methodName)
+                        && (node.parameters == null || node.parameters.isEmpty())) {
+                        mainMethod = node;
+                        break;
+                    }
+                }
             }
-          }
+            break;
         }
-        break;
-      }
     }
 
     if (mainMethod == null) {
-      for (TypeNode type : unit.types) {
-        if (type.methods != null) {
-          for (MethodNode node : type.methods) {
-            if ("main".equals(node.methodName)
-                && (node.parameters == null || node.parameters.isEmpty())) {
-              mainMethod = node;
-              containerType = type;
-              break;
+        for (TypeNode type : unit.types) {
+            if (type.methods != null) {
+                for (MethodNode node : type.methods) {
+                    if ("main".equals(node.methodName)
+                        && (node.parameters == null || node.parameters.isEmpty())) {
+                        mainMethod = node;
+                        containerType = type;
+                        break;
+                    }
+                }
             }
-          }
+            if (mainMethod != null) break;
         }
-        if (mainMethod != null) break;
-      }
     }
 
     if (mainMethod == null) {
-      throw new RuntimeException("Method script requires a 'main()' node");
+        throw new ProgramError("Method script requires a 'main()' method");
     }
 
     DebugSystem.methodEntry("main", Collections.<String, Object>emptyMap());
+    
     ObjectInstance obj = new ObjectInstance(containerType);
-    initializeFields(containerType, obj);
-    if (containerType.constructor != null) {
-      evalConstructor(containerType.constructor, obj);
-    }
-    Object result = evalMethod(mainMethod, obj, new HashMap<String, Object>());
-    DebugSystem.methodExit("main", result);
-  }
-
-  private void initializeFields(TypeNode type, ObjectInstance obj) {
-    // FIX: Create a context for field initialization
-    ExecutionContext fieldCtx = new ExecutionContext(obj, new HashMap<String, Object>(), null, null);
-    visitor.pushContext(fieldCtx);
+    Map<String, Object> locals = new HashMap<String, Object>();
+    ExecutionContext ctx = new ExecutionContext(obj, locals, null, null, typeSystem);
+    
+    visitor.pushContext(ctx);
     
     try {
-        for (FieldNode field : type.fields) {
-            if (field.value != null) {
-                Object defaultValue = visitor.dispatch(field.value);
-                obj.fields.put(field.name, defaultValue);
-            } else {
-                String fieldType = field.type;
-                if (fieldType.contains(INT.toString())) {
-                    obj.fields.put(field.name, 0);
-                } else if (fieldType.contains(FLOAT.toString())) {
-                    obj.fields.put(field.name, 0.0);
-                } else if (fieldType.contains(TEXT.toString())) {
-                    obj.fields.put(field.name, "");
-                } else if (fieldType.contains(BOOL.toString())) {
-                    obj.fields.put(field.name, false);
-                } else {
-                    obj.fields.put(field.name, null);
-                }
+        if (mainMethod.body != null) {
+            for (StmtNode stmt : mainMethod.body) {
+                visitor.visit((ASTNode) stmt);
             }
         }
+        DebugSystem.methodExit("main", null);
+    } catch (ProgramError e) {
+        throw e;
+    } catch (Exception e) {
+        throw new InternalError("Method script execution failed", e);
     } finally {
         visitor.popContext();
     }
-}
+  }
 
   private void initializeImportResolver(UnitNode unit) {
+    if (unit == null) {
+      throw new InternalError("initializeImportResolver called with null unit");
+    }
+    
     if (unit.resolvedImports != null && !unit.resolvedImports.isEmpty()) {
       for (Map.Entry<String, ProgramNode> entry : unit.resolvedImports.entrySet()) {
         importResolver.preloadImport(entry.getKey(), entry.getValue());
@@ -562,51 +858,39 @@ private void scanPackageForBroadcasts(String packageName) {
     }
   }
 
-  private void evalConstructor(ConstructorNode constructor, ObjectInstance obj) {
-    DebugSystem.methodEntry("Constructor", Collections.<String, Object>emptyMap());
-    Map<String, Object> locals = new HashMap<String, Object>();
-    for (ParamNode p : constructor.parameters) locals.put(p.name, 0);
-    ExecutionContext ctx = new ExecutionContext(obj, locals, null, null);
-    visitor.pushContext(ctx);
-    for (StmtNode stmt : constructor.body) {
-      Object val = visitor.visit((ASTNode) stmt);
-      if (stmt instanceof FieldNode) obj.fields.put(((FieldNode) stmt).name, val);
-    }
-    visitor.popContext();
-    DebugSystem.methodExit("Constructor", "completed");
-  }
-
   public Object evalMethod(MethodNode node, ObjectInstance obj, Map<String, Object> locals) {
+    if (node == null) {
+      throw new InternalError("evalMethod called with null node");
+    }
+    if (locals == null) {
+      throw new InternalError("evalMethod called with null locals");
+    }
+    
     DebugSystem.methodEntry(node.methodName, locals);
     Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
     Map<String, String> slotTypes = new LinkedHashMap<String, String>();
     if (node.returnSlots != null) {
-        for (SlotNode s : node.returnSlots) {
-            slotValues.put(s.name, null);
-            slotTypes.put(s.name, s.type);
-        }
+      for (SlotNode s : node.returnSlots) {
+        slotValues.put(s.name, null);
+        slotTypes.put(s.name, s.type);
+      }
     }
     
-    // FIXED: Ensure object instance is always set and current class is tracked
-    ExecutionContext ctx = new ExecutionContext(obj, locals, slotValues, slotTypes);
-    
-    // Always set object instance (even if null)
+    ExecutionContext ctx = new ExecutionContext(obj, locals, slotValues, slotTypes, typeSystem);
     ctx.objectInstance = obj;
     
-    // Set current class if we have object instance
     if (obj != null && obj.type != null) {
-        TypeNode currentClass = findTypeByName(obj.type.name);
-        if (currentClass != null) {
-            ctx.currentClass = currentClass;
-        }
+      TypeNode currentClass = findTypeByName(obj.type.name);
+      if (currentClass != null) {
+        ctx.currentClass = currentClass;
+      }
     }
     
-    // Also set current class from method association
     if (node.associatedClass != null && ctx.currentClass == null) {
-        TypeNode associatedClass = findTypeByName(node.associatedClass);
-        if (associatedClass != null) {
-            ctx.currentClass = associatedClass;
-        }
+      TypeNode associatedClass = findTypeByName(node.associatedClass);
+      if (associatedClass != null) {
+        ctx.currentClass = associatedClass;
+      }
     }
     
     visitor.pushContext(ctx);
@@ -614,36 +898,49 @@ private void scanPackageForBroadcasts(String packageName) {
     boolean hasSlots = node.returnSlots != null && !node.returnSlots.isEmpty();
 
     try {
-        if (node.body != null) {
-            for (StmtNode stmt : node.body) {
-                result = visitor.visit((ASTNode) stmt);
-                if (hasSlots && shouldReturnEarly(slotValues, ctx.slotsInCurrentPath)) {
-                    break;
-                }
-            }
+      if (node.body != null) {
+        for (StmtNode stmt : node.body) {
+          result = visitor.visit((ASTNode) stmt);
+          if (hasSlots && shouldReturnEarly(slotValues, ctx.slotsInCurrentPath)) {
+            break;
+          }
         }
+      }
     } catch (EarlyExitException e) {
+      // Normal exit
+    } catch (ProgramError e) {
+      throw e;
+    } catch (Exception e) {
+      throw new InternalError("Method execution failed: " + node.methodName, e);
+    } finally {
+      visitor.popContext();
     }
     
-    visitor.popContext();
     DebugSystem.methodExit(node.methodName, slotValues);
-
     return hasSlots ? slotValues : result;
-}
+  }
 
-public Object evalMethodCall(
-    MethodCallNode call, ObjectInstance obj, Map<String, Object> locals, MethodNode methodParam) {
+ @SuppressWarnings("unchecked")
+  public Object evalMethodCall(
+      MethodCallNode call, ObjectInstance obj, Map<String, Object> locals, MethodNode methodParam) {
+    
+    if (call == null) {
+        throw new InternalError("evalMethodCall called with null call");
+    }
+    if (locals == null) {
+        throw new InternalError("evalMethodCall called with null locals");
+    }
     
     if (obj == null && globalRegistry.isGlobal(call.name)) {
-        return globalRegistry.executeGlobal(call.name, call.arguments, visitor);
+        return globalRegistry.executeGlobal(call.name, (List<Object>)(List<?>)call.arguments);
     }
     
     MethodNode method = methodParam;
     
     if (method == null) {
         if (obj != null && obj.type != null) {
-            method = constructorResolver.findMethodInHierarchy(obj.type, call.name, 
-                new ExecutionContext(obj, locals, null, null));
+            ExecutionContext searchCtx = new ExecutionContext(obj, locals, null, null, typeSystem);
+            method = constructorResolver.findMethodInHierarchy(obj.type, call.name, searchCtx);
         }
         
         if (method == null) {
@@ -654,17 +951,23 @@ public Object evalMethodCall(
     
     if (method == null) {
         if (globalRegistry.isGlobal(call.name)) {
-            return globalRegistry.executeGlobal(call.name, call.arguments, visitor);
+            return globalRegistry.executeGlobal(call.name, (List<Object>)(List<?>)call.arguments);
         }
-        throw new RuntimeException("Method not found: " + call.name);
+        throw new ProgramError("Method not found: " + call.name);
+    }
+    
+    boolean hasSingleSlot = method.returnSlots != null && method.returnSlots.size() == 1;
+    if (call.slotNames.isEmpty() && hasSingleSlot && !call.isSingleSlotCall) {
+        call.isSingleSlotCall = true;
+        call.slotNames.add(method.returnSlots.get(0).name);
     }
     
     if (method.isBuiltin) {
         return handleBuiltinMethod(method, call);
     }
 
-    Map<String, Object> newLocals = new HashMap<String, Object>();
-    Map<String, String> newLocalTypes = new HashMap<String, String>();
+    Map<String, Object> methodLocals = new HashMap<String, Object>();
+    Map<String, String> methodLocalTypes = new HashMap<String, String>();
 
     int argCount = call.arguments != null ? call.arguments.size() : 0;
     int paramCount = method.parameters != null ? method.parameters.size() : 0;
@@ -676,17 +979,26 @@ public Object evalMethodCall(
         if (i < argCount) {
             ExprNode argExpr = call.arguments.get(i);
 
-            if (argExpr instanceof ExprNode && "_".equals(((ExprNode) argExpr).name)) {
+            if (argExpr instanceof IdentifierNode && "_".equals(((IdentifierNode) argExpr).name)) {
                 if (param.hasDefaultValue) {
-                    argValue = visitor.visit((ASTNode) param.defaultValue);
+                    ExecutionContext defaultCtx = new ExecutionContext(obj, locals, null, null, typeSystem);
+                    visitor.pushContext(defaultCtx);
+                    try {
+                        argValue = visitor.visit((ASTNode) param.defaultValue);
+                    } finally {
+                        visitor.popContext();
+                    }
                 } else {
-                    throw new RuntimeException(
+                    throw new ProgramError(
                         "Parameter '" + param.name + "' has no default value and cannot be skipped with '_'");
                 }
             } else {
-                ExecutionContext savedCtx = visitor.getCurrentContext();
-                // FIXED: Pass the object instance to the evaluation context
-                ExecutionContext argCtx = new ExecutionContext(obj, locals, null, null);
+                ExecutionContext savedCtx = null;
+                if (!visitor.isContextStackEmpty()) {
+                    savedCtx = visitor.getCurrentContext();
+                }
+                
+                ExecutionContext argCtx = new ExecutionContext(obj, locals, null, null, typeSystem);
                 visitor.pushContext(argCtx);
                 try {
                     argValue = visitor.visit((ASTNode) argExpr);
@@ -699,27 +1011,22 @@ public Object evalMethodCall(
             }
         } else {
             if (param.hasDefaultValue) {
-                ExecutionContext savedCtx = visitor.getCurrentContext();
-                // FIXED: Pass the object instance to the evaluation context
-                ExecutionContext argCtx = new ExecutionContext(obj, locals, null, null);
-                visitor.pushContext(argCtx);
+                ExecutionContext defaultCtx = new ExecutionContext(obj, locals, null, null, typeSystem);
+                visitor.pushContext(defaultCtx);
                 try {
                     argValue = visitor.visit((ASTNode) param.defaultValue);
                 } finally {
                     visitor.popContext();
-                    if (savedCtx != null) {
-                        visitor.pushContext(savedCtx);
-                    }
                 }
 
                 if (!typeSystem.validateType(param.type, argValue)) {
-                    throw new RuntimeException(
+                    throw new ProgramError(
                         "Default value for parameter '" + param.name + 
                         "' returns wrong type. Expected " + param.type + 
                         ", got: " + typeSystem.getConcreteType(argValue));
                 }
             } else {
-                throw new RuntimeException(
+                throw new ProgramError(
                     "Missing argument for parameter '" + param.name + 
                     "'. Expected " + paramCount + " arguments, got " + argCount);
             }
@@ -728,10 +1035,10 @@ public Object evalMethodCall(
         String paramType = param.type;
 
         if (!typeSystem.validateType(paramType, argValue)) {
-            if (paramType.equals(Keyword.TEXT.toString())) {
+            if (paramType.equals(TEXT.toString())) {
                 argValue = typeSystem.convertType(argValue, paramType);
             } else {
-                throw new RuntimeException(
+                throw new ProgramError(
                     "Argument type mismatch for parameter " + param.name + 
                     ". Expected " + paramType + ", got: " + typeSystem.getConcreteType(argValue));
             }
@@ -739,15 +1046,15 @@ public Object evalMethodCall(
 
         if (paramType.contains("|")) {
             String activeType = typeSystem.getConcreteType(typeSystem.unwrap(argValue));
-            argValue = new TypeValue(argValue, activeType, paramType);
+            argValue = new TypeHandler.Value(argValue, activeType, paramType);
         }
 
-        newLocals.put(param.name, argValue);
-        newLocalTypes.put(param.name, paramType);
+        methodLocals.put(param.name, argValue);
+        methodLocalTypes.put(param.name, paramType);
     }
 
     if (argCount > paramCount) {
-        throw new RuntimeException(
+        throw new ProgramError(
             "Too many arguments: expected " + paramCount + ", got " + argCount);
     }
 
@@ -760,14 +1067,14 @@ public Object evalMethodCall(
         }
     }
 
-    // FIXED: Ensure object instance is always properly set
-    ExecutionContext ctx = new ExecutionContext(obj, newLocals, slotValues, slotTypes);
-    ctx.localTypes.putAll(newLocalTypes);
+    ExecutionContext ctx = new ExecutionContext(obj, methodLocals, slotValues, slotTypes, typeSystem);
     
-    // Always set object instance
+    for (Map.Entry<String, String> entry : methodLocalTypes.entrySet()) {
+        ctx.setVariableType(entry.getKey(), entry.getValue());
+    }
+    
     ctx.objectInstance = obj;
     
-    // Set current class from method association
     if (method.associatedClass != null) {
         TypeNode classType = findTypeByName(method.associatedClass);
         if (classType != null) {
@@ -775,7 +1082,6 @@ public Object evalMethodCall(
         }
     }
     
-    // Also set current class from object type
     if (obj != null && obj.type != null && ctx.currentClass == null) {
         TypeNode classType = findTypeByName(obj.type.name);
         if (classType != null) {
@@ -785,6 +1091,7 @@ public Object evalMethodCall(
 
     visitor.pushContext(ctx);
     boolean calledMethodHasSlots = method.returnSlots != null && !method.returnSlots.isEmpty();
+    Object methodResult = null;
 
     try {
         if (method.body != null) {
@@ -797,61 +1104,99 @@ public Object evalMethodCall(
             }
         }
     } catch (EarlyExitException e) {
+    } catch (ProgramError e) {
+        throw e;
+    } catch (Exception e) {
+        throw new InternalError("Method call execution failed: " + call.name, e);
+    } finally {
+        visitor.popContext();
     }
 
-    visitor.popContext();
+    Object result = calledMethodHasSlots ? slotValues : methodResult;
 
-    return calledMethodHasSlots ? slotValues : null;
-}
+    if (call.slotNames != null && !call.slotNames.isEmpty() && call.isSingleSlotCall) {
+        if (result instanceof Map) {
+            Map<String, Object> map = (Map<String, Object>) result;
+            String slotName = call.slotNames.get(0);
+            return map.get(slotName);
+        }
+    }
 
-public Object handleBuiltinMethod(MethodNode node, MethodCallNode call) {
-    return builtinRegistry.executeBuiltin(node.methodName, call, visitor);
+    return result;
+  }
+
+  @SuppressWarnings("unchecked")
+  public Object handleBuiltinMethod(MethodNode node, MethodCallNode call) {
+    if (node == null) {
+      throw new InternalError("handleBuiltinMethod called with null node");
+    }
+    if (call == null) {
+      throw new InternalError("handleBuiltinMethod called with null call");
+    }
+    return builtinRegistry.executeBuiltin(node.methodName, (List<Object>)call);
   }
 
   private MethodNode resolveImportedMethod(String qualifiedMethodName) {
-    try {
-        MethodNode node = importResolver.findMethod(qualifiedMethodName);
-        
-        if (node != null) {
-            return node;
-        }
-        
-        if (qualifiedMethodName.contains(".")) {
-            String[] parts = qualifiedMethodName.split("\\.");
-            if (parts.length >= 2) {
-                String className = parts[0];
-                String methodName = parts[1];
-                
-                TypeNode type = importResolver.findType(className);
-                if (type != null) {
-                    return constructorResolver.findMethodInHierarchy(type, methodName, 
-                        new ExecutionContext(null, new HashMap<String, Object>(), null, null));
-                }
-            }
-        }
-        
-        return null;
-    } catch (Exception e) {
-        e.printStackTrace();
-        return null;
+    if (qualifiedMethodName == null || qualifiedMethodName.isEmpty()) {
+      throw new InternalError("resolveImportedMethod called with null/empty name");
     }
-}
+    
+    try {
+      MethodNode node = importResolver.findMethod(qualifiedMethodName);
+      
+      if (node != null) {
+        return node;
+      }
+      
+      if (qualifiedMethodName.contains(".")) {
+        String[] parts = qualifiedMethodName.split("\\.");
+        if (parts.length >= 2) {
+          String className = parts[0];
+          String methodName = parts[1];
+          
+          TypeNode type = importResolver.findType(className);
+          if (type != null) {
+            ExecutionContext searchCtx = new ExecutionContext(null, new HashMap<String, Object>(), null, null, typeSystem);
+            return constructorResolver.findMethodInHierarchy(type, methodName, searchCtx);
+          }
+        }
+      }
+      
+      return null;
+    } catch (ProgramError e) {
+      DebugSystem.debug("INTERPRETER", "Method not found in imports: " + qualifiedMethodName);
+      return null;
+    } catch (Exception e) {
+      throw new InternalError("Failed to resolve imported method: " + qualifiedMethodName, e);
+    }
+  }
 
-private TypeNode findTypeByName(String className) {
-    TypeNode type = importResolver.findType(className);
-    if (type != null) {
-        return type;
+  private TypeNode findTypeByName(String className) {
+    if (className == null || className.isEmpty()) {
+      throw new InternalError("findTypeByName called with null/empty className");
     }
     
     ProgramNode currentProgram = getCurrentProgram();
     if (currentProgram != null && currentProgram.unit != null && currentProgram.unit.types != null) {
-        for (TypeNode t : currentProgram.unit.types) {
-            if (t.name.equals(className)) {
-                return t;
-            }
+      for (TypeNode t : currentProgram.unit.types) {
+        if (t.name.equals(className)) {
+          return t;
         }
+      }
     }
     
-    return null;
-}
+    try {
+      TypeNode type = importResolver.findType(className);
+      return type;
+    } catch (ProgramError e) {
+      DebugSystem.debug("INTERPRETER", "Type not found in imports (may be local): " + className);
+      return null;
+    }
+  }
+  
+  public void clearAllCaches() {
+    importResolver.clearCache();
+    constructorResolver.clearCaches();
+    DebugSystem.info("INTERPRETER", "All caches cleared");
+  }
 }
