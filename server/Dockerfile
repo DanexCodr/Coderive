@@ -2,7 +2,7 @@ FROM eclipse-temurin:17-jdk
 WORKDIR /app
 
 # Copy everything
-COPY ..
+COPY . .
 
 # Verify
 RUN ls -la /app/
