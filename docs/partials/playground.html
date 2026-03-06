@@ -1,0 +1,33 @@
+<!-- Top section - matches home/docs -->
+<div class="top-section">
+    <div class="hamburger-group">
+        <button class="hamburger-btn" id="playgroundDrawerToggle" aria-label="Menu">☰</button>
+        <span class="home-text">Playground</span>
+    </div>
+    <div class="divider"></div>
+</div>
+
+<div class="playground-container">
+    <div class="playground-header">
+        <h1 class="playground-title">Coderive Playground</h1>
+        <div class="playground-controls">
+            <span class="badge" id="apiStatus">⚡ Connecting...</span>
+            <button id="clearBtn" class="playground-btn secondary">Clear Console</button>
+            <button id="resetBtn" class="playground-btn secondary">⟲ Reset Session</button>
+        </div>
+    </div>
+
+    <div class="repl-main">
+        <div id="repl-output" class="repl-output"></div>
+        
+        <div class="repl-input-line">
+            <span class="repl-prompt" id="prompt">>></span>
+            <input type="text" 
+                   id="repl-input" 
+                   class="repl-input" 
+                   placeholder="Enter code..."
+                   autofocus
+                   autocomplete="off">
+        </div>
+    </div>
+</div>
