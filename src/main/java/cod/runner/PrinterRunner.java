@@ -10,7 +10,7 @@ import java.util.Scanner;
 public class PrinterRunner extends BaseRunner {
 
     private final String androidPath = "/storage/emulated/0";
-    private final String definedFilePath = "/JavaNIDE/Programming-Language/Coderive/executables/InteractiveDemo.cod";
+    private final String definedFilePath = "/JavaNIDE/Programming-Language/Coderive/executables/src/main/test/InteractiveDemo.cod";
     
     private static final String NAME = "PRINTER";
     
@@ -30,7 +30,7 @@ public class PrinterRunner extends BaseRunner {
             }
         }
         
-        RunnerConfig config = processCommandLineArgs(args, inputFilename, new Configuration() {
+        RunnerConfig config = processArgs(args, inputFilename, new Configuration() {
             @Override
             public void configure(RunnerConfig config) {
                 config.withDebugLevel(DebugSystem.Level.DEBUG);
@@ -73,9 +73,9 @@ public class PrinterRunner extends BaseRunner {
     }
     
     private void printOriginalAST(ProgramNode ast) {
-        System.out.println("\n=== ABSTRACT SYNTAX TREE ===");
-        System.out.println("This is the AST as parsed from source code.");
-        System.out.println("========================================\n");
+        out("\n=== ABSTRACT SYNTAX TREE ===");
+        out("This is the AST as parsed from source code.");
+        out("========================================\n");
         DebugSystem.debug(NAME + LOG_TAG, "Printing AST");
         ASTPrinter.print(ast);
     }
@@ -91,32 +91,35 @@ public class PrinterRunner extends BaseRunner {
         Scanner scanner = new Scanner(System.in);
         String defaultFilename = androidPath + definedFilePath;
         
-        System.out.println("Enter file path or press Enter for default [" + defaultFilename + "]:");
+        out("Enter file path or press Enter for default [" + defaultFilename + "]:");
         System.out.print("> ");
         
         String userInput = scanner.nextLine().trim();
         scanner.close();
         
         if (userInput.isEmpty()) {
-            System.out.println("Using default file: " + defaultFilename);
+            out("Using default file: " + defaultFilename);
             DebugSystem.info(NAME + LOG_TAG, "Using default file: " + defaultFilename);
             return defaultFilename;
         } else {
-            System.out.println("Using user provided file: " + userInput);
+            out("Using user provided file: " + userInput);
             DebugSystem.info(NAME + LOG_TAG, "Using user file: " + userInput);
             return userInput;
         }
     }
     
     private void printHelp() {
-        System.out.println(NAME + " Display Abstract Syntax Trees");
-        System.out.println("Usage: PrinterRunner [filename] [options]\n");
-        System.out.println("Options:");
-        System.out.println("  -h, --help         Show this help message");
-        System.out.println("\nExamples:");
-        System.out.println(NAME + LOG_TAG + " program.cod               # Show AST");
-        System.out.println("\nNote: Default file is used if no filename provided.");
-        System.out.println("Source files should be under src/main/ directory");
+        out(NAME + " Display Abstract Syntax Trees");
+        out("Usage: PrinterRunner [filename] [options]");
+        out();
+        out("Options:");
+        out("  -h, --help         Show this help message");
+        out();
+        out("Examples:");
+        out(NAME + LOG_TAG + " program.cod               # Show AST");
+        out();
+        out("Note: Default file is used if no filename provided.");
+        out("Source files should be under src/main/ directory");
         DebugSystem.info(NAME + LOG_TAG, "Printed help message");
     }
 
@@ -127,9 +130,10 @@ public class PrinterRunner extends BaseRunner {
             PrinterRunner runner = new PrinterRunner();
             runner.run(args);
         } catch (Exception e) {
-            System.err.println("AST " + NAME + " Error: " + e.getMessage());
+            outE("AST " + NAME + " Error: " + e.getMessage());
             DebugSystem.error(NAME + LOG_TAG, "Error: " + e.getMessage());
-            System.err.println("\nUse --help for usage information.");
+            outE();
+            outE("Use --help for usage information.");
             
             if (DebugSystem.getLevel().compareTo(DebugSystem.Level.DEBUG) >= 0) {
                 e.printStackTrace();
