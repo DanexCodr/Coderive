@@ -1,3 +1,159 @@
+/* ── JVM loading overlay ─────────────────────────────────────────────────── */
+
+.jvm-overlay {
+    position: fixed;
+    inset: 0;
+    background: #0d0d0d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    /* entry: already visible, no fade-in needed */
+    opacity: 1;
+    transition: opacity 0.55s ease, visibility 0.55s ease;
+    visibility: visible;
+}
+
+.jvm-overlay.jvm-overlay-out {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.jvm-overlay-box {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 40px 48px;
+    max-width: 480px;
+    width: 90%;
+    font-family: 'JetBrains Mono Light', monospace;
+    text-align: center;
+}
+
+.jvm-overlay-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: #e0e0e0;
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+}
+
+.jvm-overlay-subtitle {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 32px;
+}
+
+/* step list */
+.jvm-steps {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 28px;
+    text-align: left;
+}
+
+.jvm-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid #222;
+    transition: color 0.3s ease;
+}
+
+.jvm-step:last-child {
+    border-bottom: none;
+}
+
+/* step states */
+.jvm-step.pending .jvm-step-num  { background: #2a2a2a; color: #555; }
+.jvm-step.pending .jvm-step-label { color: #555; }
+
+.jvm-step.active .jvm-step-num   { background: #1e3a5f; color: #4a9eff; }
+.jvm-step.active .jvm-step-label  { color: #c0c8d8; }
+
+.jvm-step.done .jvm-step-num     { background: #1a3a2a; color: #4caf50; }
+.jvm-step.done .jvm-step-label    { color: #8ec49a; }
+
+.jvm-step.error .jvm-step-num    { background: #3a1a1a; color: #ff6b6b; }
+.jvm-step.error .jvm-step-label   { color: #ff8888; }
+
+.jvm-step-num {
+    min-width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+.jvm-step-label {
+    flex: 1;
+    font-size: 13px;
+    transition: color 0.3s ease;
+}
+
+.jvm-step-check {
+    font-size: 14px;
+    min-width: 18px;
+    text-align: right;
+    transition: color 0.3s ease;
+}
+
+.jvm-step.active .jvm-step-check {
+    color: #4a9eff;
+    animation: jvm-spin-dots 1.2s ease-in-out infinite;
+}
+
+.jvm-step.done .jvm-step-check  { color: #4caf50; }
+.jvm-step.error .jvm-step-check { color: #ff6b6b; }
+
+@keyframes jvm-spin-dots {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+}
+
+/* progress bar */
+.jvm-progress-wrap {
+    height: 4px;
+    background: #252525;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.jvm-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #2a6ebb, #4a9eff);
+    border-radius: 2px;
+    transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.jvm-progress-label {
+    font-size: 12px;
+    color: #555;
+    text-align: right;
+    margin-bottom: 0;
+}
+
+.jvm-overlay-error {
+    margin-top: 18px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background: #2a1010;
+    border: 1px solid #5a2020;
+    color: #ff8888;
+    font-size: 12px;
+    text-align: left;
+    word-break: break-word;
+}
+
+/* ── REPL ───────────────────────────────────────────────────────────────── */
+
 .repl-main {
     background: #1e1e1e;
     border: 1px solid #333;
