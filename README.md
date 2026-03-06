@@ -28,23 +28,11 @@
 7. [License](#7-license)
 8. [Contact](#8-contact)
 
-## 1. Introduction
+## Introduction
 
-We present **Coderive v0.6.0**, a mobile-first general programming language designed for **safe, fast, and clear** coding. 
-Coderive features a parser system written in java (manual recursive backtracking) and dual compilation pipeline (bytecode + native code generation).
-Built entirely on mobile devices, Coderive proves that serious compiler development can happen outside traditional environments.
-
-## 2. Technical Architecture
-
----
-
-**Compiler Pipeline: Efficient Code Generation**
-
-- **Dual Compilation:** Simultaneous bytecode and native code generation
-- **Multi-Target Support:** ARM64 and x86_64 code generation from single codebase
-- **Mobile-First Design:** Built and tested primarily on Android devices
-
----
+We present **Coderive v0.7.0**, a modern general programming language designed for **safe, fast, and clear** coding. 
+Coderive features a modular lexer-parser system written in java (recursive backtracking architecture) and a novel O(1)range system design.
+Built entirely on a mobile device, Coderive proves that serious programming language development can happen outside traditional environments.
 
 **Development Environment: Constraint-Driven Innovation**
 
@@ -56,7 +44,7 @@ The language was developed under the constraint of mobile-only development:
 
 ---
 
-## 3. Language Features
+## Language Features
 
 ### Core Innovations
 
@@ -122,11 +110,7 @@ share InteractiveDemo {
 }
 ```
 
-## 4. Compiler
-
-The system has an on going TAC Compiler for efficient execution across both interpreter and native compilation targets. 
-
-## 5. Getting Started
+## Getting Started
 
 **System Requirements**
 
@@ -143,24 +127,11 @@ java -jar coderive.jar program.cod
 # Compile to native
 java -jar coderive.jar --native program.cod
 ```
-
-## 6. Current Status
-
-<div align="center">
-
-|Component|Status|Notes|
-|---------|------|-----|
-|Interpreter|✅ Complete|Full language features|
-|Native Code Generation|✅ Complete|ARM64/x86_64 support|
-|TAC Compiler|🔧 In Progress|Enhanced implementation|
-
-</div>
-
-## 7. License
+## License
 
 This project is licensed under the [MIT License](/LICENSE).
 
-## 8. Contact
+## Contact
 
 Have questions or want to contribute? 
 
