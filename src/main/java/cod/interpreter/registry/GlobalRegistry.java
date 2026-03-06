@@ -2,8 +2,13 @@ package cod.interpreter.registry;
 
 import cod.ast.nodes.*;
 import cod.debug.DebugSystem;
-import cod.interpreter.InterpreterVisitor;
-import cod.interpreter.io.IOHandler;
+import cod.error.InternalError;
+import cod.error.ProgramError;
+import cod.interpreter.handler.IOHandler;
+import cod.interpreter.context.ExecutionContext;
+import cod.math.AutoStackingNumber;
+import cod.range.NaturalArray;
+
 import java.util.*;
 
 public class GlobalRegistry {
@@ -13,6 +18,13 @@ public class GlobalRegistry {
     private final IOHandler ioHandler;
     
     public GlobalRegistry(IOHandler ioHandler, BuiltinRegistry builtinRegistry) {
+        if (ioHandler == null) {
+            throw new InternalError("GlobalRegistry constructed with null ioHandler");
+        }
+        if (builtinRegistry == null) {
+            throw new InternalError("GlobalRegistry constructed with null builtinRegistry");
+        }
+        
         this.ioHandler = ioHandler;
         this.builtinRegistry = builtinRegistry;
         this.globalFunctions = new HashMap<String, GlobalFunction>();
@@ -20,115 +32,181 @@ public class GlobalRegistry {
         registerGlobalFunctions();
     }
     
-    private void registerGlobalFunctions() {
-        registerGlobal("outs", new GlobalFunction() {
-    @Override
-    public Object execute(List<ExprNode> arguments, InterpreterVisitor visitor) {
-        if (arguments == null || arguments.isEmpty()) {
-            ioHandler.output("");  // Empty
-            return null;
+    /**
+     * Extract a string value from an argument (works with both raw strings and AST nodes)
+     */
+    private String asString(Object arg) {
+        if (arg instanceof String) {
+            return (String) arg;
         }
-        
-        // SINGLE argument: No space
-        if (arguments.size() == 1) {
-            Object value = visitor.visit((ASTNode) arguments.get(0));
-            ioHandler.output(String.valueOf(value));
-            return null;
+        if (arg instanceof TextLiteralNode) {
+            String text = ((TextLiteralNode) arg).value;
+            if (text.startsWith("\"") && text.endsWith("\"") && text.length() >= 2) {
+                return text.substring(1, text.length() - 1);
+            }
+            return text;
         }
-        
-        // MULTIPLE arguments: Auto-space between
-        StringBuilder result = new StringBuilder();
-        for (int i = 0; i < arguments.size(); i++) {
-            ExprNode arg = arguments.get(i);
-            Object value = visitor.visit((ASTNode) arg);
-            result.append(String.valueOf(value));
-            
-            if (i < arguments.size() - 1) {
-                result.append(" ");  // AUTO-SPACE! 🚀
+        return String.valueOf(arg);
+    }
+    
+    // Helper to auto-commit arrays before output
+    private void autoCommitArrays(List<Object> arguments) {
+        if (arguments == null) return;
+        for (Object arg : arguments) {
+            if (arg instanceof NaturalArray) {
+                NaturalArray arr = (NaturalArray) arg;
+                if (arr.hasPendingUpdates()) {
+                    arr.commitUpdates();
+                }
             }
         }
-        ioHandler.output(result.toString());
-        return null;
     }
     
-    @Override
-    public String getSignature() {
-        return "outs(value) -> value | outs(v1, v2, ...) -> auto-spaced";
+    // ========== THREAD LOCAL CONTEXT HELPERS ==========
+    private boolean isInOptimizedLoop() {
+        ExecutionContext ctx = ExecutionContext.getCurrentContext();
+        return ctx != null && ctx.isInOptimizedLoop();
     }
-});
+    
+    private void recordOptimizedOutput(List<Object> arguments) {
+        ExecutionContext ctx = ExecutionContext.getCurrentContext();
+        if (ctx != null && ctx.isInOptimizedLoop()) {
+            for (Object arg : arguments) {
+                ctx.recordOptimizedOutput(arg);
+            }
+        }
+    }
+    
+    private void registerGlobalFunctions() {
+        // out() function - prints with newline
+        registerGlobal("out", new GlobalFunction() {
+            @Override
+            public Object execute(List<Object> arguments) {
+                try {
+                    // Check if we're in an optimized loop
+                    if (isInOptimizedLoop()) {
+                        // Don't output now - just record
+                        recordOptimizedOutput(arguments);
+                        return null;
+                    }
+                    
+                    // Normal output path
+                    autoCommitArrays(arguments);
+                    
+                    if (arguments == null || arguments.isEmpty()) {
+                        ioHandler.output("\n");
+                        return null;
+                    }
+                    
+                    if (arguments.size() == 1) {
+                        ioHandler.output(asString(arguments.get(0)) + "\n");
+                        return null;
+                    }
+                    
+                    StringBuilder result = new StringBuilder();
+                    for (Object arg : arguments) {
+                        result.append(asString(arg)).append("\n");
+                    }
+                    ioHandler.output(result.toString());
+                    return null;
+                } catch (ProgramError e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new InternalError("out() execution failed", e);
+                }
+            }
+            
+            @Override
+            public String getSignature() {
+                return "out(value) -> value\\n | out(v1, v2, ...) -> each on new line";
+            }
+        });
 
-registerGlobal("out", new GlobalFunction() {
-    @Override
-    public Object execute(List<ExprNode> arguments, InterpreterVisitor visitor) {
-        if (arguments == null || arguments.isEmpty()) {
-            ioHandler.output("\n");  // Just newline
-            return null;
-        }
-        
-        // SINGLE argument: Add newline
-        if (arguments.size() == 1) {
-            Object value = visitor.visit((ASTNode) arguments.get(0));
-            ioHandler.output(String.valueOf(value) + "\n");
-            return null;
-        }
-        
-        // MULTIPLE arguments: Each on new line
-        StringBuilder result = new StringBuilder();
-        for (ExprNode arg : arguments) {
-            Object value = visitor.visit((ASTNode) arg);
-            result.append(String.valueOf(value)).append("\n");
-        }
-        ioHandler.output(result.toString());
-        return null;
-    }
-    
-    @Override
-    public String getSignature() {
-        return "out(value) -> value\\n | out(v1, v2, ...) -> each on new line";
-    }
-});
+        // outs() function - prints with spaces
+        registerGlobal("outs", new GlobalFunction() {
+            @Override
+            public Object execute(List<Object> arguments) {
+                try {
+                    // Check if we're in an optimized loop
+                    if (isInOptimizedLoop()) {
+                        // Don't output now - just record
+                        recordOptimizedOutput(arguments);
+                        return null;
+                    }
+                    
+                    // Normal output path
+                    autoCommitArrays(arguments);
+                    
+                    if (arguments == null || arguments.isEmpty()) {
+                        ioHandler.output("");
+                        return null;
+                    }
+                    
+                    if (arguments.size() == 1) {
+                        ioHandler.output(asString(arguments.get(0)));
+                        return null;
+                    }
+                    
+                    StringBuilder result = new StringBuilder();
+                    for (int i = 0; i < arguments.size(); i++) {
+                        result.append(asString(arguments.get(i)));
+                        if (i < arguments.size() - 1) {
+                            result.append(" ");
+                        }
+                    }
+                    ioHandler.output(result.toString());
+                    return null;
+                } catch (ProgramError e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new InternalError("outs() execution failed", e);
+                }
+            }
+            
+            @Override
+            public String getSignature() {
+                return "outs(value) -> value | outs(v1, v2, ...) -> auto-spaced";
+            }
+        });
         
         registerGlobal("in", new GlobalFunction() {
             @Override
-            public Object execute(List<ExprNode> arguments, InterpreterVisitor visitor) {
-                int argCount = arguments != null ? arguments.size() : 0;
-                
-                String expectedType = "text";
-                String message = "";
-                
-                if (argCount == 0) {
-                    expectedType = "text";
-                } 
-                else if (argCount == 1) {
-                    Object typeArg = visitor.visit((ASTNode) arguments.get(0));
-                    expectedType = String.valueOf(typeArg);
-                }
-                else if (argCount == 2) {
-                    Object typeArg = visitor.visit((ASTNode) arguments.get(0));
-                    Object messageArg = visitor.visit((ASTNode) arguments.get(1));
+            public Object execute(List<Object> arguments) {
+                try {
+                    int argCount = arguments != null ? arguments.size() : 0;
                     
-                    expectedType = String.valueOf(typeArg);
-                    message = String.valueOf(messageArg);
-                }
-                else if (argCount == 3) {
-                    Object typeArg = visitor.visit((ASTNode) arguments.get(0));
-                    Object messageArg = visitor.visit((ASTNode) arguments.get(1));
-                    Object sourceArg = visitor.visit((ASTNode) arguments.get(2));
+                    String expectedType = "text";
+                    String message = "";
                     
-                    expectedType = String.valueOf(typeArg);
-                    message = String.valueOf(messageArg);
-                    String source = String.valueOf(sourceArg);
-                    
-                    if (!"stdin".equals(source)) {
-                        throw new RuntimeException("Only 'stdin' source is currently supported for input");
+                    if (argCount == 0) {
+                        expectedType = "text";
+                    } else if (argCount == 1) {
+                        expectedType = asString(arguments.get(0));
+                    } else if (argCount == 2) {
+                        expectedType = asString(arguments.get(0));
+                        message = asString(arguments.get(1));
+                    } else if (argCount == 3) {
+                        expectedType = asString(arguments.get(0));
+                        message = asString(arguments.get(1));
+                        String source = asString(arguments.get(2));
+                        
+                        if (!"stdin".equals(source)) {
+                            throw new ProgramError("Only 'stdin' source is currently supported for input");
+                        }
+                    } else {
+                        throw new ProgramError("in() takes 0-3 arguments, got " + argCount);
                     }
+                    
+                    if (!message.isEmpty()) {
+                        ioHandler.output(message);
+                    }
+                    
+                    return ioHandler.readInput(expectedType);
+                } catch (ProgramError e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new InternalError("in() execution failed", e);
                 }
-                
-                if (!message.isEmpty()) {
-                    ioHandler.output(message);
-                }
-                
-                return ioHandler.readInput(expectedType);
             }
             
             @Override
@@ -137,72 +215,117 @@ registerGlobal("out", new GlobalFunction() {
             }
         });
         
-        // In registerGlobalFunctions() method
-registerGlobal("timer", new GlobalFunction() {
-    @Override
-    public Object execute(List<ExprNode> arguments, InterpreterVisitor visitor) {
-        // Same implementation logic
-        int argCount = arguments != null ? arguments.size() : 0;
-        long nanos = System.nanoTime();
-        
-        if (argCount == 0) return nanos / 1_000_000.0;
-        
-        Object unitArg = visitor.visit((ASTNode) arguments.get(0));
-        String unit = String.valueOf(unitArg).toLowerCase();
-        
-        switch (unit) {
-            case "ns": return (double) nanos;
-            case "us": return nanos / 1_000.0;
-            case "ms": return nanos / 1_000_000.0;
-            case "s": return nanos / 1_000_000_000.0;
-            default:
-                throw new RuntimeException("Unknown time unit: " + unit);
-        }
-    }
-    
-    @Override
-    public String getSignature() {
-        return "timer() -> ms | timer(unit) -> time_in_unit";
-    }
-});
+        registerGlobal("timer", new GlobalFunction() {
+            @Override
+            public Object execute(List<Object> arguments) {
+                try {
+                    int argCount = arguments != null ? arguments.size() : 0;
+                    long nanos = System.nanoTime();
+                    
+                    double result;
+                    if (argCount == 0) {
+                        // Default: return milliseconds with 9 decimal places
+                        result = nanos / 1_000_000.0;
+                    } else if (argCount == 1) {
+                        String unit = asString(arguments.get(0)).toLowerCase();
+                        
+                        if ("ns".equals(unit) || "nanos".equals(unit)) {
+                            return AutoStackingNumber.fromLong(nanos);
+                        } else if ("us".equals(unit) || "micros".equals(unit)) {
+                            result = nanos / 1_000.0;
+                        } else if ("ms".equals(unit) || "millis".equals(unit)) {
+                            result = nanos / 1_000_000.0;
+                        } else if ("s".equals(unit) || "sec".equals(unit) || "seconds".equals(unit)) {
+                            result = nanos / 1_000_000_000.0;
+                        } else {
+                            throw new ProgramError(
+                                "Unknown time unit: '" + unit + "'. Valid units: ns, us, ms, s"
+                            );
+                        }
+                    } else {
+                        throw new ProgramError("timer() takes 0 or 1 argument, got " + argCount);
+                    }
+                    
+                    // Round to 9 decimal places (nanosecond precision)
+                    // Multiply by 1e9, round, then divide back
+                    double rounded = Math.round(result * 1_000_000_000.0) / 1_000_000_000.0;
+                    
+                    // Convert to AutoStackingNumber
+                    return AutoStackingNumber.fromDouble(rounded);
+                    
+                } catch (ProgramError e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new InternalError("timer() execution failed", e);
+                }
+            }
+            
+            @Override
+            public String getSignature() {
+                return "timer() -> ms | timer(unit) -> time_in_unit";
+            }
+        });
     }
     
     private void registerGlobal(String name, GlobalFunction function) {
+        if (name == null || name.isEmpty()) {
+            throw new InternalError("registerGlobal called with null/empty name");
+        }
+        if (function == null) {
+            throw new InternalError("registerGlobal called with null function");
+        }
+        
         globalFunctions.put(name, function);
         DebugSystem.debug("GLOBAL", "Registered global function: " + name + " -> " + function.getSignature());
     }
     
     public boolean isGlobal(String functionName) {
-        return globalFunctions.containsKey(functionName) || 
-               builtinRegistry.isBuiltin(functionName);
+        if (functionName == null) {
+            return false;
+        }
+        return globalFunctions.containsKey(functionName) || builtinRegistry.isBuiltin(functionName);
     }
     
-    public Object executeGlobal(String functionName, List<ExprNode> arguments, InterpreterVisitor visitor) {
+    public Object executeGlobal(String functionName, List<Object> arguments) {
+        if (functionName == null) {
+            throw new InternalError("executeGlobal called with null functionName");
+        }
+        
         GlobalFunction globalFunc = globalFunctions.get(functionName);
         if (globalFunc != null) {
-            DebugSystem.debug("GLOBAL", "Executing global function: " + functionName);
-            return globalFunc.execute(arguments, visitor);
+            DebugSystem.debug("GLOBAL", "Executing global function: " + functionName + " with args: " + arguments);
+            try {
+                return globalFunc.execute(arguments);
+            } catch (ProgramError e) {
+                throw e;
+            } catch (Exception e) {
+                throw new InternalError("Global function execution failed: " + functionName, e);
+            }
         }
         
         if (builtinRegistry.isBuiltin(functionName)) {
-            MethodCallNode dummyCall = new MethodCallNode();
-            dummyCall.name = functionName;
-            dummyCall.arguments = arguments;
             DebugSystem.debug("GLOBAL", "Executing builtin as global: " + functionName);
-            return builtinRegistry.executeBuiltin(functionName, dummyCall, visitor);
+            try {
+                return builtinRegistry.executeBuiltin(functionName, arguments);
+            } catch (ProgramError e) {
+                throw e;
+            } catch (Exception e) {
+                throw new InternalError("Builtin execution as global failed: " + functionName, e);
+            }
         }
         
-        throw new RuntimeException("Unknown global function: " + functionName);
+        throw new ProgramError("Unknown global function: " + functionName);
     }
     
-    public Set<String> getGlobalFunctions() {
-        Set<String> allFunctions = new HashSet<String>(globalFunctions.keySet());
-        allFunctions.addAll(builtinRegistry.getRegisteredBuiltins());
-        return Collections.unmodifiableSet(allFunctions);
+    public Set<String> getGlobalFunctionNames() {
+        Set<String> names = new HashSet<String>();
+        names.addAll(globalFunctions.keySet());
+        names.addAll(builtinRegistry.getRegisteredBuiltins());
+        return Collections.unmodifiableSet(names);
     }
     
     public interface GlobalFunction {
-        Object execute(List<ExprNode> arguments, InterpreterVisitor visitor);
+        Object execute(List<Object> arguments);
         String getSignature();
     }
 }
