@@ -70,7 +70,7 @@ Coderive replaces traditional boolean operators with expressive quantifiers:
 **O(1) Lazy Array and Formula-Optimizing Loop**
 
 ```python
-       for i in [0 to 1Qi] {
+       for i of 0 to 1Qi {
             if i % 2 == 0 {
                 arr[i] = "even"
             } elif i % 2 == 1 {
