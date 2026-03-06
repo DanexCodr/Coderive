@@ -34,10 +34,6 @@ We present **Coderive v0.6.0**, a mobile-first general programming language desi
 Coderive features a parser system written in java (manual recursive backtracking) and dual compilation pipeline (bytecode + native code generation).
 Built entirely on mobile devices, Coderive proves that serious compiler development can happen outside traditional environments.
 
-<p align="center">
-  <img width="90%" src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/assets/quantifier_estimation.jpg">
-</p>
-
 ## 2. Technical Architecture
 
 ---
