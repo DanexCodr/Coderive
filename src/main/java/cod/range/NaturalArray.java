@@ -1,216 +1,545 @@
 package cod.range;
 
 import cod.ast.nodes.*;
-import cod.interpreter.*;
+import cod.error.InternalError;
+import cod.error.ProgramError;
+import cod.interpreter.Evaluator;
 import cod.interpreter.context.ExecutionContext;
+import cod.interpreter.handler.TypeHandler;
+import cod.math.AutoStackingNumber;
 import cod.range.formula.*;
 
+import java.lang.ref.WeakReference;
 import java.util.*;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 
 public class NaturalArray {
 
     private final RangeNode baseRange;
-    private final InterpreterVisitor visitor;
-    private Map<Long, Object> cache;  
+    private final Evaluator evaluator;
+    private ExecutionContext context;
+    private Map<Long, Object> cache;
     private boolean isMutable = false;
-    
-    // Cached values
-    private Object cachedStart = null;    
-    private Object cachedEnd = null;      
-    private Object cachedStep = null;     
-    private Long cachedSize = null;       
-    
-    private boolean isLongOrIntegerRange = false;
+
+    // Element type and type handler
+    private final String elementType;
+    private final TypeHandler typeHandler;
+
+    // Conversion support for [text] = [int range]
+    private boolean convertToString = false;
+    private String targetElementType = null;
+
+    // Cached values as AutoStackingNumber
+    private AutoStackingNumber cachedStart = null;
+    private AutoStackingNumber cachedEnd = null;
+    private AutoStackingNumber cachedStep = null;
+    private Long cachedSize = null;  // ✅ NEW: Cached size
+
+    // Recent index cache for sequential access
+    private static final int RECENT_CACHE_SIZE = 64;
+    private Object[] recentCache = new Object[RECENT_CACHE_SIZE];
+    private long recentCacheStart = -1;
+    private boolean recentCacheValid = false;
+
     private boolean isLexicographicalRange = false;
     private String startString = null;
     private String endString = null;
-    
-    private Long cachedStartLong = null;
-    private Long cachedStepLong = null;
-    private BigDecimal cachedStartBD = null;
-    private BigDecimal cachedStepBD = null;
-    
+
+    // Lex range indices
+    private long startIndex = 0;
+    private long endIndex = 0;
+    private long maxIndex = 0;
+    private boolean isUp = true;
+
     // Single-element cache
     private transient Long lastIndex = null;
     private transient Object lastValue = null;
-    
+
     private static final long[] POWERS_26 = new long[11];
     private static final long[] POWERS_2 = new long[11];
     private static final long[] TOTAL_UP_TO_LENGTH = new long[11];
-    
-    private List<LoopFormula> loopFormulas = new ArrayList<LoopFormula>();
+
+    // Formula collections
+    private List<SequenceFormula> sequenceFormulas = new ArrayList<SequenceFormula>();
     private List<ConditionalFormula> conditionalFormulas = new ArrayList<ConditionalFormula>();
-    private List<MultiBranchFormula> multiBranchFormulas = new ArrayList<MultiBranchFormula>();    
     private Map<Long, Object> computedCache = new HashMap<Long, Object>();
     
+    // Pending updates for lazy assignment
+    private List<PendingRangeUpdate> pendingUpdates = new ArrayList<PendingRangeUpdate>();
+    private boolean hasPendingUpdates = false;
+    
+    // Output cache
+    private Map<Long, List<Object>> outputCache = new HashMap<Long, List<Object>>();
+    private boolean hasOutputs = false;
+
     static {
         POWERS_26[0] = 1;
         POWERS_2[0] = 1;
         for (int i = 1; i <= 10; i++) {
-            POWERS_26[i] = POWERS_26[i-1] * 26;
-            POWERS_2[i] = POWERS_2[i-1] * 2;
+            POWERS_26[i] = POWERS_26[i - 1] * 26;
+            POWERS_2[i] = POWERS_2[i - 1] * 2;
         }
         TOTAL_UP_TO_LENGTH[0] = 0;
         for (int len = 1; len <= 10; len++) {
-            TOTAL_UP_TO_LENGTH[len] = TOTAL_UP_TO_LENGTH[len-1] + POWERS_2[len] * POWERS_26[len];
+            TOTAL_UP_TO_LENGTH[len] = TOTAL_UP_TO_LENGTH[len - 1] + POWERS_2[len] * POWERS_26[len];
         }
     }
 
-    public NaturalArray(RangeNode range, InterpreterVisitor visitor) {
-    this.baseRange = range;
-    this.visitor = visitor;
-    this.cache = null;
-    this.isMutable = false;
+    // ========== PROCESSED RANGE CLASS ==========
     
-    // FIRST: Check if start/end are strings
-    Object rawStart = visitor.dispatch(baseRange.start);
-    Object rawEnd = visitor.dispatch(baseRange.end);
-    
-    if (rawStart instanceof String && rawEnd instanceof String) {
-        // Handle as lexicographical range
-        this.isLexicographicalRange = true;
-        this.startString = (String) rawStart;
-        this.endString = (String) rawEnd;
-        this.isLongOrIntegerRange = false;
+    /**
+     * Immutable, pre-processed range with all values converted to longs
+     * Created ONCE, used everywhere
+     */
+    public static class ProcessedRange {
+        public final long start;
+        public final long end;
+        public final long step;
+        public final boolean valid;
+        public final String error;  // For debugging
         
-        // Validate and set cached values
-        if (!isValidLexString(startString) || !isValidLexString(endString)) {
-            throw new RuntimeException("Lexicographical range bounds must contain only letters (a-z, A-Z).");
-        }
-        if (hierarchicalSequenceToIndex(startString) > hierarchicalSequenceToIndex(endString)) {
-            throw new RuntimeException("Lexicographical range start must come before end.");
-        }
-        
-        // Set cached values to avoid recomputation
-        this.cachedStart = rawStart;
-        this.cachedEnd = rawEnd;
-        this.cachedStep = (baseRange.step == null) ? 1L : visitor.dispatch(baseRange.step);
-    } else {
-        // Handle as numeric range
-        this.isLongOrIntegerRange = true;
-        getStart(); getEnd(); getStep();
-    }
-}
-    
-    // Lazy range view class
-    private class LazyRangeView extends AbstractList<Object> {
-        private final Object originalStart;
-        private final Object originalEnd;
-        private final long step;
-        
-        private long start;
-        private long end;
-        private boolean converted = false;
-        private Long cachedSize = null;
-        
-        public LazyRangeView(RangeSpec range) {
-            this.originalStart = range.start;
-            this.originalEnd = range.end;
-            this.step = calculateStep(range);
-            
-        }
-        
-        private void ensureConverted() {
-            if (converted) return;
-            
-                start = toLongIndex(originalStart);
-                if (start < 0) {
-                    long arraySize = NaturalArray.this.size();
-                    start = arraySize + start;
-                }
-            
-            
-
-                end = toLongIndex(originalEnd);
-                if (end < 0) {
-                    long arraySize = NaturalArray.this.size();
-                    end = arraySize + end;
-                }
-            
+        public ProcessedRange(RangeSpec range) {
+            long s = 0, e = 0, st = 0;
+            boolean ok = true;
+            String err = null;
             
             try {
-                long arraySize = NaturalArray.this.size();
-                if (start < 0 || start >= arraySize) {
-                    throw new RuntimeException("Start index out of bounds: " + start);
-                }
-                if (end < 0 || end >= arraySize) {
-                    throw new RuntimeException("End index out of bounds: " + end);
-                }
-            } catch (RuntimeException e) {
-                // Individual element access will fail if out of bounds
+                s = toLongIndex(range.start);
+                e = toLongIndex(range.end);
+                st = calculateStep(range);
+            } catch (Exception ex) {
+                ok = false;
+                err = ex.getMessage();
             }
             
-            converted = true;
+            this.start = s;
+            this.end = e;
+            this.step = st;
+            this.valid = ok;
+            this.error = err;
         }
         
+        public ProcessedRange(long start, long end, long step) {
+            this.start = start;
+            this.end = end;
+            this.step = step;
+            this.valid = true;
+            this.error = null;
+        }
+        
+        public ProcessedRange(Object start, Object end, Object step) {
+            this(new RangeSpec(step, start, end));
+        }
+        
+        // Helper methods using pre-processed values
+        public boolean contains(long index) {
+            if (!valid) return false;
+            
+            if (step > 0) {
+                return index >= start && index <= end && 
+                       (index - start) % step == 0;
+            } else {
+                return index <= start && index >= end && 
+                       (start - index) % Math.abs(step) == 0;
+            }
+        }
+        
+        public long size() {
+            if (!valid) return 0;
+            if (step == 0) return 0;
+            
+            if (step > 0) {
+                return ((end - start) / step) + 1;
+            } else {
+                return ((start - end) / Math.abs(step)) + 1;
+            }
+        }
+        
+        public long indexAt(long offset) {
+            if (!valid) return -1;
+            if (offset < 0 || offset >= size()) return -1;
+            
+            if (step > 0) {
+                return start + (offset * step);
+            } else {
+                return start - (offset * Math.abs(step));
+            }
+        }
+        
+        public boolean isAdjacent(ProcessedRange other) {
+            if (!valid || !other.valid) return false;
+            if (step != other.step) return false;
+            
+            if (step > 0) {
+                return end + step == other.start;
+            } else {
+                return end + step == other.start; // For negative step, end < start
+            }
+        }
+        
+        public ProcessedRange merge(ProcessedRange other) {
+            if (!isAdjacent(other)) {
+                throw new IllegalArgumentException("Ranges are not adjacent");
+            }
+            long newEnd = (step > 0) ? Math.max(end, other.end) : Math.min(end, other.end);
+            return new ProcessedRange(start, newEnd, step);
+        }
+    }
+
+    // ========== PENDING UPDATE CLASS ==========
+    
+    private static class PendingRangeUpdate implements Comparable<PendingRangeUpdate> {
+        final ProcessedRange range;
+        final Object value;
+        
+        PendingRangeUpdate(RangeSpec spec, Object value) {
+            this.range = new ProcessedRange(spec);  // Process ONCE
+            this.value = value;
+        }
+        
+        PendingRangeUpdate(ProcessedRange range, Object value) {
+            this.range = range;
+            this.value = value;
+        }
+        
+        boolean contains(long index) {
+            return range.contains(index);
+        }
+        
+        @Override
+        public int compareTo(PendingRangeUpdate other) {
+            if (this.range.start < other.range.start) return -1;
+            if (this.range.start > other.range.start) return 1;
+            return 0;
+        }
+    }
+
+    // ========== CONSTRUCTORS ==========
+
+    public NaturalArray(RangeNode range, Evaluator evaluator, ExecutionContext context) {
+        if (range == null) {
+            throw new InternalError("NaturalArray constructed with null range");
+        }
+        if (evaluator == null) {
+            throw new InternalError("NaturalArray constructed with null evaluator");
+        }
+        if (context == null) {
+            throw new InternalError("NaturalArray constructed with null context");
+        }
+        
+        this.baseRange = range;
+        this.evaluator = evaluator;
+        this.context = context;
+        
+        // Get type handler and element type from context
+        this.typeHandler = context.getTypeHandler();
+        if (this.typeHandler == null) {
+            throw new InternalError("NaturalArray constructed with context that has null typeHandler");
+        }
+        
+        // Determine element type from range
+        this.elementType = determineElementType();
+        
+        this.cache = null;
+        this.isMutable = false;
+        this.maxIndex = TOTAL_UP_TO_LENGTH[10] - 1;
+
+        // Initialize recent cache
+        clearRecentCache();
+
+        Object rawStart = evaluator.evaluate(baseRange.start, context);
+        Object rawEnd = evaluator.evaluate(baseRange.end, context);
+
+        if (rawStart instanceof String && rawEnd instanceof String) {
+            // LEXICOGRAPHICAL RANGE
+            this.isLexicographicalRange = true;
+            this.startString = (String) rawStart;
+            this.endString = (String) rawEnd;
+
+            if (!isValidLexString(startString) || !isValidLexString(endString)) {
+                throw new ProgramError(
+                    "Lexicographical range bounds must contain only letters (a-z, A-Z). " +
+                    "Got: '" + startString + "' to '" + endString + "'"
+                );
+            }
+
+            this.startIndex = hierarchicalSequenceToIndex(startString);
+            this.endIndex = hierarchicalSequenceToIndex(endString);
+
+            if (startIndex <= endIndex) {
+                this.isUp = true;
+                if (baseRange.step == null) {
+                    this.cachedStep = AutoStackingNumber.one(1);
+                } else {
+                    Object stepObj = evaluator.evaluate(baseRange.step, context);
+                    AutoStackingNumber stepNum = typeHandler.toAutoStackingNumber(stepObj);
+                    if (stepNum.compareTo(AutoStackingNumber.zero(1)) <= 0) {
+                        throw new ProgramError("Step must be positive for forward lex range");
+                    }
+                    this.cachedStep = stepNum;
+                }
+            } else {
+                this.isUp = false;
+                if (baseRange.step == null) {
+                    this.cachedStep = AutoStackingNumber.minusOne(1);
+                } else {
+                    Object stepObj = evaluator.evaluate(baseRange.step, context);
+                    AutoStackingNumber stepNum = typeHandler.toAutoStackingNumber(stepObj);
+                    if (stepNum.compareTo(AutoStackingNumber.zero(1)) >= 0) {
+                        throw new ProgramError("Step must be negative for reverse lex range");
+                    }
+                    this.cachedStep = stepNum;
+                }
+            }
+
+            this.cachedStart = AutoStackingNumber.fromLong(startIndex);
+            this.cachedEnd = AutoStackingNumber.fromLong(endIndex);
+
+        } else {
+            this.isLexicographicalRange = false;
+            
+            // Convert to AutoStackingNumber
+            this.cachedStart = typeHandler.toAutoStackingNumber(rawStart);
+            this.cachedEnd = typeHandler.toAutoStackingNumber(rawEnd);
+            
+            // Validate that start/end match element type
+            validateRangeBound(cachedStart, "start");
+            validateRangeBound(cachedEnd, "end");
+            
+            if (baseRange.step != null) {
+                Object stepObj = evaluator.evaluate(baseRange.step, context);
+                this.cachedStep = typeHandler.toAutoStackingNumber(stepObj);
+            }
+        }
+    }
+
+    // Constructor with target type for conversion
+    public NaturalArray(RangeNode range, Evaluator evaluator, ExecutionContext context, String targetType) {
+        this(range, evaluator, context);
+        
+        // If target type is [text] but actual type is not text, mark for conversion
+        if (targetType != null && targetType.startsWith("[") && targetType.endsWith("]")) {
+            String expectedElementType = targetType.substring(1, targetType.length() - 1);
+            if (expectedElementType.equals("text") && !this.elementType.equals("text")) {
+                this.convertToString = true;
+                this.targetElementType = expectedElementType;
+                
+                // Force size recalculation with correct element type
+                this.cachedSize = null;
+                this.cachedStart = null;
+                this.cachedEnd = null;
+                this.cachedStep = null;
+            }
+        }
+    }
+    
+    // Determine element type from range
+    private String determineElementType() {
+        Object start = evaluator.evaluate(baseRange.start, context);
+        Object end = evaluator.evaluate(baseRange.end, context);
+        
+        String startType = typeHandler.getConcreteType(start);
+        String endType = typeHandler.getConcreteType(end);
+        
+        if (startType.equals(endType)) {
+            return startType;
+        }
+        
+        // Mixed numeric types become float
+        if ((startType.equals("int") || startType.equals("float")) &&
+            (endType.equals("int") || endType.equals("float"))) {
+            return "float";
+        }
+        
+        // Default to text for mixed types
+        return "text";
+    }
+    
+    // Validate range bound matches element type
+    private void validateRangeBound(AutoStackingNumber bound, String boundName) {
+        if (!typeHandler.validateType(elementType, bound)) {
+            throw new ProgramError(
+                "Range " + boundName + " type does not match inferred element type " + elementType
+            );
+        }
+    }
+
+    // ========== CACHE SIZE METHODS ==========
+    
+    /**
+     * Invalidates the cached size when array changes
+     */
+    private void invalidateSize() {
+        cachedSize = null;
+    }
+    
+    /**
+     * Calculates the actual size (called when cache is invalid)
+     */
+    private long calculateSizeInternal() {
+        try {
+            if (isLexicographicalRange) {
+                return calculateLexSize();
+            }
+
+            AutoStackingNumber startVal = getStart();
+            AutoStackingNumber endVal = getEnd();
+            AutoStackingNumber stepVal = getStep();
+
+            if (stepVal.isZero()) {
+                return 0L;
+            }
+
+            boolean increasing = stepVal.isPositive();
+            if ((increasing && startVal.compareTo(endVal) > 0) || 
+                (!increasing && startVal.compareTo(endVal) < 0)) {
+                return 0L;
+            }
+
+            // Calculate: ((end - start) / step) + 1
+            AutoStackingNumber diff = endVal.subtract(startVal);
+            AutoStackingNumber steps = diff.divide(stepVal);
+            AutoStackingNumber sizeNum = steps.add(AutoStackingNumber.one(1));
+            
+            if (sizeNum.compareTo(AutoStackingNumber.fromLong(Long.MAX_VALUE)) > 0) {
+                throw new ProgramError("Array size too large: " + sizeNum);
+            }
+
+            return sizeNum.longValue();
+            
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Failed to calculate array size", e);
+        }
+    }
+
+    // ========== RECENT CACHE METHODS ==========
+    
+    private void clearRecentCache() {
+        recentCacheValid = false;
+        recentCacheStart = -1;
+        for (int i = 0; i < RECENT_CACHE_SIZE; i++) {
+            recentCache[i] = null;
+        }
+    }
+    
+    private void updateRecentCache(long index, Object value) {
+        if (!recentCacheValid || index < recentCacheStart || 
+            index >= recentCacheStart + RECENT_CACHE_SIZE) {
+            // Shift cache window to center around this index
+            recentCacheStart = Math.max(0, index - RECENT_CACHE_SIZE / 2);
+            recentCacheValid = true;
+            // Clear the cache - will be filled on subsequent gets
+            for (int i = 0; i < RECENT_CACHE_SIZE; i++) {
+                recentCache[i] = null;
+            }
+        }
+        
+        // Store in cache if within range
+        if (index >= recentCacheStart && index < recentCacheStart + RECENT_CACHE_SIZE) {
+            int cacheIndex = (int)(index - recentCacheStart);
+            recentCache[cacheIndex] = value;
+        }
+    }
+    
+    private Object getFromRecentCache(long index) {
+        if (!recentCacheValid) return null;
+        if (index >= recentCacheStart && index < recentCacheStart + RECENT_CACHE_SIZE) {
+            int cacheIndex = (int)(index - recentCacheStart);
+            return recentCache[cacheIndex];
+        }
+        return null;
+    }
+    
+    private void invalidateRecentCache(long index) {
+        if (!recentCacheValid) return;
+        if (index >= recentCacheStart && index < recentCacheStart + RECENT_CACHE_SIZE) {
+            int cacheIndex = (int)(index - recentCacheStart);
+            recentCache[cacheIndex] = null;
+        }
+    }
+
+    // ========== LAZY RANGE VIEWS ==========
+
+    private class LazyRangeView extends AbstractList<Object> {
+        private final WeakReference<NaturalArray> parentRef;
+        private final ProcessedRange range;
+        private final long size;
+        
+        public LazyRangeView(RangeSpec spec) {
+            if (spec == null) {
+                throw new InternalError("LazyRangeView constructed with null range");
+            }
+            
+            this.parentRef = new WeakReference<NaturalArray>(NaturalArray.this);
+            
+            // Process range ONCE
+            ProcessedRange rawRange = new ProcessedRange(spec);
+            
+            long arraySize = NaturalArray.this.size();
+            
+            // Adjust negative indices
+            long adjStart = rawRange.start;
+            long adjEnd = rawRange.end;
+            
+            if (adjStart < 0) adjStart = arraySize + adjStart;
+            if (adjEnd < 0) adjEnd = arraySize + adjEnd;
+            
+            // Validate bounds
+            if (adjStart < 0 || adjStart >= arraySize) {
+                throw new ProgramError("Start index out of bounds: " + adjStart);
+            }
+            if (adjEnd < 0 || adjEnd >= arraySize) {
+                throw new ProgramError("End index out of bounds: " + adjEnd);
+            }
+            
+            // Create adjusted range if needed
+            if (adjStart != rawRange.start || adjEnd != rawRange.end) {
+                this.range = new ProcessedRange(adjStart, adjEnd, rawRange.step);
+            } else {
+                this.range = rawRange;
+            }
+            
+            long calculatedSize = this.range.size();
+            if (calculatedSize > Integer.MAX_VALUE) {
+                throw new ProgramError("Range view size too large: " + calculatedSize);
+            }
+            this.size = calculatedSize;
+        }
+
         @Override
         public Object get(int index) {
-            if (index < 0) {
-                throw new IndexOutOfBoundsException("Negative index: " + index);
+            if (index < 0 || index >= size) {
+                throw new ProgramError("Index: " + index + ", Size: " + size);
             }
-            
-            ensureConverted();
-            
-            long actualIndex;
-            if (step > 0) {
-                actualIndex = start + index * step;
-                if (actualIndex > end) {
-                    throw new IndexOutOfBoundsException("Index " + index + " exceeds range view");
-                }
-            } else {
-                actualIndex = start + index * step;
-                if (actualIndex < end) {
-                    throw new IndexOutOfBoundsException("Index " + index + " exceeds range view");
-                }
+
+            NaturalArray parent = parentRef.get();
+            if (parent == null) {
+                throw new ProgramError("Cannot access view - original array was garbage collected");
             }
-            
-            return NaturalArray.this.get(actualIndex);
+
+            long actualIndex = range.indexAt(index);
+            return parent.get(actualIndex);
         }
-        
+
         @Override
         public int size() {
-            if (cachedSize != null) return cachedSize.intValue();
-            
-            ensureConverted();
-            
-            if (step == 0) {
-                cachedSize = 0L;
-                return 0;
-            }
-            
-            long diff;
-            if (step > 0) {
-                diff = end - start;
-            } else {
-                diff = start - end;
-            }
-            
-            long absStep = Math.abs(step);
-            long size = diff / absStep + 1;
-            
-            if (size > Integer.MAX_VALUE) {
-                throw new RuntimeException("Range view size too large: " + size);
-            }
-            
-            cachedSize = size;
             return (int) size;
         }
-        
+
         @Override
         public Iterator<Object> iterator() {
             return new LazyRangeIterator();
         }
-        
+
         private class LazyRangeIterator implements Iterator<Object> {
             private int currentIndex = 0;
-            
+
             @Override
             public boolean hasNext() {
-                return currentIndex < size();
+                return currentIndex < size;
             }
-            
+
             @Override
             public Object next() {
                 if (!hasNext()) {
@@ -218,706 +547,971 @@ public class NaturalArray {
                 }
                 return get(currentIndex++);
             }
-            
+
             @Override
             public void remove() {
                 throw new UnsupportedOperationException();
             }
         }
     }
-    
-    // Lazy multi-range view class
+
     private class LazyMultiRangeView extends AbstractList<Object> {
-        private final List<RangeSpec> ranges;
-        private List<LazyRangeView> rangeViews;
-        private int totalSize = -1;
-        
+        private final WeakReference<NaturalArray> parentRef;
+        private final List<LazyRangeView> rangeViews;
+        private final int totalSize;
+        private final int[] rangeOffsets;
+        private final int[] rangeForIndex; // Precomputed mapping
+
         public LazyMultiRangeView(MultiRangeSpec multiRange) {
-            this.ranges = multiRange.ranges;
+            if (multiRange == null) {
+                throw new InternalError("LazyMultiRangeView constructed with null multiRange");
+            }
+            if (multiRange.ranges == null) {
+                throw new InternalError("LazyMultiRangeView constructed with null ranges list");
+            }
+            
+            this.parentRef = new WeakReference<NaturalArray>(NaturalArray.this);
             this.rangeViews = new ArrayList<LazyRangeView>();
-            for (RangeSpec range : ranges) {
-                rangeViews.add(new LazyRangeView(range));
+            int total = 0;
+            
+            for (RangeSpec range : multiRange.ranges) {
+                if (range == null) {
+                    throw new InternalError("Null range in MultiRangeSpec");
+                }
+                LazyRangeView view = new LazyRangeView(range);
+                rangeViews.add(view);
+                total += view.size();
+            }
+            
+            this.totalSize = total;
+            
+            // Precompute offsets and mapping for O(1) lookup
+            this.rangeOffsets = new int[rangeViews.size()];
+            this.rangeForIndex = new int[total];
+            
+            int offset = 0;
+            for (int i = 0; i < rangeViews.size(); i++) {
+                rangeOffsets[i] = offset;
+                int viewSize = rangeViews.get(i).size();
+                for (int j = 0; j < viewSize; j++) {
+                    rangeForIndex[offset + j] = i;
+                }
+                offset += viewSize;
             }
         }
-        
+
         @Override
         public Object get(int index) {
-            int currentIndex = index;
-            for (LazyRangeView view : rangeViews) {
-                int size = view.size();
-                if (currentIndex < size) {
-                    return view.get(currentIndex);
-                }
-                currentIndex -= size;
+            if (index < 0 || index >= totalSize) {
+                throw new ProgramError("Index: " + index + ", Size: " + totalSize);
             }
-            throw new IndexOutOfBoundsException("Index: " + index + ", Size: " + size());
+            
+            NaturalArray parent = parentRef.get();
+            if (parent == null) {
+                throw new ProgramError("Cannot access multi-range view - original array was garbage collected");
+            }
+            
+            // O(1) direct lookup instead of binary search
+            int rangeIdx = rangeForIndex[index];
+            int offset = index - rangeOffsets[rangeIdx];
+            return rangeViews.get(rangeIdx).get(offset);
         }
-        
+
         @Override
         public int size() {
-            if (totalSize >= 0) return totalSize;
-            
-            totalSize = 0;
-            for (LazyRangeView view : rangeViews) {
-                totalSize += view.size();
+            NaturalArray parent = parentRef.get();
+            if (parent == null) {
+                throw new ProgramError("Cannot access multi-range view - original array was garbage collected");
             }
             return totalSize;
         }
-        
+
         @Override
         public Iterator<Object> iterator() {
             return new LazyMultiRangeIterator();
         }
-        
+
         private class LazyMultiRangeIterator implements Iterator<Object> {
-            private int currentRangeIndex = 0;
-            private Iterator<Object> currentIterator = null;
-            
+            private int currentRange = 0;
+            private Iterator<Object> currentIterator;
+            private int visited = 0;
+
             public LazyMultiRangeIterator() {
                 if (!rangeViews.isEmpty()) {
                     currentIterator = rangeViews.get(0).iterator();
                 }
             }
-            
+
             @Override
             public boolean hasNext() {
-                if (currentIterator == null) return false;
-                
-                if (currentIterator.hasNext()) {
-                    return true;
+                NaturalArray parent = parentRef.get();
+                if (parent == null) {
+                    throw new ProgramError("Cannot iterate multi-range view - original array was garbage collected");
                 }
-                
-                currentRangeIndex++;
-                if (currentRangeIndex < rangeViews.size()) {
-                    currentIterator = rangeViews.get(currentRangeIndex).iterator();
-                    return currentIterator.hasNext();
-                }
-                
-                return false;
+                return visited < totalSize;
             }
-            
+
             @Override
             public Object next() {
                 if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
+                
+                while (currentIterator != null && !currentIterator.hasNext()) {
+                    currentRange++;
+                    if (currentRange < rangeViews.size()) {
+                        currentIterator = rangeViews.get(currentRange).iterator();
+                    } else {
+                        currentIterator = null;
+                    }
+                }
+                
+                if (currentIterator == null) {
+                    throw new NoSuchElementException();
+                }
+                
+                visited++;
                 return currentIterator.next();
             }
-            
+
             @Override
             public void remove() {
                 throw new UnsupportedOperationException();
             }
         }
     }
-    
-    private BigDecimal toBigDecimalSafe(Object obj) {
-        if (obj instanceof BigDecimal) return (BigDecimal) obj;
-        if (obj instanceof String) {
-            try {
-                return new BigDecimal((String) obj);
-            } catch (NumberFormatException e) {
-                throw new RuntimeException("Cannot convert to BigDecimal: " + obj);
-            }
+
+    // ========== CORE ARRAY OPERATIONS ==========
+
+    public long size() {
+        if (cachedSize == null) {
+            cachedSize = calculateSizeInternal();
         }
-        if (obj instanceof Number) {
-            return new BigDecimal(obj.toString());
-        }
-        throw new RuntimeException("Cannot convert to BigDecimal: " + obj);
-    }
-    
-    private long toLongSafe(Object obj) {
-        if (obj instanceof BigDecimal) {
-            try {
-                return ((BigDecimal) obj).longValueExact();
-            } catch (ArithmeticException e) {
-                throw new RuntimeException("Cannot convert to exact long: " + obj);
-            }
-        }
-        if (obj instanceof Integer) return ((Integer) obj).longValue();
-        if (obj instanceof Long) return (Long) obj;
-        if (obj instanceof String) {
-            try {
-                return Long.parseLong((String) obj);
-            } catch (NumberFormatException e) {
-                throw new RuntimeException("Cannot convert to long: " + obj);
-            }
-        }
-        throw new RuntimeException("Cannot convert to long: " + obj);
+        return cachedSize;
     }
 
-    public void addLoopFormula(LoopFormula formula) {
-        loopFormulas.add(formula);
-        lastIndex = null;
-        lastValue = null;
-    }
-
-    public void clearCache() {
-        if (computedCache != null) {
-            computedCache.clear();
-        }
-        lastIndex = null;
-        lastValue = null;
-    }
-    
     public Object get(long index) {
         if (index < 0) {
             long size = size();
             index = size + index;
         }
-        
-        checkBounds(index);
-        
-        if (lastIndex != null && lastIndex == index) {
-            return lastValue;
+
+        try {
+            checkBounds(index);
+        } catch (ProgramError e) {
+            throw e;
         }
         
+        // Check recent cache first (fastest)
+        Object recent = getFromRecentCache(index);
+        if (recent != null) {
+            lastIndex = index;
+            lastValue = recent;
+            return maybeConvert(recent);
+        }
+        
+        // Apply any pending updates that affect this index
+        applyPendingUpdatesForIndex(index);
+
+        if (lastIndex != null && lastIndex == index) {
+            Object val = maybeConvert(lastValue);
+            updateRecentCache(index, val);
+            return val;
+        }
+
         if (isMutable && cache != null && cache.containsKey(index)) {
             Object val = cache.get(index);
             lastIndex = index;
             lastValue = val;
-            return val;
+            updateRecentCache(index, val);
+            return maybeConvert(val);
         }
-        
-        // FIX: Reinforced caching check and initialization
+
         if (computedCache != null && computedCache.containsKey(index)) {
             Object cached = computedCache.get(index);
             lastIndex = index;
             lastValue = cached;
-            return cached;
+            updateRecentCache(index, cached);
+            return maybeConvert(cached);
         }
-     
-        Object multiBranchResult = evaluateMultiBranchFormulas(index);
-        if (multiBranchResult != null) {
+
+        // Try sequence formulas first (most specific)
+        Object sequenceResult = evaluateSequenceFormulas(index);
+        if (sequenceResult != null) {
             if (computedCache == null) computedCache = new HashMap<Long, Object>();
-            computedCache.put(index, multiBranchResult);
+            computedCache.put(index, sequenceResult);
             lastIndex = index;
-            lastValue = multiBranchResult;
-            return multiBranchResult;
+            lastValue = sequenceResult;
+            updateRecentCache(index, sequenceResult);
+            return maybeConvert(sequenceResult);
         }
-        
+
+        // Then conditional formulas
         Object conditionalResult = evaluateConditionalFormulas(index);
         if (conditionalResult != null) {
             if (computedCache == null) computedCache = new HashMap<Long, Object>();
             computedCache.put(index, conditionalResult);
             lastIndex = index;
             lastValue = conditionalResult;
-            return conditionalResult;
+            updateRecentCache(index, conditionalResult);
+            return maybeConvert(conditionalResult);
         }
-        
-        Object loopResult = evaluateLoopFormula(index);
-        if (loopResult != null) {
-            if (computedCache == null) computedCache = new HashMap<Long, Object>();
-            computedCache.put(index, loopResult);
-            lastIndex = index;
-            lastValue = loopResult;
-            return loopResult;
-        }
-        
+
+        // Finally, base calculation
         Object result = calculateValue(index);
         lastIndex = index;
         lastValue = result;
-        return result;
-    }
-    
-    private Object calculateValue(long index) {
-        if (isLexicographicalRange) return calculateLexValue(index);
-        
-        if (isLongOrIntegerRange) {
-            long startVal = getStartLong();
-            long stepVal = getStepLong();
-            long result = startVal + index * stepVal;
-            
-            if (cachedStart instanceof Integer && result >= Integer.MIN_VALUE && result <= Integer.MAX_VALUE) {
-                return (int) result;
-            }
-            return result;
-        }
-        
-        BigDecimal startBD = getStartBD();
-        BigDecimal stepBD = getStepBD();
-        BigDecimal indexBD = BigDecimal.valueOf(index);
-        return startBD.add(indexBD.multiply(stepBD));
+        updateRecentCache(index, result);
+        return maybeConvert(result);
     }
 
-    public long size() {
-        if (cachedSize != null) return cachedSize;
+    // Get with explicit conversion control
+    public Object get(long index, boolean withConversion) {
+        Object value = get(index);
         
-        if (isLexicographicalRange) {
-            cachedSize = calculateLexSize();
-            return cachedSize;
-        }
-
-        if (isLongOrIntegerRange) {
-            long startVal = getStartLong();
-            long endVal = getEndLong();
-            long stepVal = getStepLong();
-            
-            if (stepVal == 0) { cachedSize = 0L; return 0; }
-            if ((stepVal > 0 && startVal > endVal) || (stepVal < 0 && startVal < endVal)) {
-                 cachedSize = 0L; return 0;
-            }
-            
-            long diff = Math.abs(endVal - startVal);
-            cachedSize = diff / Math.abs(stepVal) + 1;
-            return cachedSize;
+        if (withConversion && convertToString) {
+            return convertToString(value);
         }
         
-        BigDecimal startBD = getStartBD();
-        BigDecimal endBD = getEndBD();
-        BigDecimal stepBD = getStepBD();
-        
-        if (stepBD.compareTo(BigDecimal.ZERO) == 0) { cachedSize = 0L; return 0; }
-
-        boolean increasing = stepBD.compareTo(BigDecimal.ZERO) > 0;
-        if ((increasing && startBD.compareTo(endBD) > 0) || (!increasing && startBD.compareTo(endBD) < 0)) {
-            cachedSize = 0L; return 0;
-        }
-        
-        BigDecimal diff = endBD.subtract(startBD);
-        BigDecimal absStep = stepBD.abs();
-        BigDecimal sizeBD = diff.abs().divide(absStep, 0, RoundingMode.DOWN).add(BigDecimal.ONE);
-        
-        if (sizeBD.compareTo(new BigDecimal(Long.MAX_VALUE)) > 0) {
-            throw new RuntimeException("Array size too large");
-        }
-        
-        cachedSize = sizeBD.longValue();
-        return cachedSize;
+        return value;
     }
-    
+
+    // Convert value to string based on its type
+    private Object convertToString(Object value) {
+        if (value == null) return "none";
+        if (value instanceof String) return value;
+        if (value instanceof Integer) return String.valueOf(value);
+        if (value instanceof Long) return String.valueOf(value);
+        if (value instanceof AutoStackingNumber) {
+            return value.toString();
+        }
+        if (value instanceof Boolean) return String.valueOf(value);
+        if (value instanceof IntLiteralNode) {
+            return ((IntLiteralNode) value).value.toString();
+        }
+        if (value instanceof FloatLiteralNode) {
+            return ((FloatLiteralNode) value).value.toString();
+        }
+        if (value instanceof BoolLiteralNode) {
+            return String.valueOf(((BoolLiteralNode) value).value);
+        }
+        if (value instanceof TextLiteralNode) {
+            return ((TextLiteralNode) value).value;
+        }
+        return String.valueOf(value);
+    }
+
+    // Apply conversion if needed - with caching
+    private Object maybeConvert(Object value) {
+        if (convertToString) {
+            return convertToString(value);
+        }
+        return value;
+    }
+
     public void set(long index, Object value) {
         if (index < 0) {
             long size = size();
             index = size + index;
         }
+
+        try {
+            checkBounds(index);
+        } catch (ProgramError e) {
+            throw e;
+        }
         
-        checkBounds(index);
-        
+        // Type check before assignment - use target element type if converting
+        String checkType = convertToString ? targetElementType : elementType;
+        if (!typeHandler.validateType(checkType, value)) {
+            throw new ProgramError(
+                "Type mismatch: cannot assign " + 
+                typeHandler.getConcreteType(value) + 
+                " to array of type " + (convertToString ? "[" + targetElementType + "]" : "[" + elementType + "]")
+            );
+        }
+
         lastIndex = null;
         lastValue = null;
-        
+
+        // Invalidate caches
+        invalidateRecentCache(index);
         if (computedCache != null) {
             computedCache.remove(index);
         }
-        
+        invalidateSize(); // Size might change if index >= old size
+
         if (!isMutable) {
             becomeMutable();
         }
+
+        if (cache == null) {
+            cache = new HashMap<Long, Object>();
+        }
+
+        cache.put(index, value);
+    }
+
+    private void checkBounds(long index) {
+        if (index < 0) {
+            throw new ProgramError("Negative index: " + index);
+        }
+        long size = size();
+        if (index >= size) {
+            throw new ProgramError("Index: " + index + ", Size: " + size);
+        }
+    }
+
+    // ========== OPTIMIZED RANGE OPERATIONS ==========
+
+    public List<Object> getRange(RangeSpec range) {
+        if (range == null) {
+            throw new InternalError("getRange called with null range");
+        }
+        return new LazyRangeView(range);
+    }
+
+    public List<Object> getMultiRange(MultiRangeSpec multiRange) {
+        if (multiRange == null) {
+            throw new InternalError("getMultiRange called with null multiRange");
+        }
+        return new LazyMultiRangeView(multiRange);
+    }
+
+    public void setRange(RangeSpec range, Object value) {
+        if (range == null) {
+            throw new InternalError("setRange called with null range");
+        }
         
+        // Type check for range assignment - use target element type if converting
+        String checkType = convertToString ? targetElementType : elementType;
+        if (!typeHandler.validateType(checkType, value)) {
+            throw new ProgramError(
+                "Type mismatch: cannot assign " + 
+                typeHandler.getConcreteType(value) + 
+                " to array of type " + (convertToString ? "[" + targetElementType + "]" : "[" + elementType + "]")
+            );
+        }
+        
+        try {
+            pendingUpdates.add(new PendingRangeUpdate(range, value));
+            hasPendingUpdates = true;
+            
+            if (!isMutable) {
+                becomeMutable();
+            }
+            
+            lastIndex = null;
+            lastValue = null;
+            invalidateSize(); // Size might change
+            
+            // Invalidate cache smarter
+            if (computedCache != null && !computedCache.isEmpty()) {
+                ProcessedRange processed = new ProcessedRange(range);
+                if (processed.valid) {
+                    long rangeSize = processed.size();
+                    if (rangeSize > 100 || computedCache.size() < rangeSize / 10) {
+                        computedCache.clear();
+                        clearRecentCache();
+                    } else {
+                        // Selective invalidation
+                        for (long i = 0; i < rangeSize; i++) {
+                            long index = processed.indexAt(i);
+                            computedCache.remove(index);
+                            invalidateRecentCache(index);
+                        }
+                    }
+                }
+            }
+            
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Lazy range assignment failed", e);
+        }
+    }
+
+    public void setMultiRange(MultiRangeSpec multiRange, Object value) {
+        if (multiRange == null) {
+            throw new InternalError("setMultiRange called with null multiRange");
+        }
+        
+        // Type check for multi-range assignment - use target element type if converting
+        String checkType = convertToString ? targetElementType : elementType;
+        if (!typeHandler.validateType(checkType, value)) {
+            throw new ProgramError(
+                "Type mismatch: cannot assign " + 
+                typeHandler.getConcreteType(value) + 
+                " to array of type " + (convertToString ? "[" + targetElementType + "]" : "[" + elementType + "]")
+            );
+        }
+        
+        try {
+            for (RangeSpec range : multiRange.ranges) {
+                if (range == null) {
+                    throw new InternalError("Null range in MultiRangeSpec");
+                }
+                pendingUpdates.add(new PendingRangeUpdate(range, value));
+            }
+            hasPendingUpdates = true;
+            
+            if (!isMutable) {
+                becomeMutable();
+            }
+            
+            lastIndex = null;
+            lastValue = null;
+            invalidateSize(); // Size might change
+            
+            // Clear computed cache for multi-range (could be optimized further)
+            if (computedCache != null) {
+                computedCache.clear();
+                clearRecentCache();
+            }
+            
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Lazy multi-range assignment failed", e);
+        }
+    }
+    
+    private void applyPendingUpdatesForIndex(long index) {
+        if (!hasPendingUpdates || pendingUpdates.isEmpty()) {
+            return;
+        }
+        
+        for (PendingRangeUpdate update : pendingUpdates) {
+            if (update.contains(index)) {
+                if (cache == null) {
+                    cache = new HashMap<Long, Object>();
+                }
+                cache.put(index, update.value);
+                invalidateRecentCache(index);
+            }
+        }
+    }
+    
+    public void commitUpdates() {
+        if (!hasPendingUpdates || pendingUpdates.isEmpty()) {
+            return;
+        }
+        
+        // Sort by start index for merging (Java 7 compatible)
+        Collections.sort(pendingUpdates, new Comparator<PendingRangeUpdate>() {
+            @Override
+            public int compare(PendingRangeUpdate a, PendingRangeUpdate b) {
+                if (a.range.start < b.range.start) return -1;
+                if (a.range.start > b.range.start) return 1;
+                return 0;
+            }
+        });
+        
+        // Merge consecutive ranges with same value and step
+        List<PendingRangeUpdate> merged = new ArrayList<PendingRangeUpdate>();
+        PendingRangeUpdate current = null;
+        
+        for (PendingRangeUpdate update : pendingUpdates) {
+            if (!update.range.valid) continue;
+            
+            if (current == null) {
+                current = update;
+            } else if (canMerge(current, update)) {
+                // Extend current range
+                ProcessedRange mergedRange = current.range.merge(update.range);
+                current = new PendingRangeUpdate(mergedRange, current.value);
+            } else {
+                merged.add(current);
+                current = update;
+            }
+        }
+        if (current != null) merged.add(current);
+        
+        // Apply merged updates
+        for (PendingRangeUpdate update : merged) {
+            applyPendingUpdate(update);
+        }
+        
+        pendingUpdates.clear();
+        hasPendingUpdates = false;
+    }
+
+    private boolean canMerge(PendingRangeUpdate a, PendingRangeUpdate b) {
+        return a.value.equals(b.value) && 
+               a.range.step == b.range.step &&
+               a.range.isAdjacent(b.range);
+    }
+    
+    private void applyPendingUpdate(PendingRangeUpdate update) {
+        if (!update.range.valid) return;
+        
+        ProcessedRange range = update.range;
+        Object value = update.value;
+        
+        long iterations = range.size();
+        
+        // Clear computed cache for affected indices
+        if (computedCache != null) {
+            for (long i = 0; i < iterations; i++) {
+                long index = range.indexAt(i);
+                computedCache.remove(index);
+                invalidateRecentCache(index);
+            }
+        }
+        
+        // Apply to cache
         if (cache == null) {
             cache = new HashMap<Long, Object>();
         }
         
-        cache.put(index, value);
-    }
-    
-    private void checkBounds(long index) {
-        if (index < 0) {
-            throw new IndexOutOfBoundsException("Negative index: " + index);
+        for (long i = 0; i < iterations; i++) {
+            long index = range.indexAt(i);
+            cache.put(index, value);
         }
         
-        if (index >= size()) {
-            throw new IndexOutOfBoundsException("Index: " + index + ", Size: " + size());
+        invalidateSize(); // Size might change
+    }
+    
+    private static long toLongIndex(Object obj) {
+        if (obj instanceof Long) return (Long) obj;
+        if (obj instanceof Integer) return ((Integer) obj).longValue();
+        if (obj instanceof AutoStackingNumber) return ((AutoStackingNumber) obj).longValue();
+        return Long.parseLong(obj.toString());
+    }
+    
+    private static long calculateStep(RangeSpec range) {
+        if (range.step != null) {
+            return toLongIndex(range.step);
         }
+        long start = toLongIndex(range.start);
+        long end = toLongIndex(range.end);
+        return (start < end) ? 1L : -1L;
     }
-    
-    private Object getStart() {
-        if (cachedStart != null) return cachedStart;
-        Object startObj = visitor.dispatch(baseRange.start);       
-            checkIntegerType(startObj);
-            cachedStart = startObj;
-        return cachedStart;
-    }
-    
-    private Object getEnd() {
-        if (cachedEnd != null) return cachedEnd;
-        Object endObj = visitor.dispatch(baseRange.end);
-        
-            if (isLongOrIntegerRange) checkIntegerType(endObj);
-            cachedEnd = endObj;
-        return cachedEnd;
-    }
-    
-    private Object getStep() {
-        if (cachedStep != null) return cachedStep;
-        if (baseRange.step != null) {
-            Object stepObj = visitor.dispatch(baseRange.step);
-            
-            if (isLongOrIntegerRange) checkIntegerType(stepObj);
-            cachedStep = stepObj;
-        } else if (isLongOrIntegerRange) {
-                long startVal = getStartLong();
-                long endVal = getEndLong();
-                cachedStep = (startVal <= endVal) ? 1L : -1L;
-            } else {
-                BigDecimal startVal = getStartBD();
-                BigDecimal endVal = getEndBD();
-                cachedStep = (startVal.compareTo(endVal) <= 0) ? BigDecimal.ONE : BigDecimal.ONE.negate();
-            }
-   
-        return cachedStep;
-    }
-    
-    private long getStartLong() {
-        if (cachedStartLong == null) {
-            cachedStartLong = toLongSafe(getStart());
-        }
-        return cachedStartLong;
-    }
-    
-    private long getStepLong() {
-        if (cachedStepLong == null) {
-            cachedStepLong = toLongSafe(getStep());
-        }
-        return cachedStepLong;
-    }
-    
-    private BigDecimal getStartBD() {
-        if (cachedStartBD == null) {
-            cachedStartBD = toBigDecimalSafe(getStart());
-        }
-        return cachedStartBD;
-    }
-    
-    private BigDecimal getStepBD() {
-        if (cachedStepBD == null) {
-            cachedStepBD = toBigDecimalSafe(getStep());
-        }
-        return cachedStepBD;
-    }
-    
-    private void checkIntegerType(Object obj) {
-        if (obj instanceof Integer || obj instanceof Long) {
-            // OK
-        } else if (obj instanceof BigDecimal) {
-            try {
-                ((BigDecimal)obj).longValueExact();
-            } catch (ArithmeticException e) {
-                isLongOrIntegerRange = false;
-            }
-        } else {
-            isLongOrIntegerRange = false;
-        }
-    }
-    
-    private void becomeMutable() {
-        this.isMutable = true;
-    }
-    
+
+    // ========== LEXICOGRAPHIC ENCODING ==========
+
     private boolean isValidLexString(String s) {
+        if (s == null || s.isEmpty()) return false;
         for (char c : s.toCharArray()) {
-            if (!(c >= 'a' && c <= 'z') && !(c >= 'A' && c <= 'Z')) return false;
+            if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) {
+                return false;
+            }
         }
         return true;
     }
-    
+
     private long hierarchicalSequenceToIndex(String s) {
         int n = s.length();
-        if (n > 10) throw new RuntimeException("String too long");
+        if (n > 10) {
+            throw new ProgramError("String too long (max 10): " + s);
+        }
+
         long index = TOTAL_UP_TO_LENGTH[n - 1];
         long patternMask = 0;
         long contentIndex = 0;
-        
+
         for (int i = 0; i < n; i++) {
             char c = s.charAt(i);
-            boolean isUpper = c < 'a';
+            boolean isUpper = c >= 'A' && c <= 'Z';
             if (isUpper) {
                 patternMask |= (1L << (n - 1 - i));
-                c += 32;
+                c += 32; // Convert to lowercase for digit calculation
             }
             int digit = c - 'a';
             contentIndex = contentIndex * 26 + digit;
         }
+
         return index + (patternMask * POWERS_26[n]) + contentIndex;
     }
-    
+
     private String hierarchicalIndexToSequence(long globalIndex) {
         int n = 1;
-        while (n <= 10 && globalIndex >= TOTAL_UP_TO_LENGTH[n]) n++;
-        if (n > 10) throw new RuntimeException("Index too large");
-        
+        while (n <= 10 && globalIndex >= TOTAL_UP_TO_LENGTH[n]) {
+            n++;
+        }
+        if (n > 10) {
+            throw new InternalError("Index too large: " + globalIndex);
+        }
+
         long indexInLengthGroup = globalIndex - TOTAL_UP_TO_LENGTH[n - 1];
         long stringsPerPattern = POWERS_26[n];
         long patternIndex = indexInLengthGroup / stringsPerPattern;
         long contentIndex = indexInLengthGroup % stringsPerPattern;
-        
+
         char[] chars = new char[n];
         long temp = contentIndex;
-        
+
         for (int i = n - 1; i >= 0; i--) {
-            int digit = (int)(temp % 26);
-            chars[i] = (char)('a' + digit); 
+            int digit = (int) (temp % 26);
+            chars[i] = (char) ('a' + digit);
             temp /= 26;
         }
-        
+
         for (int i = 0; i < n; i++) {
-            if (((patternIndex >> (n - 1 - i)) & 1) == 1) chars[i] &= ~32;
+            if (((patternIndex >> (n - 1 - i)) & 1) == 1) {
+                chars[i] = (char) (chars[i] - 32); // Convert to uppercase
+            }
         }
+
         return new String(chars);
     }
-    
-    private long calculateLexSize() {
-        return hierarchicalSequenceToIndex(endString) - hierarchicalSequenceToIndex(startString) + 1;
-    }
-    
-    private String calculateLexValue(long index) {
-        return hierarchicalIndexToSequence(hierarchicalSequenceToIndex(startString) + index);
-    }
-    
-    private long toLongIndex(Object obj) {
-        
-        if (obj instanceof BigDecimal) {
-            try {
-                return ((BigDecimal) obj).longValueExact();
-            } catch (ArithmeticException e) {
-                throw new RuntimeException("Array index must be integer: " + obj);
-            }
-        }
-        if (obj instanceof Integer) return ((Integer) obj).longValue();
-        if (obj instanceof Long) return (Long) obj;
-        if (obj instanceof String) {
-            try {
-                return Long.parseLong((String) obj);
-            } catch (NumberFormatException e) {
-                throw new RuntimeException("Array index must be integer: " + obj);
-            }
-        }
-        throw new RuntimeException("Cannot convert to long index: " + obj);
-    }
-    
-    private long calculateStep(RangeSpec range) {
-        if (range.step != null) {
-            return toLongIndex(range.step);
-        } else {
-            
-            long start = toLongIndex(range.start);
-            long end = toLongIndex(range.end);
-            if (start == end) return 1L;
-            return (start < end) ? 1L : -1L;
-        }
-    }
-    
-    public List<Object> getRange(RangeSpec range) {
-        return new LazyRangeView(range);
-    }
-    
-    public List<Object> getMultiRange(MultiRangeSpec multiRange) {
-        return new LazyMultiRangeView(multiRange);
-    }
-    
-    public void setRange(RangeSpec range, Object value) {
-        LazyRangeView view = new LazyRangeView(range);
-        view.ensureConverted();  
-        
-        long start = view.start;
-        long end = view.end;
-        long step = view.step;
 
-        long arraySize = size();
-        if (start < 0 || start >= arraySize) {
-            throw new RuntimeException("Start index out of bounds: " + start);
-        }
-        if (end < 0 || end >= arraySize) {
-            throw new RuntimeException("End index out of bounds: " + end);
-        }
+    // ========== LEX RANGE CALCULATIONS ==========
+
+    private long calculateLexSize() {
+        AutoStackingNumber step = getStep();
+        long stepLong = step.longValue();
+        long absStep = Math.abs(stepLong);
         
-        if (step > 0) {
-            for (long i = start; i <= end && i < arraySize; i += step) {
-                set(i, value);
+        if (isUp) {
+            // Forward range
+            if (startIndex > endIndex) return 0;
+            return (endIndex - startIndex) / absStep + 1;
+        } else {
+            // Reverse range
+            if (startIndex < endIndex) return 0;
+            return (startIndex - endIndex) / absStep + 1;
+        }
+    }
+
+    private String calculateLexValue(long index) {
+        AutoStackingNumber step = getStep();
+        long stepLong = step.longValue();
+        long effectiveIndex;
+        
+        if (isUp) {
+            // Forward range: start + (index * step)
+            effectiveIndex = startIndex + (index * stepLong);
+        } else {
+            // Reverse range: start - (index * Math.abs(stepLong))
+            effectiveIndex = startIndex - (index * Math.abs(stepLong));
+        }
+
+        if (effectiveIndex < 0 || effectiveIndex > maxIndex) {
+            throw new InternalError(
+                "Index " + index + " out of bounds for lex range [" +
+                startString + " to " + endString + "] - should have been caught by bounds check"
+            );
+        }
+
+        return hierarchicalIndexToSequence(effectiveIndex);
+    }
+
+    private Object calculateValue(long index) {
+        if (isLexicographicalRange) {
+            return calculateLexValue(index);
+        }
+
+        AutoStackingNumber startVal = getStart();
+        AutoStackingNumber stepVal = getStep();
+        AutoStackingNumber indexNum = AutoStackingNumber.fromLong(index);
+        
+        return startVal.add(indexNum.multiply(stepVal));
+    }
+
+    // ========== GETTERS WITH LAZY INITIALIZATION ==========
+
+    private AutoStackingNumber getStart() {
+        if (cachedStart == null) {
+            Object startObj = evaluator.evaluate(baseRange.start, context);
+            cachedStart = typeHandler.toAutoStackingNumber(startObj);
+            if (cachedStart == null) {
+                cachedStart = AutoStackingNumber.zero(1);
             }
-        } else if (step < 0) {
-            for (long i = start; i >= end && i >= 0; i += step) {
-                set(i, value);
+        }
+        return cachedStart;
+    }
+
+    private AutoStackingNumber getEnd() {
+        if (cachedEnd == null) {
+            Object endObj = evaluator.evaluate(baseRange.end, context);
+            cachedEnd = typeHandler.toAutoStackingNumber(endObj);
+            if (cachedEnd == null) {
+                cachedEnd = AutoStackingNumber.zero(1);
+            }
+        }
+        return cachedEnd;
+    }
+
+    private AutoStackingNumber getStep() {
+        if (cachedStep != null) {
+            return cachedStep;
+        }
+
+        if (baseRange.step != null) {
+            Object stepObj = evaluator.evaluate(baseRange.step, context);
+            cachedStep = typeHandler.toAutoStackingNumber(stepObj);
+            if (cachedStep == null) {
+                cachedStep = AutoStackingNumber.one(1);
             }
         } else {
-            throw new RuntimeException("Step cannot be zero");
-        }
-    }
-    
-    public void setMultiRange(MultiRangeSpec multiRange, Object value) {
-        for (RangeSpec range : multiRange.ranges) {
-            setRange(range, value);
-        }
-    }
-    
-    public void addMultiBranchFormula(MultiBranchFormula formula) {
-        multiBranchFormulas.add(formula);
-        clearCache();
-    }
-    
-    private Object evaluateMultiBranchFormulas(long index) {
-        if (multiBranchFormulas.isEmpty()) {
-            return null;
-        }
-        
-        for (int i = multiBranchFormulas.size() - 1; i >= 0; i--) {
-            MultiBranchFormula formula = multiBranchFormulas.get(i);
-            if (formula.contains(index)) {
-                Object result = formula.evaluate(index, visitor);
-                if (result != null) {
-                    return result;
+            if (isLexicographicalRange) {
+                cachedStep = isUp ? AutoStackingNumber.one(1) : AutoStackingNumber.minusOne(1);
+            } else {
+                AutoStackingNumber start = getStart();
+                AutoStackingNumber end = getEnd();
+                
+                if (start == null || end == null) {
+                    cachedStep = AutoStackingNumber.one(1);
+                } else {
+                    int cmp = start.compareTo(end);
+                    cachedStep = (cmp <= 0) ? 
+                        AutoStackingNumber.one(start.getStacks()) : 
+                        AutoStackingNumber.minusOne(start.getStacks());
                 }
             }
         }
-        
-        return null;
+
+        return cachedStep;
     }
-    
+
+    private void becomeMutable() {
+        this.isMutable = true;
+    }
+
+    // ========== FORMULA OPTIMIZATIONS ==========
+
+    public void addSequenceFormula(SequenceFormula formula) {
+        if (formula == null) {
+            throw new InternalError("Attempted to add null SequenceFormula");
+        }
+        sequenceFormulas.add(formula);
+        clearCache();
+    }
+
     public void addConditionalFormula(ConditionalFormula formula) {
+        if (formula == null) {
+            throw new InternalError("Attempted to add null ConditionalFormula");
+        }
         conditionalFormulas.add(formula);
         clearCache();
     }
-    
-    private Object evaluateConditionalFormulas(long index) {
-        if (conditionalFormulas.isEmpty()) {
-            return null;
+
+    public void clearCache() {
+        if (computedCache != null) {
+            computedCache.clear();
         }
-        
+        clearRecentCache();
+        lastIndex = null;
+        lastValue = null;
+        invalidateSize();
+    }
+
+    private Object evaluateSequenceFormulas(long index) {
+        if (sequenceFormulas.isEmpty()) return null;
+
+        for (int i = sequenceFormulas.size() - 1; i >= 0; i--) {
+            SequenceFormula formula = sequenceFormulas.get(i);
+            if (formula == null) {
+                throw new InternalError("Null SequenceFormula in list");
+            }
+            
+            if (formula.contains(index)) {
+                try {
+                    Object result = formula.evaluate(index, evaluator, context);
+                    if (result != null) {
+                        if (computedCache == null) {
+                            computedCache = new HashMap<Long, Object>();
+                        }
+                        computedCache.put(index, result);
+                    }
+                    return result;
+                } catch (ProgramError e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new InternalError(
+                        "Sequence formula evaluation failed at index " + index, e);
+                }
+            }
+        }
+        return null;
+    }
+
+    private Object evaluateConditionalFormulas(long index) {
+        if (conditionalFormulas.isEmpty()) return null;
+
         for (int i = conditionalFormulas.size() - 1; i >= 0; i--) {
             ConditionalFormula formula = conditionalFormulas.get(i);
-            if (formula.contains(index)) {
-                Object result = formula.evaluate(index, visitor);
-                if (result != null) {
-                    return result;
-                }
+            if (formula == null) {
+                throw new InternalError("Null ConditionalFormula in list");
             }
-        }
-        
-        return null;
-    }
-    
-    private Object evaluateLoopFormula(long index) {    
-        if (loopFormulas.isEmpty()) {
-            return null;
-        }
-        
-        for (int i = loopFormulas.size() - 1; i >= 0; i--) {
-            LoopFormula formula = loopFormulas.get(i);
-            if (formula.contains(index)) {
-                try {
-                    ExecutionContext currentCtx = visitor.getCurrentContext();
-                    
-                    Map<String, Object> mergedLocals = new HashMap<String, Object>(currentCtx.locals);
-                    mergedLocals.put(formula.indexVar, index);
-                    
-                    ExecutionContext tempCtx = new ExecutionContext(
-                        currentCtx.objectInstance,
-                        mergedLocals,
-                        currentCtx.slotValues,
-                        currentCtx.slotTypes,
-                        currentCtx.currentClass
-                    );
-                    
-                    visitor.pushContext(tempCtx);
-                    try {
-                        Object result = formula.formula.accept(visitor);
-                        
-                        if (result != null) {
-                            if (computedCache == null) {
-                                computedCache = new HashMap<Long, Object>();
-                            }
-                            computedCache.put(index, result);
-                        }
-                        return result;
-                    } finally {
-                        visitor.popContext();
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    return null;
-                }
-            }
-        }
-        return null;
-    }
-    
-    private long getEndLong() {
-        return toLongSafe(getEnd());
-    }
-
-    private BigDecimal getEndBD() {
-        return toBigDecimalSafe(getEnd());
-    }
-    
-    @Override
-    public String toString() {
-        Object start = getStart();
-        Object end = getEnd();
-        Object step = getStep();
-        
-        String startStr = formatForDisplay(start);
-        String endStr = formatForDisplay(end);
-        String stepStr = formatForDisplay(step);
-        
-        String formula = isLexicographicalRange ? 
-            String.format("LexArray[\"%s\" to \"%s\"]", startStr, endStr) :
-            String.format("NaturalArray[%s to %s", startStr, endStr);
             
-        boolean isDefaultStep = false;
-        if (!isLexicographicalRange) {
-            if (isLongOrIntegerRange) {
-                long s = getStepLong();
-                long startLong = 0;
-                try { startLong = getStartLong(); } catch (Exception e) {}
-                long endLong = 0;
-                try { endLong = toLongSafe(end); } catch (Exception e) {}
-                isDefaultStep = (s == 1L && startLong <= endLong) || (s == -1L && startLong > endLong);
-            } else {
+            if (formula.contains(index)) {
                 try {
-                    BigDecimal s = getStepBD();
-                    BigDecimal startBD = getStartBD();
-                    BigDecimal endBD = toBigDecimalSafe(end);
-                    boolean inc = startBD.compareTo(endBD) <= 0;
-                    isDefaultStep = (s.compareTo(BigDecimal.ONE) == 0 && inc) || 
-                                   (s.compareTo(BigDecimal.ONE.negate()) == 0 && !inc);
+                    Object result = formula.evaluate(index, evaluator, context);
+                    if (result != null) {
+                        if (computedCache == null) {
+                            computedCache = new HashMap<Long, Object>();
+                        }
+                        computedCache.put(index, result);
+                    }
+                    return result;
+                } catch (ProgramError e) {
+                    throw e;
                 } catch (Exception e) {
-                    isDefaultStep = false;
+                    throw new InternalError(
+                        "Conditional formula evaluation failed at index " + index, e);
                 }
             }
         }
+        return null;
+    }
 
-        if (!isDefaultStep) formula += " step " + stepStr;
-        if (!isLexicographicalRange) formula += "]";
-        
-        StringBuilder sb = new StringBuilder(formula);
-        
-        try {
-            long size = size();
-            sb.append(String.format(" (size: %d", size));
-        } catch (RuntimeException e) {
+    // ========== OUTPUT CACHING METHODS ==========
+
+    public void recordOutput(long index, Object value) {
+        List<Object> outputs = outputCache.get(index);
+        if (outputs == null) {
+            outputs = new ArrayList<Object>();
+            outputCache.put(index, outputs);
         }
-        
-        if (isMutable) sb.append(", mutable, cache: ").append(getCacheSize());
-        else sb.append(", immutable");
-        sb.append(")");
-        
-        if (!loopFormulas.isEmpty()) {
-            sb.append("\n  Loop formulas: ").append(loopFormulas.size());
-        }
-        return sb.toString();
+        outputs.add(value);
+        hasOutputs = true;
     }
-    
-    private String formatForDisplay(Object obj) {
-        
-        if (obj instanceof BigDecimal) {
-            return ((BigDecimal) obj).stripTrailingZeros().toPlainString();
-        }
-        return String.valueOf(obj);
+
+    public List<Object> getOutputs(long index) {
+        return outputCache.get(index);
     }
-    
+
+    public boolean hasOutputs() {
+        return hasOutputs;
+    }
+
+    public void clearOutputs() {
+        outputCache.clear();
+        hasOutputs = false;
+    }
+
+    public Object getWithOutputs(long index, List<Object> outputsOut) {
+        Object value = get(index);
+        
+        if (hasOutputs && outputCache.containsKey(index)) {
+            List<Object> recorded = outputCache.get(index);
+            if (recorded != null) {
+                outputsOut.addAll(recorded);
+            }
+        }
+        
+        return value;
+    }
+
+    // ========== UTILITY METHODS ==========
+
     public List<Object> toList() {
-           
+        commitUpdates();
+        
         List<Object> result = new ArrayList<Object>();
-        for (long i = 0; i < size(); i++) result.add(get(i));
+        long size = size();
+        for (long i = 0; i < size; i++) {
+            result.add(get(i));
+        }
         return result;
     }
-    
-    public boolean isMutable() { 
-        return isMutable; 
+
+    public boolean isMutable() {
+        return isMutable;
+    }
+
+    public int getCacheSize() {
+        return cache != null ? cache.size() : 0;
     }
     
-    public int getCacheSize() { 
-        return cache != null ? cache.size() : 0; 
+    public boolean hasPendingUpdates() {
+        return hasPendingUpdates;
+    }
+    
+    public int getPendingUpdateCount() {
+        return pendingUpdates.size();
+    }
+    
+    public void discardUpdates() {
+        pendingUpdates.clear();
+        hasPendingUpdates = false;
+    }
+    
+    public String getElementType() {
+        return elementType;
+    }
+    
+    // Check if conversion is needed
+    public boolean needsConversion() {
+        return convertToString;
+    }
+    
+    // Get target element type
+    public String getTargetElementType() {
+        return targetElementType;
+    }
+
+    @Override
+    public String toString() {
+        try {
+            if (isLexicographicalRange) {
+                String direction = isUp ? "" : " (reverse)";
+                String stepInfo = "";
+                if (cachedStep != null) {
+                    long step = cachedStep.longValue();
+                    if (Math.abs(step) != 1) {
+                        stepInfo = " step " + step;
+                    }
+                }
+                String formula = String.format("LexArray[\"%s\" to \"%s\"%s]%s",
+                    startString, endString, stepInfo, direction);
+
+                StringBuilder sb = new StringBuilder(formula);
+                long size = size();
+                sb.append(String.format(" (size: %d", size));
+                if (isMutable) sb.append(", mutable");
+                if (hasPendingUpdates) sb.append(", pending: ").append(pendingUpdates.size());
+                sb.append(", type: ").append(elementType);
+                if (convertToString) sb.append(", converting to ").append(targetElementType);
+                sb.append(")");
+                return sb.toString();
+            }
+
+            AutoStackingNumber start = getStart();
+            AutoStackingNumber end = getEnd();
+            AutoStackingNumber step = getStep();
+
+            String startStr = start.toString();
+            String endStr = end.toString();
+            String stepStr = step.toString();
+
+            String formula = String.format("NaturalArray[%s to %s", startStr, endStr);
+
+            boolean isDefaultStep = (step.compareTo(AutoStackingNumber.one(1)) == 0 && start.compareTo(end) <= 0) ||
+                                   (step.compareTo(AutoStackingNumber.minusOne(1)) == 0 && start.compareTo(end) > 0);
+
+            if (!isDefaultStep) formula += " step " + stepStr;
+            formula += "]";
+
+            StringBuilder sb = new StringBuilder(formula);
+
+            long size = size();
+            sb.append(String.format(" (size: %d", size));
+
+            if (isMutable) sb.append(", mutable, cache: ").append(getCacheSize());
+            else sb.append(", immutable");
+            
+            if (hasPendingUpdates) {
+                sb.append(", pending: ").append(pendingUpdates.size());
+            }
+            sb.append(", type: ").append(elementType);
+            if (convertToString) sb.append(", converting to ").append(targetElementType);
+            sb.append(")");
+
+            if (!sequenceFormulas.isEmpty()) {
+                sb.append("\n  Sequence formulas: ").append(sequenceFormulas.size());
+            }
+            if (!conditionalFormulas.isEmpty()) {
+                sb.append("\n  Conditional formulas: ").append(conditionalFormulas.size());
+            }
+            return sb.toString();
+            
+        } catch (ProgramError e) {
+            return "NaturalArray[error: " + e.getMessage() + "]";
+        } catch (Exception e) {
+            return "NaturalArray[internal error: " + e.getMessage() + "]";
+        }
     }
 }
