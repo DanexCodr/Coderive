@@ -1,11 +1,3 @@
-unit test
-
-use {
-    lang.Sys
-}
-
-share InteractiveDemo {
-    
     // Supporting both else-if and elif
     local calculate(a: int, b: int, op: text)
     :: formula: int|float, operation: text {  
@@ -49,7 +41,7 @@ share InteractiveDemo {
         
         // With implicitness
         num3 := [10, 20, 30, 40, 50]
-        out("Trying: num3 := {num3}")  // Interpolation
+        // out("Trying: num3 := {num3}")  // Interpolation
         
         out("First element: {num3[0]}")  // Interpolation
         out("Last element: {num3[4]}")   // Interpolation
@@ -62,11 +54,11 @@ share InteractiveDemo {
     local getUserInfo() {
         out("=== User Registration ===")
     
-        outs("Enter your name: ")  // Using outs() for same-line prompt
-        name := in()
+        // Using in(TEXT_LIT) for same-line prompt
+        name := in(text, "Enter your name: ")
     
-        outs("Enter your age: ")   // Same-line prompt
-        age :=  in(int)
+        // Using in(type, TEXT_LIT) for same-line prompt with type
+        age :=  in(int, "Enter your age: ")
     
         outs("Enter your height (meters): ")  // Same-line prompt
         height := in(float)
@@ -117,7 +109,7 @@ share InteractiveDemo {
         // NEW: Showcasing conditional chains for validation!
         if op == any["+", "-", "*", "/"] {
             result, operation := [formula, operation]:calculate(num1, num2, op)
-        
+
             out("")
             out("Calculation Result:")
             out("{num1} {op} {num2} = {result}")  // Interpolation
@@ -145,17 +137,17 @@ share InteractiveDemo {
         out("")
         out("=== DEFAULT STEPS (No 'by' clause) ===")
         out("Counting up naturally:")
-        for i in 1 to 5 {
+        for i of 1 to 5 {
             out("Default step: {i}")  // Interpolation
         }
         
         out("Counting down naturally:")
-        for i in 5 to 1 {
+        for i of 5 to 1 {
             out("Default step: {i}")  // Interpolation
         }
         
         out("User range - smart default:")
-        for i in start to end {
+        for i of start to end {
             out("Smart default: {i}")  // Interpolation
         }
         
@@ -164,17 +156,17 @@ share InteractiveDemo {
         outs("Enter step size: ")  // Same-line prompt
         steps := in(int)
         
-        for i by steps in start to end {
+        for i of start to end by steps {
             out("Step by {steps}: {i}")  // Interpolation
         }
         
         // Operator prefixes
-        for i by +1 in start to end {
+        for i of start to end by +1 {
             out("Step by +1: {i}")  // Interpolation
         }
         
         // Counting down with various methods
-        for i by -1 in 10 to 1 {
+        for i of 10 to 1 by -1 {
             out("Countdown by -1: {i}")  // Interpolation
         }
         
@@ -182,19 +174,19 @@ share InteractiveDemo {
         
         // Multiplicative patterns
         
-        for i by *2 in 1 to 32 {
+        for i of 1..32#*2 {
             out("Doubling: {i}")  // Interpolation
         }
         
         exponent := 1
         powerValue := 2
-        for i in 1 to 6 {
+        for i of 1 to 6 {
            out("Power compound: 2^{exponent} = {powerValue}")  // Interpolation
            exponent = exponent + 1
            powerValue = powerValue * 2
         }
         
-        for i by *+2 in start to end {
+        for i of start..end#*+2 {
             out("Step by *+2: {i}")  // Interpolation
         }
         
@@ -202,11 +194,11 @@ share InteractiveDemo {
         out("=== DIVISION STEPS ===")
         
         // Division patterns
-        for i by /2 in 64 to 2 {
+        for i of 64 to 2 by /2 {
             out("Halving: {i}")  // Interpolation
         }
         
-        for i by /+2 in 32 to 1 {
+        for i of 32 to 1 by /+2 {
             out("Step by /+2: {i}")  // Interpolation
         }
         
@@ -215,38 +207,38 @@ share InteractiveDemo {
         out("Powers of 2:")
         
         exponent = 1
-        for value by *2 in 2 to 64 {  // Start from 2 (2^1)
+        for value of 2 to 64 by *2 {  // Start from 2 (2^1)
            out("2^{exponent} = {value}")  // Interpolation
            exponent = exponent + 1
         }
         
         out("Countdown sequences:")
         // Natural countdown
-        for count in 10 to 1 {
+        for count of 10 to 1 {
             out("Natural countdown: {count}")  // Interpolation
         }
         
         // Explicit countdown
-        for count by -1 in 10 to 1 {
+        for count of 10 to 1 by -1 {
             out("Explicit countdown: {count}")  // Interpolation
         }
         
         grow := 1
-        for i in 1 to 5 {  // Limit iterations
+        for i of 1 to 5 {  // Limit iterations
             out("Growing: {grow}")  // Interpolation
             grow = grow * 2 + 1
         }
         
         out("Mixed operations:")
-        for mixed in 1 to 20 {
+        for mixed of 1 to 20 {
             out("Mixed default: {mixed}")  // Interpolation
         }
         
-        for mixed by +2 in 1 to 20 {
+        for mixed of 1 to 20 by +2 {
             out("Mixed +2: {mixed}")  // Interpolation
         }
         
-        for mixed by -2 in 20 to 2 {
+        for mixed of 20 to 2 by -2 {
             out("Mixed -2: {mixed}")  // Interpolation
         }
     }
@@ -257,34 +249,34 @@ share InteractiveDemo {
         
         // Single element ranges
         out("Single element:")
-        for i in 5 to 5 {
+        for i of 5 to 5 {
             out("Single: {i}")  // Interpolation
         }
         
         // Zero-step ranges
         out("Zero range up:")
-        for i in 0 to 0 {
+        for i of 0 to 0 {
             out("Zero up: {i}")  // Interpolation
         }
         
         out("Zero range down:")
-        for i in 0 to 0 {
+        for i of 0 to 0 {
             out("Zero down: {i}")  // Interpolation
         }
         
         // Negative numbers
         out("Negative ranges:")
-        for i in -5 to -1 {
+        for i of -5 to -1 {
             out("Negative up: {i}")  // Interpolation
         }
         
-        for i in -1 to -5 {
+        for i of -1 to -5 {
             out("Negative down: {i}")  // Interpolation
         }
         
         // Large steps
         out("Large steps:")
-        for i by 10 in 0 to 50 {
+        for i of 0 to 50 by 10 {
             out("Large step: {i}")  // Interpolation
         }
     }
@@ -332,4 +324,6 @@ share InteractiveDemo {
         outs(".") outs(".") outs(".")
         out(" Complete!")
     }
-}
+    
+    
+   
