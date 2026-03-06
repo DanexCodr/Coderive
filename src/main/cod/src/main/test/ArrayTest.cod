@@ -36,18 +36,18 @@ local test2() :: arr: [int] {
         x := [1 to 10]
         out("Simple natural array: " + x[2])
         
-        out("Big number: " + 9.999Qi)
+        out("Big number: " + 9Qi)
         
-        x = [by 2 in 168 to 9.999Qi]
-        out("Multiplicative natural array: ")
+        x = [168 to 9Qi by 2]
+        out("Natural array with large upper bound (9Qi) and step 2: ")
         out("Before mutation: " + x[20000])
-        x[20000] = "hello"
+        x[20000] = 99999
         out("After mutation: " + x[20000])
         
         x = [[1 to 10]]
         out("Simple nested natural array: " + x[0][2])
         
-        x = [[1 to 10], [by 2 in 3 to 100]]
+        x = [[1 to 10], [2 to 100 by 2]]
         out("Nested natural array: " + x[1][5])
         
         x = ["a" to "Zz"]
@@ -62,5 +62,5 @@ local test2() :: arr: [int] {
         // Test string formatting
         out("Test: |" + "trailing space " + "|")
         out("Number: " + 40168)
-        out(9.999Qi)
+        out(9Qi)
     }

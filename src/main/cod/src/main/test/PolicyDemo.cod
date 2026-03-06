@@ -11,7 +11,9 @@ Node with Accept {
 }
 
 ChildNode is Node {
-
+    policy accept(n: type) :: type {
+        ~> n
+    }
 }
 
 share Main {
