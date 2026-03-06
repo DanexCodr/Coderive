@@ -1,0 +1,5 @@
+// Root project build file
+// Delegates fatJar task to the server subproject
+task fatJar {
+    dependsOn ':server:fatJar'
+}

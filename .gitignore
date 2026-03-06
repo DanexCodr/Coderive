@@ -1,0 +1,11 @@
+# Gradle
+.gradle/
+build/
+server/build/
+**/build/
+
+# Compiled output
+*.class
+*.jar
+!server/lib/*.jar
+!gradle/wrapper/gradle-wrapper.jar
