@@ -4,7 +4,46 @@ All notable changes to Coderive are documented in this file.
 
 ## [v0.7.0] - Be Structured - March 06, 2026
 
-- To be added
+### 🚨 Breaking Changes
+- **`for...in` replaced with `for...of`** — Loop iteration keyword changed from `in` to `of` for clarity and consistency (`for i of 1 to 5`). All existing loop code must be updated.
+- **Loop step clause reordered** — The `by` clause now follows the range specification: `for i of start to end by steps` (previously `for i by steps in start to end`).
+- **`in()` prompt argument added** — Input method now accepts an optional type and prompt string directly: `in(text, "Enter name: ")` replaces the previous `outs("Enter name: ")` + `in()` pattern.
+- **Token class redesigned** — Multiple overloaded constructors replaced with static factory methods; a `keyword` field is now embedded directly on the `Token` object instead of being derived at parse time.
+- **`cod.compiler` package removed** — The entire native compiler pipeline (TAC, MTOT) has been deleted. Coderive is now an interpreter-only language runtime.
+
+### ✨ Major Features
+- **Output-Aware Loop Optimization** — New `OutputAwarePattern` detects loops containing I/O statements and applies dedicated optimizations, significantly improving performance for mixed-output loops. Introduced `OutputAwarePattern` and `SequencePattern` as the primary range execution strategies.
+- **LiteralRegistry** — Introduced an extension system that enables property access and method calls directly on literal values (ranges, numbers, strings, arrays). Provides a clean, pluggable API for built-in literal behaviors such as `.size`, `.contains()`, and more.
+- **PolicyResolver with Caching** — Dedicated resolver for enforcing Policy type virality. Uses per-policy caches for O(1) method-requirement lookups, composition chains, and per-class validation results, replacing ad-hoc policy checks scattered across the interpreter.
+- **Web Documentation & Playground Site** — Added a complete `docs/` single-page application with a home page, documentation browser, and an in-browser interactive Coderive playground.
+- **SlotParser** — Extracted return-slot (`::`) parsing from `MainParser` into a dedicated `SlotParser` class for improved separation of concerns and maintainability.
+- **Inline Range Formula Shorthand** — New concise syntax for range formulas: `1..32#*2` (equivalent to a multiplicative range from 1 to 32 doubling each step) alongside the existing `for i of 1 to 32 by *2` form.
+
+### 🔧 Engine & Architecture Improvements
+- **Lexer Modularization** — Decomposed the monolithic `MainLexer` into six focused sub-lexers: `CommentLexer`, `IdentifierLexer`, `NumberLexer`, `StringLexer`, `SymbolLexer`, and `WhitespaceLexer`, each responsible for a single token category.
+- **Interpreter Handler Unification** — All handler classes (`AssignmentHandler`, `ExpressionHandler`, `TypeHandler`, `IOHandler`) consolidated under the `cod.interpreter.handler` package. `TypeSystem` and `TypeValue` merged into `TypeHandler`, eliminating a separate `cod.interpreter.type` package.
+- **Keyword Lookup Optimization** — Added `Keyword.fromString()` backed by a pre-built `HashMap` for O(1) keyword resolution, replacing linear enum scans.
+- **Slot Access Optimization in `ExecutionContext`** — Return slot storage now uses parallel arrays (`slotNamesList`, `slotValuesList`, `slotTypesList`) with an index map for O(1) slot reads and writes.
+- **New Utility Classes** — `ObjectChecker` for reusable null/type validation and `TokenSkipper` for efficient token-stream navigation, reducing boilerplate throughout the parser and interpreter.
+- **`InternalError`** — New dedicated error class for interpreter-internal assertion failures, distinct from user-facing `ProgramError`.
+
+### 📦 Range System Refactoring
+- **`SequenceFormula`** replaces both `MultiBranchFormula` and `LoopFormula` as the primary formula type for sequential range evaluation, reducing formula class count and improving composability.
+- **`OutputAwarePattern` and `SequencePattern`** added as new execution-aware range patterns. `AssignmentPattern` removed.
+- **`NaturalArray` overhauled** — Significant internal rewrite for correctness, better interaction with the new pattern/formula architecture, and improved lazy evaluation behaviour.
+
+### 🗑️ Removed Components
+- **Compiler Pipeline** — The entire `cod.compiler` package deleted: `TACCompiler`, `MTOTNativeCompiler`, `GraphColoringAllocator`, `LivenessAnalyzer`, `RegisterManager`, `BasicBlock`, `TACInstruction`, `TACProgram`, and `MTOTRegistry`.
+- **C Runtime** — `src/main/c/runtime.c` removed; native compilation is no longer a supported target.
+- **Legacy Runner Classes** — `CompilerRunner`, `CompilerTestRunner`, and `InterpreterRunner` fully removed after their replacements (`TestRunner`, `CommandRunner`) were stabilized in v0.6.0.
+- **`cod.parser.program` Package** — `ProgramType` and `ProgramTypeScanner` removed; their functionality has been absorbed into other components.
+- **`TokenValidator`** — Dedicated semantic token-validation class removed after its responsibilities were redistributed.
+
+### 🌐 Documentation & Demo Updates
+- **Coderive Docs Website** — New `docs/` directory containing a full SPA: router, home page, documentation viewer, interactive playground, and shared CSS/JS modules.
+- **`PlaygroundServer.java` Updated** — Improved request handling and API compatibility for the hosted playground.
+- **Demo Files Updated** — `InteractiveDemo.cod` and `LazyLoop.cod` revised to reflect new `for...of` loop syntax and updated `in()` prompt API.
+- **New Test File** — Added `LoopWithIOTest.cod` to exercise and validate the output-aware loop optimization path.
 
 ## [v0.6.0] - Powered Up - January 22, 2026
 
@@ -106,32 +145,30 @@ All notable changes to Coderive are documented in this file.
 ## [v0.3.0] - The Design Leap - December 15, 2025
 
 ### 🚨 Breaking Changes
-- **Completely abandoned `~|` to instead use `::` return slot operator** - Embracing suffix-style design, fully abandoning the prefix-style.
-- **Replaced the stack-based multi-arch compiler with a TAC IR** - Ensuring lesser systemic bugs to show. (ongoing, not yet prioritized)
-- **Almost all classes renamed  updated, and repackaged** - Full refactoring of classes and their packages for more cleaner view.
-- **Fully removed ANTLR Dependency** - To focus on the language implementation and lessen dependencies.
-- **Replaced `<type><ws><name>`  to use `<name><colon><optional-ws><type>` instead for variable declaration.** - `name: type` for declaration, `name: type = value` for explicit declaration and assignment, `name := value` for inferred declaration and assignment,`name = value` for reassignment
+- **`::` Return Slot Operator** — Replaced the previous `~|` prefix-style return syntax with the `::` suffix-style return slot operator for a more consistent, readable design.
+- **TAC IR Compiler** — Replaced the stack-based multi-architecture compiler with a Three-Address Code (TAC) intermediate representation, reducing systemic code generation bugs.
+- **Full Class & Package Refactoring** — Almost all classes renamed, updated, and repackaged for a cleaner and more navigable codebase structure.
+- **Removed ANTLR Dependency** — Parser and lexer now fully hand-written to reduce external dependencies and improve implementation control.
+- **New Variable Declaration Syntax** — Replaced `<type> <name>` with `<name>: <type>` style declarations:
+  - `name: type` — typed declaration
+  - `name: type = value` — explicit declaration with assignment
+  - `name := value` — type-inferred declaration with assignment
+  - `name = value` — plain reassignment
 
 ### ✨ Major Features
-- **Three World System**
-  - Added three distinct types of programs for Coderive: Script, Method-only, and Module.
-- **From String to Text**
-  - Replaced the previous `string` keyword with `text`.
-- **Natural Array**
-  - Added supports for range for arrays
-  - Lazy array generation
-  - Immutable by default but can be mutable (Note: "Use moderately")
-  - Supports text as natural array.
-- **Added numeric shorthands**
-  - Added support for common numeric shorthands: `K, M, B, T, Q, Qi, e`
-  - Case for this feature will be case-sensitive.
-- **Added parameter skipping and named arguments support**
-
-> Check for other new minor features if you have free time...
+- **Three World System** — Established three distinct program types for Coderive: Script (top-level imperative code), Method-only (function library), and Module (reusable component).
+- **`text` Type** — Replaced the previous `string` keyword with `text` as the built-in string type.
+- **Natural Arrays** — Introduced lazy range-based arrays:
+  - Range support (`[0 to N]`) with lazy generation
+  - Immutable by default; opt-in mutability available
+  - `text` values supported as iterable natural arrays
+- **Numeric Shorthands** — Added common suffixes for large numbers: `K` (thousand), `M` (million), `B` (billion), `T` (trillion), `Q` (quadrillion), `Qi` (quintillion), `e` (scientific notation). Case-sensitive.
+- **Parameter Skipping & Named Arguments** — Added support for skipping positional parameters and passing arguments by name for improved call-site readability.
+- **`share` Export Keyword** — Introduced `share` as the visibility modifier for publicly accessible declarations, replacing the earlier `ship` keyword.
 
 ### 📚 Documentation
-- Updated all demo files showcasing the new updates
-- Added `ParamSkipDemo.cod` file for testing parameter skipping.
+- Updated all demo files to reflect the new variable declaration syntax, quantifier syntax, and export keyword.
+- Added `ParamSkipDemo.cod` demonstrating named argument and parameter-skipping behaviour.
 
 ---
 
@@ -215,21 +252,23 @@ user == any[admin, moderator, owner]
 - `final` as implicit based on naming patterns
 
 ### 🐛 Bug Fixes
-- Fixed various bugs in the compiler
+- Fixed multiple parsing and evaluation bugs in the early-stage compiler and interpreter.
+- Resolved token handling edge cases in the manual lexer.
 
 ---
 
 ## [v0.0.7] - Return Slot Assignment Improvements - November 15, 2025
 
 ### 🔄 Multiple Return Value Handling
-- Improvements in multiple return value handling
-- Enhanced slot assignment mechanisms
+- Improved multiple return value handling via the `::` return slot operator.
+- Enhanced slot assignment mechanisms for more reliable multi-value returns.
+- Fixed edge cases in slot resolution when methods return more than one named value.
 
 ---
 
 ## [v0.0.4] - First Release - October 26, 2025
 
 ### 🎉 Initial Launch
-- Created first repository for Coderive programming language
-- Initial commit with foundational codebase structure
-- Project inception marking the start of Coderive language development
+- Created the first public repository for the Coderive programming language.
+- Initial commit establishing the foundational codebase structure, including the manual lexer, basic parser, and early interpreter skeleton.
+- Project inception marking the start of Coderive language development.
