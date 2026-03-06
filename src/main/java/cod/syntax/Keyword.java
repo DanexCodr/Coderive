@@ -1,12 +1,12 @@
 package cod.syntax;
 
-/** *
-        * This enum contains all of the keywords
-        *  for the Coderive language.
-        *
-        *  **/
-public enum Keyword {
+import java.util.HashMap;
+import java.util.Map;
 
+/** 
+ * This enum contains all of the keywords for the Coderive language.
+ */
+public enum Keyword {
   // Visibility modifiers
   SHARE,
   LOCAL,
@@ -27,13 +27,14 @@ public enum Keyword {
   ELSE,
   ELIF,
   
+  OF,
+  
   // Loop
   FOR,
   BREAK,
   SKIP,
   
   // Used in loop and natural arrays
-  IN,
   TO,
   BY,
   
@@ -50,7 +51,6 @@ public enum Keyword {
   POLICY,
   WITH,
 
-  
   BUILTIN,
     
   ALL,
@@ -84,6 +84,18 @@ public enum Keyword {
   F32,
   F64;
 
+  private static final Map<String, Keyword> STRING_TO_KEYWORD = new HashMap<>();
+  
+  static {
+    for (Keyword keyword : values()) {
+      STRING_TO_KEYWORD.put(keyword.toString(), keyword);
+    }
+  }
+  
+  public static Keyword fromString(String text) {
+    return STRING_TO_KEYWORD.get(text.toLowerCase());
+  }
+  
   @Override
   public String toString() {
     return name().toLowerCase();

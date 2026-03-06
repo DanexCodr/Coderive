@@ -18,6 +18,8 @@ public enum Symbol {
   MUL_ASSIGN,
   DIV,
   DIV_ASSIGN,
+  
+  LAMBDA,
 
   MOD,
   DOUBLE_COLON,
@@ -36,5 +38,8 @@ public enum Symbol {
   PIPE,
   QUESTION,
   AMPERSAND,
-  UNDERSCORE // NEW: for match default case
+  UNDERSCORE,
+  
+  RANGE_DOTDOT,      // ".." for range
+  RANGE_HASH         // "#" for step
 }
