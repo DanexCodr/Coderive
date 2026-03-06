@@ -1,13 +1,7 @@
 FROM eclipse-temurin:17-jdk
 WORKDIR /app
-
-# Copy ONLY the server folder contents
 COPY server/ .
 
-# Now PlaygroundServer.java is in /app/
-RUN ls -la
+RUN javac -cp "lib/spark-core-2.9.4.jar:lib/Coderive.jar:lib/slf4j-simple-1.7.36.jar" PlaygroundServer.java
 
-# Compile
-RUN javac -cp "lib/*" PlaygroundServer.java
-
-CMD ["java", "-cp", ".:lib/*", "PlaygroundServer"]
+CMD ["java", "-cp", ".:lib/spark-core-2.9.4.jar:lib/Coderive.jar:lib/slf4j-simple-1.7.36.jar", "PlaygroundServer"]
