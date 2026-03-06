@@ -4,7 +4,7 @@ public enum TokenType {
     KEYWORD,
     INT_LIT,
     FLOAT_LIT,
-    STRING_LIT,
+    TEXT_LIT,
     BOOL_LIT,
     ID,
     SYMBOL,
@@ -14,4 +14,9 @@ public enum TokenType {
     BLOCK_COMMENT,
     WS,
     INTERPOL;
+    
+      @Override
+  public String toString() {
+    return name().toLowerCase();
+  }
   }
