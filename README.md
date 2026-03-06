@@ -19,14 +19,11 @@
 
 ## Table of Contents
 
-1. [Introduction](#1-introduction)
-2. [Technical Architecture](#2-technical-architecture) 
-3. [Language Features](#3-language-features)
-4. [Performance Validation](#4-performance-validation)
-5. [Getting Started](#5-getting-started)
-6. [Current Status](#6-current-status)
-7. [License](#7-license)
-8. [Contact](#8-contact)
+[Introduction](#introduction) 
+[Language Features](#language-features)
+[Getting Started](#getting-started)
+[License](#license)
+[Contact](#contact)
 
 ## Introduction
 
