@@ -97,3 +97,13 @@
 .playground-btn.secondary {
     background: transparent;
 }
+
+@keyframes repl-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+}
+
+.repl-loading {
+    animation: repl-blink 1s ease-in-out infinite;
+    color: #888 !important;
+}
