@@ -6,7 +6,7 @@ import cod.syntax.Keyword;
 public class FieldNode extends StmtNode {
     public String name;
     public String type;
-    public Keyword visibility; // [FIX] Added visibility property
+    public Keyword visibility;
     public ExprNode value;
     
                @Override
