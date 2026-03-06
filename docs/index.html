@@ -48,6 +48,26 @@
     <!-- Error display -->
     <div id="error-display" style="position: fixed; bottom: 0; left: 0; right: 0; background: #ff4444; color: white; padding: 10px; font-family: monospace; display: none; z-index: 10000;"></div>
 
+    <!-- Register COI service worker to enable SharedArrayBuffer on GitHub Pages.
+         SharedArrayBuffer is required by CheerpJ (WebAssembly Java runtime). -->
+    <script>
+        if (!self.crossOriginIsolated && 'serviceWorker' in navigator) {
+            navigator.serviceWorker.register('coi-serviceworker.js').then(function(reg) {
+                // Only reload when the service worker takes control for the first time.
+                // If the controller is already set the page was already served under the
+                // service worker and the COOP/COEP headers are already applied – no reload
+                // needed, which prevents an infinite-reload loop.
+                if (!navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.addEventListener('controllerchange', function() {
+                        window.location.reload();
+                    });
+                }
+            }).catch(function(err) {
+                console.warn('COI service worker registration failed:', err);
+            });
+        }
+    </script>
+
     <script src="js/index.js"></script>
 </body>
 </html>

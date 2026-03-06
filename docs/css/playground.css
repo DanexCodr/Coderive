@@ -68,6 +68,11 @@
     border-color: #4a6fa5;
 }
 
+.repl-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .badge {
     font-family: 'JetBrains Mono Light', monospace;
     font-size: 12px;
