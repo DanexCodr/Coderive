@@ -49,7 +49,7 @@ public class GlobalRegistry {
         return String.valueOf(arg);
     }
     
-    // Helper to auto-commit arrays before output
+    // Helper to auto-commit arrays before outs
     private void autoCommitArrays(List<Object> arguments) {
         if (arguments == null) return;
         for (Object arg : arguments) {
@@ -85,21 +85,21 @@ public class GlobalRegistry {
                 try {
                     // Check if we're in an optimized loop
                     if (isInOptimizedLoop()) {
-                        // Don't output now - just record
+                        // Don't outs now - just record
                         recordOptimizedOutput(arguments);
                         return null;
                     }
                     
-                    // Normal output path
+                    // Normal outs path
                     autoCommitArrays(arguments);
                     
                     if (arguments == null || arguments.isEmpty()) {
-                        ioHandler.output("\n");
+                        ioHandler.outs("\n");
                         return null;
                     }
                     
                     if (arguments.size() == 1) {
-                        ioHandler.output(asString(arguments.get(0)) + "\n");
+                        ioHandler.outs(asString(arguments.get(0)) + "\n");
                         return null;
                     }
                     
@@ -107,7 +107,7 @@ public class GlobalRegistry {
                     for (Object arg : arguments) {
                         result.append(asString(arg)).append("\n");
                     }
-                    ioHandler.output(result.toString());
+                    ioHandler.outs(result.toString());
                     return null;
                 } catch (ProgramError e) {
                     throw e;
@@ -129,21 +129,21 @@ public class GlobalRegistry {
                 try {
                     // Check if we're in an optimized loop
                     if (isInOptimizedLoop()) {
-                        // Don't output now - just record
+                        // Don't outs now - just record
                         recordOptimizedOutput(arguments);
                         return null;
                     }
                     
-                    // Normal output path
+                    // Normal outs path
                     autoCommitArrays(arguments);
                     
                     if (arguments == null || arguments.isEmpty()) {
-                        ioHandler.output("");
+                        ioHandler.outs("");
                         return null;
                     }
                     
                     if (arguments.size() == 1) {
-                        ioHandler.output(asString(arguments.get(0)));
+                        ioHandler.outs(asString(arguments.get(0)));
                         return null;
                     }
                     
@@ -154,7 +154,7 @@ public class GlobalRegistry {
                             result.append(" ");
                         }
                     }
-                    ioHandler.output(result.toString());
+                    ioHandler.outs(result.toString());
                     return null;
                 } catch (ProgramError e) {
                     throw e;
@@ -198,7 +198,7 @@ public class GlobalRegistry {
                     }
                     
                     if (!message.isEmpty()) {
-                        ioHandler.output(message);
+                        ioHandler.outs(message);
                     }
                     
                     return ioHandler.readInput(expectedType);
