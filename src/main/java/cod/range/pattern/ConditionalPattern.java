@@ -1,154 +1,142 @@
 package cod.range.pattern;
 
 import cod.ast.nodes.*;
-import java.util.*;  // IMPORT ADDED
+import java.util.*;
 
 public class ConditionalPattern {
-    public final ExprNode condition;
-    public final ExprNode thenExpr;
-    public final ExprNode elseExpr;
-    public final ExprNode arrayExpression;
+    public final ExprNode array;
     public final String indexVar;
+    public final List<Branch> branches;
+    public final List<StmtNode> elseStatements;
     
-    public final List<ExprNode> elifConditions;
-    public final List<ExprNode> elifExpressions;
-    
-    public ConditionalPattern(ExprNode condition, ExprNode thenExpr, ExprNode elseExpr,
-                            ExprNode arrayExpression, String indexVar) {
-        this(condition, thenExpr, elseExpr, arrayExpression, indexVar,
-             new ArrayList<ExprNode>(), new ArrayList<ExprNode>());
+    public static class Branch {
+        public final ExprNode condition;
+        public final List<StmtNode> statements;
+        
+        public Branch(ExprNode condition, List<StmtNode> statements) {
+            this.condition = condition;
+            this.statements = statements;
+        }
     }
     
-    public ConditionalPattern(ExprNode condition, ExprNode thenExpr, ExprNode elseExpr,
-                            ExprNode arrayExpression, String indexVar,
-                            List<ExprNode> elifConditions, List<ExprNode> elifExpressions) {
-        this.condition = condition;
-        this.thenExpr = thenExpr;
-        this.elseExpr = elseExpr;
-        this.arrayExpression = arrayExpression;
+    public ConditionalPattern(ExprNode array, String indexVar,
+                             List<Branch> branches,
+                             List<StmtNode> elseStatements) {
+        this.array = array;
         this.indexVar = indexVar;
-        this.elifConditions = elifConditions != null ? elifConditions : new ArrayList<ExprNode>();
-        this.elifExpressions = elifExpressions != null ? elifExpressions : new ArrayList<ExprNode>();
+        this.branches = branches != null ? branches : new ArrayList<Branch>();
+        this.elseStatements = elseStatements != null ? elseStatements : new ArrayList<StmtNode>();
     }
     
-    public boolean hasElif() {
-        return elifConditions != null && !elifConditions.isEmpty();
-    }
-
     public boolean isOptimizable() {
-        return condition != null && thenExpr != null && elseExpr != null &&
-               arrayExpression != null && indexVar != null;
+        return array != null && indexVar != null && 
+               branches != null && !branches.isEmpty();
     }
     
     public static ConditionalPattern extract(StmtIfNode ifStmt, String iterator) {
-        return extractRecursive(ifStmt, iterator, null);
+        return extractRecursive(ifStmt, iterator, null, new ArrayList<Branch>());
     }
-
-    private static ConditionalPattern extractRecursive(StmtIfNode ifStmt, String iterator, ExprNode targetArray) {
-        // Extract then branch (must be single assignment)
-        if (ifStmt.thenBlock == null || ifStmt.thenBlock.statements.size() != 1) {
-            return null;
-        }
+    
+    private static ConditionalPattern extractRecursive(
+            StmtIfNode ifStmt, String iterator, 
+            ExprNode targetArray, List<Branch> accumulatedBranches) {
         
-        AssignmentPattern thenPattern = AssignmentPattern.extract(
-            ifStmt.thenBlock.statements.get(0), iterator);
+        // Extract then branch statements
+        List<StmtNode> thenStatements = ifStmt.thenBlock.statements;
         
-        if (thenPattern == null) {
-            return null;
-        }
+        // Validate all statements in then branch
+        ExprNode branchArray = validateBranchStatements(thenStatements, iterator, targetArray);
+        if (branchArray == null) return null;
         
-        // Track which array we're assigning to
-        if (targetArray == null) {
-            targetArray = thenPattern.array;
-        } else if (!areSameArray(targetArray, thenPattern.array)) {
-            return null;  // All branches must assign to SAME array
-        }
+        // Create branch
+        Branch currentBranch = new Branch(ifStmt.condition, thenStatements);
+        accumulatedBranches.add(currentBranch);
         
-        List<ExprNode> conditions = new ArrayList<>();
-        List<ExprNode> expressions = new ArrayList<>();
-        conditions.add(ifStmt.condition);
-        expressions.add(thenPattern.expression);
-        
-        // Handle else/elif recursively
-        ExprNode finalElse = null;
-        
-        if (ifStmt.elseBlock != null && ifStmt.elseBlock.statements.size() == 1) {
-            StmtNode elseStmt = ifStmt.elseBlock.statements.get(0);
+        // Handle else/elif
+        if (ifStmt.elseBlock != null && !ifStmt.elseBlock.statements.isEmpty()) {
+            StmtNode firstElseStmt = ifStmt.elseBlock.statements.get(0);
             
-            if (elseStmt instanceof StmtIfNode) {
-                // RECURSION: This is an elif branch!
-                ConditionalPattern subPattern = extractRecursive(
-                    (StmtIfNode) elseStmt, iterator, targetArray);
-                
-                if (subPattern != null) {
-                    // Merge: our conditions + their conditions
-                    if (subPattern.hasElif()) {
-                        conditions.addAll(subPattern.elifConditions);
-                        conditions.add(subPattern.condition);
-                        expressions.addAll(subPattern.elifExpressions);
-                        expressions.add(subPattern.thenExpr);
-                    } else {
-                        conditions.add(subPattern.condition);
-                        expressions.add(subPattern.thenExpr);
-                    }
-                    finalElse = subPattern.elseExpr;
-                } else {
-                    return null; // Subpattern invalid
-                }
+            if (firstElseStmt instanceof StmtIfNode) {
+                // Recursively handle elif
+                return extractRecursive(
+                    (StmtIfNode) firstElseStmt, iterator, 
+                    branchArray, accumulatedBranches
+                );
             } else {
-                // Base case: final else (assignment)
-                AssignmentPattern elsePattern = AssignmentPattern.extract(elseStmt, iterator);
-                if (elsePattern == null || !areSameArray(targetArray, elsePattern.array)) {
-                    return null;
+                // Final else branch
+                List<StmtNode> elseStatements = ifStmt.elseBlock.statements;
+                
+                // Validate else statements all target same array
+                for (StmtNode stmt : elseStatements) {
+                    ExprNode stmtArray = validateStatementTarget(stmt, iterator);
+                    if (stmtArray != null && !isSameArray(stmtArray, branchArray)) {
+                        return null;
+                    }
                 }
-                finalElse = elsePattern.expression;
-            }
-        } else {
-            // No else: implicit else = original array value (i)
-            finalElse = createVariableExpr(iterator);
-        }
-        
-        // Build the pattern
-        if (conditions.size() > 1) {
-            // Has elif branches
-            ExprNode firstCondition = conditions.remove(0);
-            ExprNode firstExpression = expressions.remove(0);
-            
-            return new ConditionalPattern(
-                firstCondition, firstExpression, finalElse,
-                targetArray, iterator, conditions, expressions
-            );
-        } else {
-            // Simple if-else or if-only
-            return new ConditionalPattern(
-                conditions.get(0), expressions.get(0), finalElse,
-                targetArray, iterator
-            );
-        }
-    }
-    
-    // Helper to check if two array expressions refer to the same array
-    private static boolean areSameArray(ExprNode array1, ExprNode array2) {
-        if (array1 == null || array2 == null) return false;
-        
-        // Simple check: if both are variable references with same name
-        if (array1 instanceof ExprNode && array2 instanceof ExprNode) {
-            ExprNode expr1 = (ExprNode) array1;
-            ExprNode expr2 = (ExprNode) array2;
-            
-            if (expr1.name != null && expr2.name != null) {
-                return expr1.name.equals(expr2.name);
+                
+                return new ConditionalPattern(
+                    branchArray, iterator, 
+                    accumulatedBranches, elseStatements
+                );
             }
         }
         
-        // For now, assume they're the same if their string representations match
-        return array1.toString().equals(array2.toString());
+        // No else clause
+        return new ConditionalPattern(
+            branchArray, iterator, 
+            accumulatedBranches, new ArrayList<StmtNode>()
+        );
     }
     
-    // Helper to create a simple variable expression
-    private static ExprNode createVariableExpr(String varName) {
-        ExprNode expr = new ExprNode();
-        expr.name = varName;
-        return expr;
+    private static ExprNode validateBranchStatements(
+            List<StmtNode> statements, String iterator, ExprNode expectedArray) {
+        
+        ExprNode branchArray = null;
+        
+        for (StmtNode stmt : statements) {
+            ExprNode stmtArray = validateStatementTarget(stmt, iterator);
+            
+            // Variable declarations don't have array targets - skip them
+            if (stmtArray == null) continue;
+            
+            if (branchArray == null) {
+                branchArray = stmtArray;
+            } else if (!isSameArray(stmtArray, branchArray)) {
+                return null; // Mixed array targets in same branch
+            }
+            
+            if (expectedArray != null && !isSameArray(stmtArray, expectedArray)) {
+                return null; // Different array than previous branches
+            }
+        }
+        
+        return branchArray;
+    }
+    
+    private static ExprNode validateStatementTarget(StmtNode stmt, String iterator) {
+        if (stmt instanceof AssignmentNode) {
+            AssignmentNode assign = (AssignmentNode) stmt;
+            if (assign.left instanceof IndexAccessNode) {
+                IndexAccessNode indexAccess = (IndexAccessNode) assign.left;
+                if (isIndexIterator(indexAccess.index, iterator)) {
+                    return indexAccess.array;
+                }
+            }
+        }
+        // VarNode (variable declarations) are allowed but don't target array
+        return null;
+    }
+    
+    private static boolean isIndexIterator(ExprNode index, String iterator) {
+        return index instanceof IdentifierNode && 
+               iterator.equals(((IdentifierNode) index).name);
+    }
+    
+    private static boolean isSameArray(ExprNode a, ExprNode b) {
+        if (a == null || b == null) return false;
+        if (a instanceof IdentifierNode && b instanceof IdentifierNode) {
+            return ((IdentifierNode) a).name.equals(((IdentifierNode) b).name);
+        }
+        return a.toString().equals(b.toString());
     }
 }
