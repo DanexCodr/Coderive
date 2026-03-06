@@ -82,7 +82,7 @@ Coderive replaces traditional boolean operators with expressive quantifiers:
 **Smart For-Loops**
 
 ```python
-for i by *2 in 1 to 10 {  # Complex step patterns
+for i of 1 to 10 by *2 {  # Complex step patterns
     # Loop body
 }
 ```
