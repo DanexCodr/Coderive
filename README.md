@@ -32,7 +32,7 @@
 ## Introduction
 
 We present **Coderive v0.7.0**, a modern general programming language designed for **safe, fast, and clear** coding. 
-Coderive features a modular lexer-parser system written in java (recursive backtracking architecture) and a novel O(1)range system design.
+Coderive features a modular lexer-parser system written in java (recursive backtracking architecture) and a novel O(1) range system design.
 Built entirely on a mobile device, Coderive proves that serious programming language development can happen outside traditional environments.
 
 **Development Environment: Constraint-Driven Innovation**
