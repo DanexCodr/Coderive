@@ -1,13 +1,7 @@
 services:
   - type: web
     name: coderive-api
-    runtime: java7
+    runtime: docker
     region: singapore
     plan: free
-    buildCommand: |
-      mkdir -p lib
-      curl -L -o lib/spark-core-2.9.4.jar \
-        https://repo1.maven.org/maven2/com/sparkjava/spark-core/2.9.4/spark-core-2.9.4.jar
-      javac -cp ".:lib/spark-core-2.9.4.jar" PlaygroundServer.java
-    startCommand: |
-      java -cp ".:lib/spark-core-2.9.4.jar" PlaygroundServer
+    dockerfilePath: ./server/Dockerfile
