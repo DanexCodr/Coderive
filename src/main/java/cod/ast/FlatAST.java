@@ -272,4 +272,162 @@ public class FlatAST {
 
     // Direct node data access (for building)
     public NodeData nodeData(int n) { return nodes[n]; }
+
+    // === MUTATION HELPERS ===
+    private static int[] appendInt(int[] arr, int val) {
+        if (arr == null) arr = new int[0];
+        int[] r = new int[arr.length + 1];
+        System.arraycopy(arr, 0, r, 0, arr.length);
+        r[arr.length] = val;
+        return r;
+    }
+    private static String[] appendStr(String[] arr, String val) {
+        if (arr == null) arr = new String[0];
+        String[] r = new String[arr.length + 1];
+        System.arraycopy(arr, 0, r, 0, arr.length);
+        r[arr.length] = val;
+        return r;
+    }
+
+    // PROGRAM
+    public void programSetUnit(int n, int unitId)        { nodes[n].child0 = unitId; }
+    public void programSetType(int n, String t)          { nodes[n].str1 = t; }
+    public String programGetType(int n)                  { return nodes[n].str1; }
+
+    // UNIT
+    public void unitSetImports(int n, int importsId)     { nodes[n].child0 = importsId; }
+    public void unitAddType(int n, int typeId)           { nodes[n].children = appendInt(nodes[n].children, typeId); }
+    public void unitAddPolicy(int n, int policyId)       { nodes[n].children2 = appendInt(nodes[n].children2, policyId); }
+    public void unitSetMainClass(int n, String mc)       { nodes[n].str2 = mc; }
+    public void unitSetResolvedImportsMap(int n, Map<String,Integer> m) { nodes[n].objVal = m; }
+
+    // USE
+    public void useAddImport(int n, String imp)          { nodes[n].strings = appendStr(nodes[n].strings, imp); }
+    public void useSetImports(int n, String[] imps)      { nodes[n].strings = imps; }
+
+    // TYPE
+    public void typeAddField(int n, int fieldId)         { nodes[n].children = appendInt(nodes[n].children, fieldId); }
+    public void typeAddMethod(int n, int methodId)       { nodes[n].children2 = appendInt(nodes[n].children2, methodId); }
+    public void typeAddConstructor(int n, int ctorId) {
+        Object[] arr = nodes[n].objVal instanceof Object[] ? (Object[]) nodes[n].objVal : new Object[]{new int[0], new int[0]};
+        arr[0] = appendInt((int[]) arr[0], ctorId);
+        nodes[n].objVal = arr;
+    }
+    public void typeAddStatement(int n, int stmtId) {
+        Object[] arr = nodes[n].objVal instanceof Object[] ? (Object[]) nodes[n].objVal : new Object[]{new int[0], new int[0]};
+        arr[1] = appendInt((int[]) arr[1], stmtId);
+        nodes[n].objVal = arr;
+    }
+    public void typeAddImplementedPolicy(int n, String p) { nodes[n].strings = appendStr(nodes[n].strings, p); }
+    public void typeSetExtend(int n, String ext)         { nodes[n].str2 = ext; }
+    public void typeSetVisibility(int n, Keyword v)      { nodes[n].kw = v; }
+
+    // FIELD
+    public void fieldSetVisibility(int n, Keyword v)     { nodes[n].kw = v; }
+    public void fieldSetValue(int n, int valueId)        { nodes[n].child0 = valueId; }
+
+    // METHOD
+    public void methodAddParam(int n, int paramId)       { nodes[n].children = appendInt(nodes[n].children, paramId); }
+    public void methodAddReturnSlot(int n, int slotId)   { nodes[n].children2 = appendInt(nodes[n].children2, slotId); }
+    public void methodAddBodyStmt(int n, int stmtId) {
+        int[] body = nodes[n].objVal instanceof int[] ? (int[]) nodes[n].objVal : new int[0];
+        nodes[n].objVal = appendInt(body, stmtId);
+    }
+    public void methodSetAssociatedClass(int n, String c){ nodes[n].str1 = c; }
+    public void methodSetIsBuiltin(int n, boolean v)     { nodes[n].bool0 = v; }
+    public boolean methodIsPolicyMethod(int n)            { return nodes[n].bool1; }
+    public void methodSetIsPolicyMethod(int n, boolean v){ nodes[n].bool1 = v; }
+    public void methodSetReturnSlots(int n, int[] ids)   { nodes[n].children2 = ids; }
+    public void methodSetParams(int n, int[] ids)        { nodes[n].children = ids; }
+
+    // CONSTRUCTOR
+    public void constructorAddParam(int n, int paramId)  { nodes[n].children = appendInt(nodes[n].children, paramId); }
+    public void constructorAddBodyStmt(int n, int stmtId){ nodes[n].children2 = appendInt(nodes[n].children2, stmtId); }
+    public void constructorSetParams(int n, int[] ids)   { nodes[n].children = ids; }
+    public void constructorSetBody(int n, int[] ids)     { nodes[n].children2 = ids; }
+
+    // CONSTRUCTOR_CALL
+    public void constructorCallSetArgs(int n, int[] argIds, String[] argNames) {
+        nodes[n].children = argIds;
+        nodes[n].strings = argNames;
+    }
+    public void constructorCallAddArg(int n, int argId, String argName) {
+        nodes[n].children = appendInt(nodes[n].children, argId);
+        nodes[n].strings = appendStr(nodes[n].strings, argName != null ? argName : "");
+    }
+
+    // POLICY
+    public void policyAddMethod(int n, int methodId)     { nodes[n].children = appendInt(nodes[n].children, methodId); }
+    public void policyAddComposed(int n, String comp)    { nodes[n].strings = appendStr(nodes[n].strings, comp); }
+    public void policySetSourceUnit(int n, String su)    { nodes[n].str1 = su; }
+    public void policySetComposed(int n, String[] arr)   { nodes[n].strings = arr; }
+
+    // POLICY_METHOD
+    public void policyMethodAddParam(int n, int paramId) { nodes[n].children = appendInt(nodes[n].children, paramId); }
+    public void policyMethodAddReturnSlot(int n, int slotId) { nodes[n].children2 = appendInt(nodes[n].children2, slotId); }
+
+    // BLOCK
+    public void blockAddStmt(int n, int stmtId)          { nodes[n].children = appendInt(nodes[n].children, stmtId); }
+    public void blockSetStmts(int n, int[] ids)          { nodes[n].children = ids; }
+
+    // STMT_IF
+    public void stmtIfSetCondition(int n, int condId)    { nodes[n].child0 = condId; }
+    public void stmtIfSetThen(int n, int thenId)         { nodes[n].child1 = thenId; }
+    public void stmtIfSetElse(int n, int elseId)         { nodes[n].child2 = elseId; }
+
+    // FOR
+    public void forSetBody(int n, int bodyId)            { nodes[n].child2 = bodyId; }
+    public void forSetRange(int n, int rangeId)          { nodes[n].child0 = rangeId; }
+    public void forSetArraySource(int n, int srcId)      { nodes[n].child1 = srcId; }
+
+    // METHOD_CALL
+    public void methodCallSetTarget(int n, int targetId) { nodes[n].child0 = targetId; }
+    public void methodCallSetSlotNames(int n, String[] names) { nodes[n].strings = names; }
+    public void methodCallAddSlotName(int n, String name){ nodes[n].strings = appendStr(nodes[n].strings, name); }
+    public void methodCallSetArgNames(int n, String[] names) { nodes[n].strings2 = names; }
+    public void methodCallSetArgs(int n, int[] argIds)   { nodes[n].children = argIds; }
+    public void methodCallAddArg(int n, int argId, String argName) {
+        nodes[n].children = appendInt(nodes[n].children, argId);
+        nodes[n].strings2 = appendStr(nodes[n].strings2, argName != null ? argName : "");
+    }
+    public void methodCallSetIsSuper(int n, boolean v)   { nodes[n].bool0 = v; }
+    public void methodCallSetIsGlobal(int n, boolean v)  { nodes[n].bool1 = v; }
+    public void methodCallSetIsSingleSlot(int n, boolean v){ nodes[n].bool2 = v; }
+    public void methodCallSetName(int n, String name)    { nodes[n].str0 = name; }
+    public void methodCallSetQualified(int n, String q)  { nodes[n].str1 = q; }
+
+    // LAMBDA
+    public void lambdaSetBody(int n, int bodyId)         { nodes[n].child0 = bodyId; }
+    public void lambdaSetParams(int n, int[] paramIds)   { nodes[n].children = paramIds; }
+    public void lambdaSetReturnSlots(int n, int[] ids)   { nodes[n].children2 = ids; }
+
+    // VAR
+    public void varSetExplicitType(int n, String t)      { nodes[n].str1 = t; }
+    public void varSetValue(int n, int valueId)          { nodes[n].child0 = valueId; }
+
+    // PARAM
+    public void paramSetTupleDestructuring(int n, boolean v, String[] elements) {
+        nodes[n].str2 = v ? "true" : "false";
+        nodes[n].strings = elements;
+    }
+    public void paramSetIsLambda(int n, boolean v)       { nodes[n].bool2 = v; }
+    public void paramSetType(int n, String t)            { nodes[n].str1 = t; }
+
+    // ARRAY
+    public void arraySetElementType(int n, String t)     { nodes[n].str0 = t; }
+    public void arraySetElements(int n, int[] ids)       { nodes[n].children = ids; }
+
+    // RETURN_SLOT_ASSIGNMENT
+    public void returnSlotSetMethodCall(int n, int mcId) { nodes[n].child0 = mcId; }
+    public void returnSlotSetVarNames(int n, String[] names) { nodes[n].strings = names; }
+
+    // EQUALITY_CHAIN
+    public void equalityChainSetLeft(int n, int leftId)  { nodes[n].child0 = leftId; }
+    public void equalityChainSetArgs(int n, int[] ids)   { nodes[n].children = ids; }
+
+    // BOOLEAN_CHAIN
+    public void booleanChainSetExprs(int n, int[] ids)   { nodes[n].children = ids; }
+
+    // MULTIPLE_SLOT_ASSIGNMENT
+    public void multiSlotSetAssignments(int n, int[] ids){ nodes[n].children = ids; }
 }

@@ -17,11 +17,11 @@ public class ParseResult<T> {
     }
     
     public static <T> ParseResult<T> success(T value, ParserState state) {
-        return new ParseResult<>(value, state, null);
+        return new ParseResult<T>(value, state, null);
     }
     
     public static <T> ParseResult<T> failure(ParseError error, ParserState state) {
-        return new ParseResult<>(null, state, error);
+        return new ParseResult<T>(null, state, error);
     }
     
     public boolean isSuccess() {
@@ -47,23 +47,4 @@ public class ParseResult<T> {
         return error;
     }
     
-    /**
-     * Transform successful result, preserving state.
-     */
-    public <U> ParseResult<U> map(java.util.function.Function<T, U> mapper) {
-        if (isFailure()) {
-            return new ParseResult<>(null, state, error);
-        }
-        return new ParseResult<>(mapper.apply(value), state, null);
-    }
-    
-    /**
-     * Chain parsing operations, passing state automatically.
-     */
-    public <U> ParseResult<U> flatMap(java.util.function.Function<T, ParseResult<U>> mapper) {
-        if (isFailure()) {
-            return new ParseResult<>(null, state, error);
-        }
-        return mapper.apply(value);
-    }
 }
