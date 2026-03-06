@@ -13,6 +13,7 @@
             'js/menu.js',
             'js/home.js',
             'js/docs.js',
+            'js/coderive.js',
             'js/playground.js'
         ];
         

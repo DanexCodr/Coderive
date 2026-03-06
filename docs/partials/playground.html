@@ -1,41 +1,3 @@
-<!-- JVM loading overlay — shown until CheerpJ is fully ready -->
-<div id="jvm-overlay" class="jvm-overlay" aria-live="polite" aria-label="Loading Coderive Playground">
-    <div class="jvm-overlay-box">
-        <div class="jvm-overlay-title">Coderive Playground</div>
-        <div class="jvm-overlay-subtitle">Starting up the runtime environment…</div>
-
-        <ol class="jvm-steps" aria-label="Loading steps">
-            <li class="jvm-step pending" id="jvm-step-1">
-                <span class="jvm-step-num" aria-hidden="true">1</span>
-                <span class="jvm-step-label">Loading interface</span>
-                <span class="jvm-step-check" id="jvm-step-1-check" aria-hidden="true"></span>
-            </li>
-            <li class="jvm-step pending" id="jvm-step-2">
-                <span class="jvm-step-num" aria-hidden="true">2</span>
-                <span class="jvm-step-label">Downloading CheerpJ runtime</span>
-                <span class="jvm-step-check" id="jvm-step-2-check" aria-hidden="true"></span>
-            </li>
-            <li class="jvm-step pending" id="jvm-step-3">
-                <span class="jvm-step-num" aria-hidden="true">3</span>
-                <span class="jvm-step-label">Initializing JVM</span>
-                <span class="jvm-step-check" id="jvm-step-3-check" aria-hidden="true"></span>
-            </li>
-            <li class="jvm-step pending" id="jvm-step-4">
-                <span class="jvm-step-num" aria-hidden="true">4</span>
-                <span class="jvm-step-label">Loading Coderive</span>
-                <span class="jvm-step-check" id="jvm-step-4-check" aria-hidden="true"></span>
-            </li>
-        </ol>
-
-        <div class="jvm-progress-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="4" aria-valuenow="0" id="jvm-progressbar">
-            <div class="jvm-progress-fill" id="jvm-progress-fill"></div>
-        </div>
-        <div class="jvm-progress-label" id="jvm-progress-label">0 / 4</div>
-
-        <div class="jvm-overlay-error" id="jvm-overlay-error" style="display:none"></div>
-    </div>
-</div>
-
 <!-- Top section - matches home/docs -->
 <div class="top-section">
     <div class="hamburger-group">
@@ -49,7 +11,7 @@
     <div class="playground-header">
         <h1 class="playground-title">Coderive Playground</h1>
         <div class="playground-controls">
-            <span class="badge" id="apiStatus">⏳ Loading JVM...</span>
+            <span class="badge" id="apiStatus">⏳ Loading...</span>
             <button id="clearBtn" class="playground-btn secondary">Clear Console</button>
             <button id="resetBtn" class="playground-btn secondary">⟲ Reset Session</button>
         </div>

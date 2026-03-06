@@ -1597,7 +1597,17 @@
       const scope = new Scope(null);
       for (const k of Object.keys(globals)) scope.vars[k] = globals[k];
 
-      const result = this.eval(ast, scope);
+      let result;
+      try {
+        result = this.eval(ast, scope);
+      } catch (e) {
+        if (e instanceof ExitSignal) {
+          // `exit` terminates the current evaluation gracefully
+          result = undefined;
+        } else {
+          throw e;
+        }
+      }
 
       // Write back all top-level vars to the persistent globals map
       for (const k of Object.keys(scope.vars)) globals[k] = scope.vars[k];
