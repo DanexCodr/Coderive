@@ -1,0 +1,35 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Spark (this pulls ALL dependencies: Jetty, Servlet, SLF4J API, etc.)
+    implementation 'com.sparkjava:spark-core:2.9.4'
+    
+    // SLF4J Simple (logging implementation)
+    implementation 'org.slf4j:slf4j-simple:1.7.36'
+    
+    // Your language
+    implementation files('lib/Coderive.jar')
+}
+
+application {
+    mainClass = 'PlaygroundServer'
+}
+
+// Create fat JAR with everything
+task fatJar(type: Jar) {
+    manifest {
+        attributes 'Main-Class': 'PlaygroundServer'
+    }
+    archiveBaseName = 'coderive-server'
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    with jar
+}
