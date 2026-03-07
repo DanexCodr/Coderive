@@ -389,7 +389,14 @@ public class FlatAST {
             ((cod.ast.nodes.MethodNode)nodes[n].legacyNode).parameters.add(
                     (cod.ast.nodes.ParamNode)nodes[paramId].legacyNode);
     }
-    public void methodAddReturnSlot(int n, int slotId)   { nodes[n].children2 = appendInt(nodes[n].children2, slotId); }
+    public void methodAddReturnSlot(int n, int slotId) {
+        nodes[n].children2 = appendInt(nodes[n].children2, slotId);
+        if (n >= 0 && n < size && slotId >= 0 && slotId < size
+                && nodes[n].legacyNode instanceof cod.ast.nodes.MethodNode
+                && nodes[slotId].legacyNode instanceof cod.ast.nodes.SlotNode)
+            ((cod.ast.nodes.MethodNode)nodes[n].legacyNode).returnSlots.add(
+                    (cod.ast.nodes.SlotNode)nodes[slotId].legacyNode);
+    }
     public void methodAddBodyStmt(int n, int stmtId) {
         int[] body = nodes[n].objVal instanceof int[] ? (int[]) nodes[n].objVal : new int[0];
         nodes[n].objVal = appendInt(body, stmtId);
@@ -403,7 +410,19 @@ public class FlatAST {
     public void methodSetIsBuiltin(int n, boolean v)     { nodes[n].bool0 = v; }
     public boolean methodIsPolicyMethod(int n)            { return nodes[n].bool1; }
     public void methodSetIsPolicyMethod(int n, boolean v){ nodes[n].bool1 = v; }
-    public void methodSetReturnSlots(int n, int[] ids)   { nodes[n].children2 = ids; }
+    public void methodSetReturnSlots(int n, int[] ids) {
+        nodes[n].children2 = ids;
+        if (n >= 0 && n < size && nodes[n].legacyNode instanceof cod.ast.nodes.MethodNode) {
+            cod.ast.nodes.MethodNode mn = (cod.ast.nodes.MethodNode) nodes[n].legacyNode;
+            mn.returnSlots.clear();
+            if (ids != null) {
+                for (int slotId : ids) {
+                    if (slotId >= 0 && slotId < size && nodes[slotId].legacyNode instanceof cod.ast.nodes.SlotNode)
+                        mn.returnSlots.add((cod.ast.nodes.SlotNode) nodes[slotId].legacyNode);
+                }
+            }
+        }
+    }
     public void methodSetParams(int n, int[] ids)        { nodes[n].children = ids; }
 
     // CONSTRUCTOR
