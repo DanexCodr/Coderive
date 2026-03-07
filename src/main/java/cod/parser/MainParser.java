@@ -37,13 +37,13 @@ public class MainParser extends BaseParser {
     }
     
     public MainParser(List<Token> tokens, Interpreter interpreter) {
-        super(new ParserContext(new ParserState(tokens)));
+        super(new ParserContext(new ParserState(tokens)), new cod.ast.ASTFactory());
         this.interpreter = interpreter;
         
         GlobalRegistry globalRegistry = interpreter != null ? 
             interpreter.getGlobalRegistry() : null;
         
-        this.expressionParser = new ExpressionParser(ctx, globalRegistry, null);
+        this.expressionParser = new ExpressionParser(ctx, this.factory, globalRegistry, null);
         this.statementParser = new StatementParser(ctx, expressionParser);
         this.expressionParser.setStatementParser(this.statementParser);
         this.declarationParser = new DeclarationParser(ctx, statementParser, 
@@ -55,87 +55,83 @@ public class MainParser extends BaseParser {
         return new MainParser(isolatedCtx.getState().getTokens(), interpreter);
     }
     
-    public ProgramNode parseProgram() {
-    ProgramNode program = ASTFactory.createProgram();
+    public int parseProgram() {
+    int programId = factory.createProgram();
     
     // First, check for UNIT declaration
     if (is(UNIT)) {
-        program.unit = parseUnit();
-        program.programType = ProgramType.MODULE;
+        factory.getAST().programSetUnit(programId, parseUnit());
+        factory.getAST().programSetType(programId, "MODULE");
     } else {
         // No unit - create a default unit
-        program.unit = ASTFactory.createUnit("default", null);
-        program.programType = ProgramType.SCRIPT; // Will be updated after validation
+        factory.getAST().programSetUnit(programId, factory.createUnit("default", null));
+        factory.getAST().programSetType(programId, "SCRIPT"); // Will be updated after validation
     }
 
     // Parse USE statements (imports)
     while (is(USE)) {
-        if (program.unit.imports == null) {
-            program.unit.imports = parseUseNode();
-        } else {
-            UseNode additionalImports = parseUseNode();
-            program.unit.imports.imports.addAll(additionalImports.imports);
-        }
+        int useId = parseUseNode();
+        factory.getAST().unitAddImport(factory.getAST().programUnit(programId), useId);
     }
 
     // Parse everything else at top level
-    List<TypeNode> typesInFile = new ArrayList<>();
-    List<PolicyNode> policiesInFile = new ArrayList<>();
-    List<StmtNode> topLevelStatements = new ArrayList<>();
-    List<MethodNode> topLevelMethods = new ArrayList<>();
+    List<Integer> typesInFile = new java.util.ArrayList<Integer>();
+    List<Integer> policiesInFile = new java.util.ArrayList<Integer>();
+    List<Integer> topLevelStatements = new java.util.ArrayList<Integer>();
+    List<Integer> topLevelMethods = new java.util.ArrayList<Integer>();
     
     while (!is(EOF)) {
         if (declarationParser.isPolicyDeclaration()) {
-            PolicyNode policy = declarationParser.parsePolicy();
-            program.unit.policies.add(policy);
+            int policy = declarationParser.parsePolicy();
+            factory.getAST().unitAddPolicy(factory.getAST().programUnit(programId), policy);
             policiesInFile.add(policy);
         } 
         else if (isClassStart() || isClassStartWithoutModifier()) {
             // Save state before attempting to parse as type
             ParserState beforeType = getCurrentState();
             
-            TypeNode type = declarationParser.parseType();
-            if (type != null) {
+            int type = declarationParser.parseType();
+            if (type != cod.ast.FlatAST.NULL) {
                 // Successfully parsed as a type
-                program.unit.types.add(type);
+                factory.getAST().unitAddType(factory.getAST().programUnit(programId), type);
                 typesInFile.add(type);
             } else {
                 // Not a type - restore state and parse as method
                 setState(beforeType);
-                MethodNode method = declarationParser.parseMethod();
+                int method = declarationParser.parseMethod();
                 topLevelMethods.add(method);
             }
         }
         else if (isMethodDeclarationStart()) {
-            MethodNode method = declarationParser.parseMethod();
+            int method = declarationParser.parseMethod();
             topLevelMethods.add(method);
         }
         else {
             // Must be a statement at top level
-            StmtNode stmt = statementParser.parseStmt();
+            int stmt = statementParser.parseStmt();
             topLevelStatements.add(stmt);
         }
     }
     
     // Now validate the program structure and set final type
-    validateProgramStructure(program, topLevelStatements, topLevelMethods, typesInFile, policiesInFile);
+    validateProgramStructure(programId, topLevelStatements, topLevelMethods, typesInFile, policiesInFile);
     
     // Add top-level elements to the appropriate places based on program type
-    if (program.programType == ProgramType.MODULE) {
+    if ("MODULE".equals(factory.getAST().programType(programId))) {
         // Modules already added types and policies during parsing
         // Top-level methods and statements are not allowed (would have thrown error)
-    } else if (program.programType == ProgramType.METHOD_SCRIPT) {
+    } else if ("METHOD_SCRIPT".equals(factory.getAST().programType(programId))) {
         // Method scripts have an implicit type that contains all methods
         TypeNode methodScriptType = findOrCreateImplicitType(program.unit, "__MethodScript__");
         methodScriptType.methods.addAll(topLevelMethods);
-    } else if (program.programType == ProgramType.SCRIPT) {
+    } else if ("SCRIPT".equals(factory.getAST().programType(programId))) {
         // Scripts have an implicit type that contains all statements
         TypeNode scriptType = findOrCreateImplicitType(program.unit, "__Script__");
         scriptType.statements.addAll(topLevelStatements);
     }
     
     // Validate module-specific rules if this is a module
-    if (program.programType == ProgramType.MODULE) {
+    if ("MODULE".equals(factory.getAST().programType(programId))) {
         validateModule(program, typesInFile, policiesInFile);
     }
     
@@ -148,7 +144,7 @@ public class MainParser extends BaseParser {
                 return type;
             }
         }
-        TypeNode implicitType = ASTFactory.createType(typeName, SHARE, null, null);
+        TypeNode implicitType = factory.createType(typeName, SHARE, null, null);
         unit.types.add(implicitType);
         return implicitType;
     }
@@ -166,7 +162,7 @@ public class MainParser extends BaseParser {
         
         if (hasUnit) {
             // MODULE validation
-            program.programType = ProgramType.MODULE;
+            factory.getAST().programSetType(programId, "MODULE");
             
             if (hasDirectCode) {
                 throw error("Modules cannot have direct code outside classes.", now());
@@ -177,7 +173,7 @@ public class MainParser extends BaseParser {
             
         } else if (hasDirectCode) {
             // SCRIPT validation
-            program.programType = ProgramType.SCRIPT;
+            factory.getAST().programSetType(programId, "SCRIPT");
             
             if (hasMethods) {
                 throw error("Scripts cannot contain method declarations.", now());
@@ -196,7 +192,7 @@ public class MainParser extends BaseParser {
             
         } else {
             // Empty file or just imports - treat as script
-            program.programType = ProgramType.SCRIPT;
+            factory.getAST().programSetType(programId, "SCRIPT");
         }
     }
 
@@ -507,7 +503,7 @@ public class MainParser extends BaseParser {
             }
         }
         
-        UnitNode unit = ASTFactory.createUnit(unitName, unitToken);
+        UnitNode unit = factory.createUnit(unitName, unitToken);
         unit.mainClassName = mainClassName;
         return unit;
     }
@@ -524,7 +520,7 @@ public class MainParser extends BaseParser {
             }
         }
         expect(RBRACE);
-        return ASTFactory.createUseNode(imports, useToken);
+        return factory.createUseNode(imports, useToken);
     }
 
     private boolean isMethodDeclarationStart() {
