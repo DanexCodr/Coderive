@@ -99,8 +99,6 @@ T visit(SuperNode n);
   
 T visit(PropertyAccessNode n);
 
-  T visit(ASTNode n);
-
   // Utility methods for visiting lists
   List<T> visitList(List<? extends ASTNode> n);
 

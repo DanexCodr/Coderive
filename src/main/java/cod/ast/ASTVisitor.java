@@ -251,16 +251,10 @@ public T visit(SuperNode n) {
 }
 
   @Override
-  public final T visit(ASTNode n) {
-    // This is the entry point - delegate to the n's accept method
-    return n.accept(this);
-  }
-
-  @Override
   public List<T> visitList(List<? extends ASTNode> nodes) {
     List<T> results = new ArrayList<T>();
     for (ASTNode n : nodes) {
-      results.add(visit(n));
+      results.add(dispatch(n));
     }
     return results;
   }
@@ -268,7 +262,7 @@ public T visit(SuperNode n) {
   @Override
   public void visitAll(List<? extends ASTNode> nodes) {
     for (ASTNode n : nodes) {
-      visit(n);
+      dispatch(n);
     }
   }
 

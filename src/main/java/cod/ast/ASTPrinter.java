@@ -486,6 +486,6 @@ public class ASTPrinter extends ASTVisitor<Void> {
     
     public static void print(ASTNode node) {
         ASTPrinter printer = new ASTPrinter();
-        printer.visit(node);
+        printer.dispatch(node);
     }
 }
