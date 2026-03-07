@@ -44,6 +44,11 @@ public class FlatAST {
 
     public int size() { return size; }
 
+    private boolean isValidNode(int id) {
+        return id >= 0 && id < size;
+    }
+
+
     // Kind and span accessors
     public NodeKind kind(int n) { return nodes[n].kind; }
     public Object getLegacyNode(int n) { return n >= 0 && n < size ? nodes[n].legacyNode : null; }
@@ -340,12 +345,12 @@ public class FlatAST {
     // TYPE
     public void typeAddField(int n, int fieldId) {
         nodes[n].children = appendInt(nodes[n].children, fieldId);
-        if (n >= 0 && n < size && fieldId >= 0 && fieldId < size && nodes[n].legacyNode instanceof cod.ast.nodes.TypeNode && nodes[fieldId].legacyNode instanceof cod.ast.nodes.FieldNode)
+        if (isValidNode(n) && isValidNode(fieldId) && nodes[n].legacyNode instanceof cod.ast.nodes.TypeNode && nodes[fieldId].legacyNode instanceof cod.ast.nodes.FieldNode)
             ((cod.ast.nodes.TypeNode)nodes[n].legacyNode).fields.add((cod.ast.nodes.FieldNode)nodes[fieldId].legacyNode);
     }
     public void typeAddMethod(int n, int methodId) {
         nodes[n].children2 = appendInt(nodes[n].children2, methodId);
-        if (n >= 0 && n < size && methodId >= 0 && methodId < size && nodes[n].legacyNode instanceof cod.ast.nodes.TypeNode && nodes[methodId].legacyNode instanceof cod.ast.nodes.MethodNode)
+        if (isValidNode(n) && isValidNode(methodId) && nodes[n].legacyNode instanceof cod.ast.nodes.TypeNode && nodes[methodId].legacyNode instanceof cod.ast.nodes.MethodNode)
             ((cod.ast.nodes.TypeNode)nodes[n].legacyNode).methods.add((cod.ast.nodes.MethodNode)nodes[methodId].legacyNode);
     }
     public void typeAddConstructor(int n, int ctorId) {
@@ -359,7 +364,7 @@ public class FlatAST {
         Object[] arr = nodes[n].objVal instanceof Object[] ? (Object[]) nodes[n].objVal : new Object[]{new int[0], new int[0]};
         arr[1] = appendInt((int[]) arr[1], stmtId);
         nodes[n].objVal = arr;
-        if (n >= 0 && n < size && stmtId >= 0 && stmtId < size
+        if (isValidNode(n) && isValidNode(stmtId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.TypeNode
                 && nodes[stmtId].legacyNode instanceof cod.ast.nodes.StmtNode)
             ((cod.ast.nodes.TypeNode)nodes[n].legacyNode).statements.add(
@@ -373,7 +378,7 @@ public class FlatAST {
     public void fieldSetVisibility(int n, Keyword v)     { nodes[n].kw = v; }
     public void fieldSetValue(int n, int valueId) {
         nodes[n].child0 = valueId;
-        if (n >= 0 && n < size && valueId >= 0 && valueId < size
+        if (isValidNode(n) && isValidNode(valueId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.FieldNode
                 && nodes[valueId].legacyNode instanceof cod.ast.nodes.ExprNode)
             ((cod.ast.nodes.FieldNode)nodes[n].legacyNode).value =
@@ -383,7 +388,7 @@ public class FlatAST {
     // METHOD
     public void methodAddParam(int n, int paramId) {
         nodes[n].children = appendInt(nodes[n].children, paramId);
-        if (n >= 0 && n < size && paramId >= 0 && paramId < size
+        if (isValidNode(n) && isValidNode(paramId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.MethodNode
                 && nodes[paramId].legacyNode instanceof cod.ast.nodes.ParamNode)
             ((cod.ast.nodes.MethodNode)nodes[n].legacyNode).parameters.add(
@@ -391,7 +396,7 @@ public class FlatAST {
     }
     public void methodAddReturnSlot(int n, int slotId) {
         nodes[n].children2 = appendInt(nodes[n].children2, slotId);
-        if (n >= 0 && n < size && slotId >= 0 && slotId < size
+        if (isValidNode(n) && isValidNode(slotId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.MethodNode
                 && nodes[slotId].legacyNode instanceof cod.ast.nodes.SlotNode)
             ((cod.ast.nodes.MethodNode)nodes[n].legacyNode).returnSlots.add(
@@ -400,7 +405,7 @@ public class FlatAST {
     public void methodAddBodyStmt(int n, int stmtId) {
         int[] body = nodes[n].objVal instanceof int[] ? (int[]) nodes[n].objVal : new int[0];
         nodes[n].objVal = appendInt(body, stmtId);
-        if (n >= 0 && n < size && stmtId >= 0 && stmtId < size
+        if (isValidNode(n) && isValidNode(stmtId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.MethodNode
                 && nodes[stmtId].legacyNode instanceof cod.ast.nodes.StmtNode)
             ((cod.ast.nodes.MethodNode)nodes[n].legacyNode).body.add(
@@ -412,7 +417,7 @@ public class FlatAST {
     public void methodSetIsPolicyMethod(int n, boolean v){ nodes[n].bool1 = v; }
     public void methodSetReturnSlots(int n, int[] ids) {
         nodes[n].children2 = ids;
-        if (n >= 0 && n < size && nodes[n].legacyNode instanceof cod.ast.nodes.MethodNode) {
+        if (isValidNode(n) && nodes[n].legacyNode instanceof cod.ast.nodes.MethodNode) {
             cod.ast.nodes.MethodNode mn = (cod.ast.nodes.MethodNode) nodes[n].legacyNode;
             mn.returnSlots.clear();
             if (ids != null) {
@@ -429,7 +434,7 @@ public class FlatAST {
     public void constructorAddParam(int n, int paramId)  { nodes[n].children = appendInt(nodes[n].children, paramId); }
     public void constructorAddBodyStmt(int n, int stmtId) {
         nodes[n].children2 = appendInt(nodes[n].children2, stmtId);
-        if (n >= 0 && n < size && stmtId >= 0 && stmtId < size && nodes[n].legacyNode instanceof cod.ast.nodes.ConstructorNode && nodes[stmtId].legacyNode instanceof cod.ast.nodes.StmtNode)
+        if (isValidNode(n) && isValidNode(stmtId) && nodes[n].legacyNode instanceof cod.ast.nodes.ConstructorNode && nodes[stmtId].legacyNode instanceof cod.ast.nodes.StmtNode)
             ((cod.ast.nodes.ConstructorNode)nodes[n].legacyNode).body.add((cod.ast.nodes.StmtNode)nodes[stmtId].legacyNode);
     }
     public void constructorSetParams(int n, int[] ids)   { nodes[n].children = ids; }
@@ -458,7 +463,7 @@ public class FlatAST {
     // BLOCK
     public void blockAddStmt(int n, int stmtId) {
         nodes[n].children = appendInt(nodes[n].children, stmtId);
-        if (n >= 0 && n < size && stmtId >= 0 && stmtId < size
+        if (isValidNode(n) && isValidNode(stmtId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.BlockNode
                 && nodes[stmtId].legacyNode instanceof cod.ast.nodes.StmtNode)
             ((cod.ast.nodes.BlockNode)nodes[n].legacyNode).statements.add(
@@ -469,7 +474,7 @@ public class FlatAST {
     // STMT_IF
     public void stmtIfSetCondition(int n, int condId) {
         nodes[n].child0 = condId;
-        if (n >= 0 && n < size && condId >= 0 && condId < size
+        if (isValidNode(n) && isValidNode(condId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.StmtIfNode
                 && nodes[condId].legacyNode instanceof cod.ast.nodes.ExprNode)
             ((cod.ast.nodes.StmtIfNode)nodes[n].legacyNode).condition =
@@ -477,7 +482,7 @@ public class FlatAST {
     }
     public void stmtIfSetThen(int n, int thenId) {
         nodes[n].child1 = thenId;
-        if (n >= 0 && n < size && thenId >= 0 && thenId < size
+        if (isValidNode(n) && isValidNode(thenId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.StmtIfNode
                 && nodes[thenId].legacyNode instanceof cod.ast.nodes.BlockNode)
             ((cod.ast.nodes.StmtIfNode)nodes[n].legacyNode).thenBlock =
@@ -485,7 +490,7 @@ public class FlatAST {
     }
     public void stmtIfSetElse(int n, int elseId) {
         nodes[n].child2 = elseId;
-        if (n >= 0 && n < size && elseId >= 0 && elseId < size
+        if (isValidNode(n) && isValidNode(elseId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.StmtIfNode
                 && nodes[elseId].legacyNode instanceof cod.ast.nodes.BlockNode)
             ((cod.ast.nodes.StmtIfNode)nodes[n].legacyNode).elseBlock =
@@ -495,7 +500,7 @@ public class FlatAST {
     // FOR
     public void forSetBody(int n, int bodyId) {
         nodes[n].child2 = bodyId;
-        if (n >= 0 && n < size && bodyId >= 0 && bodyId < size
+        if (isValidNode(n) && isValidNode(bodyId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.ForNode
                 && nodes[bodyId].legacyNode instanceof cod.ast.nodes.BlockNode)
             ((cod.ast.nodes.ForNode)nodes[n].legacyNode).body =
@@ -503,7 +508,7 @@ public class FlatAST {
     }
     public void forSetRange(int n, int rangeId) {
         nodes[n].child0 = rangeId;
-        if (n >= 0 && n < size && rangeId >= 0 && rangeId < size
+        if (isValidNode(n) && isValidNode(rangeId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.ForNode
                 && nodes[rangeId].legacyNode instanceof cod.ast.nodes.RangeNode)
             ((cod.ast.nodes.ForNode)nodes[n].legacyNode).range =
@@ -521,7 +526,7 @@ public class FlatAST {
     // METHOD_CALL
     public void methodCallSetTarget(int n, int targetId) {
         nodes[n].child0 = targetId;
-        if (n >= 0 && n < size && targetId >= 0 && targetId < size
+        if (isValidNode(n) && isValidNode(targetId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode
                 && nodes[targetId].legacyNode instanceof cod.ast.nodes.ExprNode)
             ((cod.ast.nodes.MethodCallNode)nodes[n].legacyNode).target =
@@ -529,7 +534,7 @@ public class FlatAST {
     }
     public void methodCallSetSlotNames(int n, String[] names) {
         nodes[n].strings = names;
-        if (n >= 0 && n < size && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode) {
+        if (isValidNode(n) && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode) {
             cod.ast.nodes.MethodCallNode mc = (cod.ast.nodes.MethodCallNode)nodes[n].legacyNode;
             mc.slotNames.clear();
             if (names != null) for (String s : names) mc.slotNames.add(s);
@@ -537,7 +542,7 @@ public class FlatAST {
     }
     public void methodCallAddSlotName(int n, String name) {
         nodes[n].strings = appendStr(nodes[n].strings, name);
-        if (n >= 0 && n < size && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode)
+        if (isValidNode(n) && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode)
             ((cod.ast.nodes.MethodCallNode)nodes[n].legacyNode).slotNames.add(name != null ? name : "");
     }
     public void methodCallSetArgNames(int n, String[] names) { nodes[n].strings2 = names; }
@@ -545,7 +550,7 @@ public class FlatAST {
     public void methodCallAddArg(int n, int argId, String argName) {
         nodes[n].children = appendInt(nodes[n].children, argId);
         nodes[n].strings2 = appendStr(nodes[n].strings2, argName != null ? argName : "");
-        if (n >= 0 && n < size && argId >= 0 && argId < size
+        if (isValidNode(n) && isValidNode(argId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode
                 && nodes[argId].legacyNode instanceof cod.ast.nodes.ExprNode) {
             cod.ast.nodes.MethodCallNode mc = (cod.ast.nodes.MethodCallNode)nodes[n].legacyNode;
@@ -555,27 +560,27 @@ public class FlatAST {
     }
     public void methodCallSetIsSuper(int n, boolean v) {
         nodes[n].bool0 = v;
-        if (n >= 0 && n < size && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode)
+        if (isValidNode(n) && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode)
             ((cod.ast.nodes.MethodCallNode)nodes[n].legacyNode).isSuperCall = v;
     }
     public void methodCallSetIsGlobal(int n, boolean v) {
         nodes[n].bool1 = v;
-        if (n >= 0 && n < size && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode)
+        if (isValidNode(n) && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode)
             ((cod.ast.nodes.MethodCallNode)nodes[n].legacyNode).isGlobal = v;
     }
     public void methodCallSetIsSingleSlot(int n, boolean v) {
         nodes[n].bool2 = v;
-        if (n >= 0 && n < size && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode)
+        if (isValidNode(n) && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode)
             ((cod.ast.nodes.MethodCallNode)nodes[n].legacyNode).isSingleSlotCall = v;
     }
     public void methodCallSetName(int n, String name) {
         nodes[n].str0 = name;
-        if (n >= 0 && n < size && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode)
+        if (isValidNode(n) && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode)
             ((cod.ast.nodes.MethodCallNode)nodes[n].legacyNode).name = name;
     }
     public void methodCallSetQualified(int n, String q) {
         nodes[n].str1 = q;
-        if (n >= 0 && n < size && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode)
+        if (isValidNode(n) && nodes[n].legacyNode instanceof cod.ast.nodes.MethodCallNode)
             ((cod.ast.nodes.MethodCallNode)nodes[n].legacyNode).qualifiedName = q;
     }
 
@@ -587,12 +592,12 @@ public class FlatAST {
     // VAR
     public void varSetExplicitType(int n, String t) {
         nodes[n].str1 = t;
-        if (n >= 0 && n < size && nodes[n].legacyNode instanceof cod.ast.nodes.VarNode)
+        if (isValidNode(n) && nodes[n].legacyNode instanceof cod.ast.nodes.VarNode)
             ((cod.ast.nodes.VarNode)nodes[n].legacyNode).explicitType = t;
     }
     public void varSetValue(int n, int valueId) {
         nodes[n].child0 = valueId;
-        if (n >= 0 && n < size && valueId >= 0 && valueId < size
+        if (isValidNode(n) && isValidNode(valueId)
                 && nodes[n].legacyNode instanceof cod.ast.nodes.VarNode
                 && nodes[valueId].legacyNode instanceof cod.ast.nodes.ExprNode)
             ((cod.ast.nodes.VarNode)nodes[n].legacyNode).value =
