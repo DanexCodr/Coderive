@@ -102,7 +102,13 @@ public class ASTFactory {
         data.children2 = new int[0];
         data.strings = new String[0];
         data.objVal = new Object[]{new int[0], new int[0]};
-        return ast.add(data);
+        int id = ast.add(data);
+        TypeNode type = new TypeNode();
+        type.name = name;
+        type.visibility = (visibility != null ? visibility : Keyword.SHARE);
+        type.extendName = extendName;
+        ast.setLegacyNode(id, type);
+        return id;
     }
 
     // === POLICY ===
@@ -142,7 +148,14 @@ public class ASTFactory {
         data.str1 = type;
         data.child0 = valueId;
         data.span = span(nameToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        FieldNode fn = new FieldNode();
+        fn.name = name;
+        fn.type = type;
+        Object fvobj = ast.getLegacyNode(valueId);
+        if (fvobj instanceof ExprNode) fn.value = (ExprNode) fvobj;
+        ast.setLegacyNode(id, fn);
+        return id;
     }
 
     public int createField(String name, String type, Token nameToken) {
@@ -158,7 +171,14 @@ public class ASTFactory {
         data.child1 = valueId;
         data.bool0 = isDeclaration;
         data.span = span(assignToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        AssignmentNode an = new AssignmentNode();
+        an.isDeclaration = isDeclaration;
+        Object atobj = ast.getLegacyNode(targetId), avobj = ast.getLegacyNode(valueId);
+        if (atobj instanceof ExprNode) an.left = (ExprNode) atobj;
+        if (avobj instanceof ExprNode) an.right = (ExprNode) avobj;
+        ast.setLegacyNode(id, an);
+        return id;
     }
 
     // === CONSTRUCTOR_CALL ===
@@ -172,7 +192,17 @@ public class ASTFactory {
         data.children = arr;
         data.strings = new String[arr.length];
         Arrays.fill(data.strings, "");
-        return ast.add(data);
+        int id = ast.add(data);
+        ConstructorCallNode ccn = new ConstructorCallNode();
+        ccn.className = className;
+        ccn.arguments = new java.util.ArrayList<ExprNode>();
+        ccn.argNames = new java.util.ArrayList<String>();
+        for (int argId : (argIds != null ? argIds : new java.util.ArrayList<Integer>())) {
+            Object obj = ast.getLegacyNode(argId);
+            if (obj instanceof ExprNode) { ccn.arguments.add((ExprNode) obj); ccn.argNames.add(""); }
+        }
+        ast.setLegacyNode(id, ccn);
+        return id;
     }
 
     // === CONSTRUCTOR ===
@@ -245,7 +275,11 @@ public class ASTFactory {
         data.child1 = rightId;
         data.span = span(dotToken);
         int id = ast.add(data);
-        ast.setLegacyNode(id, new PropertyAccessNode());
+        PropertyAccessNode pan = new PropertyAccessNode();
+        Object lobj = ast.getLegacyNode(leftId), robj = ast.getLegacyNode(rightId);
+        if (lobj instanceof ExprNode) pan.left = (ExprNode) lobj;
+        if (robj instanceof ExprNode) pan.right = (ExprNode) robj;
+        ast.setLegacyNode(id, pan);
         return id;
     }
 
@@ -348,7 +382,7 @@ public class ASTFactory {
         data.str0 = className;
         data.span = span(thisToken);
         int id = ast.add(data);
-        ast.setLegacyNode(id, new ThisNode());
+        ast.setLegacyNode(id, new ThisNode(className));
         return id;
     }
 
@@ -373,7 +407,12 @@ public class ASTFactory {
         data.child1 = rightId;
         data.span = span(opToken);
         int id = ast.add(data);
-        ast.setLegacyNode(id, new BinaryOpNode());
+        BinaryOpNode bn = new BinaryOpNode();
+        bn.op = op;
+        Object lobj = ast.getLegacyNode(leftId), robj = ast.getLegacyNode(rightId);
+        if (lobj instanceof ExprNode) bn.left = (ExprNode) lobj;
+        if (robj instanceof ExprNode) bn.right = (ExprNode) robj;
+        ast.setLegacyNode(id, bn);
         return id;
     }
 
@@ -388,7 +427,18 @@ public class ASTFactory {
         data.child0 = leftId;
         data.children = toIntArray(chainArgIds);
         data.span = span(opToken != null ? opToken : leftToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        EqualityChainNode ecn = new EqualityChainNode();
+        ecn.operator = operator;
+        ecn.isAllChain = isAllChain;
+        Object leftObj = ast.getLegacyNode(leftId);
+        if (leftObj instanceof ExprNode) ecn.left = (ExprNode) leftObj;
+        for (int argId : chainArgIds) {
+            Object obj = ast.getLegacyNode(argId);
+            if (obj instanceof ExprNode) ecn.chainArguments.add((ExprNode) obj);
+        }
+        ast.setLegacyNode(id, ecn);
+        return id;
     }
 
     // === BOOLEAN_CHAIN ===
@@ -399,7 +449,15 @@ public class ASTFactory {
         data.bool0 = isAll;
         data.children = toIntArray(exprIds);
         data.span = span(keywordToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        BooleanChainNode bcn = new BooleanChainNode();
+        bcn.isAll = isAll;
+        for (int exprId : exprIds) {
+            Object obj = ast.getLegacyNode(exprId);
+            if (obj instanceof ExprNode) bcn.expressions.add((ExprNode) obj);
+        }
+        ast.setLegacyNode(id, bcn);
+        return id;
     }
 
     // === UNARY ===
@@ -411,7 +469,11 @@ public class ASTFactory {
         data.child0 = operandId;
         data.span = span(opToken);
         int id = ast.add(data);
-        ast.setLegacyNode(id, new UnaryNode());
+        UnaryNode un = new UnaryNode();
+        un.op = op;
+        Object operandObj = ast.getLegacyNode(operandId);
+        if (operandObj instanceof ExprNode) un.operand = (ExprNode) operandObj;
+        ast.setLegacyNode(id, un);
         return id;
     }
 
@@ -423,7 +485,13 @@ public class ASTFactory {
         data.str0 = targetType;
         data.child0 = expressionId;
         data.span = span(lparenToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        TypeCastNode tcn = new TypeCastNode();
+        tcn.targetType = targetType;
+        Object tceobj = ast.getLegacyNode(expressionId);
+        if (tceobj instanceof ExprNode) tcn.expression = (ExprNode) tceobj;
+        ast.setLegacyNode(id, tcn);
+        return id;
     }
 
     // === SLOT_ASSIGNMENT (implicit return) ===
@@ -434,7 +502,13 @@ public class ASTFactory {
         data.str0 = "_";
         data.child0 = returnExprId;
         data.span = span(returnToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        SlotAssignmentNode irn = new SlotAssignmentNode();
+        irn.slotName = "_";
+        Object retObj = ast.getLegacyNode(returnExprId);
+        if (retObj instanceof ExprNode) irn.value = (ExprNode) retObj;
+        ast.setLegacyNode(id, irn);
+        return id;
     }
 
     // === METHOD_CALL ===
@@ -465,7 +539,12 @@ public class ASTFactory {
         data.children = toIntArray(elementIds);
         data.span = span(lbracketToken);
         int id = ast.add(data);
-        ast.setLegacyNode(id, new ArrayNode());
+        ArrayNode an = new ArrayNode();
+        for (int eid : elementIds) {
+            Object obj = ast.getLegacyNode(eid);
+            if (obj instanceof ExprNode) an.elements.add((ExprNode) obj);
+        }
+        ast.setLegacyNode(id, an);
         return id;
     }
 
@@ -477,7 +556,13 @@ public class ASTFactory {
         data.children = toIntArray(elementIds);
         data.span = span(lparenToken);
         int id = ast.add(data);
-        ast.setLegacyNode(id, new TupleNode());
+        TupleNode tn = new TupleNode();
+        tn.elements = new java.util.ArrayList<ExprNode>();
+        for (int eid : elementIds) {
+            Object obj = ast.getLegacyNode(eid);
+            if (obj instanceof ExprNode) tn.elements.add((ExprNode) obj);
+        }
+        ast.setLegacyNode(id, tn);
         return id;
     }
 
@@ -490,7 +575,11 @@ public class ASTFactory {
         data.child1 = indexId;
         data.span = span(lbracketToken);
         int id = ast.add(data);
-        ast.setLegacyNode(id, new IndexAccessNode());
+        IndexAccessNode ian = new IndexAccessNode();
+        Object aobj = ast.getLegacyNode(arrayId), iobj = ast.getLegacyNode(indexId);
+        if (aobj instanceof ExprNode) ian.array = (ExprNode) aobj;
+        if (iobj instanceof ExprNode) ian.index = (ExprNode) iobj;
+        ast.setLegacyNode(id, ian);
         return id;
     }
 
@@ -525,7 +614,14 @@ public class ASTFactory {
         data.child1 = thenId;
         data.child2 = elseId;
         data.span = span(ifToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ExprIfNode ien = new ExprIfNode();
+        Object condObj = ast.getLegacyNode(conditionId), thenObj = ast.getLegacyNode(thenId), elseObj = ast.getLegacyNode(elseId);
+        if (condObj instanceof ExprNode) ien.condition = (ExprNode) condObj;
+        if (thenObj instanceof ExprNode) ien.thenExpr = (ExprNode) thenObj;
+        if (elseObj instanceof ExprNode) ien.elseExpr = (ExprNode) elseObj;
+        ast.setLegacyNode(id, ien);
+        return id;
     }
 
     // === STMT_IF ===
@@ -534,11 +630,20 @@ public class ASTFactory {
         FlatAST.NodeData data = new FlatAST.NodeData();
         data.kind = NodeKind.STMT_IF;
         data.child0 = conditionId;
-        data.child1 = createBlock(ifToken);
-        data.child2 = createBlock(null);
+        int thenBlockId = createBlock(ifToken);
+        int elseBlockId = createBlock(null);
+        data.child1 = thenBlockId;
+        data.child2 = elseBlockId;
         data.span = span(ifToken);
         int id = ast.add(data);
-        ast.setLegacyNode(id, new StmtIfNode());
+        StmtIfNode sif = new StmtIfNode();
+        Object condObj = ast.getLegacyNode(conditionId);
+        if (condObj instanceof ExprNode) sif.condition = (ExprNode) condObj;
+        Object thenObj = ast.getLegacyNode(thenBlockId);
+        if (thenObj instanceof BlockNode) sif.thenBlock = (BlockNode) thenObj;
+        Object elseObj = ast.getLegacyNode(elseBlockId);
+        if (elseObj instanceof BlockNode) sif.elseBlock = (BlockNode) elseObj;
+        ast.setLegacyNode(id, sif);
         return id;
     }
 
@@ -550,10 +655,17 @@ public class ASTFactory {
         data.str0 = iterator;
         data.child0 = rangeId;
         data.child1 = FlatAST.NULL;
-        data.child2 = createBlock(forToken);
+        int bodyBlockId = createBlock(forToken);
+        data.child2 = bodyBlockId;
         data.span = span(forToken);
         int id = ast.add(data);
-        ForNode fn = new ForNode(); fn.iterator = iterator; ast.setLegacyNode(id, fn);
+        ForNode fn = new ForNode();
+        fn.iterator = iterator;
+        Object rangeObj = ast.getLegacyNode(rangeId);
+        if (rangeObj instanceof RangeNode) fn.range = (RangeNode) rangeObj;
+        Object bodyObj = ast.getLegacyNode(bodyBlockId);
+        if (bodyObj instanceof BlockNode) fn.body = (BlockNode) bodyObj;
+        ast.setLegacyNode(id, fn);
         return id;
     }
 
@@ -565,10 +677,17 @@ public class ASTFactory {
         data.str0 = iterator;
         data.child0 = FlatAST.NULL;
         data.child1 = arraySourceId;
-        data.child2 = createBlock(forToken);
+        int bodyBlockId = createBlock(forToken);
+        data.child2 = bodyBlockId;
         data.span = span(forToken);
         int id = ast.add(data);
-        ForNode fn = new ForNode(); fn.iterator = iterator; ast.setLegacyNode(id, fn);
+        ForNode fn = new ForNode();
+        fn.iterator = iterator;
+        Object srcObj = ast.getLegacyNode(arraySourceId);
+        if (srcObj instanceof ExprNode) fn.arraySource = (ExprNode) srcObj;
+        Object bodyObj = ast.getLegacyNode(bodyBlockId);
+        if (bodyObj instanceof BlockNode) fn.body = (BlockNode) bodyObj;
+        ast.setLegacyNode(id, fn);
         return id;
     }
 
@@ -581,7 +700,14 @@ public class ASTFactory {
         data.child1 = startId;
         data.child2 = endId;
         data.span = span(byToken != null ? byToken : toToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        RangeNode rn = new RangeNode();
+        Object stepObj = ast.getLegacyNode(stepId), startObj = ast.getLegacyNode(startId), endObj = ast.getLegacyNode(endId);
+        if (stepObj instanceof ExprNode) rn.step = (ExprNode) stepObj;
+        if (startObj instanceof ExprNode) rn.start = (ExprNode) startObj;
+        if (endObj instanceof ExprNode) rn.end = (ExprNode) endObj;
+        ast.setLegacyNode(id, rn);
+        return id;
     }
 
     // === BLOCK ===
@@ -605,7 +731,14 @@ public class ASTFactory {
         } else {
             data.span = span(lbraceToken);
         }
-        return ast.add(data);
+        int id = ast.add(data);
+        BlockNode bn = new BlockNode();
+        for (int stmtId : stmtIds) {
+            Object obj = ast.getLegacyNode(stmtId);
+            if (obj instanceof StmtNode) bn.statements.add((StmtNode) obj);
+        }
+        ast.setLegacyNode(id, bn);
+        return id;
     }
 
     // === VAR ===
@@ -617,7 +750,11 @@ public class ASTFactory {
         data.child0 = valueId;
         data.span = span(nameToken);
         int id = ast.add(data);
-        VarNode v = new VarNode(); v.name = name; ast.setLegacyNode(id, v);
+        VarNode v = new VarNode();
+        v.name = name;
+        Object vvobj = ast.getLegacyNode(valueId);
+        if (vvobj instanceof ExprNode) v.value = (ExprNode) vvobj;
+        ast.setLegacyNode(id, v);
         return id;
     }
 
@@ -672,7 +809,13 @@ public class ASTFactory {
         data.child0 = methodCallId;
         data.strings = variableNames != null ? variableNames.toArray(new String[0]) : new String[0];
         data.span = span(assignToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ReturnSlotAssignmentNode rsan = new ReturnSlotAssignmentNode();
+        if (variableNames != null) rsan.variableNames.addAll(variableNames);
+        Object mcObj = ast.getLegacyNode(methodCallId);
+        if (mcObj instanceof MethodCallNode) rsan.methodCall = (MethodCallNode) mcObj;
+        ast.setLegacyNode(id, rsan);
+        return id;
     }
 
     // === SLOT_DECLARATION ===
@@ -682,7 +825,11 @@ public class ASTFactory {
         data.kind = NodeKind.SLOT_DECLARATION;
         data.strings = slotNames != null ? slotNames.toArray(new String[0]) : new String[0];
         data.span = span(lbracketToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        SlotDeclarationNode sdn = new SlotDeclarationNode();
+        if (slotNames != null) sdn.slotNames.addAll(slotNames);
+        ast.setLegacyNode(id, sdn);
+        return id;
     }
 
     // === SLOT_ASSIGNMENT ===
@@ -693,7 +840,13 @@ public class ASTFactory {
         data.str0 = slotName;
         data.child0 = valueId;
         data.span = span(colonToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        SlotAssignmentNode san = new SlotAssignmentNode();
+        san.slotName = slotName;
+        Object svobj = ast.getLegacyNode(valueId);
+        if (svobj instanceof ExprNode) san.value = (ExprNode) svobj;
+        ast.setLegacyNode(id, san);
+        return id;
     }
 
     // === MULTIPLE_SLOT_ASSIGNMENT ===
@@ -703,7 +856,17 @@ public class ASTFactory {
         data.kind = NodeKind.MULTIPLE_SLOT_ASSIGNMENT;
         data.children = toIntArray(assignmentIds);
         data.span = span(tildeArrowToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        MultipleSlotAssignmentNode msan = new MultipleSlotAssignmentNode();
+        msan.assignments = new java.util.ArrayList<SlotAssignmentNode>();
+        if (assignmentIds != null) {
+            for (int aId : assignmentIds) {
+                Object aObj = ast.getLegacyNode(aId);
+                if (aObj instanceof SlotAssignmentNode) msan.assignments.add((SlotAssignmentNode) aObj);
+            }
+        }
+        ast.setLegacyNode(id, msan);
+        return id;
     }
 
     // === LAMBDA ===
@@ -715,7 +878,20 @@ public class ASTFactory {
         data.children = toIntArray(paramIds);
         data.children2 = toIntArray(returnSlotIds);
         data.span = span(lambdaToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        LambdaNode ln = new LambdaNode();
+        for (int pid : paramIds) {
+            Object obj = ast.getLegacyNode(pid);
+            if (obj instanceof ParamNode) ln.parameters.add((ParamNode) obj);
+        }
+        for (int rid : returnSlotIds) {
+            Object obj = ast.getLegacyNode(rid);
+            if (obj instanceof SlotNode) ln.returnSlots.add((SlotNode) obj);
+        }
+        Object bodyObj = ast.getLegacyNode(bodyId);
+        if (bodyObj instanceof StmtNode) ln.body = (StmtNode) bodyObj;
+        ast.setLegacyNode(id, ln);
+        return id;
     }
 
     public int createLambdaEmpty(List<Integer> paramIds, Token lambdaToken) {
@@ -725,7 +901,14 @@ public class ASTFactory {
         data.children = toIntArray(paramIds);
         data.children2 = new int[0];
         data.span = span(lambdaToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        LambdaNode ln = new LambdaNode();
+        for (int pid : paramIds) {
+            Object obj = ast.getLegacyNode(pid);
+            if (obj instanceof ParamNode) ln.parameters.add((ParamNode) obj);
+        }
+        ast.setLegacyNode(id, ln);
+        return id;
     }
 
     // === CONSTRUCTOR SIGNATURE ===

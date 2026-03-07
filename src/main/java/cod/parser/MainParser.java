@@ -200,6 +200,10 @@ public class MainParser extends BaseParser {
                 throw error("Method scripts cannot contain class declarations.", now());
             }
             
+        } else if (hasClasses) {
+            // Classes without unit declaration → implicit MODULE
+            factory.getAST().programSetType(programId, "MODULE");
+
         } else {
             // Empty file or just imports - treat as script
             factory.getAST().programSetType(programId, "SCRIPT");
