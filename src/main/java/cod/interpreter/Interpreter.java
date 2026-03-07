@@ -702,7 +702,7 @@ public Object evalReplStatement(
       MainLexer lexer = new MainLexer(content.toString());
       List<Token> tokens = lexer.tokenize();
       MainParser parser = new MainParser(tokens, this);
-      ProgramNode otherProgram = parser.parseProgram();
+      ProgramNode otherProgram = parser.parseProgramNode();
       
       if (otherProgram.unit != null && otherProgram.unit.types != null) {
         for (TypeNode type : otherProgram.unit.types) {

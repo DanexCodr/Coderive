@@ -80,7 +80,7 @@ public ProgramNode parse(String filename, Interpreter interpreter) throws Except
     DebugSystem.debug(PARSER, "Parsing...");
     
     MainParser parser = new MainParser(tokens, interpreter);  // PASS INTERPRETER
-    ProgramNode ast = parser.parseProgram();
+    cod.ast.nodes.ProgramNode ast = parser.parseProgramNode();
     
     DebugSystem.debug(PARSER, "Parsing completed successfully");
    

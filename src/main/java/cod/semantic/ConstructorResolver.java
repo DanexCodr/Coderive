@@ -219,7 +219,7 @@ public class ConstructorResolver {
         }
         StringBuilder sb = new StringBuilder();
         for (ConstructorNode c : constructors) {
-            sb.append("  ").append(ASTFactory.getConstructorSignature(c)).append("\n");
+            sb.append("  this(").append(c.parameters.size()).append(" params)\n");
         }
         return sb.toString();
     }
@@ -886,8 +886,8 @@ public class ConstructorResolver {
         
         for (FieldNode field : type.fields) {
             if (field.value != null) {
-                ExprNode fieldTarget = ASTFactory.createIdentifier(field.name, null);
-                AssignmentNode fieldInit = ASTFactory.createAsmt(fieldTarget, field.value, false, null);
+                IdentifierNode fieldTarget = new IdentifierNode(field.name);
+                AssignmentNode fieldInit = new AssignmentNode(fieldTarget, field.value);
                 defaultConstructor.body.add(fieldInit);
             }
         }

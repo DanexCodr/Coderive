@@ -596,8 +596,8 @@ public class DeclarationParser extends BaseParser {
       isPolicyMethod = true;
 
       int currentClass = getCurrentParsingClassId();
-      if (!nil(currentClass)) {
-        visibility = (currentParsingClassId != cod.ast.FlatAST.NULL) ? factory.getAST().typeVisibility(currentParsingClassId) : null;
+      if (currentClass != cod.ast.FlatAST.NULL) {
+        visibility = factory.getAST().typeVisibility(currentClass);
       } else {
         visibility = Keyword.SHARE;
       }

@@ -1,5 +1,6 @@
 package cod.ast;
 
+import cod.ast.nodes.*;
 import cod.syntax.Keyword;
 import cod.lexer.Token;
 import cod.math.AutoStackingNumber;
@@ -41,7 +42,9 @@ public class ASTFactory {
         FlatAST.NodeData data = new FlatAST.NodeData();
         data.kind = NodeKind.PROGRAM;
         data.span = null;
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new ProgramNode());
+        return id;
     }
 
     // === UNIT ===
@@ -54,7 +57,10 @@ public class ASTFactory {
         data.child0 = createEmptyUseNode();
         data.children = new int[0];
         data.children2 = new int[0];
-        return ast.add(data);
+        int id = ast.add(data);
+        UnitNode unit = new UnitNode(); unit.name = name;
+        ast.setLegacyNode(id, unit);
+        return id;
     }
 
     public int createUnit(String name, String mainClassName, Token unitToken) {
@@ -109,7 +115,10 @@ public class ASTFactory {
         data.span = span(nameToken);
         data.children = new int[0];
         data.strings = new String[0];
-        return ast.add(data);
+        int id = ast.add(data);
+        PolicyNode policy = new PolicyNode(); policy.name = name; policy.visibility = visibility;
+        ast.setLegacyNode(id, policy);
+        return id;
     }
 
     // === POLICY_METHOD ===
@@ -174,7 +183,12 @@ public class ASTFactory {
         data.span = span(thisToken);
         data.children = toIntArray(paramIds);
         data.children2 = toIntArray(bodyIds);
-        return ast.add(data);
+        int id = ast.add(data);
+        ConstructorNode c = new ConstructorNode(); 
+        c.parameters = new java.util.ArrayList<ParamNode>();
+        c.body = new java.util.ArrayList<StmtNode>();
+        ast.setLegacyNode(id, c);
+        return id;
     }
 
     // === METHOD ===
@@ -188,7 +202,10 @@ public class ASTFactory {
         data.children = new int[0];
         data.children2 = toIntArray(returnSlotIds);
         data.objVal = new int[0];
-        return ast.add(data);
+        int id = ast.add(data);
+        MethodNode m = new MethodNode(); m.methodName = name; m.visibility = visibility;
+        ast.setLegacyNode(id, m);
+        return id;
     }
 
     // === PARAM ===
@@ -202,7 +219,10 @@ public class ASTFactory {
         data.bool0 = (defaultValueId != FlatAST.NULL);
         data.bool1 = typeInferred;
         data.span = span(nameToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ParamNode p = new ParamNode(); p.name = name; p.type = type; p.typeInferred = typeInferred;
+        ast.setLegacyNode(id, p);
+        return id;
     }
 
     // === SLOT ===
@@ -224,7 +244,9 @@ public class ASTFactory {
         data.child0 = leftId;
         data.child1 = rightId;
         data.span = span(dotToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new PropertyAccessNode());
+        return id;
     }
 
     // === IDENTIFIER ===
@@ -234,7 +256,9 @@ public class ASTFactory {
         data.kind = NodeKind.IDENTIFIER;
         data.str0 = name;
         data.span = span(token);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new IdentifierNode(name));
+        return id;
     }
 
     // === INT_LITERAL ===
@@ -244,7 +268,9 @@ public class ASTFactory {
         data.kind = NodeKind.INT_LITERAL;
         data.longVal = value;
         data.span = span(token);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new IntLiteralNode((long)value));
+        return id;
     }
 
     public int createLongLiteral(long value, Token token) {
@@ -252,7 +278,9 @@ public class ASTFactory {
         data.kind = NodeKind.INT_LITERAL;
         data.longVal = value;
         data.span = span(token);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new IntLiteralNode(value));
+        return id;
     }
 
     // === FLOAT_LITERAL ===
@@ -262,7 +290,9 @@ public class ASTFactory {
         data.kind = NodeKind.FLOAT_LITERAL;
         data.objVal = value;
         data.span = span(token);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new FloatLiteralNode(value));
+        return id;
     }
 
     // === TEXT_LITERAL ===
@@ -273,7 +303,9 @@ public class ASTFactory {
         data.str0 = value;
         data.bool0 = false;
         data.span = span(token);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new TextLiteralNode(value));
+        return id;
     }
 
     public int createTextLiteralInterpolated(String value, Token token) {
@@ -292,7 +324,9 @@ public class ASTFactory {
         data.kind = NodeKind.BOOL_LITERAL;
         data.bool0 = value;
         data.span = span(token);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new BoolLiteralNode(value));
+        return id;
     }
 
     // === NONE_LITERAL ===
@@ -301,7 +335,9 @@ public class ASTFactory {
         FlatAST.NodeData data = new FlatAST.NodeData();
         data.kind = NodeKind.NONE_LITERAL;
         data.span = span(token);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new NoneLiteralNode());
+        return id;
     }
 
     // === THIS ===
@@ -311,7 +347,9 @@ public class ASTFactory {
         data.kind = NodeKind.THIS;
         data.str0 = className;
         data.span = span(thisToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new ThisNode());
+        return id;
     }
 
     // === SUPER ===
@@ -320,7 +358,9 @@ public class ASTFactory {
         FlatAST.NodeData data = new FlatAST.NodeData();
         data.kind = NodeKind.SUPER;
         data.span = span(superToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new SuperNode());
+        return id;
     }
 
     // === BINARY_OP ===
@@ -332,7 +372,9 @@ public class ASTFactory {
         data.child0 = leftId;
         data.child1 = rightId;
         data.span = span(opToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new BinaryOpNode());
+        return id;
     }
 
     // === EQUALITY_CHAIN ===
@@ -368,7 +410,9 @@ public class ASTFactory {
         data.str0 = op;
         data.child0 = operandId;
         data.span = span(opToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new UnaryNode());
+        return id;
     }
 
     // === TYPE_CAST ===
@@ -408,7 +452,9 @@ public class ASTFactory {
         data.strings = new String[0];
         data.strings2 = new String[0];
         data.span = span(nameToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        MethodCallNode mc = new MethodCallNode(); mc.name = name; mc.qualifiedName = qualifiedName; ast.setLegacyNode(id, mc);
+        return id;
     }
 
     // === ARRAY ===
@@ -418,7 +464,9 @@ public class ASTFactory {
         data.kind = NodeKind.ARRAY;
         data.children = toIntArray(elementIds);
         data.span = span(lbracketToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new ArrayNode());
+        return id;
     }
 
     // === TUPLE ===
@@ -428,7 +476,9 @@ public class ASTFactory {
         data.kind = NodeKind.TUPLE;
         data.children = toIntArray(elementIds);
         data.span = span(lparenToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new TupleNode());
+        return id;
     }
 
     // === INDEX_ACCESS ===
@@ -439,7 +489,9 @@ public class ASTFactory {
         data.child0 = arrayId;
         data.child1 = indexId;
         data.span = span(lbracketToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new IndexAccessNode());
+        return id;
     }
 
     // === RANGE_INDEX ===
@@ -485,7 +537,9 @@ public class ASTFactory {
         data.child1 = createBlock(ifToken);
         data.child2 = createBlock(null);
         data.span = span(ifToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new StmtIfNode());
+        return id;
     }
 
     // === FOR (range-based) ===
@@ -498,7 +552,9 @@ public class ASTFactory {
         data.child1 = FlatAST.NULL;
         data.child2 = createBlock(forToken);
         data.span = span(forToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ForNode fn = new ForNode(); fn.iterator = iterator; ast.setLegacyNode(id, fn);
+        return id;
     }
 
     // === FOR (array-based) ===
@@ -511,7 +567,9 @@ public class ASTFactory {
         data.child1 = arraySourceId;
         data.child2 = createBlock(forToken);
         data.span = span(forToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ForNode fn = new ForNode(); fn.iterator = iterator; ast.setLegacyNode(id, fn);
+        return id;
     }
 
     // === RANGE ===
@@ -533,7 +591,9 @@ public class ASTFactory {
         data.kind = NodeKind.BLOCK;
         data.children = new int[0];
         data.span = span(lbraceToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new BlockNode());
+        return id;
     }
 
     public int createBlock(List<Integer> stmtIds, Token lbraceToken, Token rbraceToken) {
@@ -556,7 +616,9 @@ public class ASTFactory {
         data.str0 = name;
         data.child0 = valueId;
         data.span = span(nameToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        VarNode v = new VarNode(); v.name = name; ast.setLegacyNode(id, v);
+        return id;
     }
 
     // === EXIT ===
@@ -565,7 +627,9 @@ public class ASTFactory {
         FlatAST.NodeData data = new FlatAST.NodeData();
         data.kind = NodeKind.EXIT;
         data.span = span(exitToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new ExitNode());
+        return id;
     }
 
     // === ARGUMENT_LIST (temporary holder, stored as TUPLE) ===
@@ -584,7 +648,9 @@ public class ASTFactory {
         FlatAST.NodeData data = new FlatAST.NodeData();
         data.kind = NodeKind.SKIP;
         data.span = span(skipToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new SkipNode());
+        return id;
     }
 
     // === BREAK ===
@@ -593,7 +659,9 @@ public class ASTFactory {
         FlatAST.NodeData data = new FlatAST.NodeData();
         data.kind = NodeKind.BREAK;
         data.span = span(breakToken);
-        return ast.add(data);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new BreakNode());
+        return id;
     }
 
     // === RETURN_SLOT_ASSIGNMENT ===
@@ -676,4 +744,12 @@ public class ASTFactory {
         sb.append(")");
         return sb.toString();
     }
+
+    /** Compatibility bridge: get the ProgramNode built during parsing via dual-write. */
+    public cod.ast.nodes.ProgramNode toProgramNode(int programId) {
+        if (programId < 0 || programId >= ast.size()) return null;
+        Object obj = ast.getLegacyNode(programId);
+        return (obj instanceof cod.ast.nodes.ProgramNode) ? (cod.ast.nodes.ProgramNode) obj : null;
+    }
+
 }

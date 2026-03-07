@@ -1899,9 +1899,9 @@ public Object visit(IndexAccessNode node) {
                     NaturalArray sourceArr = (NaturalArray) sourceObj;
                     long size = sourceArr.size();
                     
-                    ExprNode start = ASTFactory.createIntLiteral(0, null);
-                    ExprNode end = ASTFactory.createIntLiteral((int)(size - 1), null);
-                    range = ASTFactory.createRange(null, start, end, null, null);
+                    IntLiteralNode start = new IntLiteralNode(0L);
+                    IntLiteralNode end = new IntLiteralNode((long)(size - 1));
+                    range = new RangeNode(null, start, end);
                 }
             }
             
@@ -1942,9 +1942,9 @@ public Object visit(IndexAccessNode node) {
                     NaturalArray sourceArr = (NaturalArray) sourceObj;
                     long size = sourceArr.size();
                     
-                    ExprNode start = ASTFactory.createIntLiteral(0, null);
-                    ExprNode end = ASTFactory.createIntLiteral((int)(size - 1), null);
-                    range = ASTFactory.createRange(null, start, end, null, null);
+                    IntLiteralNode start = new IntLiteralNode(0L);
+                    IntLiteralNode end = new IntLiteralNode((long)(size - 1));
+                    range = new RangeNode(null, start, end);
                 }
             }
             

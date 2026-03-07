@@ -25,6 +25,7 @@ public class FlatAST {
         int[] children2;
         String[] strings;
         String[] strings2;
+        Object legacyNode; // dual-write bridge
     }
 
     public FlatAST() {
@@ -45,6 +46,8 @@ public class FlatAST {
 
     // Kind and span accessors
     public NodeKind kind(int n) { return nodes[n].kind; }
+    public Object getLegacyNode(int n) { return n >= 0 && n < size ? nodes[n].legacyNode : null; }
+    public void setLegacyNode(int n, Object obj) { if (n >= 0 && n < size) nodes[n].legacyNode = obj; }
     public SourceSpan span(int n) { return nodes[n].span; }
 
     // === PROGRAM ===
@@ -290,14 +293,43 @@ public class FlatAST {
     }
 
     // PROGRAM
-    public void programSetUnit(int n, int unitId)        { nodes[n].child0 = unitId; }
-    public void programSetType(int n, String t)          { nodes[n].str1 = t; }
+    public void programSetUnit(int n, int unitId) {
+        nodes[n].child0 = unitId;
+        if (nodes[n].legacyNode instanceof cod.ast.nodes.ProgramNode && unitId >= 0 && unitId < size && nodes[unitId].legacyNode instanceof cod.ast.nodes.UnitNode) {
+            ((cod.ast.nodes.ProgramNode)nodes[n].legacyNode).unit = (cod.ast.nodes.UnitNode)nodes[unitId].legacyNode;
+        }
+    }
+    public void programSetType(int n, String t) {
+        nodes[n].str1 = t;
+        if (nodes[n].legacyNode instanceof cod.ast.nodes.ProgramNode) {
+            cod.ast.nodes.ProgramNode p = (cod.ast.nodes.ProgramNode)nodes[n].legacyNode;
+            if ("MODULE".equals(t)) p.programType = cod.parser.MainParser.ProgramType.MODULE;
+            else if ("SCRIPT".equals(t)) p.programType = cod.parser.MainParser.ProgramType.SCRIPT;
+            else if ("METHOD_SCRIPT".equals(t)) p.programType = cod.parser.MainParser.ProgramType.METHOD_SCRIPT;
+        }
+    }
+    public String programType(int n)                      { return nodes[n].str1; }
     public String programGetType(int n)                  { return nodes[n].str1; }
 
     // UNIT
-    public void unitSetImports(int n, int importsId)     { nodes[n].child0 = importsId; }
-    public void unitAddType(int n, int typeId)           { nodes[n].children = appendInt(nodes[n].children, typeId); }
-    public void unitAddPolicy(int n, int policyId)       { nodes[n].children2 = appendInt(nodes[n].children2, policyId); }
+    public void unitSetImports(int n, int importsId) {
+        nodes[n].child0 = importsId;
+        if (nodes[n].legacyNode instanceof cod.ast.nodes.UnitNode && importsId >= 0 && importsId < size && nodes[importsId].legacyNode instanceof cod.ast.nodes.UseNode) {
+            ((cod.ast.nodes.UnitNode)nodes[n].legacyNode).imports = (cod.ast.nodes.UseNode)nodes[importsId].legacyNode;
+        }
+    }
+    public void unitAddType(int n, int typeId) {
+        nodes[n].children = appendInt(nodes[n].children, typeId);
+        if (nodes[n].legacyNode instanceof cod.ast.nodes.UnitNode && typeId >= 0 && typeId < size && nodes[typeId].legacyNode instanceof cod.ast.nodes.TypeNode) {
+            ((cod.ast.nodes.UnitNode)nodes[n].legacyNode).types.add((cod.ast.nodes.TypeNode)nodes[typeId].legacyNode);
+        }
+    }
+    public void unitAddPolicy(int n, int policyId) {
+        nodes[n].children2 = appendInt(nodes[n].children2, policyId);
+        if (nodes[n].legacyNode instanceof cod.ast.nodes.UnitNode && policyId >= 0 && policyId < size && nodes[policyId].legacyNode instanceof cod.ast.nodes.PolicyNode) {
+            ((cod.ast.nodes.UnitNode)nodes[n].legacyNode).policies.add((cod.ast.nodes.PolicyNode)nodes[policyId].legacyNode);
+        }
+    }
     public void unitSetMainClass(int n, String mc)       { nodes[n].str2 = mc; }
     public void unitSetResolvedImportsMap(int n, Map<String,Integer> m) { nodes[n].objVal = m; }
 
@@ -306,12 +338,22 @@ public class FlatAST {
     public void useSetImports(int n, String[] imps)      { nodes[n].strings = imps; }
 
     // TYPE
-    public void typeAddField(int n, int fieldId)         { nodes[n].children = appendInt(nodes[n].children, fieldId); }
-    public void typeAddMethod(int n, int methodId)       { nodes[n].children2 = appendInt(nodes[n].children2, methodId); }
+    public void typeAddField(int n, int fieldId) {
+        nodes[n].children = appendInt(nodes[n].children, fieldId);
+        if (n >= 0 && n < size && fieldId >= 0 && fieldId < size && nodes[n].legacyNode instanceof cod.ast.nodes.TypeNode && nodes[fieldId].legacyNode instanceof cod.ast.nodes.FieldNode)
+            ((cod.ast.nodes.TypeNode)nodes[n].legacyNode).fields.add((cod.ast.nodes.FieldNode)nodes[fieldId].legacyNode);
+    }
+    public void typeAddMethod(int n, int methodId) {
+        nodes[n].children2 = appendInt(nodes[n].children2, methodId);
+        if (n >= 0 && n < size && methodId >= 0 && methodId < size && nodes[n].legacyNode instanceof cod.ast.nodes.TypeNode && nodes[methodId].legacyNode instanceof cod.ast.nodes.MethodNode)
+            ((cod.ast.nodes.TypeNode)nodes[n].legacyNode).methods.add((cod.ast.nodes.MethodNode)nodes[methodId].legacyNode);
+    }
     public void typeAddConstructor(int n, int ctorId) {
         Object[] arr = nodes[n].objVal instanceof Object[] ? (Object[]) nodes[n].objVal : new Object[]{new int[0], new int[0]};
         arr[0] = appendInt((int[]) arr[0], ctorId);
         nodes[n].objVal = arr;
+        if (n >= 0 && n < size && ctorId >= 0 && ctorId < size && nodes[n].legacyNode instanceof cod.ast.nodes.TypeNode && nodes[ctorId].legacyNode instanceof cod.ast.nodes.ConstructorNode)
+            ((cod.ast.nodes.TypeNode)nodes[n].legacyNode).constructors.add((cod.ast.nodes.ConstructorNode)nodes[ctorId].legacyNode);
     }
     public void typeAddStatement(int n, int stmtId) {
         Object[] arr = nodes[n].objVal instanceof Object[] ? (Object[]) nodes[n].objVal : new Object[]{new int[0], new int[0]};
@@ -342,7 +384,11 @@ public class FlatAST {
 
     // CONSTRUCTOR
     public void constructorAddParam(int n, int paramId)  { nodes[n].children = appendInt(nodes[n].children, paramId); }
-    public void constructorAddBodyStmt(int n, int stmtId){ nodes[n].children2 = appendInt(nodes[n].children2, stmtId); }
+    public void constructorAddBodyStmt(int n, int stmtId) {
+        nodes[n].children2 = appendInt(nodes[n].children2, stmtId);
+        if (n >= 0 && n < size && stmtId >= 0 && stmtId < size && nodes[n].legacyNode instanceof cod.ast.nodes.ConstructorNode && nodes[stmtId].legacyNode instanceof cod.ast.nodes.StmtNode)
+            ((cod.ast.nodes.ConstructorNode)nodes[n].legacyNode).body.add((cod.ast.nodes.StmtNode)nodes[stmtId].legacyNode);
+    }
     public void constructorSetParams(int n, int[] ids)   { nodes[n].children = ids; }
     public void constructorSetBody(int n, int[] ids)     { nodes[n].children2 = ids; }
 
@@ -367,7 +413,10 @@ public class FlatAST {
     public void policyMethodAddReturnSlot(int n, int slotId) { nodes[n].children2 = appendInt(nodes[n].children2, slotId); }
 
     // BLOCK
-    public void blockAddStmt(int n, int stmtId)          { nodes[n].children = appendInt(nodes[n].children, stmtId); }
+    public void blockAddStmt(int n, int stmtId) {
+        nodes[n].children = appendInt(nodes[n].children, stmtId);
+        // blockAddStmt does NOT have a legacy node - blocks inline their stmts into the parent
+    }
     public void blockSetStmts(int n, int[] ids)          { nodes[n].children = ids; }
 
     // STMT_IF

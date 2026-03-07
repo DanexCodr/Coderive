@@ -24,8 +24,13 @@ public class REPLRunner {
 
 private static final String NAME = "REPL";
     
+    // Helper to create TypeNode without constructor
+    private static TypeNode makeReplTypeNode(String name, Keyword vis) {
+        TypeNode t = new TypeNode(); t.name = name; t.visibility = vis; return t;
+    }
     private static Interpreter interpreter = new Interpreter();
-    private static ObjectInstance globalInstance = new ObjectInstance(ASTFactory.createType(NAME + "Global", Keyword.LOCAL, null, null));
+    private static cod.ast.ASTFactory replFactory = new cod.ast.ASTFactory();
+    private static ObjectInstance globalInstance = new ObjectInstance(makeReplTypeNode(NAME + "Global", Keyword.LOCAL));
     private static Map<String, Object> globalLocals = new HashMap<String, Object>();
     private static Map<String, Object> globalSlots = new HashMap<String, Object>();
 
@@ -128,7 +133,7 @@ private static final String NAME = "REPL";
             }
             
             MainParser parser = new MainParser(tokens);
-            StmtNode astNode = parser.parseSingleLine();
+            StmtNode astNode = parser.parseSingleLineNode();
             
             if (astNode == null) {
                 return "";
