@@ -30,16 +30,16 @@ public class ExpressionParser extends BaseParser {
     private Set<String> globalFunctionNames;
     private StatementParser statementParser;
     
-    public ExpressionParser(ParserContext ctx) {
-        this(ctx, null, null);
+    public ExpressionParser(ParserContext ctx, ASTFactory factory) {
+        this(ctx, factory, null, null);
     }
     
-    public ExpressionParser(ParserContext ctx, GlobalRegistry globalRegistry) {
-        this(ctx, globalRegistry, null);
+    public ExpressionParser(ParserContext ctx, ASTFactory factory, GlobalRegistry globalRegistry) {
+        this(ctx, factory, globalRegistry, null);
     }
     
-    public ExpressionParser(ParserContext ctx, GlobalRegistry globalRegistry, StatementParser statementParser) {
-        super(ctx);
+    public ExpressionParser(ParserContext ctx, ASTFactory factory, GlobalRegistry globalRegistry, StatementParser statementParser) {
+        super(ctx, factory);
         this.globalRegistry = globalRegistry;
         this.statementParser = statementParser;
         if (globalRegistry != null) {
@@ -53,13 +53,13 @@ public class ExpressionParser extends BaseParser {
     
     @Override
     protected BaseParser createIsolatedParser(ParserContext isolatedCtx) {
-        return new ExpressionParser(isolatedCtx, this.globalRegistry, this.statementParser);
+        return new ExpressionParser(isolatedCtx, this.factory, this.globalRegistry, this.statementParser);
     }
 
-    public ExprNode parseExpr() {
-        return attempt(new ParserAction<ExprNode>() {
+    public int parseExpr() {
+        return attempt(new ParserAction<Integer>() {
             @Override
-            public ExprNode parse() throws ParseError {
+            public Integer parse() throws ParseError {
                 if (is(ALL, ANY)) {
                     Token nextToken = next();
                     if (is(nextToken, LPAREN)) {
@@ -73,11 +73,11 @@ public class ExpressionParser extends BaseParser {
         });
     }
 
-    private ExprNode parseConstructorCall() {
+    private int parseConstructorCall() {
         Token classNameToken = now();
         String className = expect(ID).text;
 
-        List<ExprNode> args = new ArrayList<ExprNode>();
+        List<Integer> args = new ArrayList<Integer>();
         List<String> argNames = new ArrayList<String>();
         
         if (!is(RPAREN)) {
@@ -94,12 +94,28 @@ public class ExpressionParser extends BaseParser {
         }
         expect(RPAREN);
         
-        ConstructorCallNode call = ASTFactory.createConstructorCall(className, args, classNameToken);
-        call.argNames = argNames;
+        int call = factory.createConstructorCall(className, args, classNameToken);
+        {
+            String[] namesArr = argNames.toArray(new String[argNames.size()]);
+            factory.getAST().constructorCallSetArgs(call, factory.getAST().constructorCallArgs(call), namesArr);
+        }
         return call;
     }
 
-    private boolean isNamedArgument() {
+    private void parseNamedArgumentListForCall(int callId) {
+        do {
+            String argName = expect(ID).text;
+            expect(COLON);
+            int valueId = parseExpr();
+            factory.getAST().methodCallAddArg(callId, valueId, argName);
+            if (!is(COMMA)) {
+                break;
+            }
+            expect(COMMA);
+        } while (!is(RPAREN));
+    }
+
+        private boolean isNamedArgument() {
         save();
         try {
 
@@ -113,12 +129,12 @@ public class ExpressionParser extends BaseParser {
         }
     }
 
-    private void parseNamedArgumentList(List<ExprNode> args, List<String> argNames) {
+    private void parseNamedArgumentList(List<Integer> args, List<String> argNames) {
         do {
             String argName = expect(ID).text;
             
             expect(COLON);
-            ExprNode value = parseExpr();
+            int value = parseExpr();
             
             args.add(value);
             argNames.add(argName);
@@ -130,34 +146,32 @@ public class ExpressionParser extends BaseParser {
         } while (!is(RPAREN));
     }
 
-    public MethodCallNode parseMethodCall() {
-        return attempt(new ParserAction<MethodCallNode>() {
+    public int parseMethodCall() {
+        return attempt(new ParserAction<Integer>() {
             @Override
-            public MethodCallNode parse() throws ParseError {
+            public Integer parse() throws ParseError {
                 Token nameStartToken = now();
                 String qualifiedNameStr = parseQualifiedNameOrKeyword();
                 String methodName = qualifiedNameStr;
                 if (qualifiedNameStr.contains(".")) {
                     methodName = qualifiedNameStr.substring(qualifiedNameStr.lastIndexOf('.') + 1);
                 }
-                MethodCallNode call = ASTFactory.createMethodCall(methodName, qualifiedNameStr, nameStartToken);
+                int call = factory.createMethodCall(methodName, qualifiedNameStr, nameStartToken);
                 
                 if (!qualifiedNameStr.contains(".") && globalFunctionNames != null && 
                     globalFunctionNames.contains(methodName)) {
-                    call.isGlobal = true;
+                    factory.getAST().methodCallSetIsGlobal(call, true);
                 }
                 
                 expect(LPAREN);
                 
                 if (!is(RPAREN)) {
                     if (isNamedArgument()) {
-                        parseNamedArgumentList(call.arguments, call.argNames);
+                        parseNamedArgumentListForCall(call);
                     } else {
-                        call.arguments.add(parseExpr());
-                        call.argNames.add(null);
+                        factory.getAST().methodCallAddArg(call, parseExpr(), null);
                         while (consume(COMMA)) {
-                            call.arguments.add(parseExpr());
-                            call.argNames.add(null);
+                            factory.getAST().methodCallAddArg(call, parseExpr(), null);
                         }
                     }
                 }
@@ -167,7 +181,7 @@ public class ExpressionParser extends BaseParser {
         });
     }
 
-    private MethodCallNode parseSuperMethodCall() {
+    private int parseSuperMethodCall() {
         Token superToken = now();
         expect(SUPER);
         
@@ -184,21 +198,19 @@ public class ExpressionParser extends BaseParser {
             throw error("Expected method name after 'super.'", methodToken);
         }
         
-        MethodCallNode call = ASTFactory.createMethodCall(methodName, "super." + methodName, superToken);
-        call.isSuperCall = true;
-        call.isGlobal = false;
+        int call = factory.createMethodCall(methodName, "super." + methodName, superToken);
+        factory.getAST().methodCallSetIsSuper(call, true);
+        factory.getAST().methodCallSetIsGlobal(call, false);
         
         expect(LPAREN);
         
         if (!is(RPAREN)) {
             if (isNamedArgument()) {
-                parseNamedArgumentList(call.arguments, call.argNames);
+                parseNamedArgumentListForCall(call);
             } else {
-                call.arguments.add(parseExpr());
-                call.argNames.add(null);
+                factory.getAST().methodCallAddArg(call, parseExpr(), null);
                 while (consume(COMMA)) {
-                    call.arguments.add(parseExpr());
-                    call.argNames.add(null);
+                    factory.getAST().methodCallAddArg(call, parseExpr(), null);
                 }
             }
         }
@@ -271,24 +283,24 @@ public class ExpressionParser extends BaseParser {
         }
     }
 
-    public IndexAccessNode parseIndexAccessContinuation(ExprNode arrayExpr) {
+    public int parseIndexAccessContinuation(int arrayId) {
         Token lbracketToken = expect(LBRACKET);
         
-        ExprNode indexExpr;
+        int indexId;
         
         if (isRangeIndex()) {
-            indexExpr = parseRangeIndex();
+            indexId = parseRangeIndex();
         } else {
-            indexExpr = parseExpr();
+            indexId = parseExpr();
             expect(RBRACKET);
-            return ASTFactory.createIndexAccess(arrayExpr, indexExpr, lbracketToken);
+            return factory.createIndexAccess(arrayId, indexId, lbracketToken);
         }
         
-        return ASTFactory.createIndexAccess(arrayExpr, indexExpr, lbracketToken);
+        return factory.createIndexAccess(arrayId, indexId, lbracketToken);
     }
 
-    public ExprNode parseRangeIndex() {
-        List<RangeIndexNode> ranges = new ArrayList<RangeIndexNode>();
+    public int parseRangeIndex() {
+        List<Integer> ranges = new ArrayList<Integer>();
         
         ranges.add(parseSingleRangeIndex());
        
@@ -305,18 +317,18 @@ public class ExpressionParser extends BaseParser {
         if (ranges.size() == 1) {
             return ranges.get(0);
         } else {
-            return ASTFactory.createMultiRangeIndex(ranges, null);
+            return factory.createMultiRangeIndex(ranges, null);
         }
     }
 
-    private RangeIndexNode parseSingleRangeIndex() {
-        ExprNode step = null;
-        ExprNode start;
-        ExprNode end;
+    private int parseSingleRangeIndex() {
+        int stepId = cod.ast.FlatAST.NULL;
+        int startId;
+        int endId;
         Token stepToken = null;
         Token rangeToken = null;
         
-        start = parseExpr();
+        startId = parseExpr();
        
         
         if (is(RANGE_DOTDOT)) {
@@ -329,20 +341,20 @@ public class ExpressionParser extends BaseParser {
         
        
         
-        end = parseExpr();
+        endId = parseExpr();
        
         
         if (is(RANGE_HASH)) {
             stepToken = expect(RANGE_HASH);
-            step = parseExpr();
+            stepId = parseExpr();
 
         } else if (is(BY)) {
             stepToken = expect(BY);
-            step = parseExpr();
+            stepId = parseExpr();
 
         }
         
-        return ASTFactory.createRangeIndex(step, start, end, stepToken, rangeToken);
+        return factory.createRangeIndex(stepId, startId, endId, stepToken, rangeToken);
     }
 
     public List<String> parseReturnSlots() {
@@ -361,41 +373,41 @@ public class ExpressionParser extends BaseParser {
         return slots;
     }
     
-    private ExprNode parseIfExpr() {
+    private int parseIfExpr() {
         Token ifToken = expect(IF);
-        ExprNode condition = parseExpr();
+        int condId = parseExpr();
         
-        ExprNode thenExpr;
+        int thenId;
         if (is(LBRACE)) {
             expect(LBRACE);
-            thenExpr = parseExpr();
+            thenId = parseExpr();
             expect(RBRACE);
         } else {
-            thenExpr = parseExpr();
+            thenId = parseExpr();
         }
         
         Token elseToken = expect(ELSE);
         
-        ExprNode elseExpr;
+        int elseId;
         if (is(LBRACE)) {
             expect(LBRACE);
-            elseExpr = parseExpr();
+            elseId = parseExpr();
             expect(RBRACE);
         } else {
-            elseExpr = parseExpr();
+            elseId = parseExpr();
         }
         
-        return ASTFactory.createIfExpr(condition, thenExpr, elseExpr, ifToken, elseToken);
+        return factory.createIfExpr(condId, thenId, elseId, ifToken, elseToken);
     }
 
-    private ExprNode parseLambdaSignature() {
+    private int parseLambdaSignature() {
         Token lambdaToken = expect(LAMBDA);
         
         SlotParser slotParser = new SlotParser(this);
         
         expect(LPAREN);
         
-        List<ParamNode> parameters = new ArrayList<ParamNode>();
+        List<Integer> parameters = new ArrayList<Integer>();
         
         // Parse parameters if any
         if (!is(RPAREN)) {
@@ -411,14 +423,14 @@ public class ExpressionParser extends BaseParser {
        
         
         // Parse optional return contract (::)
-        List<SlotNode> returnSlots = null;
+        List<Integer> returnSlots = null;
         if (is(DOUBLE_COLON)) {
             returnSlots = slotParser.parseSlotContract();
 
         }
         
         // Parse lambda body
-        StmtNode body;
+        int bodyId = cod.ast.FlatAST.NULL;
         Token tildeArrowToken = null;
         
         if (is(LBRACE)) {
@@ -428,14 +440,14 @@ public class ExpressionParser extends BaseParser {
             }
             
             expect(LBRACE);
-            BlockNode block = new BlockNode();
+            int block = factory.createBlock(null);
             
             while (!is(RBRACE) && !is(EOF)) {
-                block.statements.add(statementParser.parseStmt());
+                factory.getAST().blockAddStmt(block, statementParser.parseStmt());
     
             }
             expect(RBRACE);
-            body = block;
+            bodyId = block;
         } else if (is(TILDE_ARROW)) {
             tildeArrowToken = expect(TILDE_ARROW);
 
@@ -443,7 +455,7 @@ public class ExpressionParser extends BaseParser {
             if (is(LBRACE)) {
                 // Optional braces around expression(s)
                 expect(LBRACE);
-                List<SlotAssignmentNode> assignments = slotParser.parseSlotAssignments();
+                List<Integer> assignments = slotParser.parseSlotAssignments();
                 expect(RBRACE);
                 
                 // Validate against contract if present
@@ -452,16 +464,16 @@ public class ExpressionParser extends BaseParser {
                 }
                 
                 // Wrap in BlockNode
-                BlockNode block = new BlockNode();
+                int block = factory.createBlock(null);
                 if (assignments.size() == 1) {
-                    block.statements.add(assignments.get(0));
+                    factory.getAST().blockAddStmt(block, assignments.get(0));
                 } else {
-                    block.statements.add(ASTFactory.createMultipleSlotAsmt(assignments, tildeArrowToken));
+                    factory.getAST().blockAddStmt(block, factory.createMultipleSlotAsmt(assignments, tildeArrowToken));
                 }
-                body = block;
+                bodyId = block;
             } else {
                 // Direct expression(s) without braces
-                List<SlotAssignmentNode> assignments = slotParser.parseSlotAssignments();
+                List<Integer> assignments = slotParser.parseSlotAssignments();
                 
                 // Validate against contract if present
                 if (returnSlots != null) {
@@ -469,13 +481,13 @@ public class ExpressionParser extends BaseParser {
                 }
                 
                 // Wrap in BlockNode
-                BlockNode block = new BlockNode();
+                int block = factory.createBlock(null);
                 if (assignments.size() == 1) {
-                    block.statements.add(assignments.get(0));
+                    factory.getAST().blockAddStmt(block, assignments.get(0));
                 } else {
-                    block.statements.add(ASTFactory.createMultipleSlotAsmt(assignments, tildeArrowToken));
+                    factory.getAST().blockAddStmt(block, factory.createMultipleSlotAsmt(assignments, tildeArrowToken));
                 }
-                body = block;
+                bodyId = block;
             }
         } else {
             // Error: missing ~> or {
@@ -486,10 +498,10 @@ public class ExpressionParser extends BaseParser {
             );
         }
         
-        return ASTFactory.createLambda(parameters, returnSlots, body, lambdaToken);
+        return factory.createLambda(parameters, returnSlots, bodyId, lambdaToken);
     }
 
-    private ParamNode parseLambdaParameter() {
+    private int parseLambdaParameter() {
         Token paramToken = now();
         
         // Handle tuple destructuring
@@ -507,10 +519,9 @@ public class ExpressionParser extends BaseParser {
             expect(RPAREN);
             
             // Create parameter with tuple destructuring info
-            ParamNode param = ASTFactory.createParam("_tuple", null, null, true, paramToken);
-            param.isTupleDestructuring = true;
-            param.tupleElements = tupleElements;
-            param.isLambdaParameter = true;
+            int param = factory.createParam("_tuple", null, cod.ast.FlatAST.NULL, true, paramToken);
+            factory.getAST().paramSetTupleDestructuring(param, true, tupleElements.toArray(new String[tupleElements.size()]));
+            factory.getAST().paramSetIsLambda(param, true);
             return param;
         }
         
@@ -524,26 +535,25 @@ public class ExpressionParser extends BaseParser {
         }
         
         // Optional default value
-        ExprNode defaultValue = null;
+        int defaultValue = cod.ast.FlatAST.NULL;
         if (consume(ASSIGN)) {
             defaultValue = parseExpr();
         }
         
         boolean typeInferred = (paramType == null);
-        ParamNode param = ASTFactory.createParam(
+        int param = factory.createParam(
             paramName, paramType, defaultValue, typeInferred, paramToken
         );
-        param.isLambdaParameter = true;
-        param.hasDefaultValue = (defaultValue != null);
+        factory.getAST().paramSetIsLambda(param, true);
         
         return param;
     }
 
-    public ExprNode parsePrimaryExpr() {
-    return attempt(new ParserAction<ExprNode>() {
+    public int parsePrimaryExpr() {
+    return attempt(new ParserAction<Integer>() {
         @Override
-        public ExprNode parse() throws ParseError {
-            ExprNode baseExpr;
+        public Integer parse() throws ParseError {
+            int baseId;
             Token startToken = now();
             
             if (startToken == null) {
@@ -551,54 +561,54 @@ public class ExpressionParser extends BaseParser {
             }
             
             if (is(LAMBDA)) {
-                baseExpr = parseLambdaSignature();
+                baseId = parseLambdaSignature();
             }
             else if (isSuperMethodCall()) {
-                baseExpr = parseSuperMethodCall();
+                baseId = parseSuperMethodCall();
             }
             else if (is(SUPER)) {
                 Token superToken = expect(SUPER);
-                baseExpr = ASTFactory.createSuperExpr(superToken);
+                baseId = factory.createSuperExpr(superToken);
             }
             else if (isThisKeyword()) {
-                baseExpr = parseThisExpr();
+                baseId = parseThisExpr();
             }
             else if (isConstructorCall() && !isMethodCallFollows()) {
-                baseExpr = parseConstructorCall();
+                baseId = parseConstructorCall();
             }
             else if (is(LBRACKET)) {
                 if (isSlotAccessExpression()) {
                     List<String> slotNames = parseReturnSlots();
                     expect(COLON);
-                    MethodCallNode methodCall = parseMethodCall();
-                    methodCall.slotNames = slotNames;
-                    baseExpr = methodCall;
+                    int methodCall = parseMethodCall();
+                    factory.getAST().methodCallSetSlotNames(methodCall, slotNames.toArray(new String[slotNames.size()]));
+                    baseId = methodCall;
                 } else {
-                    baseExpr = parseArrayLiteral();
+                    baseId = parseArrayLiteral();
                 }
             }
             // NEW: Handle method calls without slot brackets
             else if (isMethodCallFollows()) {
-                MethodCallNode methodCall = parseMethodCall();
+                int methodCall = parseMethodCall();
                 // The interpreter will handle single-slot optimization
-                baseExpr = methodCall;
+                baseId = methodCall;
             }
             else if (is(IF)) {
-                baseExpr = parseIfExpr();
+                baseId = parseIfExpr();
             }
             else if (is(INT_LIT)) {
                 Token intToken = expect(INT_LIT);
                 String intText = intToken.text;
                 try {
                     int intValue = Integer.parseInt(intText);
-                    baseExpr = ASTFactory.createIntLiteral(intValue, intToken);
+                    baseId = factory.createIntLiteral(intValue, intToken);
                 } catch (NumberFormatException e1) {
                     try {
                         long longValue = Long.parseLong(intText);
-                        baseExpr = ASTFactory.createLongLiteral(longValue, intToken);
+                        baseId = factory.createLongLiteral(longValue, intToken);
                     } catch (NumberFormatException e2) {
                         AutoStackingNumber bigValue = AutoStackingNumber.valueOf(intText);
-                        baseExpr = ASTFactory.createFloatLiteral(bigValue, intToken);
+                        baseId = factory.createFloatLiteral(bigValue, intToken);
                     }
                 }
             }
@@ -610,13 +620,13 @@ public class ExpressionParser extends BaseParser {
     Object resolvedValue = resolveFloatLiteralValue(floatText);
     
     if (resolvedValue instanceof AutoStackingNumber) {
-        baseExpr = ASTFactory.createFloatLiteral((AutoStackingNumber)resolvedValue, floatToken);
+        baseId = factory.createFloatLiteral((AutoStackingNumber)resolvedValue, floatToken);
     } else {
         // If resolveFloatLiteralValue returned null, try direct parsing
         // This will now handle regular floats like "0.0" correctly
         try {
             AutoStackingNumber value = AutoStackingNumber.valueOf(floatText);
-            baseExpr = ASTFactory.createFloatLiteral(value, floatToken);
+            baseId = factory.createFloatLiteral(value, floatToken);
         } catch (NumberFormatException e) {
             throw error("Invalid numeric literal: " + floatText, floatToken);
         }
@@ -626,61 +636,61 @@ public class ExpressionParser extends BaseParser {
                 Token textToken = now();
                 
                 if (textToken.type == INTERPOL && textToken.hasChildTokens()) {
-                    List<ExprNode> parts = new ArrayList<ExprNode>();
+                    List<Integer> parts = new ArrayList<Integer>();
                     
                     for (Token part : textToken.childTokens) {
                         if (part.type == TEXT_LIT) {
-                            parts.add(ASTFactory.createTextLiteral(part.text, part));
+                            parts.add(factory.createTextLiteral(part.text, part));
                         } else if (part.type == INTERPOL) {
                             if (part.hasChildTokens()) {
                                 ParserContext subCtx = new ParserContext(part.childTokens);
-                                ExpressionParser subParser = new ExpressionParser(subCtx, globalRegistry, statementParser);
-                                ExprNode expr = subParser.parseExpr();
+                                ExpressionParser subParser = new ExpressionParser(subCtx, factory, globalRegistry, statementParser);
+                                int expr = subParser.parseExpr();
                                 parts.add(expr);
                             }
                         }
                     }
                     
                     if (parts.isEmpty()) {
-                        baseExpr = ASTFactory.createTextLiteral("", textToken);
+                        baseId = factory.createTextLiteral("", textToken);
                     } else if (parts.size() == 1) {
-                        baseExpr = parts.get(0);
+                        baseId = parts.get(0);
                     } else {
-                        baseExpr = parts.get(0);
+                        baseId = parts.get(0);
                         for (int i = 1; i < parts.size(); i++) {
-                            baseExpr = ASTFactory.createBinaryOp(baseExpr, "+", parts.get(i), textToken);
+                            baseId = factory.createBinaryOp(baseId, "+", parts.get(i), textToken);
                         }
                     }
                 } else {
                     String text = textToken.text;
                     if (text.startsWith("|\"") && text.endsWith("\"|")) {
-                        baseExpr = handleMultilineTextInterpolation(textToken);
+                        baseId = handleMultilineTextInterpolation(textToken);
                     } else {
-                        baseExpr = ASTFactory.createTextLiteral(text, textToken);
+                        baseId = factory.createTextLiteral(text, textToken);
                     }
                 }
                 consume();
             }
             else if (is(TRUE)) {
                 Token trueToken = expect(TRUE);
-                baseExpr = ASTFactory.createBoolLiteral(true, trueToken);
+                baseId = factory.createBoolLiteral(true, trueToken);
             }
             else if (is(FALSE)) {
                 Token falseToken = expect(FALSE);
-                baseExpr = ASTFactory.createBoolLiteral(false, falseToken);
+                baseId = factory.createBoolLiteral(false, falseToken);
             }
             else if (is(NONE)) {
                 Token noneToken = expect(NONE);
-                baseExpr = ASTFactory.createNoneLiteral(noneToken);
+                baseId = factory.createNoneLiteral(noneToken);
             }
             else if (is(INT, TEXT, FLOAT, BOOL, TYPE)) {
                 Token typeToken = now();
                 String typeName = expect(KEYWORD).text;
-                baseExpr = ASTFactory.createTextLiteral(typeName, typeToken);
+                baseId = factory.createTextLiteral(typeName, typeToken);
             }
             else if (is(ID) || canBeMethod(now())) {
                 if (isMethodCallFollows()) {
-                    baseExpr = parseMethodCall();
+                    baseId = parseMethodCall();
                 } else {
                     Token idToken = now();
                     String idName;
@@ -689,18 +699,18 @@ public class ExpressionParser extends BaseParser {
                     } else {
                         idName = expect(ID).text;
                     }
-                    baseExpr = ASTFactory.createIdentifier(idName, idToken);
+                    baseId = factory.createIdentifier(idName, idToken);
                 }
             }
             else if (is(LPAREN)) {
                 if (isTypeCast()) {
-                    baseExpr = parseTypeCast();
+                    baseId = parseTypeCast();
                 } else {
                     Token lparenToken = expect(LPAREN);
-                    ExprNode firstExpr = parseExpr();
+                    int firstExpr = parseExpr();
                     
                     if (is(COMMA)) {
-                        List<ExprNode> elements = new ArrayList<ExprNode>();
+                        List<Integer> elements = new ArrayList<Integer>();
                         elements.add(firstExpr);
                         
                         while (consume(COMMA)) {
@@ -714,10 +724,10 @@ public class ExpressionParser extends BaseParser {
                         }
                         
                         expect(RPAREN);
-                        baseExpr = ASTFactory.createTuple(elements, lparenToken);
+                        baseId = factory.createTuple(elements, lparenToken);
                     } else {
                         expect(RPAREN);
-                        baseExpr = firstExpr;
+                        baseId = firstExpr;
                     }
                 }
             }
@@ -730,25 +740,25 @@ public class ExpressionParser extends BaseParser {
                 Token dotToken = expect(DOT);
     
                 
-                ExprNode property = parsePrimaryExpr();
+                int propId = parsePrimaryExpr();
                 
-                baseExpr = ASTFactory.createPropertyAccess(baseExpr, property, dotToken);
+                baseId = factory.createPropertyAccess(baseId, propId, dotToken);
             }
 
             while (is(LBRACKET)) {
-                baseExpr = parseIndexAccessContinuation(baseExpr);
+                baseId = parseIndexAccessContinuation(baseId);
             }
 
-            return baseExpr;
+            return baseId;
         }
     });
 }
 
-    private ExprNode handleMultilineTextInterpolation(Token token) {
+    private int handleMultilineTextInterpolation(Token token) {
         String fullText = token.text;
         
         if (!fullText.startsWith("|\"") || !fullText.endsWith("\"|")) {
-            return ASTFactory.createTextLiteral(fullText, token);
+            return factory.createTextLiteral(fullText, token);
         }
         
         if (token.hasChildTokens()) {
@@ -758,14 +768,14 @@ public class ExpressionParser extends BaseParser {
         return parseInterpolatedText(token);
     }
 
-    private ExprNode handleInterpolatedTextWithTokens(Token token) {
+    private int handleInterpolatedTextWithTokens(Token token) {
         List<Token> exprTokens = token.childTokens;
         
         if (exprTokens == null || exprTokens.isEmpty()) {
-            return ASTFactory.createTextLiteral(token.text, token);
+            return factory.createTextLiteral(token.text, token);
         }
         
-        List<ExprNode> parts = new ArrayList<ExprNode>();
+        List<Integer> parts = new ArrayList<Integer>();
         
         String fullText = token.text;
         if (fullText.startsWith("\"") && fullText.endsWith("\"")) {
@@ -789,7 +799,7 @@ public class ExpressionParser extends BaseParser {
             } else if (c == '{') {
                 if (braceCount == 0) {
                     if (currentText.length() > 0) {
-                        parts.add(ASTFactory.createTextLiteral(currentText.toString(), token));
+                        parts.add(factory.createTextLiteral(currentText.toString(), token));
                         currentText.setLength(0);
                     }
                     braceCount++;
@@ -801,13 +811,13 @@ public class ExpressionParser extends BaseParser {
                     if (!exprTokens.isEmpty()) {
                         Token exprToken = exprTokens.get(0);
                         if (exprToken.childTokens != null && !exprToken.childTokens.isEmpty()) {
-                            ExprNode expr = parsePreTokenizedInterpolation(exprToken);
+                            int expr = parsePreTokenizedInterpolation(exprToken);
                             parts.add(expr);
                         } else {
-                            parts.add(ASTFactory.createIdentifier(exprToken.text, exprToken));
+                            parts.add(factory.createIdentifier(exprToken.text, exprToken));
                         }
                     } else {
-                        parts.add(ASTFactory.createTextLiteral("", token));
+                        parts.add(factory.createTextLiteral("", token));
                     }
                     braceCount = 0;
                 } else {
@@ -819,24 +829,24 @@ public class ExpressionParser extends BaseParser {
         }
         
         if (currentText.length() > 0) {
-            parts.add(ASTFactory.createTextLiteral(currentText.toString(), token));
+            parts.add(factory.createTextLiteral(currentText.toString(), token));
         }
         
         if (parts.isEmpty()) {
-            return ASTFactory.createTextLiteral("", token);
+            return factory.createTextLiteral("", token);
         } else if (parts.size() == 1) {
             return parts.get(0);
         }
         
-        ExprNode result = parts.get(0);
+        int result = parts.get(0);
         for (int i = 1; i < parts.size(); i++) {
-            result = ASTFactory.createBinaryOp(result, "+", parts.get(i), token);
+            result = factory.createBinaryOp(result, "+", parts.get(i), token);
         }
         
         return result;
     }
 
-    private ExprNode parsePreTokenizedInterpolation(Token token) {
+    private int parsePreTokenizedInterpolation(Token token) {
         List<Token> exprTokens = token.childTokens;
         
         if (exprTokens == null || exprTokens.isEmpty()) {
@@ -844,9 +854,9 @@ public class ExpressionParser extends BaseParser {
         }
         
         ParserContext subCtx = new ParserContext(exprTokens);
-        ExpressionParser subParser = new ExpressionParser(subCtx, globalRegistry, statementParser);
+        ExpressionParser subParser = new ExpressionParser(subCtx, factory, globalRegistry, statementParser);
         
-        ExprNode result = subParser.parseExpr();
+        int result = subParser.parseExpr();
         
         if (!subParser.ctx.atEOF()) {
             throw error("Extra tokens in interpolation expression", token);
@@ -855,7 +865,7 @@ public class ExpressionParser extends BaseParser {
         return result;
     }
 
-    private ExprNode parseInterpolatedText(Token token) {
+    private int parseInterpolatedText(Token token) {
         String text = token.text;
         
         if (text.startsWith("\"") && text.endsWith("\"")) {
@@ -864,7 +874,7 @@ public class ExpressionParser extends BaseParser {
             text = text.substring(2, text.length() - 2);
         }
         
-        List<ExprNode> parts = new ArrayList<ExprNode>();
+        List<Integer> parts = new ArrayList<Integer>();
         StringBuilder current = new StringBuilder();
         int pos = 0;
         boolean inEscape = false;
@@ -892,7 +902,7 @@ public class ExpressionParser extends BaseParser {
                 pos++;
             } else if (c == '{') {
                 if (current.length() > 0) {
-                    parts.add(ASTFactory.createTextLiteral(current.toString(), token));
+                    parts.add(factory.createTextLiteral(current.toString(), token));
                     current.setLength(0);
                 }
                 
@@ -903,7 +913,7 @@ public class ExpressionParser extends BaseParser {
                 
                 String exprText = text.substring(pos + 1, end);
                 
-                ExprNode expr = parseInterpolationExpressionDirectly(exprText, token);
+                int expr = parseInterpolationExpressionDirectly(exprText, token);
                 parts.add(expr);
                 
                 pos = end + 1;
@@ -918,24 +928,24 @@ public class ExpressionParser extends BaseParser {
         }
         
         if (current.length() > 0) {
-            parts.add(ASTFactory.createTextLiteral(current.toString(), token));
+            parts.add(factory.createTextLiteral(current.toString(), token));
         }
         
         if (parts.isEmpty()) {
-            return ASTFactory.createTextLiteral("", token);
+            return factory.createTextLiteral("", token);
         } else if (parts.size() == 1) {
             return parts.get(0);
         }
         
-        ExprNode result = parts.get(0);
+        int result = parts.get(0);
         for (int i = 1; i < parts.size(); i++) {
-            result = ASTFactory.createBinaryOp(result, "+", parts.get(i), null);
+            result = factory.createBinaryOp(result, "+", parts.get(i), null);
         }
         
         return result;
     }
 
-    private ExprNode parseInterpolationExpressionDirectly(String exprText, Token textToken) {
+    private int parseInterpolationExpressionDirectly(String exprText, Token textToken) {
         ParserState savedState = getCurrentState();
         
         try {
@@ -946,11 +956,11 @@ public class ExpressionParser extends BaseParser {
             List<Token> tokens = tempLexer.tokenize();
             
             if (tokens.isEmpty()) {
-                return ASTFactory.createTextLiteral("", textToken);
+                return factory.createTextLiteral("", textToken);
             }
             
             ParserContext subCtx = new ParserContext(tokens);
-            ExpressionParser subParser = new ExpressionParser(subCtx, globalRegistry, statementParser);
+            ExpressionParser subParser = new ExpressionParser(subCtx, factory, globalRegistry, statementParser);
             
             return subParser.parseExpr();
         } finally {
@@ -973,7 +983,7 @@ public class ExpressionParser extends BaseParser {
         return false;
     }
 
-    private ExprNode parseThisExpr() {
+    private int parseThisExpr() {
         Token first = now();
         String className = null;
         
@@ -983,11 +993,11 @@ public class ExpressionParser extends BaseParser {
             className = classNameToken.text;
             expect(DOT);
             Token thisToken = expect(THIS);
-            return ASTFactory.createThisExpr(className, thisToken);
+            return factory.createThisExpr(className, thisToken);
         }
         
         Token thisToken = expect(THIS);
-        return ASTFactory.createThisExpr(null, thisToken);
+        return factory.createThisExpr(null, thisToken);
     }
 
     private Object resolveFloatLiteralValue(String literal) {
@@ -1032,8 +1042,8 @@ public class ExpressionParser extends BaseParser {
     }
 }
 
-    private ExprNode parsePrecedence(int precedence) {
-        ExprNode left = parsePrefix();
+    private int parsePrecedence(int precedence) {
+        int left = parsePrefix();
         
         while(true) {
             Token op = now();
@@ -1051,11 +1061,11 @@ public class ExpressionParser extends BaseParser {
             
             if (opPrecedence > 0) {
                 Token opToken = consume();
-                ExprNode right = parsePrecedence(opPrecedence + 1);
+                int right = parsePrecedence(opPrecedence + 1);
                 if (is(opToken, IS)) {
-                    left = ASTFactory.createBinaryOp(left, IS.toString(), right, opToken);
+                    left = factory.createBinaryOp(left, IS.toString(), right, opToken);
                 } else {
-                    left = ASTFactory.createBinaryOp(left, op.text, right, opToken);
+                    left = factory.createBinaryOp(left, op.text, right, opToken);
                 }
                 continue;
             }
@@ -1071,7 +1081,7 @@ public class ExpressionParser extends BaseParser {
         return left;
     }
 
-    private ExprNode parsePrefix() {
+    private int parsePrefix() {
         Token current = now();
         if (current == null) {
             throw error("Unexpected end of input in prefix expression");
@@ -1079,14 +1089,14 @@ public class ExpressionParser extends BaseParser {
         
         if (is(BANG, PLUS, MINUS)) {
             Token opToken = consume();
-            ExprNode operand = parsePrecedence(PREC_UNARY);
-            return ASTFactory.createUnaryOp(opToken.text, operand, opToken);
+            int operand = parsePrecedence(PREC_UNARY);
+            return factory.createUnaryOp(opToken.text, operand, opToken);
         }
         
         return parsePrimaryExpr();
     }
 
-    private ExprNode parseBooleanChain() {
+    private int parseBooleanChain() {
         Token typeToken = now();
         boolean isAll = is(typeToken, ALL);
         consume();
@@ -1097,13 +1107,13 @@ public class ExpressionParser extends BaseParser {
 
             if (isComparisonOp(now())) {
                 Token opToken = consume();
-                ExprNode right = parsePrecedence(PREC_COMPARISON + 1);                
+                int right = parsePrecedence(PREC_COMPARISON + 1);                
 
-                List<ExprNode> chainArgs = new ArrayList<ExprNode>();
+                List<Integer> chainArgs = new ArrayList<Integer>();
                 chainArgs.add(right);
 
-                ExprNode arrayExpr = ASTFactory.createIdentifier(arrayName, arrayNameToken);
-                EqualityChainNode chain = ASTFactory.createEqualityChain(arrayExpr, opToken.text, isAll, chainArgs, arrayNameToken, opToken, typeToken);
+                int arrayExpr = factory.createIdentifier(arrayName, arrayNameToken);
+                int chain = factory.createEqualityChain(arrayExpr, opToken.text, isAll, chainArgs, arrayNameToken, opToken, typeToken);
                 return chain;
             } else {
                 throw error("Expected comparison operator after 'all/any <arrayName>'");
@@ -1111,7 +1121,7 @@ public class ExpressionParser extends BaseParser {
         } else if (is(LBRACKET)) {
             expect(LBRACKET);
             
-            List<ExprNode> expressions = new ArrayList<ExprNode>();
+            List<Integer> expressions = new ArrayList<Integer>();
 
             if (!is(RBRACKET)) {
                 expressions.add(parseExpr());
@@ -1129,14 +1139,14 @@ public class ExpressionParser extends BaseParser {
             }
             expect(RBRACKET);
             
-            BooleanChainNode node = ASTFactory.createBooleanChain(isAll, expressions, typeToken);
+            int node = factory.createBooleanChain(isAll, expressions, typeToken);
             return node;
         } else {
             throw error("Expected array variable or '[' after 'all/any'");
         }
     }
 
-    private ExprNode parseEqualityChain(ExprNode left, String operator) {
+    private int parseEqualityChain(int left, String operator) {
         Token leftToken = next(-1);
         
         Token operatorToken = now();
@@ -1151,7 +1161,7 @@ public class ExpressionParser extends BaseParser {
         
         consume();
         
-        List<ExprNode> chainArgs = new ArrayList<ExprNode>();
+        List<Integer> chainArgs = new ArrayList<Integer>();
         
         if (is(LBRACKET)) {
             expect(LBRACKET);
@@ -1165,21 +1175,21 @@ public class ExpressionParser extends BaseParser {
         } else if (is(ID)) {
             Token arrayNameToken = now();
             String arrayName = expect(ID).text;
-            ExprNode arrayExpr = ASTFactory.createIdentifier(arrayName, arrayNameToken);
+            int arrayExpr = factory.createIdentifier(arrayName, arrayNameToken);
             chainArgs.add(arrayExpr);
         } else {
             throw error("Expected array variable or '[' for array literal after 'all/any'");
         }
         
-        EqualityChainNode chain = ASTFactory.createEqualityChain(left, operator, isAllChain, chainArgs, leftToken, operatorToken, chainTypeToken);
+        int chain = factory.createEqualityChain(left, operator, isAllChain, chainArgs, leftToken, operatorToken, chainTypeToken);
         return chain;
     }
 
-    private ExprNode parseChainArgument() {
+    private int parseChainArgument() {
         if (is(BANG)) {
             Token bangToken = expect(BANG);
-            ExprNode arg = parsePrimaryExpr();
-            return ASTFactory.createUnaryOp("!", arg, bangToken);
+            int arg = parsePrimaryExpr();
+            return factory.createUnaryOp("!", arg, bangToken);
         }
         
         if (is(LPAREN)) {
@@ -1195,9 +1205,9 @@ public class ExpressionParser extends BaseParser {
         return parsePrimaryExpr();
     }
 
-    private ExprNode parseArgumentList() {
+    private int parseArgumentList() {
         Token lparenToken = expect(LPAREN);
-        List<ExprNode> arguments = new ArrayList<ExprNode>();
+        List<Integer> arguments = new ArrayList<Integer>();
         if (!is(RPAREN)) {
             arguments.add(parseExpr());
             while (consume(COMMA)) {
@@ -1205,13 +1215,13 @@ public class ExpressionParser extends BaseParser {
             }
         }
         expect(RPAREN);
-        return ASTFactory.createArgumentList(arguments, lparenToken);
+        return factory.createArgumentList(arguments, lparenToken);
     }
 
-    private ExprNode parseArrayLiteral() {
+    private int parseArrayLiteral() {
         Token lbracketToken = expect(LBRACKET);
         
-        List<ExprNode> elements = new ArrayList<ExprNode>();
+        List<Integer> elements = new ArrayList<Integer>();
         
         if (!is(RBRACKET)) {
             if (isRangeStart()) {
@@ -1232,7 +1242,7 @@ public class ExpressionParser extends BaseParser {
         }
         
         expect(RBRACKET);
-        return ASTFactory.createArray(elements, lbracketToken);
+        return factory.createArray(elements, lbracketToken);
     }
 
     private boolean isRangeStart() {
@@ -1254,12 +1264,12 @@ public class ExpressionParser extends BaseParser {
         }
     }
 
-    private RangeNode parseRangeExpression() {
-        ExprNode step = null;
+    private int parseRangeExpression() {
+        int stepId = cod.ast.FlatAST.NULL;
         Token stepToken = null;
         Token rangeToken = null;
         
-        ExprNode start = parseExpr();
+        int startId = parseExpr();
        
         
         if (is(RANGE_DOTDOT)) {
@@ -1271,28 +1281,28 @@ public class ExpressionParser extends BaseParser {
         }
         
        
-        ExprNode end = parseExpr();
+        int endId = parseExpr();
        
         
         if (is(BY)) {
             stepToken = expect(BY);
-            step = parseExpr();
+            stepId = parseExpr();
 
         } else if (is(RANGE_HASH)) {
             stepToken = expect(RANGE_HASH);
-            step = parseExpr();
+            stepId = parseExpr();
 
         }
         
-        return ASTFactory.createRange(step, start, end, stepToken, rangeToken);
+        return factory.createRange(stepId, startId, endId, stepToken, rangeToken);
     }
 
-    private ExprNode parseTypeCast() {
+    private int parseTypeCast() {
         Token lparenToken = expect(LPAREN);
         String type = parseTypeReference();    
         expect(RPAREN);
-        ExprNode expressionToCast = parsePrecedence(PREC_UNARY);
-        return ASTFactory.createTypeCast(type, expressionToCast, lparenToken);
+        int expressionToCast = parsePrecedence(PREC_UNARY);
+        return factory.createTypeCast(type, expressionToCast, lparenToken);
     }
 
     private boolean isConstructorCall() {

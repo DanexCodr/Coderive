@@ -1,7 +1,7 @@
 package cod.parser;
 
 import cod.ast.ASTFactory;
-import cod.ast.nodes.*;
+import cod.ast.FlatAST;
 import cod.lexer.Token;
 import static cod.lexer.TokenType.*;
 import static cod.syntax.Symbol.*;
@@ -9,45 +9,43 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SlotParser {
-    
+
     private final BaseParser parser;
     private final ExpressionParser exprParser;
-    
-    // Constructor for when called from ExpressionParser
+    private final ASTFactory factory;
+
     public SlotParser(ExpressionParser parser) {
         this.parser = parser;
         this.exprParser = parser;
+        this.factory = parser.getFactory();
     }
-    
-    // Constructor for when called from StatementParser
+
     public SlotParser(StatementParser parser) {
         this.parser = parser;
         this.exprParser = parser.expressionParser;
+        this.factory = parser.getFactory();
     }
-    
-    // Constructor for when called from DeclarationParser
+
     public SlotParser(DeclarationParser parser) {
         this.parser = parser;
         this.exprParser = parser.getStatementParser().expressionParser;
+        this.factory = parser.getFactory();
     }
-    
-    /**
-     * Parse slot contract: :: name: type, name: type
-     */
-    public List<SlotNode> parseSlotContract() {
+
+    public List<Integer> parseSlotContract() {
         parser.expect(DOUBLE_COLON);
-        
-        List<SlotNode> slots = new ArrayList<SlotNode>();
-        
+
+        List<Integer> slots = new ArrayList<Integer>();
+
         boolean firstSlot = true;
         boolean isNamedMode = false;
         int index = 0;
-        
+
         do {
             String name;
             String type;
             Token nameToken = null;
-            
+
             if (firstSlot) {
                 if (parser.is(parser.now(), ID)) {
                     isNamedMode = true;
@@ -79,83 +77,64 @@ public class SlotParser {
                     type = parser.parseTypeReference();
                 }
             }
-            
-            slots.add(ASTFactory.createSlot(type, name, nameToken));
+
+            slots.add(factory.createSlot(type, name, nameToken));
             index++;
-            
+
         } while (parser.consume(COMMA));
-        
+
         return slots;
     }
-    
-    /**
-     * Parse slot assignments: ~> name: expr, expr
-     */
-    public List<SlotAssignmentNode> parseSlotAssignments() {
-        List<SlotAssignmentNode> assignments = new ArrayList<SlotAssignmentNode>();
-        
-        // Parse first assignment
+
+    public List<Integer> parseSlotAssignments() {
+        List<Integer> assignments = new ArrayList<Integer>();
         assignments.add(parseSingleSlotAssignment());
-        
-        // Parse additional assignments after commas
         while (parser.consume(COMMA)) {
             assignments.add(parseSingleSlotAssignment());
         }
-        
         return assignments;
     }
-    
-    /**
-     * Parse a single slot assignment
-     */
-    public SlotAssignmentNode parseSingleSlotAssignment() {
+
+    public int parseSingleSlotAssignment() {
         String slotName = null;
-        ExprNode value;
+        int valueId;
         Token colonToken = null;
-        
+
         if (parser.is(parser.now(), ID)) {
             Token afterId = parser.next();
             if (parser.is(afterId, COLON)) {
                 slotName = parser.expect(ID).text;
                 colonToken = parser.now();
                 parser.expect(COLON);
-                value = exprParser.parseExpr();
+                valueId = exprParser.parseExpr();
             } else {
-                slotName = null;
-                value = exprParser.parseExpr();
+                valueId = exprParser.parseExpr();
             }
         } else {
-            slotName = null;
-            value = exprParser.parseExpr();
+            valueId = exprParser.parseExpr();
         }
-        
-        return ASTFactory.createSlotAsmt(slotName, value, colonToken);
+
+        return factory.createSlotAsmt(slotName, valueId, colonToken);
     }
-    
-    /**
-     * Parse slot assignments and wrap appropriately
-     */
-    public StmtNode parseSlotAssignmentsAsStmt(Token tildeArrowToken) {
-        List<SlotAssignmentNode> assignments = parseSlotAssignments();
-        
+
+    public int parseSlotAssignmentsAsStmt(Token tildeArrowToken) {
+        List<Integer> assignments = parseSlotAssignments();
+
         if (assignments.size() == 1) {
             return assignments.get(0);
         } else {
-            return ASTFactory.createMultipleSlotAsmt(assignments, tildeArrowToken);
+            return factory.createMultipleSlotAsmt(assignments, tildeArrowToken);
         }
     }
-    
-    /**
-     * Validate that assignments match contract
-     */
-    public void validateSlotCount(List<SlotNode> contract, List<SlotAssignmentNode> assignments, Token errorToken) {
+
+    public void validateSlotCount(List<Integer> contract, List<Integer> assignments, Token errorToken) {
         if (contract == null || contract.isEmpty()) {
             return;
         }
-        
+
         int contractSize = contract.size();
         int assignmentSize = assignments.size();
-        
+
         if (contractSize != assignmentSize) {
             throw parser.error(
                 "Slot contract expects " + contractSize + " return value(s), but " +

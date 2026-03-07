@@ -1,5 +1,6 @@
 package cod.parser;
 
+import cod.ast.ASTFactory;
 import cod.ast.SourceSpan;
 import cod.error.ParseError;
 import cod.lexer.Token;
@@ -17,11 +18,15 @@ import java.util.List;
 public abstract class BaseParser {
   protected final ParserContext ctx;
   protected final List<Token> tokens;
+  protected final ASTFactory factory;
 
-  public BaseParser(ParserContext ctx) {
+  public BaseParser(ParserContext ctx, ASTFactory factory) {
     this.ctx = ctx;
     this.tokens = ctx.getTokens();
+    this.factory = factory;
   }
+
+  public ASTFactory getFactory() { return factory; }
   
   protected boolean is(Symbol... sb) {
     return is(now(), sb);
@@ -132,7 +137,7 @@ protected <T> T attempt(final ParserAction<T> action) {
   }
 
   protected BaseParser createIsolatedParser(ParserContext isolatedCtx) {
-    return new BaseParser(isolatedCtx) {
+    return new BaseParser(isolatedCtx, factory) {
     };
   }
 

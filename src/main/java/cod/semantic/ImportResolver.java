@@ -663,7 +663,7 @@ public class ImportResolver {
             DebugSystem.debug("IMPORTS", "Generated " + tokens.size() + " tokens");
             
             MainParser parser = new MainParser(tokens);
-            ProgramNode program = parser.parseProgram();
+            ProgramNode program = parser.parseProgramNode();
             
             if (program == null) {
                 throw new InternalError("Parser returned null program for: " + filePath);

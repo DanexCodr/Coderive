@@ -3,682 +3,980 @@ package cod.ast;
 import cod.ast.nodes.*;
 import cod.syntax.Keyword;
 import cod.lexer.Token;
-import java.util.*;
 import cod.math.AutoStackingNumber;
+import java.util.Arrays;
+import java.util.List;
 
 public class ASTFactory {
-    // Helper method to create source span from token
-    private static SourceSpan span(Token token) {
+
+    private FlatAST ast;
+
+    public ASTFactory() {
+        this.ast = new FlatAST();
+    }
+
+    public FlatAST getAST() {
+        return ast;
+    }
+
+    private SourceSpan span(Token token) {
         return token != null ? new SourceSpan(token) : null;
     }
 
-    // Merge source spans for composite nodes
-    private static SourceSpan mergeSpans(SourceSpan... spans) {
-        if (spans == null || spans.length == 0) return null;
-
-        SourceSpan result = spans[0];
-        for (int i = 1; i < spans.length; i++) {
-            if (spans[i] != null) {
-                result = SourceSpan.merge(result, spans[i]);
-            }
+    private static int[] toIntArray(List<Integer> list) {
+        if (list == null) return new int[0];
+        int[] arr = new int[list.size()];
+        for (int i = 0; i < list.size(); i++) {
+            arr[i] = list.get(i);
         }
-        return result;
+        return arr;
     }
 
-    public static ProgramNode createProgram() {
-        return new ProgramNode();
+    private int createEmptyUseNode() {
+        return createUseNode(null, null);
     }
 
-    public static LambdaNode createLambda(
-            List<ParamNode> parameters, 
-            List<SlotNode> returnSlots, 
-            StmtNode body, 
-            Token lambdaToken) {
-        LambdaNode lambda = new LambdaNode(parameters, returnSlots, body);
-        if (lambdaToken != null) {
-            lambda.setSourceSpan(span(lambdaToken));
-        }
-        return lambda;
+    // === PROGRAM ===
+
+    public int createProgram() {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.PROGRAM;
+        data.span = null;
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new ProgramNode());
+        return id;
     }
 
-    public static LambdaNode createLambda(List<ParamNode> parameters, Token lambdaToken) {
-        LambdaNode lambda = new LambdaNode();
-        lambda.parameters = parameters;
-        if (lambdaToken != null) {
-            lambda.setSourceSpan(span(lambdaToken));
-        }
-        return lambda;
+    // === UNIT ===
+
+    public int createUnit(String name, Token unitToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.UNIT;
+        data.str0 = name;
+        data.span = span(unitToken);
+        data.child0 = createEmptyUseNode();
+        data.children = new int[0];
+        data.children2 = new int[0];
+        int id = ast.add(data);
+        UnitNode unit = new UnitNode(); unit.name = name;
+        ast.setLegacyNode(id, unit);
+        return id;
     }
 
-    public static UnitNode createUnit(String name, Token unitToken) {
+    public int createUnit(String name, String mainClassName, Token unitToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.UNIT;
+        data.str0 = name;
+        data.str2 = mainClassName;
+        data.span = span(unitToken);
+        data.child0 = createEmptyUseNode();
+        data.children = new int[0];
+        data.children2 = new int[0];
+        int id = ast.add(data);
         UnitNode unit = new UnitNode();
         unit.name = name;
-        unit.imports = new UseNode();
-        unit.types = new ArrayList<TypeNode>();
-        unit.resolvedImports = new HashMap<String, ProgramNode>();
-        unit.mainClassName = null;
-        if (unitToken != null) {
-            unit.setSourceSpan(span(unitToken));
-        }
-        return unit;
-    }
-
-    public static UnitNode createUnit(String name, String mainClassName, Token unitToken) {
-        UnitNode unit = new UnitNode();
-        unit.name = name;
-        unit.imports = new UseNode();
-        unit.types = new ArrayList<TypeNode>();
-        unit.resolvedImports = new HashMap<String, ProgramNode>();
         unit.mainClassName = mainClassName;
-        if (unitToken != null) {
-            unit.setSourceSpan(span(unitToken));
-        }
-        return unit;
+        ast.setLegacyNode(id, unit);
+        return id;
     }
 
-    public static UseNode createUseNode(List<String> imports, Token useToken) {
-        UseNode useNode = new UseNode();
-        useNode.imports = imports;
-        if (useToken != null) {
-            useNode.setSourceSpan(span(useToken));
+    // === USE ===
+
+    public int createUseNode(List<String> imports, Token useToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.USE;
+        data.span = span(useToken);
+        if (imports != null) {
+            data.strings = imports.toArray(new String[0]);
+        } else {
+            data.strings = new String[0];
         }
-        return useNode;
+        return ast.add(data);
     }
 
-    public static TypeNode createType(
-            String name, Keyword visibility, String extendName, Token nameToken) {
+    // === TYPE ===
+
+    public int createType(String name, Keyword visibility, String extendName, Token nameToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.TYPE;
+        data.str0 = name;
+        data.kw = visibility;
+        data.str2 = extendName;
+        data.span = span(nameToken);
+        data.children = new int[0];
+        data.children2 = new int[0];
+        data.strings = new String[0];
+        data.objVal = new Object[]{new int[0], new int[0]};
+        int id = ast.add(data);
         TypeNode type = new TypeNode();
         type.name = name;
-        type.visibility = visibility;
+        type.visibility = (visibility != null ? visibility : Keyword.SHARE);
         type.extendName = extendName;
-        type.fields = new ArrayList<FieldNode>();
-        type.methods = new ArrayList<MethodNode>();
-        type.statements = new ArrayList<StmtNode>();
-        type.constructors = new ArrayList<ConstructorNode>();
-        type.implementedPolicies = new ArrayList<String>();
-        if (nameToken != null) {
-            type.setSourceSpan(span(nameToken));
+        ast.setLegacyNode(id, type);
+        return id;
+    }
+
+    // === POLICY ===
+
+    public int createPolicy(String name, Keyword visibility, Token nameToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.POLICY;
+        data.str0 = name;
+        data.kw = visibility;
+        data.span = span(nameToken);
+        data.children = new int[0];
+        data.strings = new String[0];
+        int id = ast.add(data);
+        PolicyNode policy = new PolicyNode(); policy.name = name; policy.visibility = visibility;
+        ast.setLegacyNode(id, policy);
+        return id;
+    }
+
+    // === POLICY_METHOD ===
+
+    public int createPolicyMethod(String name, Token nameToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.POLICY_METHOD;
+        data.str0 = name;
+        data.span = span(nameToken);
+        data.children = new int[0];
+        data.children2 = new int[0];
+        return ast.add(data);
+    }
+
+    // === FIELD ===
+
+    public int createField(String name, String type, int valueId, Token nameToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.FIELD;
+        data.str0 = name;
+        data.str1 = type;
+        data.child0 = valueId;
+        data.span = span(nameToken);
+        int id = ast.add(data);
+        FieldNode fn = new FieldNode();
+        fn.name = name;
+        fn.type = type;
+        Object fvobj = ast.getLegacyNode(valueId);
+        if (fvobj instanceof ExprNode) fn.value = (ExprNode) fvobj;
+        ast.setLegacyNode(id, fn);
+        return id;
+    }
+
+    public int createField(String name, String type, Token nameToken) {
+        return createField(name, type, FlatAST.NULL, nameToken);
+    }
+
+    // === ASSIGNMENT ===
+
+    public int createAsmt(int targetId, int valueId, boolean isDeclaration, Token assignToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.ASSIGNMENT;
+        data.child0 = targetId;
+        data.child1 = valueId;
+        data.bool0 = isDeclaration;
+        data.span = span(assignToken);
+        int id = ast.add(data);
+        AssignmentNode an = new AssignmentNode();
+        an.isDeclaration = isDeclaration;
+        Object atobj = ast.getLegacyNode(targetId), avobj = ast.getLegacyNode(valueId);
+        if (atobj instanceof ExprNode) an.left = (ExprNode) atobj;
+        if (avobj instanceof ExprNode) an.right = (ExprNode) avobj;
+        ast.setLegacyNode(id, an);
+        return id;
+    }
+
+    // === CONSTRUCTOR_CALL ===
+
+    public int createConstructorCall(String className, List<Integer> argIds, Token nameToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.CONSTRUCTOR_CALL;
+        data.str0 = className;
+        data.span = span(nameToken);
+        int[] arr = toIntArray(argIds);
+        data.children = arr;
+        data.strings = new String[arr.length];
+        Arrays.fill(data.strings, "");
+        int id = ast.add(data);
+        ConstructorCallNode ccn = new ConstructorCallNode();
+        ccn.className = className;
+        ccn.arguments = new java.util.ArrayList<ExprNode>();
+        ccn.argNames = new java.util.ArrayList<String>();
+        for (int argId : (argIds != null ? argIds : new java.util.ArrayList<Integer>())) {
+            Object obj = ast.getLegacyNode(argId);
+            if (obj instanceof ExprNode) { ccn.arguments.add((ExprNode) obj); ccn.argNames.add(""); }
         }
-        return type;
+        ast.setLegacyNode(id, ccn);
+        return id;
     }
 
-    public static PolicyNode createPolicy(String name, Keyword visibility, Token nameToken) {
-        PolicyNode node = new PolicyNode();
-        node.name = name;
-        node.visibility = visibility;
-        node.methods = new ArrayList<PolicyMethodNode>();
-        node.composedPolicies = new ArrayList<String>();
-        if (nameToken != null) {
-            node.setSourceSpan(span(nameToken));
-        }
-        return node;
+    // === CONSTRUCTOR ===
+
+    public int createConstructor(List<Integer> paramIds, List<Integer> bodyIds, Token thisToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.CONSTRUCTOR;
+        data.span = span(thisToken);
+        data.children = toIntArray(paramIds);
+        data.children2 = toIntArray(bodyIds);
+        int id = ast.add(data);
+        ConstructorNode c = new ConstructorNode(); 
+        c.parameters = new java.util.ArrayList<ParamNode>();
+        c.body = new java.util.ArrayList<StmtNode>();
+        ast.setLegacyNode(id, c);
+        return id;
     }
 
-    public static PolicyMethodNode createPolicyMethod(String name, Token nameToken) {
-        PolicyMethodNode method = new PolicyMethodNode();
-        method.methodName = name;
-        method.parameters = new ArrayList<ParamNode>();
-        method.returnSlots = new ArrayList<SlotNode>();
-        if (nameToken != null) {
-            method.setSourceSpan(span(nameToken));
-        }
-        return method;
-    }
+    // === METHOD ===
 
-    public static FieldNode createField(String name, String type, ExprNode value, Token nameToken) {
-        FieldNode field = new FieldNode();
-        field.name = name;
-        field.type = type;
-        field.value = value;
-        if (nameToken != null) {
-            field.setSourceSpan(span(nameToken));
-        }
-        return field;
-    }
-
-    public static FieldNode createField(String name, String type, Token nameToken) {
-        return createField(name, type, null, nameToken);
-    }
-
-    public static AssignmentNode createAsmt(
-            ExprNode target, ExprNode value, boolean isDeclaration, Token assignToken) {
-        AssignmentNode assignment = new AssignmentNode();
-        assignment.left = target;
-        assignment.right = value;
-        assignment.isDeclaration = isDeclaration;
-        assignment.setSourceSpan(
-            mergeSpans(
-                target != null ? target.getSourceSpan() : null,
-                span(assignToken),
-                value != null ? value.getSourceSpan() : null));
-        return assignment;
-    }
-
-    public static ConstructorCallNode createConstructorCall(
-            String className, List<ExprNode> arguments, Token nameToken) {
-        ConstructorCallNode call = new ConstructorCallNode();
-        call.className = className;
-        call.arguments = arguments != null ? arguments : new ArrayList<ExprNode>();
-        call.argNames = new ArrayList<String>();
-        if (arguments != null) {
-            for (int i = 0; i < arguments.size(); i++) {
-                call.argNames.add(null);
+    public int createMethod(String name, Keyword visibility, List<Integer> returnSlotIds, Token nameToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.METHOD;
+        data.str0 = name;
+        data.kw = visibility;
+        data.span = span(nameToken);
+        data.children = new int[0];
+        data.children2 = toIntArray(returnSlotIds);
+        data.objVal = new int[0];
+        int id = ast.add(data);
+        MethodNode m = new MethodNode();
+        m.methodName = name;
+        m.visibility = visibility;
+        if (returnSlotIds != null) {
+            for (int rsId : returnSlotIds) {
+                Object rsObj = ast.getLegacyNode(rsId);
+                if (rsObj instanceof SlotNode) m.returnSlots.add((SlotNode) rsObj);
             }
         }
-        if (nameToken != null) {
-            call.setSourceSpan(span(nameToken));
+        ast.setLegacyNode(id, m);
+        return id;
+    }
+
+    // === PARAM ===
+
+    public int createParam(String name, String type, int defaultValueId, boolean typeInferred, Token nameToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.PARAM;
+        data.str0 = name;
+        data.str1 = type;
+        data.child0 = defaultValueId;
+        data.bool0 = (defaultValueId != FlatAST.NULL);
+        data.bool1 = typeInferred;
+        data.span = span(nameToken);
+        int id = ast.add(data);
+        ParamNode p = new ParamNode();
+        p.name = name;
+        p.type = type;
+        p.typeInferred = typeInferred;
+        p.hasDefaultValue = (defaultValueId != FlatAST.NULL);
+        if (defaultValueId != FlatAST.NULL) {
+            Object dvobj = ast.getLegacyNode(defaultValueId);
+            if (dvobj instanceof ExprNode) p.defaultValue = (ExprNode) dvobj;
         }
-        return call;
+        ast.setLegacyNode(id, p);
+        return id;
     }
 
-    public static ConstructorNode createConstructor(
-            List<ParamNode> parameters, List<StmtNode> body, Token thisToken) {
-        ConstructorNode cons = new ConstructorNode();
-        cons.parameters = parameters != null ? parameters : new ArrayList<ParamNode>();
-        cons.body = body != null ? body : new ArrayList<StmtNode>();
-        if (thisToken != null) {
-            cons.setSourceSpan(span(thisToken));
+    // === SLOT ===
+
+    public int createSlot(String type, String name, Token nameToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.SLOT;
+        data.str0 = name;
+        data.str1 = type;
+        data.span = span(nameToken);
+        int id = ast.add(data);
+        SlotNode sn = new SlotNode();
+        sn.name = name;
+        sn.type = type;
+        ast.setLegacyNode(id, sn);
+        return id;
+    }
+
+    // === PROPERTY_ACCESS ===
+
+    public int createPropertyAccess(int leftId, int rightId, Token dotToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.PROPERTY_ACCESS;
+        data.child0 = leftId;
+        data.child1 = rightId;
+        data.span = span(dotToken);
+        int id = ast.add(data);
+        PropertyAccessNode pan = new PropertyAccessNode();
+        Object lobj = ast.getLegacyNode(leftId), robj = ast.getLegacyNode(rightId);
+        if (lobj instanceof ExprNode) pan.left = (ExprNode) lobj;
+        if (robj instanceof ExprNode) pan.right = (ExprNode) robj;
+        ast.setLegacyNode(id, pan);
+        return id;
+    }
+
+    // === IDENTIFIER ===
+
+    public int createIdentifier(String name, Token token) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.IDENTIFIER;
+        data.str0 = name;
+        data.span = span(token);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new IdentifierNode(name));
+        return id;
+    }
+
+    // === INT_LITERAL ===
+
+    public int createIntLiteral(int value, Token token) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.INT_LITERAL;
+        data.longVal = value;
+        data.span = span(token);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new IntLiteralNode((long)value));
+        return id;
+    }
+
+    public int createLongLiteral(long value, Token token) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.INT_LITERAL;
+        data.longVal = value;
+        data.span = span(token);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new IntLiteralNode(value));
+        return id;
+    }
+
+    // === FLOAT_LITERAL ===
+
+    public int createFloatLiteral(AutoStackingNumber value, Token token) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.FLOAT_LITERAL;
+        data.objVal = value;
+        data.span = span(token);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new FloatLiteralNode(value));
+        return id;
+    }
+
+    // === TEXT_LITERAL ===
+
+    public int createTextLiteral(String value, Token token) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.TEXT_LITERAL;
+        data.str0 = value;
+        data.bool0 = false;
+        data.span = span(token);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new TextLiteralNode(value));
+        return id;
+    }
+
+    public int createTextLiteralInterpolated(String value, Token token) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.TEXT_LITERAL;
+        data.str0 = value;
+        data.bool0 = true;
+        data.span = span(token);
+        return ast.add(data);
+    }
+
+    // === BOOL_LITERAL ===
+
+    public int createBoolLiteral(boolean value, Token token) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.BOOL_LITERAL;
+        data.bool0 = value;
+        data.span = span(token);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new BoolLiteralNode(value));
+        return id;
+    }
+
+    // === NONE_LITERAL ===
+
+    public int createNoneLiteral(Token token) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.NONE_LITERAL;
+        data.span = span(token);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new NoneLiteralNode());
+        return id;
+    }
+
+    // === THIS ===
+
+    public int createThisExpr(String className, Token thisToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.THIS;
+        data.str0 = className;
+        data.span = span(thisToken);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new ThisNode(className));
+        return id;
+    }
+
+    // === SUPER ===
+
+    public int createSuperExpr(Token superToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.SUPER;
+        data.span = span(superToken);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new SuperNode());
+        return id;
+    }
+
+    // === BINARY_OP ===
+
+    public int createBinaryOp(int leftId, String op, int rightId, Token opToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.BINARY_OP;
+        data.str0 = op;
+        data.child0 = leftId;
+        data.child1 = rightId;
+        data.span = span(opToken);
+        int id = ast.add(data);
+        BinaryOpNode bn = new BinaryOpNode();
+        bn.op = op;
+        Object lobj = ast.getLegacyNode(leftId), robj = ast.getLegacyNode(rightId);
+        if (lobj instanceof ExprNode) bn.left = (ExprNode) lobj;
+        if (robj instanceof ExprNode) bn.right = (ExprNode) robj;
+        ast.setLegacyNode(id, bn);
+        return id;
+    }
+
+    // === EQUALITY_CHAIN ===
+
+    public int createEqualityChain(int leftId, String operator, boolean isAllChain,
+            List<Integer> chainArgIds, Token leftToken, Token opToken, Token chainToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.EQUALITY_CHAIN;
+        data.str0 = operator;
+        data.bool0 = isAllChain;
+        data.child0 = leftId;
+        data.children = toIntArray(chainArgIds);
+        data.span = span(opToken != null ? opToken : leftToken);
+        int id = ast.add(data);
+        EqualityChainNode ecn = new EqualityChainNode();
+        ecn.operator = operator;
+        ecn.isAllChain = isAllChain;
+        Object leftObj = ast.getLegacyNode(leftId);
+        if (leftObj instanceof ExprNode) ecn.left = (ExprNode) leftObj;
+        for (int argId : chainArgIds) {
+            Object obj = ast.getLegacyNode(argId);
+            if (obj instanceof ExprNode) ecn.chainArguments.add((ExprNode) obj);
         }
-        return cons;
+        ast.setLegacyNode(id, ecn);
+        return id;
     }
 
-    public static MethodNode createMethod(
-            String name, Keyword visibility, List<SlotNode> returnSlots, Token nameToken) {
-        MethodNode node = new MethodNode();
-        node.methodName = name;
-        node.visibility = visibility;
-        node.returnSlots = returnSlots != null ? returnSlots : new ArrayList<SlotNode>();
-        node.parameters = new ArrayList<ParamNode>();
-        node.body = new ArrayList<StmtNode>();
-        node.isBuiltin = false;
-        if (nameToken != null) {
-            node.setSourceSpan(span(nameToken));
+    // === BOOLEAN_CHAIN ===
+
+    public int createBooleanChain(boolean isAll, List<Integer> exprIds, Token keywordToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.BOOLEAN_CHAIN;
+        data.bool0 = isAll;
+        data.children = toIntArray(exprIds);
+        data.span = span(keywordToken);
+        int id = ast.add(data);
+        BooleanChainNode bcn = new BooleanChainNode();
+        bcn.isAll = isAll;
+        for (int exprId : exprIds) {
+            Object obj = ast.getLegacyNode(exprId);
+            if (obj instanceof ExprNode) bcn.expressions.add((ExprNode) obj);
         }
-        return node;
+        ast.setLegacyNode(id, bcn);
+        return id;
     }
 
-    public static ParamNode createParam(
-            String name, String type, ExprNode defaultValue, boolean typeInferred, Token nameToken) {
-        ParamNode param = new ParamNode();
-        param.name = name;
-        param.type = type;
-        if (defaultValue != null) {
-            param.defaultValue = defaultValue;
-            param.hasDefaultValue = true;
+    // === UNARY ===
+
+    public int createUnaryOp(String op, int operandId, Token opToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.UNARY;
+        data.str0 = op;
+        data.child0 = operandId;
+        data.span = span(opToken);
+        int id = ast.add(data);
+        UnaryNode un = new UnaryNode();
+        un.op = op;
+        Object operandObj = ast.getLegacyNode(operandId);
+        if (operandObj instanceof ExprNode) un.operand = (ExprNode) operandObj;
+        ast.setLegacyNode(id, un);
+        return id;
+    }
+
+    // === TYPE_CAST ===
+
+    public int createTypeCast(String targetType, int expressionId, Token lparenToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.TYPE_CAST;
+        data.str0 = targetType;
+        data.child0 = expressionId;
+        data.span = span(lparenToken);
+        int id = ast.add(data);
+        TypeCastNode tcn = new TypeCastNode();
+        tcn.targetType = targetType;
+        Object tceobj = ast.getLegacyNode(expressionId);
+        if (tceobj instanceof ExprNode) tcn.expression = (ExprNode) tceobj;
+        ast.setLegacyNode(id, tcn);
+        return id;
+    }
+
+    // === SLOT_ASSIGNMENT (implicit return) ===
+
+    public int createImplicitReturn(int returnExprId, Token returnToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.SLOT_ASSIGNMENT;
+        data.str0 = "_";
+        data.child0 = returnExprId;
+        data.span = span(returnToken);
+        int id = ast.add(data);
+        SlotAssignmentNode irn = new SlotAssignmentNode();
+        irn.slotName = "_";
+        Object retObj = ast.getLegacyNode(returnExprId);
+        if (retObj instanceof ExprNode) irn.value = (ExprNode) retObj;
+        ast.setLegacyNode(id, irn);
+        return id;
+    }
+
+    // === METHOD_CALL ===
+
+    public int createMethodCall(String name, String qualifiedName, Token nameToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.METHOD_CALL;
+        data.str0 = name;
+        data.str1 = qualifiedName;
+        data.child0 = FlatAST.NULL;
+        data.bool0 = false;
+        data.bool1 = false;
+        data.bool2 = false;
+        data.children = new int[0];
+        data.strings = new String[0];
+        data.strings2 = new String[0];
+        data.span = span(nameToken);
+        int id = ast.add(data);
+        MethodCallNode mc = new MethodCallNode(); mc.name = name; mc.qualifiedName = qualifiedName; ast.setLegacyNode(id, mc);
+        return id;
+    }
+
+    // === ARRAY ===
+
+    public int createArray(List<Integer> elementIds, Token lbracketToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.ARRAY;
+        data.children = toIntArray(elementIds);
+        data.span = span(lbracketToken);
+        int id = ast.add(data);
+        ArrayNode an = new ArrayNode();
+        for (int eid : elementIds) {
+            Object obj = ast.getLegacyNode(eid);
+            if (obj instanceof ExprNode) an.elements.add((ExprNode) obj);
         }
-        param.typeInferred = typeInferred;
-        if (nameToken != null) {
-            param.setSourceSpan(span(nameToken));
+        ast.setLegacyNode(id, an);
+        return id;
+    }
+
+    // === TUPLE ===
+
+    public int createTuple(List<Integer> elementIds, Token lparenToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.TUPLE;
+        data.children = toIntArray(elementIds);
+        data.span = span(lparenToken);
+        int id = ast.add(data);
+        TupleNode tn = new TupleNode();
+        tn.elements = new java.util.ArrayList<ExprNode>();
+        for (int eid : elementIds) {
+            Object obj = ast.getLegacyNode(eid);
+            if (obj instanceof ExprNode) tn.elements.add((ExprNode) obj);
         }
-        return param;
+        ast.setLegacyNode(id, tn);
+        return id;
     }
 
-    public static SlotNode createSlot(String type, String name, Token nameToken) {
-        SlotNode slot = new SlotNode();
-        slot.type = type;
-        slot.name = name;
-        if (nameToken != null) {
-            slot.setSourceSpan(span(nameToken));
+    // === INDEX_ACCESS ===
+
+    public int createIndexAccess(int arrayId, int indexId, Token lbracketToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.INDEX_ACCESS;
+        data.child0 = arrayId;
+        data.child1 = indexId;
+        data.span = span(lbracketToken);
+        int id = ast.add(data);
+        IndexAccessNode ian = new IndexAccessNode();
+        Object aobj = ast.getLegacyNode(arrayId), iobj = ast.getLegacyNode(indexId);
+        if (aobj instanceof ExprNode) ian.array = (ExprNode) aobj;
+        if (iobj instanceof ExprNode) ian.index = (ExprNode) iobj;
+        ast.setLegacyNode(id, ian);
+        return id;
+    }
+
+    // === RANGE_INDEX ===
+
+    public int createRangeIndex(int stepId, int startId, int endId, Token byToken, Token toToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.RANGE_INDEX;
+        data.child0 = stepId;
+        data.child1 = startId;
+        data.child2 = endId;
+        data.span = span(byToken != null ? byToken : toToken);
+        int id = ast.add(data);
+        ExprNode stepExpr = null, startExpr = null, endExpr = null;
+        if (stepId != FlatAST.NULL) { Object so = ast.getLegacyNode(stepId); if (so instanceof ExprNode) stepExpr = (ExprNode) so; }
+        Object sto = ast.getLegacyNode(startId), eno = ast.getLegacyNode(endId);
+        if (sto instanceof ExprNode) startExpr = (ExprNode) sto;
+        if (eno instanceof ExprNode) endExpr = (ExprNode) eno;
+        ast.setLegacyNode(id, new RangeIndexNode(stepExpr, startExpr, endExpr));
+        return id;
+    }
+
+    // === MULTI_RANGE_INDEX ===
+
+    public int createMultiRangeIndex(List<Integer> rangeIds, Token firstLbracketToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.MULTI_RANGE_INDEX;
+        data.children = toIntArray(rangeIds);
+        data.span = span(firstLbracketToken);
+        int id = ast.add(data);
+        java.util.List<RangeIndexNode> rlist = new java.util.ArrayList<RangeIndexNode>();
+        if (rangeIds != null) {
+            for (int rid : rangeIds) {
+                if (rid >= 0 && rid < ast.size()) {
+                    Object ro = ast.getLegacyNode(rid);
+                    if (ro instanceof RangeIndexNode) rlist.add((RangeIndexNode) ro);
+                }
+            }
         }
-        return slot;
+        ast.setLegacyNode(id, new MultiRangeIndexNode(rlist));
+        return id;
     }
 
-    public static PropertyAccessNode createPropertyAccess(
-            ExprNode left, ExprNode right, Token dotToken) {
-        PropertyAccessNode node = new PropertyAccessNode();
-        node.left = left;
-        node.right = right;
-        node.dotToken = dotToken;
-        node.setSourceSpan(mergeSpans(
-            left != null ? left.getSourceSpan() : null,
-            span(dotToken),
-            right != null ? right.getSourceSpan() : null));
-        return node;
+    // === EXPR_IF ===
+
+    public int createIfExpr(int conditionId, int thenId, int elseId, Token ifToken, Token elseToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.EXPR_IF;
+        data.child0 = conditionId;
+        data.child1 = thenId;
+        data.child2 = elseId;
+        data.span = span(ifToken);
+        int id = ast.add(data);
+        ExprIfNode ien = new ExprIfNode();
+        Object condObj = ast.getLegacyNode(conditionId), thenObj = ast.getLegacyNode(thenId), elseObj = ast.getLegacyNode(elseId);
+        if (condObj instanceof ExprNode) ien.condition = (ExprNode) condObj;
+        if (thenObj instanceof ExprNode) ien.thenExpr = (ExprNode) thenObj;
+        if (elseObj instanceof ExprNode) ien.elseExpr = (ExprNode) elseObj;
+        ast.setLegacyNode(id, ien);
+        return id;
     }
 
-    public static ExprNode createIdentifier(String name, Token token) {
-        IdentifierNode node = new IdentifierNode(name);
-        if (token != null) {
-            node.setSourceSpan(span(token));
-        }
-        return node;
+    // === STMT_IF ===
+
+    public int createIfStmt(int conditionId, Token ifToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.STMT_IF;
+        data.child0 = conditionId;
+        int thenBlockId = createBlock(ifToken);
+        int elseBlockId = createBlock(null);
+        data.child1 = thenBlockId;
+        data.child2 = elseBlockId;
+        data.span = span(ifToken);
+        int id = ast.add(data);
+        StmtIfNode sif = new StmtIfNode();
+        Object condObj = ast.getLegacyNode(conditionId);
+        if (condObj instanceof ExprNode) sif.condition = (ExprNode) condObj;
+        Object thenObj = ast.getLegacyNode(thenBlockId);
+        if (thenObj instanceof BlockNode) sif.thenBlock = (BlockNode) thenObj;
+        Object elseObj = ast.getLegacyNode(elseBlockId);
+        if (elseObj instanceof BlockNode) sif.elseBlock = (BlockNode) elseObj;
+        ast.setLegacyNode(id, sif);
+        return id;
     }
 
-    public static ExprNode createIntLiteral(int value, Token token) {
-        IntLiteralNode node = new IntLiteralNode(value);
-        if (token != null) {
-            node.setSourceSpan(span(token));
-        }
-        return node;
+    // === FOR (range-based) ===
+
+    public int createFor(String iterator, int rangeId, Token forToken, Token iteratorToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.FOR;
+        data.str0 = iterator;
+        data.child0 = rangeId;
+        data.child1 = FlatAST.NULL;
+        int bodyBlockId = createBlock(forToken);
+        data.child2 = bodyBlockId;
+        data.span = span(forToken);
+        int id = ast.add(data);
+        ForNode fn = new ForNode();
+        fn.iterator = iterator;
+        Object rangeObj = ast.getLegacyNode(rangeId);
+        if (rangeObj instanceof RangeNode) fn.range = (RangeNode) rangeObj;
+        Object bodyObj = ast.getLegacyNode(bodyBlockId);
+        if (bodyObj instanceof BlockNode) fn.body = (BlockNode) bodyObj;
+        ast.setLegacyNode(id, fn);
+        return id;
     }
 
-    public static ExprNode createLongLiteral(long value, Token token) {
-        IntLiteralNode node = new IntLiteralNode(value);
-        if (token != null) {
-            node.setSourceSpan(span(token));
-        }
-        return node;
+    // === FOR (array-based) ===
+
+    public int createForArray(String iterator, int arraySourceId, Token forToken, Token iteratorToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.FOR;
+        data.str0 = iterator;
+        data.child0 = FlatAST.NULL;
+        data.child1 = arraySourceId;
+        int bodyBlockId = createBlock(forToken);
+        data.child2 = bodyBlockId;
+        data.span = span(forToken);
+        int id = ast.add(data);
+        ForNode fn = new ForNode();
+        fn.iterator = iterator;
+        Object srcObj = ast.getLegacyNode(arraySourceId);
+        if (srcObj instanceof ExprNode) fn.arraySource = (ExprNode) srcObj;
+        Object bodyObj = ast.getLegacyNode(bodyBlockId);
+        if (bodyObj instanceof BlockNode) fn.body = (BlockNode) bodyObj;
+        ast.setLegacyNode(id, fn);
+        return id;
     }
 
-    public static ExprNode createFloatLiteral(AutoStackingNumber value, Token token) {
-        FloatLiteralNode node = new FloatLiteralNode(value);
-        if (token != null) {
-            node.setSourceSpan(span(token));
-        }
-        return node;
+    // === RANGE ===
+
+    public int createRange(int stepId, int startId, int endId, Token byToken, Token toToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.RANGE;
+        data.child0 = stepId;
+        data.child1 = startId;
+        data.child2 = endId;
+        data.span = span(byToken != null ? byToken : toToken);
+        int id = ast.add(data);
+        RangeNode rn = new RangeNode();
+        Object stepObj = ast.getLegacyNode(stepId), startObj = ast.getLegacyNode(startId), endObj = ast.getLegacyNode(endId);
+        if (stepObj instanceof ExprNode) rn.step = (ExprNode) stepObj;
+        if (startObj instanceof ExprNode) rn.start = (ExprNode) startObj;
+        if (endObj instanceof ExprNode) rn.end = (ExprNode) endObj;
+        ast.setLegacyNode(id, rn);
+        return id;
     }
 
-    public static ExprNode createTextLiteral(String value, Token token) {
-        TextLiteralNode node = new TextLiteralNode(value);
-        if (token != null) {
-            node.setSourceSpan(span(token));
-        }
-        return node;
+    // === BLOCK ===
+
+    public int createBlock(Token lbraceToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.BLOCK;
+        data.children = new int[0];
+        data.span = span(lbraceToken);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new BlockNode());
+        return id;
     }
 
-    public static ExprNode createBoolLiteral(boolean value, Token token) {
-        BoolLiteralNode node = new BoolLiteralNode(value);
-        if (token != null) {
-            node.setSourceSpan(span(token));
-        }
-        return node;
-    }
-
-    public static ExprNode createNoneLiteral(Token token) {
-        NoneLiteralNode node = new NoneLiteralNode();
-        if (token != null) {
-            node.setSourceSpan(span(token));
-        }
-        return node;
-    }
-
-    public static ExprNode createThisExpr(String className, Token thisToken) {
-        ThisNode node = (className != null) ? new ThisNode(className) : new ThisNode();
-        if (thisToken != null) {
-            node.setSourceSpan(span(thisToken));
-        }
-        return node;
-    }
-
-    public static ExprNode createSuperExpr(Token superToken) {
-        SuperNode node = new SuperNode();
-        if (superToken != null) {
-            node.setSourceSpan(span(superToken));
-        }
-        return node;
-    }
-
-    public static BinaryOpNode createBinaryOp(
-            ExprNode left, String op, ExprNode right, Token opToken) {
-        BinaryOpNode node = new BinaryOpNode();
-        node.left = left;
-        node.op = op;
-        node.right = right;
-        node.setSourceSpan(
-            mergeSpans(
-                left != null ? left.getSourceSpan() : null,
-                span(opToken),
-                right != null ? right.getSourceSpan() : null));
-        return node;
-    }
-
-    public static EqualityChainNode createEqualityChain(
-            ExprNode left,
-            String operator,
-            boolean isAllChain,
-            List<ExprNode> chainArguments,
-            Token leftToken,
-            Token opToken,
-            Token chainToken) {
-        EqualityChainNode chain = new EqualityChainNode();
-        chain.left = left;
-        chain.operator = operator;
-        chain.isAllChain = isAllChain;
-        chain.chainArguments = chainArguments != null ? chainArguments : new ArrayList<ExprNode>();
-
-        List<SourceSpan> spans = new ArrayList<SourceSpan>();
-        if (left != null) spans.add(left.getSourceSpan());
-        if (leftToken != null) spans.add(span(leftToken));
-        if (opToken != null) spans.add(span(opToken));
-        if (chainToken != null) spans.add(span(chainToken));
-        for (ExprNode arg : chainArguments) {
-            if (arg != null) spans.add(arg.getSourceSpan());
-        }
-
-        chain.setSourceSpan(mergeSpans(spans.toArray(new SourceSpan[0])));
-        return chain;
-    }
-
-    public static BooleanChainNode createBooleanChain(
-            boolean isAll, List<ExprNode> expressions, Token keywordToken) {
-        BooleanChainNode node = new BooleanChainNode();
-        node.isAll = isAll;
-        node.expressions = expressions != null ? expressions : new ArrayList<ExprNode>();
-
-        List<SourceSpan> spans = new ArrayList<SourceSpan>();
-        if (keywordToken != null) spans.add(span(keywordToken));
-        for (ExprNode expr : node.expressions) {
-            if (expr != null) spans.add(expr.getSourceSpan());
-        }
-
-        node.setSourceSpan(mergeSpans(spans.toArray(new SourceSpan[0])));
-        return node;
-    }
-
-    public static UnaryNode createUnaryOp(String op, ExprNode operand, Token opToken) {
-        UnaryNode node = new UnaryNode();
-        node.op = op;
-        node.operand = operand;
-        node.setSourceSpan(mergeSpans(span(opToken), operand != null ? operand.getSourceSpan() : null));
-        return node;
-    }
-
-    public static TypeCastNode createTypeCast(
-            String targetType, ExprNode expression, Token lparenToken) {
-        TypeCastNode node = new TypeCastNode();
-        node.targetType = targetType;
-        node.expression = expression;
-        node.setSourceSpan(
-            mergeSpans(span(lparenToken), expression != null ? expression.getSourceSpan() : null));
-        return node;
-    }
-
-    public static SlotAssignmentNode createImplicitReturn(ExprNode returnExpr, Token returnToken) {
-        SlotAssignmentNode returnStmt = new SlotAssignmentNode();
-        returnStmt.slotName = "_";
-        returnStmt.value = returnExpr;
-        returnStmt.setSourceSpan(
-            mergeSpans(
-                returnToken != null ? span(returnToken) : null,
-                returnExpr != null ? returnExpr.getSourceSpan() : null));
-        return returnStmt;
-    }
-
-    public static MethodCallNode createMethodCall(
-        String name, String qualifiedName, Token nameToken) {
-        MethodCallNode call = new MethodCallNode();
-        call.name = name;
-        call.qualifiedName = qualifiedName;
-        call.arguments = new ArrayList<ExprNode>();
-        call.slotNames = new ArrayList<String>();
-        call.argNames = new ArrayList<String>();
-        call.isSuperCall = false;
-        call.isGlobal = false;
-        if (nameToken != null) {
-            call.setSourceSpan(span(nameToken));
-        }
-        return call;
-    }
-
-    public static ArrayNode createArray(List<ExprNode> elements, Token lbracketToken) {
-        ArrayNode array = new ArrayNode();
-        array.elements = elements != null ? elements : new ArrayList<ExprNode>();
-
-        List<SourceSpan> spans = new ArrayList<SourceSpan>();
-        if (lbracketToken != null) spans.add(span(lbracketToken));
-        for (ExprNode elem : array.elements) {
-            if (elem != null) spans.add(elem.getSourceSpan());
-        }
-
-        array.setSourceSpan(mergeSpans(spans.toArray(new SourceSpan[0])));
-        return array;
-    }
-
-    public static TupleNode createTuple(List<ExprNode> elements, Token lparenToken) {
-        TupleNode node = new TupleNode();
-        node.elements = elements != null ? elements : new ArrayList<ExprNode>();
-
-        List<SourceSpan> spans = new ArrayList<SourceSpan>();
-        if (lparenToken != null) spans.add(span(lparenToken));
-        for (ExprNode elem : node.elements) {
-            if (elem != null) spans.add(elem.getSourceSpan());
-        }
-
-        node.setSourceSpan(mergeSpans(spans.toArray(new SourceSpan[0])));
-        return node;
-    }
-
-    public static IndexAccessNode createIndexAccess(
-            ExprNode array, ExprNode index, Token lbracketToken) {
-        IndexAccessNode node = new IndexAccessNode();
-        node.array = array;
-        node.index = index;
-        node.setSourceSpan(
-            mergeSpans(
-                array != null ? array.getSourceSpan() : null,
-                span(lbracketToken),
-                index != null ? index.getSourceSpan() : null));
-        return node;
-    }
-
-    public static RangeIndexNode createRangeIndex(
-            ExprNode step, ExprNode start, ExprNode end, Token byToken, Token toToken) {
-        RangeIndexNode node = new RangeIndexNode(step, start, end);
-
-        List<SourceSpan> spans = new ArrayList<SourceSpan>();
-        if (byToken != null) spans.add(span(byToken));
-        if (start != null) spans.add(start.getSourceSpan());
-        if (toToken != null) spans.add(span(toToken));
-        if (end != null) spans.add(end.getSourceSpan());
-        if (step != null) spans.add(step.getSourceSpan());
-
-        node.setSourceSpan(mergeSpans(spans.toArray(new SourceSpan[0])));
-        return node;
-    }
-
-    public static MultiRangeIndexNode createMultiRangeIndex(
-            List<RangeIndexNode> ranges, Token firstLbracketToken) {
-        MultiRangeIndexNode node = new MultiRangeIndexNode(ranges);
-
-        List<SourceSpan> spans = new ArrayList<SourceSpan>();
-        if (firstLbracketToken != null) spans.add(span(firstLbracketToken));
-        for (RangeIndexNode range : ranges) {
-            if (range != null) spans.add(range.getSourceSpan());
-        }
-
-        node.setSourceSpan(mergeSpans(spans.toArray(new SourceSpan[0])));
-        return node;
-    }
-
-    public static ExprIfNode createIfExpr(
-            ExprNode condition, ExprNode thenExpr, ExprNode elseExpr, Token ifToken, Token elseToken) {
-        ExprIfNode node = new ExprIfNode();
-        node.condition = condition;
-        node.thenExpr = thenExpr;
-        node.elseExpr = elseExpr;
-        node.setSourceSpan(
-            mergeSpans(
-                span(ifToken),
-                condition != null ? condition.getSourceSpan() : null,
-                thenExpr != null ? thenExpr.getSourceSpan() : null,
-                span(elseToken),
-                elseExpr != null ? elseExpr.getSourceSpan() : null));
-        return node;
-    }
-
-    public static StmtIfNode createIfStmt(ExprNode condition, Token ifToken) {
-        StmtIfNode stmtIfNode = new StmtIfNode();
-        stmtIfNode.condition = condition;
-        stmtIfNode.thenBlock = new BlockNode();
-        stmtIfNode.elseBlock = new BlockNode();
-        if (ifToken != null) {
-            stmtIfNode.setSourceSpan(span(ifToken));
-        }
-        return stmtIfNode;
-    }
-
-    public static ForNode createFor(
-            String iterator, RangeNode range, Token forToken, Token iteratorToken) {
-        ForNode forNode = new ForNode();
-        forNode.iterator = iterator;
-        forNode.range = range;
-        forNode.arraySource = null;
-        forNode.body = new BlockNode();
-        forNode.setSourceSpan(
-            mergeSpans(
-                span(forToken), span(iteratorToken), range != null ? range.getSourceSpan() : null));
-        return forNode;
-    }
-
-    public static ForNode createFor(
-            String iterator, ExprNode arraySource, Token forToken, Token iteratorToken) {
-        ForNode forNode = new ForNode();
-        forNode.iterator = iterator;
-        forNode.range = null;
-        forNode.arraySource = arraySource;
-        forNode.body = new BlockNode();
-        forNode.setSourceSpan(
-            mergeSpans(
-                span(forToken),
-                span(iteratorToken),
-                arraySource != null ? arraySource.getSourceSpan() : null));
-        return forNode;
-    }
-
-    public static RangeNode createRange(
-            ExprNode step, ExprNode start, ExprNode end, Token byToken, Token toToken) {
-        RangeNode node = new RangeNode(step, start, end);
-
-        List<SourceSpan> spans = new ArrayList<SourceSpan>();
-        if (byToken != null) spans.add(span(byToken));
-        if (start != null) spans.add(start.getSourceSpan());
-        if (toToken != null) spans.add(span(toToken));
-        if (end != null) spans.add(end.getSourceSpan());
-        if (step != null) spans.add(step.getSourceSpan());
-
-        node.setSourceSpan(mergeSpans(spans.toArray(new SourceSpan[0])));
-        return node;
-    }
-
-    public static BlockNode createBlock(Token lbraceToken) {
-        BlockNode block = new BlockNode();
-        if (lbraceToken != null) {
-            block.setSourceSpan(span(lbraceToken));
-        }
-        return block;
-    }
-
-    public static BlockNode createBlock(
-            List<StmtNode> statements, Token lbraceToken, Token rbraceToken) {
-        BlockNode block = new BlockNode(statements);
+    public int createBlock(List<Integer> stmtIds, Token lbraceToken, Token rbraceToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.BLOCK;
+        data.children = toIntArray(stmtIds);
         if (lbraceToken != null && rbraceToken != null) {
-            block.setSourceSpan(new SourceSpan(lbraceToken, rbraceToken));
-        } else if (lbraceToken != null) {
-            block.setSourceSpan(span(lbraceToken));
+            data.span = new SourceSpan(lbraceToken, rbraceToken);
+        } else {
+            data.span = span(lbraceToken);
         }
-        return block;
-    }
-
-    public static VarNode createVar(String name, ExprNode value, Token nameToken) {
-        VarNode var = new VarNode();
-        var.name = name;
-        var.value = value;
-        if (nameToken != null) {
-            var.setSourceSpan(span(nameToken));
+        int id = ast.add(data);
+        BlockNode bn = new BlockNode();
+        for (int stmtId : stmtIds) {
+            Object obj = ast.getLegacyNode(stmtId);
+            if (obj instanceof StmtNode) bn.statements.add((StmtNode) obj);
         }
-        return var;
+        ast.setLegacyNode(id, bn);
+        return id;
     }
 
-    public static ExitNode createExit(Token exitToken) {
-        ExitNode exit = new ExitNode();
-        if (exitToken != null) {
-            exit.setSourceSpan(span(exitToken));
+    // === VAR ===
+
+    public int createVar(String name, int valueId, Token nameToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.VAR;
+        data.str0 = name;
+        data.child0 = valueId;
+        data.span = span(nameToken);
+        int id = ast.add(data);
+        VarNode v = new VarNode();
+        v.name = name;
+        Object vvobj = ast.getLegacyNode(valueId);
+        if (vvobj instanceof ExprNode) v.value = (ExprNode) vvobj;
+        ast.setLegacyNode(id, v);
+        return id;
+    }
+
+    // === EXIT ===
+
+    public int createExit(Token exitToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.EXIT;
+        data.span = span(exitToken);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new ExitNode());
+        return id;
+    }
+
+    // === ARGUMENT_LIST (temporary holder, stored as TUPLE) ===
+
+    public int createArgumentList(List<Integer> argIds, Token lparenToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.TUPLE;
+        data.children = toIntArray(argIds);
+        data.span = span(lparenToken);
+        return ast.add(data);
+    }
+
+    // === SKIP ===
+
+    public int createSkipStmt(Token skipToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.SKIP;
+        data.span = span(skipToken);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new SkipNode());
+        return id;
+    }
+
+    // === BREAK ===
+
+    public int createBreakStmt(Token breakToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.BREAK;
+        data.span = span(breakToken);
+        int id = ast.add(data);
+        ast.setLegacyNode(id, new BreakNode());
+        return id;
+    }
+
+    // === RETURN_SLOT_ASSIGNMENT ===
+
+    public int createReturnSlotAsmt(List<String> variableNames, int methodCallId, Token assignToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.RETURN_SLOT_ASSIGNMENT;
+        data.child0 = methodCallId;
+        data.strings = variableNames != null ? variableNames.toArray(new String[0]) : new String[0];
+        data.span = span(assignToken);
+        int id = ast.add(data);
+        ReturnSlotAssignmentNode rsan = new ReturnSlotAssignmentNode();
+        if (variableNames != null) rsan.variableNames.addAll(variableNames);
+        Object mcObj = ast.getLegacyNode(methodCallId);
+        if (mcObj instanceof MethodCallNode) rsan.methodCall = (MethodCallNode) mcObj;
+        ast.setLegacyNode(id, rsan);
+        return id;
+    }
+
+    // === SLOT_DECLARATION ===
+
+    public int createSlotDeclaration(List<String> slotNames, Token lbracketToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.SLOT_DECLARATION;
+        data.strings = slotNames != null ? slotNames.toArray(new String[0]) : new String[0];
+        data.span = span(lbracketToken);
+        int id = ast.add(data);
+        SlotDeclarationNode sdn = new SlotDeclarationNode();
+        if (slotNames != null) sdn.slotNames.addAll(slotNames);
+        ast.setLegacyNode(id, sdn);
+        return id;
+    }
+
+    // === SLOT_ASSIGNMENT ===
+
+    public int createSlotAsmt(String slotName, int valueId, Token colonToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.SLOT_ASSIGNMENT;
+        data.str0 = slotName;
+        data.child0 = valueId;
+        data.span = span(colonToken);
+        int id = ast.add(data);
+        SlotAssignmentNode san = new SlotAssignmentNode();
+        san.slotName = slotName;
+        Object svobj = ast.getLegacyNode(valueId);
+        if (svobj instanceof ExprNode) san.value = (ExprNode) svobj;
+        ast.setLegacyNode(id, san);
+        return id;
+    }
+
+    // === MULTIPLE_SLOT_ASSIGNMENT ===
+
+    public int createMultipleSlotAsmt(List<Integer> assignmentIds, Token tildeArrowToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.MULTIPLE_SLOT_ASSIGNMENT;
+        data.children = toIntArray(assignmentIds);
+        data.span = span(tildeArrowToken);
+        int id = ast.add(data);
+        MultipleSlotAssignmentNode msan = new MultipleSlotAssignmentNode();
+        msan.assignments = new java.util.ArrayList<SlotAssignmentNode>();
+        if (assignmentIds != null) {
+            for (int aId : assignmentIds) {
+                Object aObj = ast.getLegacyNode(aId);
+                if (aObj instanceof SlotAssignmentNode) msan.assignments.add((SlotAssignmentNode) aObj);
+            }
         }
-        return exit;
+        ast.setLegacyNode(id, msan);
+        return id;
     }
 
-    public static ArgumentListNode createArgumentList(List<ExprNode> arguments, Token lparenToken) {
-        ArgumentListNode node = new ArgumentListNode();
-        node.arguments = arguments != null ? arguments : new ArrayList<ExprNode>();
+    // === LAMBDA ===
 
-        List<SourceSpan> spans = new ArrayList<SourceSpan>();
-        if (lparenToken != null) spans.add(span(lparenToken));
-        for (ExprNode arg : node.arguments) {
-            if (arg != null) spans.add(arg.getSourceSpan());
+    public int createLambda(List<Integer> paramIds, List<Integer> returnSlotIds, int bodyId, Token lambdaToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.LAMBDA;
+        data.child0 = bodyId;
+        data.children = toIntArray(paramIds);
+        data.children2 = toIntArray(returnSlotIds);
+        data.span = span(lambdaToken);
+        int id = ast.add(data);
+        LambdaNode ln = new LambdaNode();
+        for (int pid : paramIds) {
+            Object obj = ast.getLegacyNode(pid);
+            if (obj instanceof ParamNode) ln.parameters.add((ParamNode) obj);
         }
-
-        node.setSourceSpan(mergeSpans(spans.toArray(new SourceSpan[0])));
-        return node;
-    }
-
-    public static SkipNode createSkipStmt(Token skipToken) {
-        SkipNode skip = new SkipNode();
-        if (skipToken != null) {
-            skip.setSourceSpan(span(skipToken));
+        for (int rid : returnSlotIds) {
+            Object obj = ast.getLegacyNode(rid);
+            if (obj instanceof SlotNode) ln.returnSlots.add((SlotNode) obj);
         }
-        return skip;
+        Object bodyObj = ast.getLegacyNode(bodyId);
+        if (bodyObj instanceof StmtNode) ln.body = (StmtNode) bodyObj;
+        ast.setLegacyNode(id, ln);
+        return id;
     }
 
-    public static BreakNode createBreakStmt(Token breakToken) {
-        BreakNode brk = new BreakNode();
-        if (breakToken != null) {
-            brk.setSourceSpan(span(breakToken));
+    public int createLambdaEmpty(List<Integer> paramIds, Token lambdaToken) {
+        FlatAST.NodeData data = new FlatAST.NodeData();
+        data.kind = NodeKind.LAMBDA;
+        data.child0 = FlatAST.NULL;
+        data.children = toIntArray(paramIds);
+        data.children2 = new int[0];
+        data.span = span(lambdaToken);
+        int id = ast.add(data);
+        LambdaNode ln = new LambdaNode();
+        for (int pid : paramIds) {
+            Object obj = ast.getLegacyNode(pid);
+            if (obj instanceof ParamNode) ln.parameters.add((ParamNode) obj);
         }
-        return brk;
+        ast.setLegacyNode(id, ln);
+        return id;
     }
 
-    public static ReturnSlotAssignmentNode createReturnSlotAsmt(
-            List<String> variableNames, MethodCallNode methodCall, Token assignToken) {
-        ReturnSlotAssignmentNode assignment = new ReturnSlotAssignmentNode();
-        assignment.variableNames = variableNames;
-        assignment.methodCall = methodCall;
-        assignment.setSourceSpan(
-            mergeSpans(span(assignToken), methodCall != null ? methodCall.getSourceSpan() : null));
-        return assignment;
-    }
+    // === CONSTRUCTOR SIGNATURE ===
 
-    public static SlotDeclarationNode createSlotDeclaration(
-            List<String> slotNames, Token lbracketToken) {
-        SlotDeclarationNode node = new SlotDeclarationNode();
-        node.slotNames = slotNames;
-        if (lbracketToken != null) {
-            node.setSourceSpan(span(lbracketToken));
-        }
-        return node;
-    }
-
-    public static SlotAssignmentNode createSlotAsmt(
-            String slotName, ExprNode value, Token colonToken) {
-        SlotAssignmentNode node = new SlotAssignmentNode();
-        node.slotName = slotName;
-        node.value = value;
-        node.setSourceSpan(
-            mergeSpans(
-                colonToken != null ? span(colonToken) : null,
-                value != null ? value.getSourceSpan() : null));
-        return node;
-    }
-
-    public static MultipleSlotAssignmentNode createMultipleSlotAsmt(
-            List<SlotAssignmentNode> assignments, Token tildeArrowToken) {
-        MultipleSlotAssignmentNode node = new MultipleSlotAssignmentNode();
-        node.assignments = assignments;
-
-        List<SourceSpan> spans = new ArrayList<SourceSpan>();
-        if (tildeArrowToken != null) spans.add(span(tildeArrowToken));
-        for (SlotAssignmentNode assignment : assignments) {
-            if (assignment != null) spans.add(assignment.getSourceSpan());
-        }
-
-        node.setSourceSpan(mergeSpans(spans.toArray(new SourceSpan[0])));
-        return node;
-    }
-
-    public static String getConstructorSignature(ConstructorNode constructor) {
-        if (constructor == null || constructor.parameters == null) {
-            return "()";
-        }
-
+    public String getConstructorSignature(int constructorId) {
+        int[] paramIds = ast.constructorParams(constructorId);
         StringBuilder sb = new StringBuilder("(");
-        for (int i = 0; i < constructor.parameters.size(); i++) {
+        for (int i = 0; i < paramIds.length; i++) {
             if (i > 0) sb.append(", ");
-            ParamNode p = constructor.parameters.get(i);
-            sb.append(p.name).append(": ").append(p.type);
-            if (p.hasDefaultValue) {
+            int p = paramIds[i];
+            sb.append(ast.paramName(p)).append(": ").append(ast.paramType(p));
+            if (ast.paramHasDefault(p)) {
                 sb.append(" = default");
             }
         }
         sb.append(")");
         return sb.toString();
     }
+
+    /** Compatibility bridge: get the ProgramNode built during parsing via dual-write. */
+    public cod.ast.nodes.ProgramNode toProgramNode(int programId) {
+        if (programId < 0 || programId >= ast.size()) return null;
+        Object obj = ast.getLegacyNode(programId);
+        return (obj instanceof cod.ast.nodes.ProgramNode) ? (cod.ast.nodes.ProgramNode) obj : null;
+    }
+
 }
