@@ -140,7 +140,7 @@ public Object evalReplStatement(
     visitor.pushContext(ctx);
     
     try {
-        Object result = visitor.visit((ASTNode) stmt);
+        Object result = visitor.dispatch(stmt);
         
         // Sync changes back to original locals map!
         // The ExecutionContext may have modified its internal copy,
@@ -477,7 +477,7 @@ public Object evalReplStatement(
         try {
             if (localMainMethod.body != null) {
                 for (StmtNode stmt : localMainMethod.body) {
-                    visitor.visit((ASTNode) stmt);
+                    visitor.dispatch(stmt);
                 }
             }
             DebugSystem.methodExit("main", null);
@@ -562,7 +562,7 @@ public Object evalReplStatement(
             try {
                 if (broadcastedMainMethod.body != null) {
                     for (StmtNode stmt : broadcastedMainMethod.body) {
-                        visitor.visit((ASTNode) stmt);
+                        visitor.dispatch(stmt);
                     }
                 }
                 DebugSystem.methodExit("main", null);
@@ -749,7 +749,7 @@ public Object evalReplStatement(
             if (type.name != null && type.name.equals("__Script__")) {
                 if (type.statements != null) {
                     for (StmtNode stmt : type.statements) {
-                        Object result = visitor.visit((ASTNode) stmt);
+                        Object result = visitor.dispatch(stmt);
                         DebugSystem.debug("INTERPRETER", "Executed script statement: " + stmt.getClass().getSimpleName());
                         if (result != null) {
                             DebugSystem.debug("INTERPRETER", "  Result: " + result);
@@ -828,7 +828,7 @@ public Object evalReplStatement(
     try {
         if (mainMethod.body != null) {
             for (StmtNode stmt : mainMethod.body) {
-                visitor.visit((ASTNode) stmt);
+                visitor.dispatch(stmt);
             }
         }
         DebugSystem.methodExit("main", null);
@@ -900,7 +900,7 @@ public Object evalReplStatement(
     try {
       if (node.body != null) {
         for (StmtNode stmt : node.body) {
-          result = visitor.visit((ASTNode) stmt);
+          result = visitor.dispatch(stmt);
           if (hasSlots && shouldReturnEarly(slotValues, ctx.slotsInCurrentPath)) {
             break;
           }
@@ -984,7 +984,7 @@ public Object evalReplStatement(
                     ExecutionContext defaultCtx = new ExecutionContext(obj, locals, null, null, typeSystem);
                     visitor.pushContext(defaultCtx);
                     try {
-                        argValue = visitor.visit((ASTNode) param.defaultValue);
+                        argValue = visitor.dispatch(param.defaultValue);
                     } finally {
                         visitor.popContext();
                     }
@@ -1001,7 +1001,7 @@ public Object evalReplStatement(
                 ExecutionContext argCtx = new ExecutionContext(obj, locals, null, null, typeSystem);
                 visitor.pushContext(argCtx);
                 try {
-                    argValue = visitor.visit((ASTNode) argExpr);
+                    argValue = visitor.dispatch(argExpr);
                 } finally {
                     visitor.popContext();
                     if (savedCtx != null) {
@@ -1014,7 +1014,7 @@ public Object evalReplStatement(
                 ExecutionContext defaultCtx = new ExecutionContext(obj, locals, null, null, typeSystem);
                 visitor.pushContext(defaultCtx);
                 try {
-                    argValue = visitor.visit((ASTNode) param.defaultValue);
+                    argValue = visitor.dispatch(param.defaultValue);
                 } finally {
                     visitor.popContext();
                 }
@@ -1096,7 +1096,7 @@ public Object evalReplStatement(
     try {
         if (method.body != null) {
             for (StmtNode stmt : method.body) {
-                visitor.visit((ASTNode) stmt);
+                visitor.dispatch(stmt);
                 
                 if (calledMethodHasSlots && shouldReturnEarly(slotValues, ctx.slotsInCurrentPath)) {
                     break;

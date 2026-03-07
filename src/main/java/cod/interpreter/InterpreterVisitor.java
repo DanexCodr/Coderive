@@ -1117,7 +1117,7 @@ public Object visit(MethodCallNode node) {
         try {
             if (method.body != null) {
                 for (StmtNode stmt : method.body) {
-                    visit(stmt);
+                    dispatch(stmt);
                     
                     if (calledMethodHasSlots && interpreter.shouldReturnEarly(slotValues, methodCtx.slotsInCurrentPath)) {
                         break;
