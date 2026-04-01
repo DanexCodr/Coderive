@@ -4,9 +4,9 @@ import cod.ast.VisitorImpl;
 import cod.lexer.Token;
 
 public class PropertyAccessNode extends ExprNode {
-    public ExprNode left;      // The object/lambda
-    public ExprNode right;     // The property/body
-    public Token dotToken;     // For span info
+    public ExprNode left;
+    public ExprNode right;
+    public transient Token dotToken;
     
     public PropertyAccessNode() {}
     
