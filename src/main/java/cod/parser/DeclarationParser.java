@@ -598,7 +598,7 @@ public class DeclarationParser extends BaseParser {
     Token current = consume();
     if (!is(current, THIS)) {
       throw error(
-          "Constructor must be named 'this', found: " + current.text, startToken);
+          "Constructor must be named 'this', found: " + current.getText(), startToken);
     }
 
     ConstructorNode constructor = ASTFactory.createConstructor(null, null, thisToken);
@@ -649,11 +649,8 @@ public class DeclarationParser extends BaseParser {
         new ParserAction<Boolean>() {
           @Override
           public Boolean parse() throws ParseError {
-            
             if (!is(SUPER)) return false;
             expect(SUPER);
-
-            
             return is(LPAREN);
           }
         });
@@ -702,7 +699,7 @@ public class DeclarationParser extends BaseParser {
 
   private void parseNamedArgumentList(List<ExprNode> args, List<String> argNames) {
     do {
-      String argName = expect(ID).text;
+      String argName = expect(ID).getText();
       expect(COLON);
       ExprNode value = statementParser.expressionParser.parseExpr();
 
@@ -730,14 +727,14 @@ public class DeclarationParser extends BaseParser {
         } else {
             throw error(
                 "Internal parser error: isVisibilityModifier() returned true for non-visibility keyword: '"
-                    + currentVisibility.text
+                    + currentVisibility.getText()
                     + "'",
                 visibilityToken);
         }
     }
 
     Token typeNameToken = now();
-    String typeName = expect(ID).text;
+    String typeName = expect(ID).getText();
 
     // Check if this is actually a method declaration (has parentheses after name)
     if (is(LPAREN)) {
@@ -819,7 +816,7 @@ public class DeclarationParser extends BaseParser {
       } else if (is(visibilityToken, LOCAL)) {
         visibility = Keyword.LOCAL;
       }
-          }
+    }
 
     if (!is(POLICY)) {
       throw error("Expected 'policy' keyword");
@@ -827,7 +824,7 @@ public class DeclarationParser extends BaseParser {
     expect(POLICY);
 
     Token nameToken = now();
-    String policyName = expect(ID).text;
+    String policyName = expect(ID).getText();
 
     if (policyName.length() > 0 && !Character.isUpperCase(policyName.charAt(0))) {
       throw error(
@@ -854,14 +851,13 @@ public class DeclarationParser extends BaseParser {
     expect(LBRACE);
 
     while (!is(RBRACE)) {
-      
       if (isPolicyMethodDeclarationStart()) {
         PolicyMethodNode method = parsePolicyMethod();
         policy.methods.add(method);
       } else if (!is(RBRACE)) {
         Token current = now();
         throw error(
-            "Policy can only contain method declarations and cannot have a body, found: " + current.text,
+            "Policy can only contain method declarations and cannot have a body, found: " + current.getText(),
             current);
       }
     }
@@ -880,9 +876,9 @@ public class DeclarationParser extends BaseParser {
     String methodName;
 
     if (canBeMethod(now())) {
-      methodName = consume().text;
+      methodName = consume().getText();
     } else if (is(ID)) {
-      methodName = expect(ID).text;
+      methodName = expect(ID).getText();
     } else {
       throw error("Expected method name in policy declaration");
     }
@@ -925,7 +921,6 @@ public class DeclarationParser extends BaseParser {
           public Boolean parse() throws ParseError {
             ParserState savedState = getCurrentState();
             try {
-              
               if (is(BUILTIN, SHARE, LOCAL)) {
                 return false;
               }
@@ -953,10 +948,9 @@ public class DeclarationParser extends BaseParser {
           public Boolean parse() throws ParseError {
             ParserState savedState = getCurrentState();
             try {
-              
               if (is(SHARE, LOCAL)) {
                 consume();
-                              }
+              }
 
               if (!is(POLICY)) {
                 return false;
@@ -972,6 +966,95 @@ public class DeclarationParser extends BaseParser {
         });
   }
 
+  // Recursive method to check for slot assignments in nested blocks
+  private boolean hasSlotAssignmentsInBody(StmtNode stmt) {
+    if (stmt instanceof SlotAssignmentNode || stmt instanceof MultipleSlotAssignmentNode) {
+      return true;
+    }
+    if (stmt instanceof BlockNode) {
+      BlockNode block = (BlockNode) stmt;
+      for (StmtNode child : block.statements) {
+        if (hasSlotAssignmentsInBody(child)) {
+          return true;
+        }
+      }
+    }
+    if (stmt instanceof StmtIfNode) {
+      StmtIfNode ifNode = (StmtIfNode) stmt;
+      if (hasSlotAssignmentsInBody(ifNode.thenBlock)) {
+        return true;
+      }
+      if (ifNode.elseBlock != null && hasSlotAssignmentsInBody(ifNode.elseBlock)) {
+        return true;
+      }
+    }
+    if (stmt instanceof ForNode) {
+      ForNode forNode = (ForNode) stmt;
+      if (hasSlotAssignmentsInBody(forNode.body)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // ========== DEAD CODE VALIDATION FOR ~> ==========
+  
+  private void validateNoStatementsAfterReturn(BlockNode block, String methodName, Token startToken) {
+    if (block == null || block.statements == null) {
+      return;
+    }
+    
+    boolean foundReturn = false;
+    int returnIndex = -1;
+    
+    for (int i = 0; i < block.statements.size(); i++) {
+      StmtNode stmt = block.statements.get(i);
+      
+      if (stmt instanceof SlotAssignmentNode || stmt instanceof MultipleSlotAssignmentNode) {
+        if (foundReturn) {
+          // Multiple ~> statements in same block
+          throw error(
+              "Method '" + methodName + "' has return contract (::) but contains multiple ~> statements in the same block.\n" +
+              "Only one ~> statement is allowed per block. Use comma-separated assignments:\n" +
+              "  ~> slot1: value1, slot2: value2",
+              startToken);
+        }
+        foundReturn = true;
+        returnIndex = i;
+      }
+    }
+    
+    // If we found a ~> statement, check if there's anything after it
+    if (foundReturn && returnIndex < block.statements.size() - 1) {
+      StmtNode deadCodeStmt = block.statements.get(returnIndex + 1);
+      Token deadCodeToken = deadCodeStmt.getSourceSpan() != null ? 
+                            deadCodeStmt.getSourceSpan().getErrorToken() : startToken;
+      
+      throw error(
+          "Method '" + methodName + "' has return contract (::) but has dead code after ~>.\n" +
+          "The ~> statement is the return point - any code after it will never execute.\n" +
+          "Remove the dead code or move it before the ~> statement.",
+          deadCodeToken);
+    }
+    
+    // Recursively validate nested blocks
+    for (StmtNode stmt : block.statements) {
+      if (stmt instanceof BlockNode) {
+        validateNoStatementsAfterReturn((BlockNode) stmt, methodName, startToken);
+      } else if (stmt instanceof StmtIfNode) {
+        StmtIfNode ifNode = (StmtIfNode) stmt;
+        validateNoStatementsAfterReturn(ifNode.thenBlock, methodName, startToken);
+        if (ifNode.elseBlock != null) {
+          validateNoStatementsAfterReturn(ifNode.elseBlock, methodName, startToken);
+        }
+      } else if (stmt instanceof ForNode) {
+        ForNode forNode = (ForNode) stmt;
+        validateNoStatementsAfterReturn(forNode.body, methodName, startToken);
+      }
+    }
+  }
+  // ========== END DEAD CODE VALIDATION ==========
+
   public MethodNode parseMethod() {
     Token startToken = now();
 
@@ -981,47 +1064,47 @@ public class DeclarationParser extends BaseParser {
     Token visibilityToken = null;
 
     if (is(POLICY)) {
-      expect(POLICY);
-      isPolicyMethod = true;
+        expect(POLICY);
+        isPolicyMethod = true;
 
-      TypeNode currentClass = getCurrentParsingClass();
-      if (!nil(currentClass)) {
-        visibility = currentClass.visibility;
-      } else {
-        visibility = Keyword.SHARE;
-      }
+        TypeNode currentClass = getCurrentParsingClass();
+        if (!nil(currentClass)) {
+            visibility = currentClass.visibility;
+        } else {
+            visibility = Keyword.SHARE;
+        }
 
     } else if (is(BUILTIN)) {
-      expect(BUILTIN);
-      isBuiltin = true;
-      visibility = Keyword.SHARE;
-    } else if (is(SHARE, LOCAL)) {
-      visibilityToken = now();
-      Token currentVisibility= consume();
-
-      if (is(currentVisibility, SHARE)) {
+        expect(BUILTIN);
+        isBuiltin = true;
         visibility = Keyword.SHARE;
-      } else if (is(currentVisibility, LOCAL)) {
-        visibility = Keyword.LOCAL;
-      } else {
-        throw error(
-            "Internal parser error: isVisibilityModifier() returned true for non-visibility keyword: '"
-                + currentVisibility.text
-                + "'",
-            visibilityToken);
-      }
+    } else if (is(SHARE, LOCAL)) {
+        visibilityToken = now();
+        Token currentVisibility = consume();
+
+        if (is(currentVisibility, SHARE)) {
+            visibility = Keyword.SHARE;
+        } else if (is(currentVisibility, LOCAL)) {
+            visibility = Keyword.LOCAL;
+        } else {
+            throw error(
+                "Internal parser error: isVisibilityModifier() returned true for non-visibility keyword: '"
+                    + currentVisibility.getText()
+                    + "'",
+                visibilityToken);
+        }
     }
 
     String methodName;
     Token nameToken = now();
     if (canBeMethod(now())) {
-      methodName = now().text;
-      consume();
+        methodName = now().getText();
+        consume();
     } else if (is(ID)) {
-      methodName = expect(ID).text;
+        methodName = expect(ID).getText();
     } else {
-      throw error(
-          "Expected method name (identifier or allowed keyword)");
+        throw error(
+            "Expected method name (identifier or allowed keyword)");
     }
 
     NamingValidator.validateMethodName(methodName, startToken);
@@ -1033,97 +1116,126 @@ public class DeclarationParser extends BaseParser {
     expect(LPAREN);
 
     if (isBuiltin) {
-      int parenDepth = 1;
-      while (!is(EOF) && parenDepth > 0) {
-        Token t = now();
-        if (is(t, LPAREN)) {
-          parenDepth++;
-        } else if (is(t, RPAREN)) {
-          parenDepth--;
-          if (parenDepth == 0) {
-            expect(RPAREN);
-            break;
-          }
+        int parenDepth = 1;
+        while (!is(EOF) && parenDepth > 0) {
+            Token t = now();
+            if (is(t, LPAREN)) {
+                parenDepth++;
+            } else if (is(t, RPAREN)) {
+                parenDepth--;
+                if (parenDepth == 0) {
+                    expect(RPAREN);
+                    break;
+                }
+            }
+            consume();
         }
-        consume();
-      }
     } else {
-      if (!is(RPAREN)) {
-        method.parameters.add(parseParameter());
-        while (consume(COMMA)) {
-          method.parameters.add(parseParameter());
+        if (!is(RPAREN)) {
+            method.parameters.add(parseParameter());
+            while (consume(COMMA)) {
+                method.parameters.add(parseParameter());
+            }
         }
-      }
-      expect(RPAREN);
+        expect(RPAREN);
     }
 
+    // Parse slot contract if present (:: syntax)
     if (isSlotDeclaration()) {
-      method.returnSlots = slotParser.parseSlotContract();
+        method.returnSlots = slotParser.parseSlotContract();
     } else {
-      method.returnSlots = new ArrayList<SlotNode>();
+        method.returnSlots = new ArrayList<SlotNode>();
     }
 
-    
     if (isBuiltin) {
-      while (getPosition() < tokens.size()) {
-        Token current = now();
+        while (getPosition() < tokens.size()) {
+            Token current = now();
 
-        if (is(current, RBRACE)
-            || is(current, SHARE, LOCAL, BUILTIN, POLICY)) {
-          break;
+            if (is(current, RBRACE)
+                || is(current, SHARE, LOCAL, BUILTIN, POLICY)) {
+                break;
+            }
+
+            consume();
         }
 
-        consume();
-      }
+        if (is(TILDE_ARROW, LBRACE)) {
+            Token current = now();
+            throw error(
+                "Builtin method '"
+                    + methodName
+                    + "' cannot have a body. "
+                    + "Builtin methods are only declarations, not implementations.\n"
+                    + "Remove '~>' or '{...}' after builtin method signature.",
+                current);
+        }
 
-      if (is(TILDE_ARROW, LBRACE)) {
-        Token current = now();
-        throw error(
-            "Builtin method '"
-                + methodName
-                + "' cannot have a body. "
-                + "Builtin methods are only declarations, not implementations.\n"
-                + "Remove '~>' or '{...}' after builtin method signature.",
-            current);
-      }
-
-      return method;
+        return method;
     }
 
+    // Parse method body
     if (is(TILDE_ARROW)) {
-      Token tildeArrowToken = now();
-      expect(TILDE_ARROW);
+        Token tildeArrowToken = now();
+        expect(TILDE_ARROW);
 
-      
-      List<SlotAssignmentNode> slotAssignments = slotParser.parseSlotAssignments();
+        List<SlotAssignmentNode> slotAssignments = slotParser.parseSlotAssignments();
 
-      if (slotAssignments.size() == 1) {
-        method.body.add(slotAssignments.get(0));
-      } else {
-        MultipleSlotAssignmentNode multiAssign =
-            ASTFactory.createMultipleSlotAsmt(slotAssignments, tildeArrowToken);
-        method.body.add(multiAssign);
-      }
+        if (slotAssignments.size() == 1) {
+            method.body.add(slotAssignments.get(0));
+        } else {
+            MultipleSlotAssignmentNode multiAssign =
+                ASTFactory.createMultipleSlotAsmt(slotAssignments, tildeArrowToken);
+            method.body.add(multiAssign);
+        }
 
     } else if (is(LBRACE)) {
-      expect(LBRACE);
-      while (!is(RBRACE)) {
-        method.body.add(statementParser.parseStmt());
-      }
-      expect(RBRACE);
+        expect(LBRACE);
+        while (!is(RBRACE)) {
+            method.body.add(statementParser.parseStmt());
+        }
+        expect(RBRACE);
+        
+ // Validate dead code after ~> if method has return contract
+if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
+    validateNoStatementsAfterReturn(new BlockNode(method.body), methodName, startToken);
+}
+        
+        // Validate that if there's a return contract, the body has ~> assignments
+        if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
+            boolean hasSlotAssignments = false;
+            for (StmtNode stmt : method.body) {
+                if (hasSlotAssignmentsInBody(stmt)) {
+                    hasSlotAssignments = true;
+                    break;
+                }
+            }
+            if (!hasSlotAssignments) {
+                String context = "";
+                if (currentParsingClass != null) {
+                    context = "class '" + currentParsingClass.name + "' ";
+                } else if (method.associatedClass != null && !method.associatedClass.isEmpty()) {
+                    context = "class '" + method.associatedClass + "' ";
+                }
+                
+                throw error(
+                    "Method '" + methodName + "' of " + context + "has return contract (::) but no ~> assignments in body.\n"
+                    + "Use '~> slot: value' or '~> value' to return values.",
+                    startToken);
+            }
+        }
     } else {
-      Token current = now();
-      throw error(
-          "Expected '~>' or '{' after method signature, but found "
-              + getTypeName(current.type)
-              + " ('"
-              + current.text
-              + "')",
-          current);
+        Token current = now();
+        throw error(
+            "Expected '~>' or '{' after method signature, but found "
+                + getTypeName(current.type)
+                + " ('"
+                + current.getText()
+                + "')",
+            current);
     }
 
     return method;
-  }
+}
 
   public List<SlotNode> parseSlotContractList() {
     return slotParser.parseSlotContract();
@@ -1144,7 +1256,7 @@ public class DeclarationParser extends BaseParser {
     }
 
     Token fieldNameToken = now();
-    String fieldName = expect(ID).text;
+    String fieldName = expect(ID).getText();
 
     if (fieldName.equals("_")) {
       throw error(
@@ -1176,7 +1288,7 @@ public class DeclarationParser extends BaseParser {
 
   public ParamNode parseParameter() {
     Token startToken = now();
-    String name = expect(ID).text;
+    String name = expect(ID).getText();
 
     if (is(DOUBLE_COLON_ASSIGN)) {
       expect(DOUBLE_COLON_ASSIGN);

@@ -26,17 +26,17 @@ public class StatementParser extends BaseParser {
     this.slotParser = new SlotParser(this);
   }
 
-    @Override
-    protected BaseParser createIsolatedParser(ParserContext isolatedCtx) {
-        ExpressionParser isolatedExprParser = new ExpressionParser(
-            isolatedCtx, 
-            this.expressionParser.getGlobalRegistry(),
-            null
-        );
-        StatementParser isolatedStmtParser = new StatementParser(isolatedCtx, isolatedExprParser);
-        isolatedExprParser.setStatementParser(isolatedStmtParser);
-        return isolatedStmtParser;
-    }
+  @Override
+  protected BaseParser createIsolatedParser(ParserContext isolatedCtx) {
+    ExpressionParser isolatedExprParser = new ExpressionParser(
+        isolatedCtx, 
+        this.expressionParser.getGlobalRegistry(),
+        null
+    );
+    StatementParser isolatedStmtParser = new StatementParser(isolatedCtx, isolatedExprParser);
+    isolatedExprParser.setStatementParser(isolatedStmtParser);
+    return isolatedStmtParser;
+  }
 
   public StmtNode parseStmt() {
     return attempt(
@@ -66,9 +66,9 @@ public class StatementParser extends BaseParser {
       if (is(second, LBRACE)) {
         throw error(
             "Missing 'if' keyword. Use 'if "
-                + first.text
+                + first.getText()
                 + " { ... }' instead of '"
-                + first.text
+                + first.getText()
                 + " { ... }'",
             first);
       }
@@ -103,7 +103,7 @@ public class StatementParser extends BaseParser {
       
       // Error case for ID followed by LBRACE
       if (is(second, LBRACE)) {
-        String varName = first.text;
+        String varName = first.getText();
         if (!varName.equals("_") && Character.isLowerCase(varName.charAt(0))) {
           Token third = next(2);
           if (!is(third, RBRACE)) {
@@ -142,9 +142,9 @@ public class StatementParser extends BaseParser {
     if (is(afterId, ASSIGN) || (is(afterId, LBRACKET) && is(next(3), RBRACKET))) {
       throw error(
           "Illegally used reserved keyword '"
-              + current.text
+              + current.getText()
               + "' for declaration of variable '"
-              + idToken.text
+              + idToken.getText()
               + "'",
           current,
           idToken);
@@ -153,8 +153,6 @@ public class StatementParser extends BaseParser {
 
   private StmtNode parseSkipStmt() {
     Token skipToken = expect(SKIP);
-
-   
 
     Token nextToken = now();
 
@@ -170,8 +168,6 @@ public class StatementParser extends BaseParser {
 
   private StmtNode parseBreakStmt() {
     Token breakToken = expect(BREAK);
-
-   
 
     Token nextToken = now();
 
@@ -216,7 +212,7 @@ public class StatementParser extends BaseParser {
         Token superToken = expect(SUPER);
         Token dotToken = expect(DOT);
         Token fieldNameToken = now();
-        String fieldName = expect(ID).text;
+        String fieldName = expect(ID).getText();
         
         ExprNode fieldNode = ASTFactory.createIdentifier(fieldName, fieldNameToken);
         
@@ -231,7 +227,7 @@ public class StatementParser extends BaseParser {
         AssignmentNode assignment = ASTFactory.createAsmt(target, value, false, assignToken);
         return assignment;
     } else {
-        idName = expect(ID).text;
+        idName = expect(ID).getText();
     }
 
     if ("_".equals(idName)) {
@@ -245,7 +241,7 @@ public class StatementParser extends BaseParser {
 
     AssignmentNode assignment = ASTFactory.createAsmt(target, value, false, assignToken);
     return assignment;
-}
+  }
 
   private boolean isThisExpr() {
     return attempt(
@@ -273,7 +269,7 @@ public class StatementParser extends BaseParser {
       return ASTFactory.createThisExpr(null, thisToken);
     } else if (is(first, ID)) {
       Token classNameToken = first;
-      String className = expect(ID).text;
+      String className = expect(ID).getText();
       if (consume(DOT)) {
         Token thisToken = expect(THIS);
         return ASTFactory.createThisExpr(className, thisToken);
@@ -293,7 +289,7 @@ public class StatementParser extends BaseParser {
     ExprNode value = null;
 
     if (is(ID)) {
-      varName = expect(ID).text;
+      varName = expect(ID).getText();
 
       if (is(DOUBLE_COLON_ASSIGN)) {
         if (is(THIS) && !nextIsPropertyAccess()) {
@@ -378,7 +374,6 @@ public class StatementParser extends BaseParser {
   private StmtNode parseIfStmt() {
     Token ifToken = expect(IF);
 
-   
     ExprNode condition = expressionParser.parseExpr();
 
     StmtIfNode rootIfNode = ASTFactory.createIfStmt(condition, ifToken);
@@ -401,20 +396,16 @@ public class StatementParser extends BaseParser {
       expect(ELSE);
 
       ParserState savedState = getCurrentState();
-     
 
       if (is(IF)) {
         currentNode.elseBlock.statements.add(parseIfStmt());
       } else {
         setState(savedState);
-       
 
         if (is(LBRACE)) {
           expect(LBRACE);
-         
           while (!is(RBRACE) && !is(EOF)) {
             currentNode.elseBlock.statements.add(parseStmtInternal());
-           
           }
           expect(RBRACE);
         } else {
@@ -430,14 +421,10 @@ public class StatementParser extends BaseParser {
   }
 
   private void parseControlFlowBlock(BlockNode block) {
-   
-
     if (is(LBRACE)) {
       expect(LBRACE);
-     
       while (!is(RBRACE) && !is(EOF)) {
         block.statements.add(parseStmtInternal());
-       
       }
       expect(RBRACE);
     } else {
@@ -455,7 +442,7 @@ public class StatementParser extends BaseParser {
   private StmtNode parseForStmt() {
     Token forToken = expect(FOR);
     Token iteratorToken = now();
-    String iterator = expect(ID).text;
+    String iterator = expect(ID).getText();
     
     // Expect 'of' for both array iteration and range loops
     expect(OF);
@@ -504,12 +491,12 @@ public class StatementParser extends BaseParser {
         ForNode forNode = ASTFactory.createFor(iterator, source, forToken, iteratorToken);
         return parseForLoopBody(forNode);
     }
-}
+  }
 
   private ExprNode parseStepExpr(String iterator, Token iteratorToken) {
     if (is(MUL) || is(DIV)) {
       Token operatorToken = now();
-      String operator = operatorToken.text;
+      String operator = operatorToken.getText();
       consume();
       ExprNode operand = expressionParser.parseExpr();
       ExprNode iteratorRef = ASTFactory.createIdentifier(iterator, iteratorToken);
@@ -548,39 +535,55 @@ public class StatementParser extends BaseParser {
 
     Token assignToken = null;
     if (is(DOUBLE_COLON_ASSIGN)) {
-      assignToken = expect(DOUBLE_COLON_ASSIGN);
+        assignToken = expect(DOUBLE_COLON_ASSIGN);
     } else {
-      assignToken = expect(ASSIGN);
+        assignToken = expect(ASSIGN);
     }
 
     List<String> slotNames = expressionParser.parseReturnSlots();
     expect(COLON);
-    MethodCallNode methodCall = expressionParser.parseMethodCall();
-    methodCall.slotNames = slotNames;
+    
+    // Check if this is a lambda expression
+    if (expressionParser.isLambdaExpression()) {
+        LambdaNode lambda = expressionParser.parseLambdaSignature();
+        
+        // Validate slot count if needed
+        if (!lambda.returnSlots.isEmpty() && lambda.returnSlots.size() != slotNames.size()) {
+            throw error(
+                "Number of slot names (" + slotNames.size() + 
+                ") does not match number of lambda return slots (" + 
+                lambda.returnSlots.size() + ")", assignToken);
+        }
+        
+        ReturnSlotAssignmentNode assignment =
+            ASTFactory.createReturnSlotAsmt(varNames, lambda, assignToken);
+        return assignment;
+    } else {
+        // Existing method call handling
+        MethodCallNode methodCall = expressionParser.parseMethodCall();
+        methodCall.slotNames = slotNames;
 
-    for (String varName : varNames) {
-      if ("_".equals(varName)) {
-        continue;
-      }
+        for (String varName : varNames) {
+            if ("_".equals(varName)) {
+                continue;
+            }
+        }
+
+        if (varNames.size() != slotNames.size()) {
+            throw error(
+                "Number of variables (" + varNames.size() + 
+                ") does not match number of slots (" + slotNames.size() + ")");
+        }
+
+        ReturnSlotAssignmentNode assignment =
+            ASTFactory.createReturnSlotAsmt(varNames, methodCall, assignToken);
+        return assignment;
     }
-
-    if (varNames.size() != slotNames.size()) {
-      throw error(
-          "Number of variables ("
-              + varNames.size()
-              + ") does not match number of slots ("
-              + slotNames.size()
-              + ")");
-    }
-
-    ReturnSlotAssignmentNode assignment =
-        ASTFactory.createReturnSlotAsmt(varNames, methodCall, assignToken);
-    return assignment;
   }
 
   private StmtNode parseIndexAssignment() {
     Token arrayVarToken = now();
-    ExprNode arrayVar = ASTFactory.createIdentifier(expect(ID).text, arrayVarToken);
+    ExprNode arrayVar = ASTFactory.createIdentifier(expect(ID).getText(), arrayVarToken);
 
     // Parse the entire index expression using the expression parser
     ExprNode indexAccess = expressionParser.parseIndexAccessContinuation(arrayVar);
@@ -605,11 +608,9 @@ public class StatementParser extends BaseParser {
         return methodCall;
     } else {
         MethodCallNode methodCall = expressionParser.parseMethodCall();
-        // This will be handled as a single-slot call if the method has one slot
-        // The interpreter will determine this during execution
         return methodCall;
     }
-}
+  }
 
   private StmtNode parseExprStmt() {
     ExprNode expr = expressionParser.parseExpr();
@@ -618,9 +619,9 @@ public class StatementParser extends BaseParser {
 
   private List<String> parseIdList() {
     List<String> ids = new ArrayList<String>();
-    ids.add(expect(ID).text);
+    ids.add(expect(ID).getText());
     while (consume(COMMA)) {
-      ids.add(expect(ID).text);
+      ids.add(expect(ID).getText());
     }
     return ids;
   }
@@ -668,36 +669,54 @@ public class StatementParser extends BaseParser {
   private boolean isReturnSlotAssignment() {
     save();
     try {
-      if (!is(ID)) return false;
-      consume(); // First ID
+        if (!is(ID)) return false;
+        consume(); // First ID
 
-      while (is(COMMA)) {
+        while (is(COMMA)) {
+            consume();
+            if (!is(ID)) return false;
+            consume();
+        }
+
+        if (!is(ASSIGN, DOUBLE_COLON_ASSIGN)) return false;
         consume();
+
+        if (!is(LBRACKET)) return false;
+        consume();
+
+        if (!is(RBRACKET)) {
+            if (!is(ID, INT_LIT)) return false;
+            consume();
+            while (is(COMMA)) {
+                consume();
+                if (!is(ID, INT_LIT)) return false;
+                consume();
+            }
+            if (!is(RBRACKET)) return false;
+        }
+        consume(); // RBRACKET
+
+        if (!is(COLON)) return false;
+        consume(); // COLON
+
+        // Check if it's a lambda expression
+        if (is(LAMBDA)) {
+            return true;
+        }
+
+        // Existing method call check
         if (!is(ID)) return false;
         consume();
-      }
 
-      if (!is(ASSIGN, DOUBLE_COLON_ASSIGN)) return false;
-      consume();
-
-      if (!is(LBRACKET)) return false;
-      consume();
-
-      if (!is(RBRACKET)) {
-        if (!is(ID, INT_LIT)) return false;
-        consume();
-        while (is(COMMA)) {
-          consume();
-          if (!is(ID, INT_LIT)) return false;
-          consume();
+        while (is(DOT)) {
+            consume();
+            if (!is(ID)) return false;
+            consume();
         }
-        if (!is(RBRACKET)) return false;
-      }
-      consume(); // RBRACKET
 
-      return is(COLON);
+        return is(LPAREN);
     } finally {
-      restore();
+        restore();
     }
   }
 

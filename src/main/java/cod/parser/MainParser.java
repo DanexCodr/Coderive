@@ -2,6 +2,7 @@ package cod.parser;
 
 import cod.ast.ASTFactory;
 import cod.ast.nodes.*;
+import cod.error.ParseError;
 import cod.interpreter.Interpreter;
 import cod.interpreter.registry.GlobalRegistry;
 import java.util.ArrayList;
@@ -65,7 +66,7 @@ public class MainParser extends BaseParser {
     } else {
         // No unit - create a default unit
         program.unit = ASTFactory.createUnit("default", null);
-        program.programType = ProgramType.SCRIPT; // Will be updated after validation
+        program.programType = ProgramType.SCRIPT;
     }
 
     // Parse USE statements (imports)
@@ -85,36 +86,55 @@ public class MainParser extends BaseParser {
     List<MethodNode> topLevelMethods = new ArrayList<>();
     
     while (!is(EOF)) {
+        Token currentToken = now();
+        
+        // DIRECT CHECK: If we see "local" or "share" text, try to parse as method first
+        if (currentToken != null && 
+            ("local".equals(currentToken.getText()) || "share".equals(currentToken.getText()))) {
+            ParserState savedState = getCurrentState();
+            try {
+                MethodNode method = declarationParser.parseMethod();
+                topLevelMethods.add(method);
+                continue;
+            } catch (ParseError e) {
+                // Not a valid method, restore state and continue
+                setState(savedState);
+            }
+        }
+        
+        // Check for method declarations
+        if (isMethodDeclarationStart() || isTopLevelMethodDeclaration()) {
+            MethodNode method = declarationParser.parseMethod();
+            topLevelMethods.add(method);
+            continue;
+        }
+        
         if (declarationParser.isPolicyDeclaration()) {
             PolicyNode policy = declarationParser.parsePolicy();
             program.unit.policies.add(policy);
             policiesInFile.add(policy);
-        } 
-        else if (isClassStart() || isClassStartWithoutModifier()) {
-            // Save state before attempting to parse as type
+            continue;
+        }
+        
+        if (isClassStart() || isClassStartWithoutModifier()) {
             ParserState beforeType = getCurrentState();
             
             TypeNode type = declarationParser.parseType();
             if (type != null) {
-                // Successfully parsed as a type
                 program.unit.types.add(type);
                 typesInFile.add(type);
+                continue;
             } else {
-                // Not a type - restore state and parse as method
                 setState(beforeType);
                 MethodNode method = declarationParser.parseMethod();
                 topLevelMethods.add(method);
+                continue;
             }
         }
-        else if (isMethodDeclarationStart()) {
-            MethodNode method = declarationParser.parseMethod();
-            topLevelMethods.add(method);
-        }
-        else {
-            // Must be a statement at top level
-            StmtNode stmt = statementParser.parseStmt();
-            topLevelStatements.add(stmt);
-        }
+        
+        // Must be a statement at top level
+        StmtNode stmt = statementParser.parseStmt();
+        topLevelStatements.add(stmt);
     }
     
     // Now validate the program structure and set final type
@@ -123,13 +143,10 @@ public class MainParser extends BaseParser {
     // Add top-level elements to the appropriate places based on program type
     if (program.programType == ProgramType.MODULE) {
         // Modules already added types and policies during parsing
-        // Top-level methods and statements are not allowed (would have thrown error)
     } else if (program.programType == ProgramType.METHOD_SCRIPT) {
-        // Method scripts have an implicit type that contains all methods
         TypeNode methodScriptType = findOrCreateImplicitType(program.unit, "__MethodScript__");
         methodScriptType.methods.addAll(topLevelMethods);
     } else if (program.programType == ProgramType.SCRIPT) {
-        // Scripts have an implicit type that contains all statements
         TypeNode scriptType = findOrCreateImplicitType(program.unit, "__Script__");
         scriptType.statements.addAll(topLevelStatements);
     }
@@ -141,6 +158,46 @@ public class MainParser extends BaseParser {
     
     return program;
 }
+
+    private boolean isTopLevelMethodDeclaration() {
+        return next(new ParserAction<Boolean>() {
+            @Override
+            public Boolean parse() throws ParseError {
+                ParserState savedState = getCurrentState();
+                try {
+                    if (is(SHARE, LOCAL)) {
+                        consume();
+                    }
+                    
+                    Token nameToken = now();
+                    if (!is(nameToken, ID) && !canBeMethod(nameToken)) {
+                        return false;
+                    }
+                    consume();
+                    
+                    if (!is(LPAREN)) {
+                        return false;
+                    }
+                    consume();
+                    
+                    int parenDepth = 1;
+                    while (!is(EOF) && parenDepth > 0) {
+                        if (is(LPAREN)) parenDepth++;
+                        else if (is(RPAREN)) parenDepth--;
+                        consume();
+                    }
+                    
+                    if (is(DOUBLE_COLON)) {
+                        return true;
+                    }
+                    
+                    return is(TILDE_ARROW, LBRACE);
+                } finally {
+                    setState(savedState);
+                }
+            }
+        });
+    }
 
     private TypeNode findOrCreateImplicitType(UnitNode unit, String typeName) {
         for (TypeNode type : unit.types) {
@@ -160,12 +217,24 @@ public class MainParser extends BaseParser {
                                          List<PolicyNode> policiesInFile) {
         
         boolean hasUnit = program.unit.name != null && !program.unit.name.equals("default");
-        boolean hasDirectCode = !topLevelStatements.isEmpty();
+        
+        List<StmtNode> actualStatements = new ArrayList<StmtNode>();
+        for (StmtNode stmt : topLevelStatements) {
+            if (stmt instanceof BlockNode) {
+                BlockNode block = (BlockNode) stmt;
+                if (!block.statements.isEmpty()) {
+                    actualStatements.add(stmt);
+                }
+            } else if (stmt != null) {
+                actualStatements.add(stmt);
+            }
+        }
+        
+        boolean hasDirectCode = !actualStatements.isEmpty();
         boolean hasMethods = !topLevelMethods.isEmpty();
         boolean hasClasses = !typesInFile.isEmpty();
         
         if (hasUnit) {
-            // MODULE validation
             program.programType = ProgramType.MODULE;
             
             if (hasDirectCode) {
@@ -175,27 +244,24 @@ public class MainParser extends BaseParser {
                 throw error("Modules cannot have methods outside classes.", now());
             }
             
-        } else if (hasDirectCode) {
-            // SCRIPT validation
-            program.programType = ProgramType.SCRIPT;
-            
-            if (hasMethods) {
-                throw error("Scripts cannot contain method declarations.", now());
-            }
-            if (hasClasses) {
-                throw error("Scripts cannot contain class declarations.", now());
-            }
-            
-        } else if (hasMethods) {
-            // METHOD_SCRIPT validation
+        } else if (hasMethods && !hasDirectCode) {
             program.programType = ProgramType.METHOD_SCRIPT;
             
             if (hasClasses) {
                 throw error("Method scripts cannot contain class declarations.", now());
             }
             
+        } else if (hasDirectCode && !hasMethods && !hasClasses) {
+            program.programType = ProgramType.SCRIPT;
+            
+        } else if (hasDirectCode && hasMethods) {
+            throw error("Cannot mix method declarations with direct code. Use a class or unit.", now());
+            
+        } else if (hasClasses) {
+            program.programType = ProgramType.MODULE;
+            program.unit.name = "default";
+            
         } else {
-            // Empty file or just imports - treat as script
             program.programType = ProgramType.SCRIPT;
         }
     }
@@ -203,7 +269,6 @@ public class MainParser extends BaseParser {
     private void validateModule(ProgramNode program, 
                                List<TypeNode> typesInFile,
                                List<PolicyNode> policiesInFile) {
-        // Validate unit name against file path
         if (interpreter != null) {
             String filePath = interpreter.getCurrentFilePath();
             if (filePath != null) {
@@ -211,7 +276,6 @@ public class MainParser extends BaseParser {
             }
         }
 
-        // Register broadcast if main class specified
         if (!nil(program.unit.mainClassName) && interpreter != null) {
             try {
                 String packageName = extractPackageName(program.unit.name);
@@ -223,13 +287,9 @@ public class MainParser extends BaseParser {
             }
         }
 
-        // Validate main class exists
         validateMainClassExistsInFile(program.unit, typesInFile);
-        
-        // Validate policy implementations
         validateImplementedPolicies(program.unit, typesInFile, policiesInFile);
         
-        // Validate class policies
         for (TypeNode type : typesInFile) {
             declarationParser.validateAllPolicyMethods(type, program);
             declarationParser.validateClassViralPolicies(type, program);
@@ -494,7 +554,7 @@ public class MainParser extends BaseParser {
             Token colonToken = next();
             
             if (nil(mainToken, colonToken) || 
-                mainToken.type != ID || !mainToken.text.equals("main") || 
+                mainToken.type != ID || !mainToken.getText().equals("main") || 
                 colonToken.symbol != COLON) {
                 setState(beforeMainCheck);
             } else {
@@ -556,7 +616,7 @@ public class MainParser extends BaseParser {
         if (!is(EOF)) {
             Token current = now();
             throw error("Unexpected token after statement: " +
-                getTypeName(current.type) + " ('" + current.text + "')", current);
+                getTypeName(current.type) + " ('" + current.getText() + "')", current);
         }
         return stmt;
     }
