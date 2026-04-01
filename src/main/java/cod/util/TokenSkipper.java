@@ -164,7 +164,7 @@ public class TokenSkipper {
   }
 
   public void methodDecl() {
-  System.err.println("DEBUG - TokenSkipper.methodDecl() starting at token: '" + now().text + "' line " + now().line);
+    System.err.println("DEBUG - TokenSkipper.methodDecl() starting at token: '" + now().getText() + "' line " + now().line);
     int startPos = ctx.getPosition();
     boolean isBuiltin = false;
     if (is(BUILTIN)) {
@@ -213,7 +213,7 @@ public class TokenSkipper {
     }
     int endPos = ctx.getPosition();
     System.err.println("DEBUG - TokenSkipper.methodDecl() consumed from position " + startPos + " to " + endPos);
-}
+  }
 
   public void slotAsmt() {
     if (is(ID)) {
@@ -231,7 +231,7 @@ public class TokenSkipper {
     return any(is(t, RBRACE), 
                is(t, ELSE, ELIF, IF, FOR, EXIT),
                is(t, EOF));
-}
+  }
 
   public void slotContract() {
     do {
