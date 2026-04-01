@@ -2,6 +2,7 @@ package cod.math;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.math.BigDecimal;
 
 /**
  * Auto-stacking fixed-point number with 1-7 stacks of 64-bit words.
@@ -752,6 +753,28 @@ public static final long serialVersionUID = 1L;
                     }
                 }
                 if (allZero) break;
+            }
+
+            String exact = sb.toString();
+            String pretty = Double.toString(doubleValue());
+            if (pretty.indexOf('E') >= 0 || pretty.indexOf('e') >= 0) {
+                pretty = BigDecimal.valueOf(doubleValue()).stripTrailingZeros().toPlainString();
+            }
+
+            try {
+                if (pretty.length() < exact.length()) {
+                    BigDecimal exactValue = new BigDecimal(exact);
+                    BigDecimal prettyValue = new BigDecimal(pretty);
+                    BigDecimal delta = exactValue.subtract(prettyValue).abs();
+                    BigDecimal epsilon = new BigDecimal("0.000000000000001");
+                    BigDecimal relative = exactValue.abs().multiply(epsilon);
+                    BigDecimal tolerance = relative.compareTo(epsilon) > 0 ? relative : epsilon;
+                    if (delta.compareTo(tolerance) <= 0) {
+                        return pretty;
+                    }
+                }
+            } catch (Exception ignored) {
+                // Fallback to exact representation from internal stacks
             }
         }
         
