@@ -215,9 +215,17 @@ public class StringLexer {
         
         extractedStrings.add(fullText.toString());
         
-        // If no interpolations, return a simple text literal
-        if (parts.size() == 1 && parts.get(0).type == TokenType.TEXT_LIT) {
-            return Token.createTextLiteral(fullSource, startPos, length, startLine, startCol);
+        // If no interpolation expressions, return a simple text literal token.
+        // This also preserves escaped characters correctly and handles empty strings.
+        boolean hasInterpolation = false;
+        for (Token part : parts) {
+            if (part.type == TokenType.INTERPOL) {
+                hasInterpolation = true;
+                break;
+            }
+        }
+        if (!hasInterpolation) {
+            return Token.createTextLiteral(fullText.toString(), startLine, startCol);
         }
         
         return new Token(

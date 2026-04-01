@@ -10,3 +10,7 @@ server/build/
 !docs/assets/Coderive.jar
 !gradle/wrapper/gradle-wrapper.jar
 !source_.jar
+
+# Generated runtime artifacts
+src/main/cod/src/bin/
+src/main/cod/src/idx/
