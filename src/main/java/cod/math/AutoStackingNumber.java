@@ -25,6 +25,7 @@ public static final long serialVersionUID = 1L;
     private static final int WORD_BITS = 64;
     private static final long WORD_MASK = 0xFFFFFFFFFFFFFFFFL;
     private static final long FRAC_MASK = (1L << 60) - 1;  // 60 bits of ones for fractional parts
+    private static final BigDecimal DECIMAL_COMPARISON_EPSILON = new BigDecimal("0.000000000000001");
     
     // Zero and One constants for each stack level
     private static final AutoStackingNumber[][] CONSTANTS = new AutoStackingNumber[MAX_STACKS + 1][3];
@@ -766,9 +767,11 @@ public static final long serialVersionUID = 1L;
                     BigDecimal exactValue = new BigDecimal(exact);
                     BigDecimal prettyValue = new BigDecimal(pretty);
                     BigDecimal delta = exactValue.subtract(prettyValue).abs();
-                    BigDecimal epsilon = new BigDecimal("0.000000000000001");
-                    BigDecimal relative = exactValue.abs().multiply(epsilon);
-                    BigDecimal tolerance = relative.compareTo(epsilon) > 0 ? relative : epsilon;
+                    BigDecimal relative = exactValue.abs().multiply(DECIMAL_COMPARISON_EPSILON);
+                    BigDecimal tolerance =
+                        relative.compareTo(DECIMAL_COMPARISON_EPSILON) > 0
+                            ? relative
+                            : DECIMAL_COMPARISON_EPSILON;
                     if (delta.compareTo(tolerance) <= 0) {
                         return pretty;
                     }
