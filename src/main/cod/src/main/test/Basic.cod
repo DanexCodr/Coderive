@@ -1,0 +1,12 @@
+unit test
+
+Test1 {
+x: int = 5
+y: int = 7
+share main() {
+localX := 2
+localY := 5
+out(localX + localY + 5)
+}
+
+}
