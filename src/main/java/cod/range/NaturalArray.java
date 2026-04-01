@@ -11,6 +11,7 @@ import cod.range.formula.*;
 
 import java.lang.ref.WeakReference;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class NaturalArray {
 
@@ -32,7 +33,7 @@ public class NaturalArray {
     private AutoStackingNumber cachedStart = null;
     private AutoStackingNumber cachedEnd = null;
     private AutoStackingNumber cachedStep = null;
-    private Long cachedSize = null;  // ✅ NEW: Cached size
+    private Long cachedSize = null;
 
     // Recent index cache for sequential access
     private static final int RECENT_CACHE_SIZE = 64;
@@ -70,6 +71,11 @@ public class NaturalArray {
     // Output cache
     private Map<Long, List<Object>> outputCache = new HashMap<Long, List<Object>>();
     private boolean hasOutputs = false;
+    
+    // ========== ARRAY TRACKING FIELDS ==========
+    private final int arrayId;
+    private static final AtomicInteger nextArrayId = new AtomicInteger(1);
+    private boolean tracked = false;
 
     static {
         POWERS_26[0] = 1;
@@ -236,6 +242,10 @@ public class NaturalArray {
             throw new InternalError("NaturalArray constructed with context that has null typeHandler");
         }
         
+        // ========== ARRAY TRACKING INITIALIZATION ==========
+        this.arrayId = nextArrayId.getAndIncrement();
+        this.tracked = false;
+        
         // Determine element type from range
         this.elementType = determineElementType();
         
@@ -310,11 +320,18 @@ public class NaturalArray {
                 this.cachedStep = typeHandler.toAutoStackingNumber(stepObj);
             }
         }
+        
+        // ========== REGISTER WITH TRACKER IF IN A LOOP ==========
+        if (ArrayTracker.getCurrentLoopId() != 0) {
+            ArrayTracker.registerArray(this);
+            this.tracked = true;
+        }
     }
 
     // Constructor with target type for conversion
     public NaturalArray(RangeNode range, Evaluator evaluator, ExecutionContext context, String targetType) {
         this(range, evaluator, context);
+        // arrayId already set by main constructor
         
         // If target type is [text] but actual type is not text, mark for conversion
         if (targetType != null && targetType.startsWith("[") && targetType.endsWith("]")) {
@@ -330,6 +347,41 @@ public class NaturalArray {
                 this.cachedStep = null;
             }
         }
+    }
+    
+    // ========== ARRAY TRACKING METHODS ==========
+    
+    /**
+     * Get the unique integer ID of this array
+     */
+    public int getArrayId() {
+        return arrayId;
+    }
+    
+    /**
+     * Check if this array is being tracked
+     */
+    public boolean isTracked() {
+        return tracked;
+    }
+    
+    /**
+     * Enable tracking for this array
+     */
+    public void enableTracking() {
+        if (!tracked) {
+            tracked = true;
+            if (ArrayTracker.getCurrentLoopId() != 0) {
+                ArrayTracker.registerArray(this);
+            }
+        }
+    }
+    
+    /**
+     * Disable tracking for this array
+     */
+    public void disableTracking() {
+        tracked = false;
     }
     
     // Determine element type from range
@@ -702,13 +754,21 @@ public class NaturalArray {
             throw e;
         }
         
+        // ========== TRACKING ==========
+        if (tracked) {
+            ArrayTracker.recordArrayAccess(this);
+        }
+        
         // Check recent cache first (fastest)
         Object recent = getFromRecentCache(index);
         if (recent != null) {
+            if (tracked) ArrayTracker.recordCacheHit(this);
             lastIndex = index;
             lastValue = recent;
             return maybeConvert(recent);
         }
+        
+        if (tracked) ArrayTracker.recordCacheMiss(this);
         
         // Apply any pending updates that affect this index
         applyPendingUpdatesForIndex(index);
@@ -821,6 +881,11 @@ public class NaturalArray {
             throw e;
         }
         
+        // ========== TRACKING ==========
+        if (tracked) {
+            ArrayTracker.recordArrayModification(this);
+        }
+        
         // Type check before assignment - use target element type if converting
         String checkType = convertToString ? targetElementType : elementType;
         if (!typeHandler.validateType(checkType, value)) {
@@ -883,6 +948,15 @@ public class NaturalArray {
             throw new InternalError("setRange called with null range");
         }
         
+        // ========== TRACKING ==========
+        if (tracked) {
+            ArrayTracker.recordArrayModification(this);
+            ProcessedRange processed = new ProcessedRange(range);
+            if (processed.valid) {
+                ArrayTracker.recordPendingUpdates(this, (int)processed.size());
+            }
+        }
+        
         // Type check for range assignment - use target element type if converting
         String checkType = convertToString ? targetElementType : elementType;
         if (!typeHandler.validateType(checkType, value)) {
@@ -934,6 +1008,19 @@ public class NaturalArray {
     public void setMultiRange(MultiRangeSpec multiRange, Object value) {
         if (multiRange == null) {
             throw new InternalError("setMultiRange called with null multiRange");
+        }
+        
+        // ========== TRACKING ==========
+        if (tracked) {
+            ArrayTracker.recordArrayModification(this);
+            int total = 0;
+            for (RangeSpec range : multiRange.ranges) {
+                ProcessedRange processed = new ProcessedRange(range);
+                if (processed.valid) {
+                    total += processed.size();
+                }
+            }
+            ArrayTracker.recordPendingUpdates(this, total);
         }
         
         // Type check for multi-range assignment - use target element type if converting
@@ -1275,6 +1362,12 @@ public class NaturalArray {
         if (formula == null) {
             throw new InternalError("Attempted to add null SequenceFormula");
         }
+        
+        // ========== TRACKING ==========
+        if (tracked) {
+            ArrayTracker.recordFormulaApplication(this);
+        }
+        
         sequenceFormulas.add(formula);
         clearCache();
     }
@@ -1283,6 +1376,12 @@ public class NaturalArray {
         if (formula == null) {
             throw new InternalError("Attempted to add null ConditionalFormula");
         }
+        
+        // ========== TRACKING ==========
+        if (tracked) {
+            ArrayTracker.recordFormulaApplication(this);
+        }
+        
         conditionalFormulas.add(formula);
         clearCache();
     }
@@ -1446,6 +1545,8 @@ public class NaturalArray {
     @Override
     public String toString() {
         try {
+            String base = String.format("NaturalArray[id=%d, ", arrayId);
+            
             if (isLexicographicalRange) {
                 String direction = isUp ? "" : " (reverse)";
                 String stepInfo = "";
@@ -1455,8 +1556,8 @@ public class NaturalArray {
                         stepInfo = " step " + step;
                     }
                 }
-                String formula = String.format("LexArray[\"%s\" to \"%s\"%s]%s",
-                    startString, endString, stepInfo, direction);
+                String formula = String.format("%sLexArray[\"%s\" to \"%s\"%s]%s",
+                    base, startString, endString, stepInfo, direction);
 
                 StringBuilder sb = new StringBuilder(formula);
                 long size = size();
@@ -1465,6 +1566,7 @@ public class NaturalArray {
                 if (hasPendingUpdates) sb.append(", pending: ").append(pendingUpdates.size());
                 sb.append(", type: ").append(elementType);
                 if (convertToString) sb.append(", converting to ").append(targetElementType);
+                if (tracked) sb.append(", tracked");
                 sb.append(")");
                 return sb.toString();
             }
@@ -1477,7 +1579,8 @@ public class NaturalArray {
             String endStr = end.toString();
             String stepStr = step.toString();
 
-            String formula = String.format("NaturalArray[%s to %s", startStr, endStr);
+            String formula = String.format("%sNaturalArray[%s to %s", 
+                base, startStr, endStr);
 
             boolean isDefaultStep = (step.compareTo(AutoStackingNumber.one(1)) == 0 && start.compareTo(end) <= 0) ||
                                    (step.compareTo(AutoStackingNumber.minusOne(1)) == 0 && start.compareTo(end) > 0);
@@ -1498,6 +1601,7 @@ public class NaturalArray {
             }
             sb.append(", type: ").append(elementType);
             if (convertToString) sb.append(", converting to ").append(targetElementType);
+            if (tracked) sb.append(", tracked");
             sb.append(")");
 
             if (!sequenceFormulas.isEmpty()) {
@@ -1509,9 +1613,9 @@ public class NaturalArray {
             return sb.toString();
             
         } catch (ProgramError e) {
-            return "NaturalArray[error: " + e.getMessage() + "]";
+            return "NaturalArray[id=" + arrayId + ", error: " + e.getMessage() + "]";
         } catch (Exception e) {
-            return "NaturalArray[internal error: " + e.getMessage() + "]";
+            return "NaturalArray[id=" + arrayId + ", internal error: " + e.getMessage() + "]";
         }
     }
 }
