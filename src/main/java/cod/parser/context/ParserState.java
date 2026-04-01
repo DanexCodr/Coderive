@@ -4,17 +4,12 @@ import cod.lexer.Token;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Immutable parser state representing current parsing position. All state modifications return a
- * new ParserState instance.
- */
 public final class ParserState {
   private final List<Token> tokens;
   private final int position;
   private final int line;
   private final int column;
 
-  // Cache for current token (performance optimization)
   private transient Token currentTokenCache;
 
   public ParserState(List<Token> tokens) {
@@ -31,20 +26,15 @@ public final class ParserState {
 
   private void updateCurrentTokenCache() {
     if (position >= 0 && position < tokens.size()) {
-      Token token = tokens.get(position);
-      currentTokenCache = token;
-      // Note: line/column should already be set from constructor
+      currentTokenCache = tokens.get(position);
     } else {
       currentTokenCache = null;
     }
   }
 
-  // === FACTORY METHODS (IMMUTABLE OPERATIONS) ===
-
-  /** Returns a new ParserState advanced by one token. */
   public ParserState advance() {
     if (position >= tokens.size()) {
-      return this; // At EOF, stay where we are
+      return this;
     }
 
     Token current = now();
@@ -52,12 +42,10 @@ public final class ParserState {
       return this;
     }
 
-    // Calculate new position
     int newPosition = position + 1;
     int newLine = current.line;
-    int newColumn = current.column + current.text.length();
+    int newColumn = current.column + current.getLength();
 
-    // If we have a next token, use its position
     if (newPosition < tokens.size()) {
       Token next = tokens.get(newPosition);
       newLine = next.line;
@@ -67,7 +55,6 @@ public final class ParserState {
     return new ParserState(tokens, newPosition, newLine, newColumn);
   }
 
-  /** Returns a new ParserState at the specified position. */
   public ParserState withPosition(int newPosition) {
     if (newPosition < 0 || newPosition > tokens.size()) {
       throw new IllegalArgumentException("Invalid position: " + newPosition);
@@ -85,24 +72,17 @@ public final class ParserState {
       newLine = token.line;
       newColumn = token.column;
     } else if (!tokens.isEmpty()) {
-      // At EOF, use last token's position + 1
       Token lastToken = tokens.get(tokens.size() - 1);
       newLine = lastToken.line;
-      newColumn = lastToken.column + lastToken.text.length();
+      newColumn = lastToken.column + lastToken.getLength();
     }
 
     return new ParserState(tokens, newPosition, newLine, newColumn);
   }
 
-  /**
-   * Returns a new ParserState with manually specified line/column. Used for error reporting when
-   * position doesn't match token.
-   */
   public ParserState withPositionAndLineCol(int newPosition, int newLine, int newColumn) {
     return new ParserState(tokens, newPosition, newLine, newColumn);
   }
-
-  // === QUERY METHODS ===
 
   public Token now() {
     return currentTokenCache;
@@ -121,8 +101,6 @@ public final class ParserState {
     return !hasMore();
   }
 
-  // === GETTERS ===
-
   public List<Token> getTokens() {
     return tokens;
   }
@@ -139,9 +117,6 @@ public final class ParserState {
     return column;
   }
 
-  // === UTILITY METHODS ===
-
-  /** Creates a copy of this state (useful for backtracking patterns). */
   public ParserState copy() {
     return new ParserState(tokens, position, line, column);
   }
@@ -151,7 +126,7 @@ public final class ParserState {
     Token current = now();
     return String.format(
         "ParserState[pos=%d, line=%d, col=%d, current=%s]",
-        position, line, column, current != null ? "'" + current.text + "'" : "EOF");
+        position, line, column, current != null ? "'" + current.getText() + "'" : "EOF");
   }
 
   @Override
