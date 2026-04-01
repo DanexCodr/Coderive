@@ -8,13 +8,14 @@ import java.util.List;
  * Used for precise error reporting and debugging.
  */
 public class SourceSpan {
+
     public final String fileName;  // Optional: source file name
     public final int startLine;
     public final int startColumn;
     public final int endLine;
     public final int endColumn;
-    public final Token startToken;  // ADD THIS
-    public final Token endToken;    // ADD THIS
+    public final Token startToken; 
+    public final Token endToken;
     
     public SourceSpan(int startLine, int startColumn, int endLine, int endColumn) {
         this(null, startLine, startColumn, endLine, endColumn, null, null);
@@ -42,7 +43,7 @@ public class SourceSpan {
             startToken != null ? startToken.line : 1,
             startToken != null ? startToken.column : 1,
             endToken != null ? endToken.line : 1,
-            endToken != null ? endToken.column + (endToken.text != null ? endToken.text.length() - 1 : 0) : 1,
+            endToken != null ? endToken.column + (endToken.getLength() - 1) : 1,
             startToken,
             endToken
         );
