@@ -22,7 +22,7 @@ import cod.syntax.Keyword;
 
 public class REPLRunner {
 
-private static final String NAME = "REPL";
+    private static final String NAME = "REPL";
     
     private static Interpreter interpreter = new Interpreter();
     private static ObjectInstance globalInstance = new ObjectInstance(ASTFactory.createType(NAME + "Global", Keyword.LOCAL, null, null));
@@ -36,7 +36,8 @@ private static final String NAME = "REPL";
         DebugSystem.setLevel(DebugSystem.Level.ERROR);
         DebugSystem.info(NAME, "Starting Coderive " + NAME);
         
-        // ✅ NO REINITIALIZATION HERE! Use the static fields that are already initialized
+        // Set a default file path for REPL (indexes will be generated in current directory)
+        interpreter.setFilePath(System.getProperty("user.dir") + "/repl.cod");
         
         Scanner scanner = new Scanner(System.in);
         while (true) {
@@ -53,7 +54,6 @@ private static final String NAME = "REPL";
                 break;
             }
             if (line.equalsIgnoreCase(";reset")) {
-                // ✅ Clear maps instead of creating new ones
                 globalLocals.clear();
                 globalSlots.clear();
                 DebugSystem.info(NAME, "State reset");
@@ -66,7 +66,6 @@ private static final String NAME = "REPL";
             }
 
             try {
-                // Use the SAME eval() method as the API!
                 String result = eval(line);
                 if (result != null && !result.isEmpty()) {
                     out(result);
@@ -209,7 +208,6 @@ private static final String NAME = "REPL";
         } else if (stmt instanceof AssignmentNode) {
             AssignmentNode assign = (AssignmentNode) stmt;
             
-            // Handle different left-hand side expressions
             if (assign.left instanceof IdentifierNode) {
                 IdentifierNode target = (IdentifierNode) assign.left;
                 String varName = target.name;
@@ -227,7 +225,6 @@ private static final String NAME = "REPL";
             } else if (assign.left instanceof PropertyAccessNode) {
                 PropertyAccessNode prop = (PropertyAccessNode) assign.left;
                 
-                // Check if it's a field assignment (this.field or super.field)
                 if (prop.left instanceof ThisNode || prop.left instanceof SuperNode) {
                     if (prop.right instanceof IdentifierNode) {
                         IdentifierNode field = (IdentifierNode) prop.right;
@@ -241,7 +238,6 @@ private static final String NAME = "REPL";
                 }
                 
             } else if (assign.left instanceof IndexAccessNode) {
-                // Array assignment - the array variable itself should be validated
                 IndexAccessNode indexAccess = (IndexAccessNode) assign.left;
                 if (indexAccess.array instanceof IdentifierNode) {
                     IdentifierNode arrayVar = (IdentifierNode) indexAccess.array;
@@ -258,7 +254,6 @@ private static final String NAME = "REPL";
             ForNode forNode = (ForNode) stmt;
             String iterator = forNode.iterator;
             
-            // Validate iterator name
             if (NamingValidator.isPascalCase(iterator)) {
                 DebugSystem.error(NAME, "Invalid PascalCase loop iterator: " + iterator);
                 throw new RuntimeException("Loop iterator '" + iterator + "' cannot use PascalCase (reserved for classes)");
@@ -287,18 +282,18 @@ private static final String NAME = "REPL";
     }
     
     public static void out(String s) {
-      System.out.println(s);
+        System.out.println(s);
     }
     
     public static void outE(String err) {
-      System.err.println(err);
+        System.err.println(err);
     }
     
     public static void out() {
-      System.out.println();
+        System.out.println();
     }
     
     public static void outE() {
-      System.err.println();
+        System.err.println();
     }
 }

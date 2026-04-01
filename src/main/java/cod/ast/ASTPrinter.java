@@ -484,6 +484,23 @@ public class ASTPrinter extends ASTVisitor<Void> {
         return null;
     }
     
+@Override
+public Void visit(ChainedComparisonNode node) {
+    println("CHAINED COMPARISON:");
+    indent++;
+    for (int i = 0; i < node.expressions.size(); i++) {
+        if (i > 0) {
+            println("OPERATOR: " + node.operators.get(i-1));
+        }
+        println("EXPRESSION " + i + ":");
+        indent++;
+        visit(node.expressions.get(i));
+        indent--;
+    }
+    indent--;
+    return null;
+}
+    
     public static void print(ASTNode node) {
         ASTPrinter printer = new ASTPrinter();
         printer.visit(node);

@@ -2,7 +2,6 @@ package cod.interpreter.handler;
 
 import cod.debug.DebugSystem;
 import cod.math.AutoStackingNumber;
-import java.math.BigDecimal;
 import java.util.Scanner;
 
 public class IOHandler {

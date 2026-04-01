@@ -10,6 +10,8 @@ import cod.range.MultiRangeSpec;
 import cod.range.NaturalArray;
 import cod.range.RangeSpec;
 
+import java.util.*;
+
 public class ExpressionHandler {
     private final TypeHandler typeSystem;
     private final InterpreterVisitor dispatcher;
@@ -211,6 +213,65 @@ public class ExpressionHandler {
             throw new InternalError("Boolean chain evaluation failed", e);
         }
     }
+    
+public Object handleChainedComparison(ChainedComparisonNode node, ExecutionContext ctx) {
+    if (node == null) {
+        throw new InternalError("handleChainedComparison called with null node");
+    }
+    if (ctx == null) {
+        throw new InternalError("handleChainedComparison called with null context");
+    }
+    
+    try {
+        // Evaluate all expressions first
+        List<Object> values = new ArrayList<Object>();
+        for (ExprNode expr : node.expressions) {
+            Object value = dispatcher.dispatch(expr);
+            values.add(typeSystem.unwrap(value));
+        }
+        
+        for (int i = 0; i < node.operators.size(); i++) {
+            String op = node.operators.get(i);
+            Object left = values.get(i);
+            Object right = values.get(i + 1);
+            
+            boolean comparisonResult;
+            
+            switch (op) {
+                case "==":
+                    comparisonResult = typeSystem.areEqual(left, right);
+                    break;
+                case "!=":
+                    comparisonResult = !typeSystem.areEqual(left, right);
+                    break;
+                case ">":
+                    comparisonResult = typeSystem.compare(left, right) > 0;
+                    break;
+                case "<":
+                    comparisonResult = typeSystem.compare(left, right) < 0;
+                    break;
+                case ">=":
+                    comparisonResult = typeSystem.compare(left, right) >= 0;
+                    break;
+                case "<=":
+                    comparisonResult = typeSystem.compare(left, right) <= 0;
+                    break;
+                default:
+                    throw new ProgramError("Unknown comparison operator in chain: " + op);
+            }
+            
+            if (!comparisonResult) {
+                return false;
+            }
+        }
+        
+        return true;
+    } catch (ProgramError e) {
+        throw e;
+    } catch (Exception e) {
+        throw new InternalError("Chained comparison evaluation failed", e);
+    }
+}
     
     public Object handleEqualityChain(EqualityChainNode node, ExecutionContext ctx) {
         if (node == null) {

@@ -1,9 +1,0 @@
-unit test
-
-Broadcaster {
-
-    share main() {
-        out("Broadcaster: no broadcast target found — running standalone.")
-    }
-
-}

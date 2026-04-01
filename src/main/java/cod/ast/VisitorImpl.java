@@ -87,17 +87,26 @@ public interface VisitorImpl<T> {
   T visit(SlotNode n);
 
   T visit(LambdaNode n);
-  
-T visit(IdentifierNode n);
-T visit(IntLiteralNode n);
-T visit(FloatLiteralNode n);
-T visit(TextLiteralNode n);
-T visit(BoolLiteralNode n);
-T visit(NoneLiteralNode n);
-T visit(ThisNode n);
-T visit(SuperNode n);
-  
-T visit(PropertyAccessNode n);
+
+  T visit(IdentifierNode n);
+
+  T visit(IntLiteralNode n);
+
+  T visit(FloatLiteralNode n);
+
+  T visit(TextLiteralNode n);
+
+  T visit(BoolLiteralNode n);
+
+  T visit(NoneLiteralNode n);
+
+  T visit(ThisNode n);
+
+  T visit(SuperNode n);
+
+  T visit(ChainedComparisonNode n);
+
+  T visit(PropertyAccessNode n);
 
   T visit(ASTNode n);
 

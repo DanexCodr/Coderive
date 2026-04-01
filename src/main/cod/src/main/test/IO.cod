@@ -14,7 +14,7 @@ share IOTest {
         out("\nTest 3 - With prompt: ")
         name := in(text, "Name: ")
         outs("Hello", name)
-        
+        out()
         out("\nTest 4 - Boolean (enter true/false): ")
         b := in(bool)
         outs("Boolean:", b)

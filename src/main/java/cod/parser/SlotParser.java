@@ -52,7 +52,7 @@ public class SlotParser {
                 if (parser.is(parser.now(), ID)) {
                     isNamedMode = true;
                     nameToken = parser.now();
-                    name = parser.expect(ID).text;
+                    name = parser.expect(ID).getText();
                     parser.expect(COLON);
                     type = parser.parseTypeReference();
                 } else {
@@ -67,13 +67,13 @@ public class SlotParser {
                         throw parser.error("Mixed slot declaration styles not allowed. Expected name for slot.");
                     }
                     nameToken = parser.now();
-                    name = parser.expect(ID).text;
+                    name = parser.expect(ID).getText();
                     parser.expect(COLON);
                     type = parser.parseTypeReference();
                 } else {
                     if (parser.is(parser.now(), ID)) {
                         throw parser.error("Mixed slot declaration styles not allowed. Found name '" +
-                            parser.now().text + "' in unnamed slot list.");
+                            parser.now().getText() + "' in unnamed slot list.");
                     }
                     name = String.valueOf(index);
                     type = parser.parseTypeReference();
@@ -116,7 +116,7 @@ public class SlotParser {
         if (parser.is(parser.now(), ID)) {
             Token afterId = parser.next();
             if (parser.is(afterId, COLON)) {
-                slotName = parser.expect(ID).text;
+                slotName = parser.expect(ID).getText();
                 colonToken = parser.now();
                 parser.expect(COLON);
                 value = exprParser.parseExpr();

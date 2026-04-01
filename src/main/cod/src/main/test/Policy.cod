@@ -7,6 +7,7 @@ policy Accept {
 Node with Accept {
     policy accept(n: type) :: type {
         // Implementation here
+        ~> n
     }
 }
 

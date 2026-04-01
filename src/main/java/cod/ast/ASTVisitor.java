@@ -250,6 +250,11 @@ public T visit(SuperNode n) {
     return n.accept(this);
 }
 
+@Override
+public T visit(ChainedComparisonNode n) {
+    return defaultVisit(n);
+}
+
   @Override
   public final T visit(ASTNode n) {
     // This is the entry point - delegate to the n's accept method

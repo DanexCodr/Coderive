@@ -17,6 +17,11 @@ public class TextLiteralNode extends ExprNode {
     }
     
     @Override
+    public String toString() {
+        return value;
+    }
+    
+    @Override
     public <T> T accept(VisitorImpl<T> visitor) {
         return visitor.visit(this);
     }

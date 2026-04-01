@@ -1,11 +1,15 @@
 package cod.semantic;
 
+import cod.ast.ASTFactory;
 import cod.ast.nodes.*;
 import cod.error.InternalError;
 import cod.error.ProgramError;
 import cod.lexer.*;
 import cod.parser.MainParser;
 import cod.debug.DebugSystem;
+import cod.util.Index;
+import cod.util.BytecodeManager;
+
 import java.util.*;
 import java.io.*;
 
@@ -26,6 +30,15 @@ public class ImportResolver {
     // Type cache for O(1) type lookups
     private Map<String, TypeNode> typeCache = new HashMap<String, TypeNode>();
     
+    // Index cache for O(1) class lookups
+    private Map<String, Index> indexCache = new HashMap<String, Index>();
+    
+    // Bytecode manager for .codb files
+    private BytecodeManager bytecodeManager;
+    
+    // Cache for loaded TypeNodes (bytecode or parsed)
+    private Map<String, TypeNode> loadedTypes = new HashMap<String, TypeNode>();
+    
     // Filesystem result cache
     private Map<String, CachedFileResult> fileCache = new HashMap<String, CachedFileResult>();
     
@@ -37,6 +50,15 @@ public class ImportResolver {
     private int fileCacheMisses = 0;
     private int metadataCacheHits = 0;
     private int metadataCacheMisses = 0;
+    private int indexCacheHits = 0;
+    private int indexCacheMisses = 0;
+    private int bytecodeCacheHits = 0;
+    private int bytecodeCacheMisses = 0;
+    
+    // Current file location for relative import resolution
+    private String srcMainRoot;
+    private String currentFileDirectory;
+    private String projectRoot;
     
     // Cache entry with timestamp
     private static class CachedFileResult {
@@ -74,28 +96,196 @@ public class ImportResolver {
     
     public ImportResolver() {
         importPaths.add("src/main");
-        DebugSystem.debug("IMPORTS", "Initialized with strict src/main/ path");
+        DebugSystem.debug("IMPORTS", "Initialized with import paths: " + importPaths);
     }
     
-    // Get file metadata with caching
+    /**
+     * Set the current file directory and automatically find the src/main/ root
+     */
+    public void setCurrentFileDirectory(String filePath) {
+        if (filePath == null || filePath.isEmpty()) {
+            DebugSystem.debug("IMPORTS", "setCurrentFileDirectory called with null/empty path");
+            return;
+        }
+        
+        DebugSystem.debug("IMPORTS", "=== setCurrentFileDirectory CALLED ===");
+        DebugSystem.debug("IMPORTS", "filePath: " + filePath);
+        
+        File file = new File(filePath);
+        File parentDir = file.getParentFile();
+        
+        if (parentDir == null || !parentDir.exists()) {
+            DebugSystem.debug("IMPORTS", "Parent directory does not exist for: " + filePath);
+            return;
+        }
+        
+        this.currentFileDirectory = parentDir.getAbsolutePath();
+        DebugSystem.debug("IMPORTS", "Current file directory set to: " + currentFileDirectory);
+        
+        // Navigate up to find the src/main/ directory structure
+        File searchDir = parentDir;
+        this.srcMainRoot = null;
+        
+        while (searchDir != null) {
+            // Check if this directory IS src/main/
+            if (searchDir.getName().equals("main") && 
+                searchDir.getParentFile() != null && 
+                searchDir.getParentFile().getName().equals("src")) {
+                
+                this.srcMainRoot = searchDir.getAbsolutePath();
+                DebugSystem.debug("IMPORTS", "Found src/main/ root (directory itself): " + srcMainRoot);
+                break;
+            }
+            
+            // Check if src/main/ is a subdirectory
+            File srcMain = new File(searchDir, "src/main");
+            if (srcMain.exists() && srcMain.isDirectory()) {
+                this.srcMainRoot = srcMain.getAbsolutePath();
+                DebugSystem.debug("IMPORTS", "Found src/main/ at: " + srcMainRoot);
+                break;
+            }
+            
+            // Move up one level
+            searchDir = searchDir.getParentFile();
+        }
+        
+        // If we found src/main/, add it to import paths and set project root
+        if (srcMainRoot != null) {
+            // Add the src/main/ root to import paths if not present
+            if (!importPaths.contains(srcMainRoot)) {
+                importPaths.add(0, srcMainRoot);
+                DebugSystem.debug("IMPORTS", "Added srcMainRoot to import paths: " + srcMainRoot);
+            }
+            
+            // Set the project root for Index class (for src/idx/ location)
+            Index.setProjectRoot(srcMainRoot);
+            DebugSystem.debug("IMPORTS", "Set Index project root from: " + srcMainRoot);
+            
+            // Calculate and store project root for bytecode manager
+            this.projectRoot = Index.getProjectRoot();
+            if (this.projectRoot != null) {
+                this.bytecodeManager = new BytecodeManager(this.projectRoot);
+                DebugSystem.debug("IMPORTS", "Initialized BytecodeManager with root: " + this.projectRoot);
+            }
+            
+        } else {
+            DebugSystem.debug("IMPORTS", "Could not find src/main/ structure, imports will be relative to: " + currentFileDirectory);
+        }
+        
+        DebugSystem.debug("IMPORTS", "Final configuration - srcMainRoot: " + srcMainRoot + 
+                         ", currentFileDirectory: " + currentFileDirectory +
+                         ", importPaths: " + importPaths);
+    }
+    
+    public String getCurrentFileDirectory() {
+        return currentFileDirectory;
+    }
+    
+    public String getSrcMainRoot() {
+        return srcMainRoot;
+    }
+    
+    public String getProjectRoot() {
+        return projectRoot;
+    }
+    
+    /**
+     * Get absolute path for a unit
+     */
+    private String getUnitPath(String unitName) {
+        if (srcMainRoot != null) {
+            return srcMainRoot + "/" + unitName;
+        }
+        return "src/main/" + unitName;
+    }
+    
+    /**
+     * Get or create index for a unit (cached)
+     */
+    private Index getIndex(String unitName) {
+        if (unitName == null || unitName.isEmpty()) {
+            return null;
+        }
+        
+        // Check memory cache
+        if (indexCache.containsKey(unitName)) {
+            Index cached = indexCache.get(unitName);
+            String unitPath = getUnitPath(unitName);
+            if (!cached.isStale(unitPath)) {
+                indexCacheHits++;
+                DebugSystem.debug("IMPORTS_CACHE", "Index cache hit for unit: " + unitName);
+                return cached;
+            } else {
+                indexCache.remove(unitName);
+                DebugSystem.debug("IMPORTS_CACHE", "Index cache stale for unit: " + unitName);
+            }
+        }
+        
+        indexCacheMisses++;
+        
+        // Try to load from disk
+        Index index = Index.load(unitName);
+        
+        if (index != null) {
+            String unitPath = getUnitPath(unitName);
+            if (!index.isStale(unitPath)) {
+                indexCache.put(unitName, index);
+                DebugSystem.debug("IMPORTS_CACHE", "Loaded index from disk for unit: " + unitName + 
+                                 " (" + index.size() + " classes)");
+                return index;
+            } else {
+                DebugSystem.debug("IMPORTS_CACHE", "Index file stale for unit: " + unitName);
+            }
+        }
+        
+        // Generate new index - this may throw IllegalStateException on duplicates
+        try {
+            index = generateIndex(unitName);
+            if (index != null && !index.isEmpty()) {
+                index.save();
+                indexCache.put(unitName, index);
+                DebugSystem.debug("IMPORTS_CACHE", "Generated new index for unit: " + unitName + 
+                                 " (" + index.size() + " classes)");
+            }
+            return index;
+        } catch (IllegalStateException e) {
+            // Convert to ProgramError for user-friendly message
+            throw new ProgramError(e.getMessage());
+        }
+    }
+    
+    /**
+     * Generate index by scanning unit directory
+     */
+    private Index generateIndex(String unitName) {
+        String unitPath = getUnitPath(unitName);
+        if (unitPath == null) {
+            return null;
+        }
+        
+        Index index = new Index(unitName);
+        if (index.refresh(unitPath)) {
+            return index;
+        }
+        
+        return null;
+    }
+    
     private FileMetadata getFileMetadata(File file) {
         String path = file.getAbsolutePath();
         
-        // Check cache
         if (fileMetadataCache.containsKey(path)) {
             FileMetadata cached = fileMetadataCache.get(path);
             if (cached.isValid(file)) {
                 metadataCacheHits++;
                 return cached;
             } else {
-                // Stale cache entry
                 fileMetadataCache.remove(path);
             }
         }
         
         metadataCacheMisses++;
         
-        // Get fresh metadata
         boolean exists = file.exists();
         boolean isDirectory = exists && file.isDirectory();
         long lastModified = exists ? file.lastModified() : 0;
@@ -106,7 +296,6 @@ public class ImportResolver {
         return metadata;
     }
     
-    // Load file with caching
     private ProgramNode loadImportFromFileCached(String filePath) throws Exception {
         if (filePath == null || filePath.isEmpty()) {
             throw new InternalError("loadImportFromFileCached called with null/empty path");
@@ -114,30 +303,26 @@ public class ImportResolver {
         
         File file = new File(filePath);
         
-        // Check metadata first (fast path)
         FileMetadata metadata = getFileMetadata(file);
         if (!metadata.exists) {
             return null;
         }
         if (!metadata.isDirectory) {
-            // Check file cache
             if (fileCache.containsKey(filePath)) {
                 CachedFileResult cached = fileCache.get(filePath);
                 if (cached.isValid(file)) {
                     fileCacheHits++;
-                    DebugSystem.debug("IMPORTS_CACHE", "Cache hit for: " + filePath);
+                    DebugSystem.debug("IMPORTS_CACHE", "File cache hit: " + filePath);
                     return cached.program;
                 } else {
-                    // Stale cache entry
                     fileCache.remove(filePath);
-                    DebugSystem.debug("IMPORTS_CACHE", "Cache stale for: " + filePath);
+                    DebugSystem.debug("IMPORTS_CACHE", "File cache stale: " + filePath);
                 }
             }
             
             fileCacheMisses++;
-            DebugSystem.debug("IMPORTS_CACHE", "Cache miss for: " + filePath);
+            DebugSystem.debug("IMPORTS_CACHE", "File cache miss: " + filePath);
             
-            // Load fresh
             ProgramNode program = loadImportFromFile(filePath);
             if (program != null) {
                 fileCache.put(filePath, new CachedFileResult(program, metadata.lastModified));
@@ -145,26 +330,7 @@ public class ImportResolver {
             return program;
         }
         
-        return null; // Is a directory, not a file
-    }
-    
-    // Directory listing with caching
-    private File[] listFilesCached(File directory) {
-
-        // Check metadata
-        FileMetadata metadata = getFileMetadata(directory);
-        if (!metadata.exists || !metadata.isDirectory) {
-            return null;
-        }
-        
-        // For directories, we still need to list files (can't cache easily)
-        // But we can use the metadata to avoid stat calls on non-existent dirs
-        return directory.listFiles(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String name) {
-                return name.endsWith(".cod");
-            }
-        });
+        return null;
     }
     
     public void registerBroadcast(String packageName, String mainClassName) {
@@ -231,7 +397,7 @@ public class ImportResolver {
         if (!loadedPrograms.containsKey(actualImportName)) {
             try {
                 DebugSystem.debug("POLICY", "Import not loaded, attempting to load: " + actualImportName);
-                ProgramNode program = resolveImport(actualImportName);
+                ProgramNode program = resolveImportAsProgram(actualImportName);
                 if (program == null) {
                     throw new ProgramError("Failed to load import: " + actualImportName);
                 }
@@ -312,20 +478,17 @@ public class ImportResolver {
         
         if (!registeredImports.contains(importName)) {
             registeredImports.add(importName);
-            // Pre-cache the import name mapping
             cacheImportName(importName);
             DebugSystem.debug("IMPORTS", "Registered import (lazy): " + importName);
         }
     }
     
-    // Cache import name mapping
     private void cacheImportName(String importName) {
         String[] parts = importName.split("\\.");
         if (parts.length > 0) {
             String lastPart = parts[parts.length - 1];
             importNameCache.put(lastPart, importName);
             
-            // Also cache partial paths for nested lookups
             StringBuilder partial = new StringBuilder();
             for (int i = 0; i < parts.length; i++) {
                 if (i > 0) partial.append(".");
@@ -335,16 +498,13 @@ public class ImportResolver {
         }
     }
     
-    // O(1) import name lookup with cache
     private String findMatchingImportCached(String calledImport) {
-        // Direct cache hit
         if (importNameCache.containsKey(calledImport)) {
             String cached = importNameCache.get(calledImport);
             DebugSystem.debug("IMPORTS", "Cache hit for import: " + calledImport + " -> " + cached);
             return cached;
         }
         
-        // Check loaded programs (these should be in cache, but double-check)
         for (String loadedImport : loadedPrograms.keySet()) {
             if (loadedImport.endsWith("." + calledImport) || loadedImport.equals(calledImport)) {
                 importNameCache.put(calledImport, loadedImport);
@@ -352,7 +512,6 @@ public class ImportResolver {
             }
         }
         
-        // Check registered imports (these should be in cache, but double-check)
         for (String registeredImport : registeredImports) {
             if (registeredImport.endsWith("." + calledImport) || registeredImport.equals(calledImport)) {
                 importNameCache.put(calledImport, registeredImport);
@@ -363,150 +522,227 @@ public class ImportResolver {
         return calledImport;
     }
 
-    public ProgramNode resolveImport(String importName) throws Exception {
+    /**
+     * Resolve import and return TypeNode directly
+     */
+    public TypeNode resolveImport(String importName) throws Exception {
         if (importName == null || importName.isEmpty()) {
             throw new InternalError("resolveImport called with null/empty importName");
         }
         
-        DebugSystem.debug("IMPORTS", "resolveImport called for: " + importName);
+        DebugSystem.debug("IMPORTS", "=== RESOLVING IMPORT: " + importName + " ===");
         
-        if (loadedPrograms.containsKey(importName)) {
-            DebugSystem.debug("IMPORTS", "Import already loaded: " + importName);
-            return loadedPrograms.get(importName);
+        // Check cache first
+        if (loadedTypes.containsKey(importName)) {
+            DebugSystem.debug("IMPORTS", "Type already loaded: " + importName);
+            return loadedTypes.get(importName);
         }
         
-        if (preloadedImports.containsKey(importName)) {
-            DebugSystem.debug("IMPORTS", "Using preloaded import: " + importName);
-            ProgramNode program = preloadedImports.get(importName);
-            if (program == null) {
-                throw new InternalError("Preloaded import entry is null for: " + importName);
-            }
-            
-            loadedPrograms.put(importName, program);
-            importedUnits.put(importName, program);
-            
-            // Cache this import name
-            cacheImportName(importName);
-            
-            if (program.unit != null && program.unit.policies != null) {
-                for (PolicyNode policy : program.unit.policies) {
-                    String qualifiedName = program.unit.name + "." + policy.name;
-                    registerPolicy(qualifiedName, policy);
-                    policyToUnitMap.put(policy.name, program.unit.name);
-                    DebugSystem.debug("IMPORTS", "Registered policy from preloaded import: " + qualifiedName);
-                }
-            }
-            
-            if (program.unit != null && program.unit.mainClassName != null && 
-                !program.unit.mainClassName.isEmpty()) {
-                String packageName = program.unit.name;
-                String mainClassName = program.unit.mainClassName;
-                
-                DebugSystem.debug("BROADCAST", "Registering broadcast from preloaded import '" + 
-                    importName + "': package '" + packageName + "' (main: " + mainClassName + ")");
-                
-                registerBroadcast(packageName, mainClassName);
-            }
-            
-            return program;
+        // Parse import name: unit.Class
+        String[] parts = importName.split("\\.");
+        if (parts.length != 2) {
+            throw new ProgramError(
+                "Invalid import format: '" + importName + "'\n" +
+                "Expected format: unit.Class (e.g., sample.Imported)"
+            );
         }
         
-        String dirPath = importName.replace('.', '/');
-        List<String> attemptedPaths = new ArrayList<String>();
-        ProgramNode program = null;
+        String unitName = parts[0];
+        String className = parts[1];
         
-        for (String basePath : importPaths) {
-            String fullDirPath;
-            if (basePath.isEmpty()) {
-                fullDirPath = dirPath;
+        DebugSystem.debug("IMPORTS", "Unit: " + unitName + ", Class: " + className);
+        
+        // ========== TRY BYTECODE FIRST (FAST PATH) ==========
+        if (bytecodeManager != null) {
+            TypeNode cachedType = bytecodeManager.load(unitName, className);
+            if (cachedType != null) {
+                bytecodeCacheHits++;
+                DebugSystem.debug("BYTECODE", "Loaded " + className + " from .codb (cache hit)");
+                loadedTypes.put(importName, cachedType);
+                return cachedType;
             } else {
-                fullDirPath = basePath + "/" + dirPath;
+                bytecodeCacheMisses++;
+                DebugSystem.debug("BYTECODE", "Bytecode not found for " + className + " (cache miss)");
             }
-            
-            File directory = new File(fullDirPath);
-            
-            // Use cached metadata for directory check
-            FileMetadata dirMetadata = getFileMetadata(directory);
-            if (dirMetadata.exists && dirMetadata.isDirectory) {
-                // Use cached directory listing
-                File[] files = listFilesCached(directory);
+        }
+        // ========== END BYTECODE CHECK ==========
+        
+        // Try to get index (fast path for source)
+        Index index = getIndex(unitName);
+        if (index != null) {
+            String fileName = index.getFile(className);
+            if (fileName != null) {
+                String filePath = getUnitPath(unitName) + "/" + fileName;
+                DebugSystem.debug("IMPORTS", "Found class '" + className + "' in '" + fileName + "' via index");
                 
-                if (files != null && files.length > 0) {
-                    if (files.length > 1) {
-                        DebugSystem.warn("IMPORTS", 
-                            "Multiple .cod files in directory " + fullDirPath + 
-                            " - using first found: " + files[0].getName());
-                    }
-                    
-                    for (File file : files) {
-                        String filePath = file.getAbsolutePath();
-                        attemptedPaths.add(filePath);
-                        
-                        DebugSystem.debug("IMPORTS", "Trying file in unit directory: " + filePath);
-                        
-                        try {
-                            // Use cached file loading
-                            program = loadImportFromFileCached(filePath);
-                            if (program != null) {
-                                validateUnitAgainstDirectory(importName, program, filePath);
-                                
-                                DebugSystem.debug("IMPORTS", "Successfully loaded import from: " + filePath);
-                                loadedPrograms.put(importName, program);
-                                importedUnits.put(importName, program);
-                                
-                                // Cache this import name
-                                cacheImportName(importName);
-                                
-                                registerPoliciesAndBroadcast(program, importName);
-                                
-                                return program;
+                ProgramNode program = loadImportFromFileCached(filePath);
+                if (program != null) {
+                    // Extract the TypeNode from the program
+                    for (TypeNode type : program.unit.types) {
+                        if (type.name.equals(className)) {
+                            // Save bytecode for next time
+                            if (bytecodeManager != null) {
+                                bytecodeManager.save(unitName, type);
+                                DebugSystem.debug("BYTECODE", "Saved " + className + " to .codb");
                             }
-                        } catch (ProgramError e) {
-                            throw e;
-                        } catch (Exception e) {
-                            DebugSystem.debug("IMPORTS", "Failed to load from " + filePath + ": " + e.getMessage());
+                            loadedTypes.put(importName, type);
+                            return type;
                         }
                     }
                 }
             }
             
-            String filePath = fullDirPath + ".cod";
-            attemptedPaths.add(filePath);
+            // Class not found in index
+            throw new ProgramError(
+                "Class '" + className + "' not found in unit '" + unitName + "'\n" +
+                "Available classes: " + index.getClassNames()
+            );
+        }
+        
+        // Fallback to directory scanning (slow path)
+        DebugSystem.debug("IMPORTS", "No index found, scanning directory for unit: " + unitName);
+        return resolveImportByScan(importName, unitName, className);
+    }
+    
+    /**
+     * Legacy method for ProgramNode resolution (for policies, etc.)
+     */
+    public ProgramNode resolveImportAsProgram(String importName) throws Exception {
+        if (importName == null || importName.isEmpty()) {
+            throw new InternalError("resolveImportAsProgram called with null/empty importName");
+        }
+        
+        // Check if already loaded
+        if (loadedPrograms.containsKey(importName)) {
+            return loadedPrograms.get(importName);
+        }
+        
+        // Check preloaded imports
+        if (preloadedImports.containsKey(importName)) {
+            ProgramNode program = preloadedImports.get(importName);
+            if (program != null) {
+                loadedPrograms.put(importName, program);
+                importedUnits.put(importName, program);
+                cacheImportName(importName);
+                registerPoliciesAndBroadcast(program, importName);
+                return program;
+            }
+        }
+        
+        // Resolve as TypeNode first, then wrap
+        TypeNode type = resolveImport(importName);
+        if (type != null) {
+            ProgramNode program = ASTFactory.createProgram();
+            program.unit = ASTFactory.createUnit("default", null);
+            program.unit.types.add(type);
+            loadedPrograms.put(importName, program);
+            return program;
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Fallback: resolve import by scanning directory (slow path)
+     */
+    private TypeNode resolveImportByScan(String importName, String unitName, String className) throws Exception {
+        String dirPath = unitName.replace('.', '/');
+        DebugSystem.debug("IMPORTS", "Scanning for: " + dirPath);
+        
+        List<String> pathsToTry = new ArrayList<String>();
+        
+        if (srcMainRoot != null) {
+            pathsToTry.add(srcMainRoot + "/" + dirPath);
+            pathsToTry.add(srcMainRoot + "/" + dirPath + ".cod");
+        }
+        
+        if (currentFileDirectory != null && 
+            (srcMainRoot == null || !currentFileDirectory.equals(srcMainRoot))) {
+            pathsToTry.add(currentFileDirectory + "/" + dirPath);
+            pathsToTry.add(currentFileDirectory + "/" + dirPath + ".cod");
+        }
+        
+        for (String basePath : importPaths) {
+            if (basePath == null || basePath.isEmpty()) continue;
+            if (srcMainRoot != null && basePath.equals(srcMainRoot)) continue;
             
-            DebugSystem.debug("IMPORTS", "Trying as file: " + filePath);
+            pathsToTry.add(basePath + "/" + dirPath);
+            pathsToTry.add(basePath + "/" + dirPath + ".cod");
+        }
+        
+        pathsToTry.add(dirPath);
+        pathsToTry.add(dirPath + ".cod");
+        
+        List<String> attemptedPaths = new ArrayList<String>();
+        
+        for (String fullPath : pathsToTry) {
+            if (fullPath == null) continue;
             
-            try {
-                // Use cached file loading
-                program = loadImportFromFileCached(filePath);
-                if (program != null) {
-                    validateUnitAgainstDirectory(importName, program, filePath);
-                    
-                    DebugSystem.debug("IMPORTS", "Successfully loaded import from: " + filePath);
-                    loadedPrograms.put(importName, program);
-                    importedUnits.put(importName, program);
-                    
-                    // Cache this import name
-                    cacheImportName(importName);
-                    
-                    registerPoliciesAndBroadcast(program, importName);
-                    
-                    return program;
+            File file = new File(fullPath);
+            String absolutePath = file.getAbsolutePath();
+            attemptedPaths.add(absolutePath);
+            
+            DebugSystem.debug("IMPORTS", "Checking: " + absolutePath);
+            
+            if (file.exists() && file.isFile()) {
+                DebugSystem.debug("IMPORTS", "FOUND import at: " + absolutePath);
+                try {
+                    ProgramNode program = loadImportFromFileCached(absolutePath);
+                    if (program != null) {
+                        if (program.unit != null && program.unit.name != null) {
+                            if (!program.unit.name.equals(importName)) {
+                                DebugSystem.warn("IMPORTS", 
+                                    "Imported file unit name '" + program.unit.name + 
+                                    "' does not match import name '" + importName + "'");
+                            }
+                        }
+                        
+                        // Extract the TypeNode
+                        for (TypeNode type : program.unit.types) {
+                            if (type.name.equals(className)) {
+                                // Generate index for future use
+                                Index index = generateIndex(unitName);
+                                if (index != null && !index.isEmpty()) {
+                                    index.save();
+                                    indexCache.put(unitName, index);
+                                }
+                                
+                                // Save bytecode
+                                if (bytecodeManager != null) {
+                                    bytecodeManager.save(unitName, type);
+                                    DebugSystem.debug("BYTECODE", "Saved " + className + " to .codb");
+                                }
+                                
+                                loadedTypes.put(importName, type);
+                                return type;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    DebugSystem.debug("IMPORTS", "Failed to load from " + absolutePath + ": " + e.getMessage());
                 }
-            } catch (ProgramError e) {
-                throw e;
-            } catch (Exception e) {
-                DebugSystem.debug("IMPORTS", "Failed to load from " + filePath + ": " + e.getMessage());
             }
         }
         
         StringBuilder errorMsg = new StringBuilder();
         errorMsg.append("Import not found: ").append(importName).append("\n");
         errorMsg.append("Searched in:\n");
-        for (String path : attemptedPaths) {
+        
+        Set<String> uniquePaths = new LinkedHashSet<String>(attemptedPaths);
+        for (String path : uniquePaths) {
             errorMsg.append("  - ").append(path).append("\n");
         }
-        errorMsg.append("\nExpected structure: src/main/").append(dirPath).append("/ (with .cod files)\n");
-        errorMsg.append("Or file: src/main/").append(dirPath).append(".cod");
+        
+        errorMsg.append("\nExpected structure: ").append(dirPath).append("/ (with .cod files)\n");
+        errorMsg.append("Or file: ").append(dirPath).append(".cod\n");
+        
+        if (srcMainRoot != null) {
+            errorMsg.append("\nDetected src/main/ root: ").append(srcMainRoot).append("\n");
+        }
+        if (currentFileDirectory != null) {
+            errorMsg.append("Current file directory: ").append(currentFileDirectory).append("\n");
+        }
+        errorMsg.append("Import paths: ").append(importPaths);
         
         throw new ProgramError(errorMsg.toString());
     }
@@ -534,100 +770,6 @@ public class ImportResolver {
             
             registerBroadcast(packageName, mainClassName);
         }
-    }
-
-    private void validateUnitAgainstDirectory(String expectedUnit, ProgramNode program, String filePath) {
-        if (program == null) {
-            throw new InternalError("validateUnitAgainstDirectory called with null program");
-        }
-        if (program.unit == null || program.unit.name == null) {
-            throw new ProgramError(
-                "Program has no unit declaration in file: " + filePath + "\n" +
-                "Add: unit " + expectedUnit + " at the top of the file."
-            );
-        }
-        
-        String declaredUnit = program.unit.name;
-        
-        if (!declaredUnit.equals(expectedUnit)) {
-            String calculatedUnit = calculateUnitFromFilePath(filePath);
-            
-            if (!declaredUnit.equals(calculatedUnit)) {
-                throw new ProgramError(
-                    "Unit declaration mismatch:\n" +
-                    "  File: " + filePath + "\n" +
-                    "  Declared unit: " + declaredUnit + "\n" +
-                    "  Expected unit: " + calculatedUnit + " (based on file location)\n" +
-                    "  Import requested: " + expectedUnit + "\n" +
-                    "\nUnit must match directory path relative to src/main/"
-                );
-            }
-        }
-    }
-    
-    private String calculateUnitFromFilePath(String filePath) {
-        if (filePath == null || filePath.isEmpty()) {
-            throw new InternalError("calculateUnitFromFilePath called with null/empty path");
-        }
-        
-        String normalized = filePath.replace('\\', '/');
-        
-        String srcMain = "src/main/";
-        int srcMainIndex = normalized.indexOf(srcMain);
-        
-        if (srcMainIndex == -1) {
-            for (String importPath : importPaths) {
-                if (!importPath.isEmpty() && normalized.contains(importPath + "/")) {
-                    int importPathIndex = normalized.indexOf(importPath + "/");
-                    if (importPathIndex != -1) {
-                        String relative = normalized.substring(importPathIndex + importPath.length() + 1);
-                        return calculateUnitFromRelativePath(relative);
-                    }
-                }
-            }
-            throw new ProgramError("File not under any import path: " + filePath);
-        }
-        
-        String relative = normalized.substring(srcMainIndex + srcMain.length());
-        return calculateUnitFromRelativePath(relative);
-    }
-    
-    private String calculateUnitFromRelativePath(String relativePath) {
-        if (relativePath == null) {
-            throw new InternalError("calculateUnitFromRelativePath called with null path");
-        }
-        
-        if (relativePath.endsWith(".cod")) {
-            relativePath = relativePath.substring(0, relativePath.length() - 4);
-        }
-        
-        String[] parts = relativePath.split("/");
-        List<String> unitParts = new ArrayList<String>();
-        
-        for (int i = 0; i < parts.length; i++) {
-            String part = parts[i];
-            if (part.isEmpty()) continue;
-            
-            boolean looksLikeFileName = part.length() > 0 && Character.isUpperCase(part.charAt(0));
-            
-            if (i == parts.length - 1 && looksLikeFileName) {
-                continue;
-            }
-            
-            unitParts.add(part);
-        }
-        
-        if (unitParts.isEmpty()) {
-            return "";
-        }
-        
-        StringBuilder unitName = new StringBuilder();
-        for (int i = 0; i < unitParts.size(); i++) {
-            if (i > 0) unitName.append(".");
-            unitName.append(unitParts.get(i));
-        }
-        
-        return unitName.toString();
     }
     
     private ProgramNode loadImportFromFile(String filePath) throws Exception {
@@ -687,7 +829,6 @@ public class ImportResolver {
         }
     }
 
-    // O(1) type lookup with cache
     public TypeNode findType(String qualifiedTypeName) {
         if (qualifiedTypeName == null || qualifiedTypeName.isEmpty()) {
             throw new InternalError("findType called with null/empty name");
@@ -695,7 +836,6 @@ public class ImportResolver {
         
         DebugSystem.debug("IMPORTS", "findType called for: " + qualifiedTypeName);
         
-        // Check cache first
         if (typeCache.containsKey(qualifiedTypeName)) {
             DebugSystem.debug("IMPORTS", "Type cache hit: " + qualifiedTypeName);
             return typeCache.get(qualifiedTypeName);
@@ -708,7 +848,6 @@ public class ImportResolver {
             if (found == null) {
                 throw new ProgramError("Type not found: " + qualifiedTypeName);
             }
-            // Cache the result
             typeCache.put(qualifiedTypeName, found);
             return found;
         }
@@ -722,13 +861,14 @@ public class ImportResolver {
         
         DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', type: '" + typeName + "'");
         
-        if (!loadedPrograms.containsKey(actualImportName)) {
+        if (!loadedTypes.containsKey(actualImportName)) {
             DebugSystem.debug("IMPORTS", "Import not loaded, trying to resolve: " + actualImportName);
             try {
-                ProgramNode program = resolveImport(actualImportName);
-                if (program == null) {
+                TypeNode type = resolveImport(actualImportName);
+                if (type == null) {
                     throw new ProgramError("Failed to resolve import: " + actualImportName);
                 }
+                loadedTypes.put(actualImportName, type);
             } catch (ProgramError e) {
                 throw e;
             } catch (Exception e) {
@@ -736,70 +876,29 @@ public class ImportResolver {
             }
         }
         
-        DebugSystem.debug("IMPORTS", "Searching for type '" + typeName + "' in loaded program: " + actualImportName);
-        
-        ProgramNode program = loadedPrograms.get(actualImportName);
-        if (program != null && program.unit != null && program.unit.types != null) {
-            for (TypeNode type : program.unit.types) {
-                DebugSystem.debug("IMPORTS", "  Checking type: " + type.name);
-                if (type.name.equals(typeName)) {
-                    DebugSystem.debug("IMPORTS", "    *** FOUND TYPE: " + type.name + " ***");
-                    // Cache the result
-                    typeCache.put(qualifiedTypeName, type);
-                    typeCache.put(typeName, type); // Also cache by simple name if unique
-                    return type;
-                }
-            }
-        }
-        
-        throw new ProgramError(
-            "Type not found: '" + qualifiedTypeName + "'\n" +
-            "Available types in import '" + actualImportName + "': " + 
-            getTypeNames(program)
-        );
-    }
-    
-    private String getTypeNames(ProgramNode program) {
-        if (program == null || program.unit == null || program.unit.types == null) {
-            return "none";
-        }
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < program.unit.types.size(); i++) {
-            if (i > 0) sb.append(", ");
-            sb.append(program.unit.types.get(i).name);
-        }
-        return sb.toString();
+        return loadedTypes.get(actualImportName);
     }
 
     private TypeNode findTypeByName(String typeName) {
-        // Check cache first
         if (typeCache.containsKey(typeName)) {
             return typeCache.get(typeName);
         }
         
-        for (Map.Entry<String, ProgramNode> entry : loadedPrograms.entrySet()) {
-            ProgramNode program = entry.getValue();
-            if (program != null && program.unit != null && program.unit.types != null) {
-                for (TypeNode type : program.unit.types) {
-                    if (type.name.equals(typeName)) {
-                        typeCache.put(typeName, type);
-                        return type;
-                    }
-                }
+        for (Map.Entry<String, TypeNode> entry : loadedTypes.entrySet()) {
+            TypeNode type = entry.getValue();
+            if (type != null && type.name.equals(typeName)) {
+                typeCache.put(typeName, type);
+                return type;
             }
         }
         
         for (String importName : registeredImports) {
             if (importName.endsWith("." + typeName)) {
                 try {
-                    ProgramNode program = resolveImport(importName);
-                    if (program != null && program.unit != null && program.unit.types != null) {
-                        for (TypeNode type : program.unit.types) {
-                            if (type.name.equals(typeName)) {
-                                typeCache.put(typeName, type);
-                                return type;
-                            }
-                        }
+                    TypeNode type = resolveImport(importName);
+                    if (type != null) {
+                        typeCache.put(typeName, type);
+                        return type;
                     }
                 } catch (Exception e) {
                     DebugSystem.debug("IMPORTS", "Failed to load " + importName + " while searching for " + typeName);
@@ -810,33 +909,50 @@ public class ImportResolver {
         return null;
     }
 
-    // Clear cache method for testing/refresh
     public void clearCache() {
         importNameCache.clear();
         typeCache.clear();
+        indexCache.clear();
         fileCache.clear();
         fileMetadataCache.clear();
+        loadedTypes.clear();
+        if (bytecodeManager != null) {
+            bytecodeManager.clearCache();
+        }
         fileCacheHits = 0;
         fileCacheMisses = 0;
         metadataCacheHits = 0;
         metadataCacheMisses = 0;
+        indexCacheHits = 0;
+        indexCacheMisses = 0;
+        bytecodeCacheHits = 0;
+        bytecodeCacheMisses = 0;
         DebugSystem.debug("IMPORTS_CACHE", "All caches cleared");
     }
     
-    // Get cache statistics
     public Map<String, Object> getCacheStats() {
         Map<String, Object> stats = new HashMap<String, Object>();
         stats.put("importNameCache", importNameCache.size());
         stats.put("typeCache", typeCache.size());
+        stats.put("indexCache", indexCache.size());
         stats.put("fileCache", fileCache.size());
         stats.put("fileMetadataCache", fileMetadataCache.size());
+        stats.put("loadedTypes", loadedTypes.size());
         stats.put("fileCacheHits", fileCacheHits);
         stats.put("fileCacheMisses", fileCacheMisses);
         stats.put("metadataCacheHits", metadataCacheHits);
         stats.put("metadataCacheMisses", metadataCacheMisses);
+        stats.put("indexCacheHits", indexCacheHits);
+        stats.put("indexCacheMisses", indexCacheMisses);
+        stats.put("bytecodeCacheHits", bytecodeCacheHits);
+        stats.put("bytecodeCacheMisses", bytecodeCacheMisses);
+        if (bytecodeManager != null) {
+            stats.put("bytecodeStats", bytecodeManager.getCacheStats());
+        }
         
-        double hitRate = (fileCacheHits + metadataCacheHits) / 
-            (double)(fileCacheHits + fileCacheMisses + metadataCacheHits + metadataCacheMisses + 1) * 100;
+        double hitRate = (fileCacheHits + metadataCacheHits + indexCacheHits + bytecodeCacheHits) / 
+            (double)(fileCacheHits + fileCacheMisses + metadataCacheHits + metadataCacheMisses + 
+                     indexCacheHits + indexCacheMisses + bytecodeCacheHits + bytecodeCacheMisses + 1) * 100;
         stats.put("cacheHitRate", String.format("%.1f%%", hitRate));
         
         return stats;
@@ -864,33 +980,14 @@ public class ImportResolver {
         
         DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', method: '" + methodName + "'");
         
-        if (!loadedPrograms.containsKey(actualImportName)) {
-            DebugSystem.debug("IMPORTS", "Import not loaded, trying to resolve: " + actualImportName);
-            try {
-                ProgramNode program = resolveImport(actualImportName);
-                if (program == null) {
-                    throw new ProgramError("Failed to resolve import: " + actualImportName);
-                }
-            } catch (ProgramError e) {
-                throw e;
-            } catch (Exception e) {
-                throw new InternalError("Unexpected error resolving import: " + actualImportName, e);
-            }
-        }
-        
-        DebugSystem.debug("IMPORTS", "Searching for method '" + methodName + "' in loaded program: " + actualImportName);
-        
-        ProgramNode program = loadedPrograms.get(actualImportName);
-        if (program != null && program.unit != null && program.unit.types != null) {
-            for (TypeNode type : program.unit.types) {
-                DebugSystem.debug("IMPORTS", "  Searching in type: " + type.name);
-                
-                for (MethodNode method : type.methods) {
-                    DebugSystem.debug("IMPORTS", "    Checking method: " + method.methodName);
-                    if (method.methodName.equals(methodName)) {
-                        DebugSystem.debug("IMPORTS", "    *** FOUND METHOD: " + method.methodName + " ***");
-                        return method;
-                    }
+        TypeNode type = findType(actualImportName);
+        if (type != null) {
+            DebugSystem.debug("IMPORTS", "Searching for method '" + methodName + "' in type: " + type.name);
+            for (MethodNode method : type.methods) {
+                DebugSystem.debug("IMPORTS", "    Checking method: " + method.methodName);
+                if (method.methodName.equals(methodName)) {
+                    DebugSystem.debug("IMPORTS", "    *** FOUND METHOD: " + method.methodName + " ***");
+                    return method;
                 }
             }
         }
@@ -898,22 +995,18 @@ public class ImportResolver {
         throw new ProgramError(
             "Method not found: '" + qualifiedMethodName + "'\n" +
             "Available methods in import '" + actualImportName + "': " + 
-            getMethodNames(program)
+            getMethodNames(type)
         );
     }
     
-    private String getMethodNames(ProgramNode program) {
-        if (program == null || program.unit == null || program.unit.types == null) {
+    private String getMethodNames(TypeNode type) {
+        if (type == null || type.methods == null || type.methods.isEmpty()) {
             return "none";
         }
         StringBuilder sb = new StringBuilder();
-        boolean first = true;
-        for (TypeNode type : program.unit.types) {
-            for (MethodNode method : type.methods) {
-                if (!first) sb.append(", ");
-                sb.append(type.name).append(".").append(method.methodName);
-                first = false;
-            }
+        for (int i = 0; i < type.methods.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(type.methods.get(i).methodName);
         }
         return sb.toString();
     }
@@ -959,20 +1052,42 @@ public class ImportResolver {
         DebugSystem.debug("IMPORTS", "=== IMPORT RESOLVER STATUS ===");
         DebugSystem.debug("IMPORTS", "Import paths: " + importPaths);
         DebugSystem.debug("IMPORTS", "Loaded imports: " + importedUnits.keySet());
+        DebugSystem.debug("IMPORTS", "Loaded types: " + loadedTypes.keySet());
         DebugSystem.debug("IMPORTS", "Registered imports (lazy): " + registeredImports);
         DebugSystem.debug("IMPORTS", "Registered policies: " + getRegisteredPolicies());
         DebugSystem.debug("IMPORTS", "Import name cache size: " + importNameCache.size());
         DebugSystem.debug("IMPORTS", "Type cache size: " + typeCache.size());
+        DebugSystem.debug("IMPORTS", "Index cache size: " + indexCache.size());
         DebugSystem.debug("IMPORTS", "File cache size: " + fileCache.size());
         DebugSystem.debug("IMPORTS", "File metadata cache size: " + fileMetadataCache.size());
+        if (bytecodeManager != null) {
+            DebugSystem.debug("IMPORTS", "Bytecode stats: " + bytecodeManager.getCacheStats());
+        }
         
         Map<String, Object> stats = getCacheStats();
         DebugSystem.debug("IMPORTS", "File cache hits: " + stats.get("fileCacheHits"));
         DebugSystem.debug("IMPORTS", "File cache misses: " + stats.get("fileCacheMisses"));
         DebugSystem.debug("IMPORTS", "Metadata cache hits: " + stats.get("metadataCacheHits"));
         DebugSystem.debug("IMPORTS", "Metadata cache misses: " + stats.get("metadataCacheMisses"));
+        DebugSystem.debug("IMPORTS", "Index cache hits: " + stats.get("indexCacheHits"));
+        DebugSystem.debug("IMPORTS", "Index cache misses: " + stats.get("indexCacheMisses"));
+        DebugSystem.debug("IMPORTS", "Bytecode cache hits: " + stats.get("bytecodeCacheHits"));
+        DebugSystem.debug("IMPORTS", "Bytecode cache misses: " + stats.get("bytecodeCacheMisses"));
         DebugSystem.debug("IMPORTS", "Cache hit rate: " + stats.get("cacheHitRate"));
+        DebugSystem.debug("IMPORTS", "Loaded types: " + stats.get("loadedTypes"));
 
+        for (Map.Entry<String, TypeNode> entry : loadedTypes.entrySet()) {
+            String typeName = entry.getKey();
+            TypeNode type = entry.getValue();
+            DebugSystem.debug("IMPORTS", "Type: " + typeName);
+            if (type != null && type.methods != null) {
+                DebugSystem.debug("IMPORTS", "  Methods: " + type.methods.size());
+                for (MethodNode method : type.methods) {
+                    DebugSystem.debug("IMPORTS", "    Method: " + method.methodName);
+                }
+            }
+        }
+        
         for (Map.Entry<String, ProgramNode> entry : importedUnits.entrySet()) {
             String unitName = entry.getKey();
             ProgramNode program = entry.getValue();
@@ -1017,7 +1132,6 @@ public class ImportResolver {
         loadedPrograms.put(qualifiedName, program);
         preloadedImports.put(qualifiedName, program);
         
-        // Cache this import name
         cacheImportName(qualifiedName);
         
         DebugSystem.debug("IMPORTS", "Pre-loaded import into resolver: " + qualifiedName);
@@ -1030,18 +1144,41 @@ public class ImportResolver {
             }
         }
         
-        // Pre-cache types from this import
         if (program.unit != null && program.unit.types != null) {
             for (TypeNode type : program.unit.types) {
                 String qualifiedTypeName = program.unit.name + "." + type.name;
                 typeCache.put(qualifiedTypeName, type);
-                typeCache.put(type.name, type); // Also cache by simple name
+                typeCache.put(type.name, type);
+                loadedTypes.put(qualifiedTypeName, type);
+                
+                // Pre-save bytecode if available
+                if (bytecodeManager != null) {
+                    bytecodeManager.save(program.unit.name, type);
+                }
+            }
+        }
+        
+        // Preload index for this unit
+        if (program.unit != null && program.unit.name != null) {
+            String unitName = program.unit.name;
+            Index index = new Index(unitName);
+            for (TypeNode type : program.unit.types) {
+                String fileName = type.name + ".cod";
+                index.add(type.name, fileName);
+            }
+            if (!index.isEmpty()) {
+                index.save();
+                indexCache.put(unitName, index);
             }
         }
     }
 
     public Map<String, ProgramNode> getLoadedPrograms() {
         return loadedPrograms;
+    }
+
+    public Map<String, TypeNode> getLoadedTypes() {
+        return loadedTypes;
     }
 
     public Set<String> getLoadedImports() {

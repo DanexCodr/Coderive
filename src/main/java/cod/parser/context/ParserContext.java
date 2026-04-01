@@ -34,7 +34,7 @@ public final class ParserContext {
     return token;
   }
   
-    public boolean consume(TokenType expected) {
+  public boolean consume(TokenType expected) {
     Token token = state.now();
     if (is(token, expected)) {
       state = state.advance();
@@ -54,7 +54,7 @@ public final class ParserContext {
             + expected
             + ", got "
             + (nil(token) ? "EOF" : token.type)
-            + (!nil(token) && !nil(token.text) ? " ('" + token.text + "')" : ""),
+            + (!nil(token) && token.getLength() > 0 ? " ('" + token.getText() + "')" : ""),
         !nil(token) ? token.line : state.getLine(),
         !nil(token) ? token.column : state.getColumn());
   }
@@ -70,7 +70,7 @@ public final class ParserContext {
             + expected
             + "', got "
             + (nil(token) ? "EOF" : token.type)
-            + (!nil(token) && !nil(token.text) ? " ('" + token.text + "')" : ""),
+            + (!nil(token) && token.getLength() > 0 ? " ('" + token.getText() + "')" : ""),
         !nil(token) ? token.line : state.getLine(),
         !nil(token) ? token.column : state.getColumn());
   }
@@ -85,7 +85,7 @@ public final class ParserContext {
         "Expected keyword '"
             + expected
             + "', got "
-            + (nil(token) ? "EOF" : token.type + (!nil(token.text) ? " ('" + token.text + "')" : "")),
+            + (nil(token) ? "EOF" : token.type + (token.getLength() > 0 ? " ('" + token.getText() + "')" : "")),
         !nil(token) ? token.line : state.getLine(),
         !nil(token) ? token.column : state.getColumn());
   }

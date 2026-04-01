@@ -6,34 +6,37 @@ import cod.syntax.*;
 public final class ObjectChecker {
   private ObjectChecker() {}
 
-  // TokenType check - FIXED
+  // TokenType check - optimized with direct type comparison
   public static boolean is(Token token, TokenType... types) {
     if (token == null) return false;
-    if (token.type == null) return false;
+    TokenType tokenType = token.type;
+    if (tokenType == null) return false;
     for (TokenType type : types) {
-      if (token.type == type) return true;
+      if (tokenType == type) return true;
     }
     return false;
   }
 
-  // Symbol check - FIXED
+  // Symbol check - fast direct symbol comparison
   public static boolean is(Token token, Symbol... symbols) {
     if (token == null) return false;
     if (token.type != TokenType.SYMBOL) return false;
-    if (token.symbol == null) return false;
+    Symbol tokenSymbol = token.symbol;
+    if (tokenSymbol == null) return false;
     for (Symbol symbol : symbols) {
-      if (token.symbol == symbol) return true;
+      if (tokenSymbol == symbol) return true;
     }
     return false;
   }
 
-  // Keyword check - FIXED
+  // Keyword check - fast direct keyword comparison
   public static boolean is(Token token, Keyword... keywords) {
     if (token == null) return false;
     if (token.type != TokenType.KEYWORD) return false;
-    if (token.keyword == null) return false;
+    Keyword tokenKeyword = token.keyword;
+    if (tokenKeyword == null) return false;
     for (Keyword keyword : keywords) {
-      if (token.keyword == keyword) return true;
+      if (tokenKeyword == keyword) return true;
     }
     return false;
   }

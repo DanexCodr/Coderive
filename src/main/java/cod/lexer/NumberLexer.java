@@ -20,83 +20,80 @@ public class NumberLexer {
     }
 
     private Token readNumber() {
-        int line = lexer.line;
-        int col = lexer.column;
-
-        StringBuilder sb = new StringBuilder();
+        int startLine = lexer.line;
+        int startCol = lexer.column;
+        int startPos = lexer.getPosition();
+        int length = 0;
         boolean isFloat = false;
 
         // Read integer part
-        while (lexer.getPosition() < lexer.getInput().length() && 
+        while (lexer.getPosition() < lexer.getInput().length && 
                Character.isDigit(lexer.peek())) {
-            sb.append(lexer.consume());
+            lexer.consume();
+            length++;
         }
 
         // Check for decimal point
         if (lexer.peek() == '.' && lexer.peek(1) != '.') {
             isFloat = true;
-            sb.append(lexer.consume()); // consume the '.'
+            lexer.consume();
+            length++;
 
             // Read fractional part
-            while (lexer.getPosition() < lexer.getInput().length() && 
+            while (lexer.getPosition() < lexer.getInput().length && 
                    Character.isDigit(lexer.peek())) {
-                sb.append(lexer.consume());
+                lexer.consume();
+                length++;
             }
         }
 
         // Check for scientific notation
         if (lexer.peek() == 'e' || lexer.peek() == 'E') {
             isFloat = true;
-            sb.append(lexer.consume()); // consume 'e' or 'E'
+            lexer.consume();
+            length++;
 
             // Optional sign
             if (lexer.peek() == '+' || lexer.peek() == '-') {
-                sb.append(lexer.consume());
+                lexer.consume();
+                length++;
             }
 
             // Exponent digits
             if (Character.isDigit(lexer.peek())) {
-                while (lexer.getPosition() < lexer.getInput().length() && 
+                while (lexer.getPosition() < lexer.getInput().length && 
                        Character.isDigit(lexer.peek())) {
-                    sb.append(lexer.consume());
+                    lexer.consume();
+                    length++;
                 }
             }
         }
 
         // Check for numeric suffixes
-        String suffix = readSuffix();
-        if (!suffix.isEmpty()) {
-            sb.append(suffix);
-            isFloat = true;
+        if (lexer.getPosition() < lexer.getInput().length) {
+            char c = lexer.peek();
+            if (c == 'K' || c == 'M' || c == 'B' || c == 'T') {
+                isFloat = true;
+                lexer.consume();
+                length++;
+            } else if (c == 'Q') {
+                isFloat = true;
+                lexer.consume();
+                length++;
+                if (lexer.peek() == 'i') {
+                    lexer.consume();
+                    length++;
+                }
+            }
         }
 
-        String numberText = sb.toString();
+        char[] source = lexer.getInputArray();
         
         // Store extracted number
-        extractedNumbers.add(new NumberValue(numberText, isFloat, line, col));
+        String numberText = new String(source, startPos, length);
+        extractedNumbers.add(new NumberValue(numberText, isFloat, startLine, startCol));
 
-        return Token.createNumber(numberText, isFloat, line, col);
-    }
-
-    private String readSuffix() {
-        if (lexer.getPosition() >= lexer.getInput().length()) return "";
-
-        char c1 = lexer.peek();
-
-        if (c1 == 'K' || c1 == 'M' || c1 == 'B' || c1 == 'T') {
-            return String.valueOf(lexer.consume());
-        }
-
-        if (c1 == 'Q') {
-            lexer.consume();
-            if (lexer.peek() == 'i') {
-                lexer.consume();
-                return "Qi";
-            }
-            return "Q";
-        }
-
-        return "";
+        return Token.createNumber(source, startPos, length, isFloat, startLine, startCol);
     }
 
     public List<NumberValue> extractAllNumbers() {
@@ -109,7 +106,7 @@ public class NumberLexer {
         lexer.line = 1;
         lexer.column = 1;
 
-        while (lexer.getPosition() < lexer.getInput().length()) {
+        while (lexer.getPosition() < lexer.getInput().length) {
             Token token = scan();
             if (token == null) {
                 lexer.consume();

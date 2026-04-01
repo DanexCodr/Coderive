@@ -1,6 +1,8 @@
+unit test
+
+Intective {
     // Supporting both else-if and elif
-    local calculate(a: int, b: int, op: text)
-    :: formula: int|float, operation: text {  
+    local calculate(a: int, b: int, op: text) :: formula: int|float, operation: text {  
         if op == "+" {
            // Combined return: both slots in one statement
            ~> formula: a + b, operation: "addition"
@@ -23,6 +25,7 @@
 
     local haha(a: int) :: x: int, y: int {
     	// Without '~> value' this will make a compile error
+        ~> 0, 0
     }
 
     
@@ -324,6 +327,4 @@
         outs(".") outs(".") outs(".")
         out(" Complete!")
     }
-    
-    
-   
+    }

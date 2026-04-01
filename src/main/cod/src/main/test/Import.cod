@@ -1,0 +1,10 @@
+unit test
+
+use {sample.Imported}
+
+Hello {
+	
+	main() {
+		Imported.hello()
+		}
+	}

@@ -23,6 +23,7 @@ public abstract class BaseParser {
     this.tokens = ctx.getTokens();
   }
   
+  // Fast token type checks - zero allocation
   protected boolean is(Symbol... sb) {
     return is(now(), sb);
   }
@@ -46,12 +47,39 @@ public abstract class BaseParser {
   protected boolean is(Token tk, TokenType... type) {
     return ObjectChecker.is(tk, type);
   }
+  
   protected boolean any(boolean... values) {
     return ObjectChecker.any(values);
   }
 
   protected boolean nil(Object... obj) {
     return ObjectChecker.nil(obj);
+  }
+  
+  // Fast token text access - zero allocation for comparisons
+  protected boolean matches(String expected) {
+    Token t = now();
+    return t != null && t.matches(expected);
+  }
+  
+  protected boolean matchesIgnoreCase(String expected) {
+    Token t = now();
+    return t != null && t.matchesIgnoreCase(expected);
+  }
+  
+  protected String getText() {
+    Token t = now();
+    return t != null ? t.getText() : "";
+  }
+  
+  protected char charAt(int index) {
+    Token t = now();
+    return t != null ? t.charAt(index) : '\0';
+  }
+  
+  protected boolean startsWith(String prefix) {
+    Token t = now();
+    return t != null && t.startsWith(prefix);
   }
   
   protected Token expect(TokenType expectedType) {
@@ -81,16 +109,15 @@ public abstract class BaseParser {
     }
   }
 
-protected <T> T attempt(final ParserAction<T> action) {
+  protected <T> T attempt(final ParserAction<T> action) {
     ctx.save();
-    
     try {
         return let(action);
     } catch (ParseError e) {
         ctx.restore();
         throw e;
     }
-}
+  }
 
   protected <T> T tryParse(ParserAction<T> action) {
     ctx.save();
@@ -122,7 +149,6 @@ protected <T> T attempt(final ParserAction<T> action) {
 
   protected <T> T parseInIsolation(ParserAction<T> action) {
     ParserState originalState = ctx.getState();
-    
     try {
       T result = action.parse();
       return result;
@@ -140,7 +166,7 @@ protected <T> T attempt(final ParserAction<T> action) {
     Token now = now();
     if (!is(now, ID)) return false;
 
-    String name = now.text;
+    String name = now.getText();
     if (name.length() == 0 || !Character.isUpperCase(name.charAt(0))) {
         return false;
     }
@@ -253,16 +279,16 @@ protected <T> T attempt(final ParserAction<T> action) {
   protected String parseQualifiedName() {
     StringBuilder name = new StringBuilder();
 
-    name.append(expect(ID).text);
+    name.append(expect(ID).getText());
 
     while (consume(DOT)) {
       name.append(".");
 
       Token next = now();
       if (is(next, ID)) {
-        name.append(expect(ID).text);
+        name.append(expect(ID).getText());
       } else if (canBeMethod(next)) {
-        name.append(expect(KEYWORD).text);
+        name.append(expect(KEYWORD).getText());
       } else {
         throw error("Expected identifier or method keyword after '.'");
       }
@@ -292,7 +318,7 @@ protected <T> T attempt(final ParserAction<T> action) {
     } else {
       Token typeToken = now();
       if (isTypeStart(typeToken) && !is(typeToken, LBRACKET)) {
-        String typeName = consume().text;
+        String typeName = consume().getText();
         type.append(typeName);
       } else {
         throw error("Expected type name");

@@ -1,5 +1,6 @@
 package cod.math;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
 /**
@@ -12,7 +13,9 @@ import java.util.Arrays;
  * Now with proper overflow checking! When a result exceeds 7 stacks,
  * an ArithmeticException is thrown rather than silent truncation.
  */
-public class AutoStackingNumber implements Comparable<AutoStackingNumber> {
+public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Serializable {
+
+public static final long serialVersionUID = 1L;
     
     // Maximum stacks (lucky number 7!)
     public static final int MAX_STACKS = 7;

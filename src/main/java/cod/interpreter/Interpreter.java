@@ -77,11 +77,17 @@ public class Interpreter {
 
   public void setFilePath(String filePath) {
     if (filePath == null || filePath.isEmpty()) {
-      throw new InternalError("setFilePath called with null/empty path");
+        throw new InternalError("setFilePath called with null/empty path");
     }
     this.currentFilePath = filePath;
+    
+    // CRITICAL: Pass the file path to import resolver so it can resolve imports relative to this file
+    if (importResolver != null) {
+        importResolver.setCurrentFileDirectory(filePath);
+    }
+    
     DebugSystem.debug("INTERPRETER", "Set file path: " + filePath);
-  }
+}
   
   public String getCurrentFilePath() {
     return currentFilePath;
@@ -122,11 +128,11 @@ public class Interpreter {
     return currentProgram;
   }
 
-public Object evalReplStatement(
-    StmtNode stmt,
-    ObjectInstance obj,
-    Map<String, Object> locals,
-    Map<String, Object> slotValues) {
+  public Object evalReplStatement(
+      StmtNode stmt,
+      ObjectInstance obj,
+      Map<String, Object> locals,
+      Map<String, Object> slotValues) {
     
     if (stmt == null) {
         throw new InternalError("evalReplStatement called with null stmt");
@@ -156,7 +162,7 @@ public Object evalReplStatement(
     } finally {
         visitor.popContext();
     }
-}
+  }
 
   public void run(ProgramNode program) {
     if (program == null) {
@@ -200,6 +206,63 @@ public Object evalReplStatement(
       ioHandler.close();
     }
   }
+  
+public void runType(TypeNode typeNode) {
+    if (typeNode == null) {
+        throw new InternalError("runType called with null typeNode");
+    }
+    
+    DebugSystem.startTimer("program_execution");
+    DebugSystem.info("INTERPRETER", "Starting type execution for: " + typeNode.name);
+    
+    // Find main method
+    MethodNode mainMethod = null;
+    for (MethodNode method : typeNode.methods) {
+        if ("main".equals(method.methodName) && method.parameters.isEmpty()) {
+            mainMethod = method;
+            break;
+        }
+    }
+    
+    if (mainMethod == null) {
+        throw new ProgramError("No main() method found in " + typeNode.name);
+    }
+    
+    ObjectInstance obj = new ObjectInstance(typeNode);
+    Map<String, Object> locals = new HashMap<String, Object>();
+    ExecutionContext ctx = new ExecutionContext(obj, locals, null, null, typeSystem);
+    
+    visitor.pushContext(ctx);
+    
+    try {
+        for (StmtNode stmt : mainMethod.body) {
+            visitor.visit(stmt);
+        }
+    } catch (ProgramError e) {
+        throw e;
+    } catch (Exception e) {
+        throw new InternalError("Type execution failed: " + typeNode.name, e);
+    } finally {
+        visitor.popContext();
+        DebugSystem.stopTimer("program_execution");
+        DebugSystem.info("INTERPRETER", "Type execution completed");
+        ioHandler.close();
+    }
+}
+
+public void run(Object entryPoint) {
+    if (entryPoint == null) {
+        throw new InternalError("run called with null entryPoint");
+    }
+    
+    if (entryPoint instanceof ProgramNode) {
+        run((ProgramNode) entryPoint);
+    } else if (entryPoint instanceof TypeNode) {
+        runType((TypeNode) entryPoint);
+    } else {
+        throw new ProgramError("Invalid entry point type: " + entryPoint.getClass().getName());
+    }
+}
 
   // ========== UPDATED BROADCAST DETECTION WITH MODULAR LEXER ==========
   
@@ -324,7 +387,7 @@ public Object evalReplStatement(
                 while (j < tokens.size()) {
                     Token next = tokens.get(j);
                     if (next.type == TokenType.ID) {
-                        unitName = next.text;
+                        unitName = next.getText();
                         j++;
                         break;
                     }
@@ -339,12 +402,12 @@ public Object evalReplStatement(
                         // Parse inside parentheses
                         while (j < tokens.size()) {
                             Token inside = tokens.get(j);
-                            if (inside.type == TokenType.ID && inside.text.equals("main")) {
+                            if (inside.type == TokenType.ID && inside.getText().equals("main")) {
                                 j++;
                                 if (j < tokens.size() && tokens.get(j).isSymbol(COLON)) {
                                     j++;
                                     if (j < tokens.size() && tokens.get(j).type == TokenType.ID) {
-                                        mainClass = tokens.get(j).text;
+                                        mainClass = tokens.get(j).getText();
                                         break;
                                     }
                                 }
@@ -386,8 +449,8 @@ public Object evalReplStatement(
         
         // Look for class name (uppercase identifier not followed by '(')
         if (t.type == TokenType.ID && 
-            t.text.length() > 0 && 
-            Character.isUpperCase(t.text.charAt(0))) {
+            t.getLength() > 0 && 
+            Character.isUpperCase(t.charAt(0))) {
             
             // Check if it's a class (followed by {, is, or with)
             if (i + 1 < tokens.size()) {
@@ -920,7 +983,7 @@ public Object evalReplStatement(
     return hasSlots ? slotValues : result;
   }
 
- @SuppressWarnings("unchecked")
+  @SuppressWarnings("unchecked")
   public Object evalMethodCall(
       MethodCallNode call, ObjectInstance obj, Map<String, Object> locals, MethodNode methodParam) {
     
