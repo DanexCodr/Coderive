@@ -2,6 +2,22 @@
 
 All notable changes to Coderive are documented in this file.
 
+## [v0.7.4] - Be Structured - April 01, 2026
+
+### ✨ Major Updates Since v0.7.0
+- **Browser runtime migration** — Replaced the CheerpJ-based playground path with a pure JavaScript Coderive runtime for faster startup and no Java boot delay in the web playground.
+- **Playground loading UX improvements** — Added a clearer multi-step loading flow and earlier runtime preloading to improve perceived responsiveness.
+- **Repository automation updates** — Added workflow support for source jar refresh and branch-cleanup automation updates.
+
+### 🔧 Stability & Runtime Fixes
+- **Text literal handling fixes** — Corrected text literal extraction paths and cleaned related parser debug noise.
+- **Decimal output formatting improvements** — Improved numeric formatting consistency for decimal output.
+- **Param skip and test/runtime polish** — Follow-up fixes for parameter skip behavior and associated runtime/testing paths.
+
+### 🧪 Validation Notes
+- Ran existing Gradle test task (`./gradlew test`) successfully.
+- Ran unit `.cod` files under `src/main/cod/src/main/test/` with `CommandRunner`; current repo still has pre-existing issues in some interactive/import/broadcast test files (for example: `Broadcast.cod`, `Import.cod`, `Interactive.cod`, `Parity.cod`) that are not introduced by this release-note update.
+
 ## [v0.7.0] - Be Structured - March 06, 2026
 
 ### 🚨 Breaking Changes

@@ -10,7 +10,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-0.7.0-536af5?style=flat-square&logo=github)](https://github.com/DanexCodr/Coderive/releases)
+[![Version](https://img.shields.io/badge/version-0.7.4-536af5?style=flat-square&logo=github)](https://github.com/DanexCodr/Coderive/releases)
 [![Java](https://img.shields.io/badge/requires-Java%207%2B-ed8b00?style=flat-square&logo=openjdk&logoColor=white)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-MIT-f5de53?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/DanexCodr/Coderive?style=flat-square&color=7289da&logo=github)](https://github.com/DanexCodr/Coderive/stargazers)
