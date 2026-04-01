@@ -7,12 +7,10 @@ import cod.debug.DebugSystem;
 import cod.error.InternalError;
 import cod.error.ProgramError;
 import cod.math.AutoStackingNumber;
-import cod.range.NaturalArray;
-import cod.range.MultiRangeSpec;
-import cod.range.RangeSpec;
+import cod.range.*;
 import cod.range.formula.*;
 import cod.range.pattern.*;
-import cod.interpreter.registry.LiteralRegistry;
+import cod.interpreter.registry.*;
 import cod.interpreter.context.*;
 import cod.interpreter.exception.*;
 import cod.interpreter.handler.*;
@@ -46,7 +44,10 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     private final ExpressionHandler expressionHandler;
     private final AssignmentHandler assignmentHandler;
     
-    private final LiteralRegistry literalRegistry;  
+    private final LiteralRegistry literalRegistry;
+    
+    // ========== SIMPLE LOOP OPTIMIZATION CONSTANTS ==========
+    private static final int LAZY_THRESHOLD = 10;  // From your data: 10+ iterations = worth it
 
     public InterpreterVisitor(Interpreter interpreter, TypeHandler typeSystem, 
                               LiteralRegistry literalRegistry) {
@@ -405,6 +406,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
     }
 
+    // ========== UPDATED FOR NODE WITH SIMPLE LOOP DECISION ==========
     @Override
     public Object visit(ForNode node) {
         if (node == null) {
@@ -412,51 +414,39 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
         
         ExecutionContext ctx = getCurrentContext();
-        
         int originalDepth = ctx.getScopeDepth();
+        
+        // Estimate loop size before execution
+        long loopSize = estimateLoopSize(node, ctx);
+        boolean hasSideEffects = hasSideEffects(node.body);
+        
+        // Simple decision: should we try lazy execution?
+        boolean useLazyExecution = shouldUseLazyExecution(loopSize, hasSideEffects);
+        
+        // Start tracking this loop
+        int loopId = ArrayTracker.beginLoop(node);
+        
+        // Store estimated size in tracker
+        ArrayTracker.setLoopSize(loopId, loopSize);
+        ArrayTracker.setSideEffects(loopId, hasSideEffects);
         
         try {
             ctx.pushScope();
             
-            OutputAwarePattern.OutputPattern outputPattern = 
-                OutputAwarePattern.extract(node, node.iterator);
-            
-            if (outputPattern.isOptimizable) {
-                try {
-                    return executeOutputAwareLoop(node, outputPattern);
-                } catch (Exception e) {
-                    DebugSystem.debug("OPTIMIZER", 
-                        "Output-aware pattern failed, falling back: " + e.getMessage());
+            // Try lazy execution if beneficial
+            if (useLazyExecution) {
+                Object result = tryOptimizedExecution(node, loopId);
+                if (result != null) {
+                    return result;
                 }
+            } else {
+                    DebugSystem.debug("LOOP", 
+                        String.format("Skipping optimization: size=%d, sideEffects=%s", 
+                            loopSize, hasSideEffects));
             }
             
-            List<PatternResult> allPatterns = new ArrayList<PatternResult>();
-            
-            for (StmtNode stmt : node.body.statements) {
-                if (stmt instanceof StmtIfNode) {
-                    StmtIfNode ifStmt = (StmtIfNode) stmt;
-                    ConditionalPattern pattern = extractConditionalPattern(ifStmt, node.iterator);
-                    if (pattern != null && pattern.isOptimizable()) {
-                        allPatterns.add(new PatternResult(PatternType.CONDITIONAL, pattern));
-                    }
-                }
-            }
-            
-            SequencePattern.Pattern seqPattern = 
-                SequencePattern.extract(node.body.statements, node.iterator);
-            if (seqPattern != null && seqPattern.isOptimizable()) {
-                allPatterns.add(new PatternResult(PatternType.SEQUENCE, seqPattern));
-            }
-            
-            if (!allPatterns.isEmpty()) {
-                try {
-                    return applyPatterns(node, allPatterns);
-                } catch (ProgramError e) {
-                    throw e;
-                } catch (Exception e) {
-                    throw new InternalError("Pattern optimization failed, falling back to normal execution", e);
-                }
-            }
+            // Normal eager execution
+            ArrayTracker.incrementIteration();
             
             if (node.range != null) {
                 return executeRangeLoop(ctx, node, node.iterator);
@@ -472,10 +462,194 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         } catch (Exception e) {
             throw new InternalError("For loop execution failed", e);
         } finally {
+            // End tracking - simple log
+            ArrayTracker.LoopStats stats = ArrayTracker.endLoop();
+            if (stats != null) {
+                DebugSystem.debug("LOOP", stats.toString());
+            }
+            
             while (ctx.getScopeDepth() > originalDepth) {
                 ctx.popScope();
             }
         }
+    }
+
+    // ========== SIMPLE LOOP DECISION METHODS ==========
+    
+    /**
+     * Simple decision: Should we try lazy execution?
+     * Based on your data: 10+ iterations is worth it
+     */
+    private boolean shouldUseLazyExecution(long loopSize, boolean hasSideEffects) {
+        // If we can't determine size, be conservative
+        if (loopSize < 0) {
+            return false;
+        }
+        
+        // Small loop: only lazy if no side effects
+        if (loopSize < LAZY_THRESHOLD) {
+            return !hasSideEffects;
+        }
+        
+        // Large loop: always worth trying
+        return true;
+    }
+    
+    /**
+     * Quick estimate of loop size (doesn't need to be perfect)
+     */
+    private long estimateLoopSize(ForNode node, ExecutionContext ctx) {
+        try {
+            if (node.range != null) {
+                // Range loop: we can calculate exactly
+                Object startObj = dispatch(node.range.start);
+                Object endObj = dispatch(node.range.end);
+                
+                startObj = typeSystem.unwrap(startObj);
+                endObj = typeSystem.unwrap(endObj);
+                
+                AutoStackingNumber start = typeSystem.toAutoStackingNumber(startObj);
+                AutoStackingNumber end = typeSystem.toAutoStackingNumber(endObj);
+                
+                AutoStackingNumber step;
+                if (node.range.step != null) {
+                    Object stepObj = dispatch(node.range.step);
+                    step = typeSystem.toAutoStackingNumber(typeSystem.unwrap(stepObj));
+                } else {
+                    step = (start.compareTo(end) > 0) ? 
+                        AutoStackingNumber.minusOne(1) : AutoStackingNumber.one(1);
+                }
+                
+                if (step.isZero()) return 0;
+                
+                AutoStackingNumber diff = end.subtract(start);
+                AutoStackingNumber steps = diff.divide(step);
+                AutoStackingNumber size = steps.add(AutoStackingNumber.one(1));
+                
+                return size.longValue();
+                
+            } else if (node.arraySource != null) {
+                // Array loop: get size from array
+                Object arrayObj = dispatch(node.arraySource);
+                arrayObj = typeSystem.unwrap(arrayObj);
+                
+                if (arrayObj instanceof NaturalArray) {
+                    NaturalArray arr = (NaturalArray) arrayObj;
+                    // Force materialization to get accurate size
+                    if (arr.hasPendingUpdates()) {
+                        arr.commitUpdates();
+                    }
+                    return arr.size();
+                } else if (arrayObj instanceof List) {
+                    return ((List<?>) arrayObj).size();
+                }
+            }
+        } catch (Exception e) {
+                DebugSystem.debug("LOOP", "Failed to estimate size: " + e.getMessage());
+            
+        }
+        
+        return -1; // Unknown size
+    }
+    
+    /**
+     * Quick side effect detection (simple version)
+     */
+    private boolean hasSideEffects(BlockNode body) {
+        if (body == null || body.statements == null) return false;
+        
+        for (StmtNode stmt : body.statements) {
+            if (stmt instanceof MethodCallNode) {
+                MethodCallNode call = (MethodCallNode) stmt;
+                // out(), outs(), in() are side effects
+                if ("out".equals(call.name) || "outs".equals(call.name) || "in".equals(call.name)) {
+                    return true;
+                }
+                // Any method call could have side effects
+                return true;
+            }
+            
+            // Check nested blocks
+            if (stmt instanceof StmtIfNode) {
+                StmtIfNode ifStmt = (StmtIfNode) stmt;
+                if (hasSideEffects(ifStmt.thenBlock) || hasSideEffects(ifStmt.elseBlock)) {
+                    return true;
+                }
+            }
+            
+            // Nested loops definitely have side effects (complex)
+            if (stmt instanceof ForNode) {
+                return true;
+            }
+            
+            // Assignments to properties could be side effects
+            if (stmt instanceof AssignmentNode) {
+                AssignmentNode assign = (AssignmentNode) stmt;
+                if (assign.left instanceof PropertyAccessNode) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Try optimized execution, return null if not possible
+     */
+    private Object tryOptimizedExecution(ForNode node, int loopId) {
+        // Try output-aware pattern first
+        OutputAwarePattern.OutputPattern outputPattern = 
+            OutputAwarePattern.extract(node, node.iterator);
+        
+        if (outputPattern.isOptimizable) {
+            try {
+                Object result = executeOutputAwareLoop(node, outputPattern);
+                ArrayTracker.markLoopOptimized(loopId);
+                return result;
+            } catch (Exception e) {
+                DebugSystem.debug("OPTIMIZER", "Output pattern failed: " + e.getMessage());
+            }
+        }
+        
+        // Try sequence pattern
+        SequencePattern.Pattern seqPattern = 
+            SequencePattern.extract(node.body.statements, node.iterator);
+        if (seqPattern != null && seqPattern.isOptimizable()) {
+            try {
+                List<PatternResult> patterns = new ArrayList<PatternResult>();
+                patterns.add(new PatternResult(PatternType.SEQUENCE, seqPattern));
+                Object result = applyPatterns(node, patterns);
+                ArrayTracker.markLoopOptimized(loopId);
+                return result;
+            } catch (Exception e) {
+                DebugSystem.debug("OPTIMIZER", "Sequence pattern failed: " + e.getMessage());
+            }
+        }
+        
+        // Try conditional patterns
+        List<PatternResult> allPatterns = new ArrayList<PatternResult>();
+        for (StmtNode stmt : node.body.statements) {
+            if (stmt instanceof StmtIfNode) {
+                StmtIfNode ifStmt = (StmtIfNode) stmt;
+                ConditionalPattern pattern = extractConditionalPattern(ifStmt, node.iterator);
+                if (pattern != null && pattern.isOptimizable()) {
+                    allPatterns.add(new PatternResult(PatternType.CONDITIONAL, pattern));
+                }
+            }
+        }
+        
+        if (!allPatterns.isEmpty()) {
+            try {
+                Object result = applyPatterns(node, allPatterns);
+                ArrayTracker.markLoopOptimized(loopId);
+                return result;
+            } catch (Exception e) {
+                DebugSystem.debug("OPTIMIZER", "Conditional pattern failed: " + e.getMessage());
+            }
+        }
+        
+        return null;
     }
 
     @Override
@@ -517,82 +691,81 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
     }
 
-@SuppressWarnings("unchecked")
-@Override
-public Object visit(ReturnSlotAssignmentNode node) {
-    if (node == null) {
-        throw new InternalError("visit(ReturnSlotAssignmentNode) called with null node");
-    }
-    
-    ExecutionContext ctx = getCurrentContext();
-    
-    Map<String, Object> allLocals = new HashMap<>();
-    for (int i = 0; i < ctx.getScopeDepth(); i++) {
-        Map<String, Object> scope = ctx.getScope(i);
-        if (scope != null) {
-            allLocals.putAll(scope);
+    @SuppressWarnings("unchecked")
+    @Override
+    public Object visit(ReturnSlotAssignmentNode node) {
+        if (node == null) {
+            throw new InternalError("visit(ReturnSlotAssignmentNode) called with null node");
         }
-    }
-    
-    try {
-        Object res = interpreter.evalMethodCall(node.methodCall, ctx.objectInstance, allLocals, null);
-
-        if (res instanceof Map) {
-            Map<String, Object> map = (Map<String, Object>) res;
-            MethodNode method = null;
-            if (ctx.objectInstance != null && ctx.objectInstance.type != null) {
-                method =
-                    interpreter
-                        .getConstructorResolver()
-                        .findMethodInHierarchy(ctx.objectInstance.type, node.methodCall.name, ctx);
+        
+        ExecutionContext ctx = getCurrentContext();
+        
+        Map<String, Object> allLocals = new HashMap<String, Object>();
+        for (int i = 0; i < ctx.getScopeDepth(); i++) {
+            Map<String, Object> scope = ctx.getScope(i);
+            if (scope != null) {
+                allLocals.putAll(scope);
             }
+        }
+        
+        try {
+            Object res = interpreter.evalMethodCall(node.methodCall, ctx.objectInstance, allLocals, null);
 
-            for (int i = 0; i < node.variableNames.size(); i++) {
-                String slot = node.methodCall.slotNames.get(i);
-                String requestedSlot = slot;
-                
-                if (!map.containsKey(requestedSlot) && method != null && method.returnSlots != null) {
-                    try {
-                        int index = Integer.parseInt(requestedSlot);
-                        if (index >= 0 && index < method.returnSlots.size()) {
-                            requestedSlot = method.returnSlots.get(index).name;
-                        }
-                    } catch (NumberFormatException e) {
-                        // Not an index
-                    }
+            if (res instanceof Map) {
+                Map<String, Object> map = (Map<String, Object>) res;
+                MethodNode method = null;
+                if (ctx.objectInstance != null && ctx.objectInstance.type != null) {
+                    method =
+                        interpreter
+                            .getConstructorResolver()
+                            .findMethodInHierarchy(ctx.objectInstance.type, node.methodCall.name, ctx);
                 }
 
-                if (map.containsKey(requestedSlot)) {
-                    Object value = map.get(requestedSlot);
+                for (int i = 0; i < node.variableNames.size(); i++) {
+                    String slot = node.methodCall.slotNames.get(i);
+                    String requestedSlot = slot;
                     
-                    if (value instanceof NaturalArray) {
-                        NaturalArray arr = (NaturalArray) value;
-                        if (arr.hasPendingUpdates()) {
-                            arr.commitUpdates();
+                    if (!map.containsKey(requestedSlot) && method != null && method.returnSlots != null) {
+                        try {
+                            int index = Integer.parseInt(requestedSlot);
+                            if (index >= 0 && index < method.returnSlots.size()) {
+                                requestedSlot = method.returnSlots.get(index).name;
+                            }
+                        } catch (NumberFormatException e) {
+                            // Not an index
                         }
                     }
-                    
-                    ctx.setVariable(node.variableNames.get(i), value);
-                } else {
-                    throw new ProgramError("Missing slot: " + slot + " (tried as: " + requestedSlot + ")");
+
+                    if (map.containsKey(requestedSlot)) {
+                        Object value = map.get(requestedSlot);
+                        
+                        if (value instanceof NaturalArray) {
+                            NaturalArray arr = (NaturalArray) value;
+                            if (arr.hasPendingUpdates()) {
+                                arr.commitUpdates();
+                            }
+                        }
+                        
+                        ctx.setVariable(node.variableNames.get(i), value);
+                    } else {
+                        throw new ProgramError("Missing slot: " + slot + " (tried as: " + requestedSlot + ")");
+                    }
                 }
-            }
-        } else {
-            // NEW: Handle case where method returns a single value directly
-            // This happens when calling a single-slot method without []: syntax
-            if (node.variableNames.size() == 1) {
-                ctx.setVariable(node.variableNames.get(0), res);
             } else {
-                throw new ProgramError("Method did not return slot values");
+                // Handle case where method returns a single value directly
+                if (node.variableNames.size() == 1) {
+                    ctx.setVariable(node.variableNames.get(0), res);
+                } else {
+                    throw new ProgramError("Method did not return slot values");
+                }
             }
+            return res;
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Return slot assignment failed", e);
         }
-        return res;
-    } catch (ProgramError e) {
-        throw e;
-    } catch (Exception e) {
-        throw new InternalError("Return slot assignment failed", e);
     }
-}
 
     @Override
     public Object visit(SlotAssignmentNode node) {
@@ -674,24 +847,20 @@ public Object visit(ReturnSlotAssignmentNode node) {
         return node.value;
     }
 
-    @Override
-    public Object visit(TextLiteralNode node) {
-        if (node == null) {
-            throw new InternalError("visit(TextLiteralNode) called with null node");
-        }
-        
-        String text = node.value;
-        
-        if (typeSystem.isTypeLiteral(text)) {
-            return typeSystem.processTypeLiteral(text);
-        }
-        
-        if (text.startsWith("\"") && text.endsWith("\"") && text.length() >= 2) {
-            return text.substring(1, text.length() - 1);
-        }
-        
-        return text;
+@Override
+public Object visit(TextLiteralNode node) {
+    if (node == null) {
+        throw new InternalError("visit(TextLiteralNode) called with null node");
     }
+    
+    String text = node.value;
+    
+    if (typeSystem.isTypeLiteral(text)) {
+        return typeSystem.processTypeLiteral(text);
+    }
+    
+    return text;
+}
 
     @Override
     public Object visit(BoolLiteralNode node) {
@@ -936,45 +1105,55 @@ public Object visit(ReturnSlotAssignmentNode node) {
         }
     }
 
-@SuppressWarnings("unchecked")
-@Override
+    @SuppressWarnings("unchecked")
+    @Override
 public Object visit(MethodCallNode node) {
     if (node == null) {
         throw new InternalError("visit(MethodCallNode) called with null node");
     }
     
     try {
+        // Handle super calls first
         if (node.isSuperCall) {
             return handleSuperMethodCall(node);
         }
         
+        // Evaluate all arguments first
         List<Object> evaluatedArgs = new ArrayList<Object>();
         for (ExprNode arg : node.arguments) {
             Object argValue = dispatch(arg);
             evaluatedArgs.add(typeSystem.unwrap(argValue));
         }
         
-        if (node.isGlobal) {
-            return interpreter.getGlobalRegistry().executeGlobal(node.name, evaluatedArgs);
+        // ========== CHECK GLOBAL FUNCTIONS FIRST ==========
+        // This must come BEFORE any other resolution to ensure out(), in(), etc.
+        // work correctly from any context (scripts, methods, imported modules)
+        GlobalRegistry globalRegistry = interpreter.getGlobalRegistry();
+        if (globalRegistry != null && globalRegistry.isGlobal(node.name)) {
+            DebugSystem.debug("GLOBAL", "Executing global function: " + node.name + 
+                              " with args: " + evaluatedArgs);
+            return globalRegistry.executeGlobal(node.name, evaluatedArgs);
         }
-
+        // ========== END GLOBAL CHECK ==========
+        
+        // Try to find method in current class hierarchy
         ExecutionContext ctx = getCurrentContext();
         MethodNode method = null;
 
         if (ctx.currentClass != null) {
-            method =
-                interpreter
-                    .getConstructorResolver()
-                    .findMethodInHierarchy(ctx.currentClass, node.name, ctx);
+            method = interpreter
+                .getConstructorResolver()
+                .findMethodInHierarchy(ctx.currentClass, node.name, ctx);
         }
 
+        // If not found, try from object instance
         if (method == null && ctx.objectInstance != null && ctx.objectInstance.type != null) {
-            method =
-                interpreter
-                    .getConstructorResolver()
-                    .findMethodInHierarchy(ctx.objectInstance.type, node.name, ctx);
+            method = interpreter
+                .getConstructorResolver()
+                .findMethodInHierarchy(ctx.objectInstance.type, node.name, ctx);
         }
 
+        // If still not found, try imported methods
         if (method == null) {
             String qName = node.qualifiedName;
             if (qName != null && qName.contains(".")) {
@@ -997,18 +1176,19 @@ public Object visit(MethodCallNode node) {
             method = interpreter.getImportResolver().findMethod(qName);
         }
 
+        // If method not found after all attempts, throw error
         if (method == null) {
             throw new ProgramError("Method not found: " + node.name);
         }
 
-        // NEW: Check if this is a single-slot call (no []: syntax but method has one slot)
+        // Check if this is a single-slot call
         boolean hasSingleSlot = method.returnSlots != null && method.returnSlots.size() == 1;
         if (node.slotNames.isEmpty() && hasSingleSlot) {
             node.isSingleSlotCall = true;
-            // Set the slot name to the single slot's name for proper handling
             node.slotNames.add(method.returnSlots.get(0).name);
         }
 
+        // Handle builtin methods
         if (method.isBuiltin) {
             MethodCallNode evaluatedCall = new MethodCallNode();
             evaluatedCall.name = node.name;
@@ -1025,6 +1205,7 @@ public Object visit(MethodCallNode node) {
             return interpreter.handleBuiltinMethod(method, evaluatedCall);
         }
 
+        // Prepare method locals with parameter values
         Map<String, Object> methodLocals = new HashMap<String, Object>();
         Map<String, String> methodLocalTypes = new HashMap<String, String>();
 
@@ -1039,7 +1220,13 @@ public Object visit(MethodCallNode node) {
                 argValue = evaluatedArgs.get(i);
             } else {
                 if (param.hasDefaultValue) {
-                    ExecutionContext defaultCtx = new ExecutionContext(ctx.objectInstance, new HashMap<String, Object>(), null, null, typeSystem);
+                    ExecutionContext defaultCtx = new ExecutionContext(
+                        ctx.objectInstance, 
+                        new HashMap<String, Object>(), 
+                        null, 
+                        null, 
+                        typeSystem
+                    );
                     pushContext(defaultCtx);
                     try {
                         argValue = dispatch(param.defaultValue);
@@ -1061,7 +1248,8 @@ public Object visit(MethodCallNode node) {
                 } else {
                     throw new ProgramError(
                         "Argument type mismatch for parameter " + param.name + 
-                        ". Expected " + paramType + ", got: " + typeSystem.getConcreteType(argValue));
+                        ". Expected " + paramType + ", got: " + 
+                        typeSystem.getConcreteType(argValue));
                 }
             }
 
@@ -1079,6 +1267,7 @@ public Object visit(MethodCallNode node) {
                 "Too many arguments: expected " + paramCount + ", got " + argCount);
         }
 
+        // Setup slot values for method return
         Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
         Map<String, String> slotTypes = new LinkedHashMap<String, String>();
         if (method.returnSlots != null) {
@@ -1088,7 +1277,14 @@ public Object visit(MethodCallNode node) {
             }
         }
 
-        ExecutionContext methodCtx = new ExecutionContext(ctx.objectInstance, methodLocals, slotValues, slotTypes, typeSystem);
+        // Create method execution context
+        ExecutionContext methodCtx = new ExecutionContext(
+            ctx.objectInstance, 
+            methodLocals, 
+            slotValues, 
+            slotTypes, 
+            typeSystem
+        );
         
         for (Map.Entry<String, String> entry : methodLocalTypes.entrySet()) {
             methodCtx.setVariableType(entry.getKey(), entry.getValue());
@@ -1103,13 +1299,15 @@ public Object visit(MethodCallNode node) {
             }
         }
         
-        if (ctx.objectInstance != null && ctx.objectInstance.type != null && methodCtx.currentClass == null) {
+        if (ctx.objectInstance != null && ctx.objectInstance.type != null && 
+            methodCtx.currentClass == null) {
             TypeNode classType = findTypeByName(ctx.objectInstance.type.name);
             if (classType != null) {
                 methodCtx.currentClass = classType;
             }
         }
 
+        // Execute method body
         pushContext(methodCtx);
         boolean calledMethodHasSlots = method.returnSlots != null && !method.returnSlots.isEmpty();
         Object methodResult = null;
@@ -1119,12 +1317,14 @@ public Object visit(MethodCallNode node) {
                 for (StmtNode stmt : method.body) {
                     visit(stmt);
                     
-                    if (calledMethodHasSlots && interpreter.shouldReturnEarly(slotValues, methodCtx.slotsInCurrentPath)) {
+                    if (calledMethodHasSlots && 
+                        interpreter.shouldReturnEarly(slotValues, methodCtx.slotsInCurrentPath)) {
                         break;
                     }
                 }
             }
         } catch (EarlyExitException e) {
+            // Normal exit - method completed
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -1150,12 +1350,11 @@ public Object visit(MethodCallNode node) {
                             requestedSlot = method.returnSlots.get(index).name;
                         }
                     } catch (NumberFormatException e) {
-                        // Not an index
+                        // Not an index, keep original slot name
                     }
                 }
 
                 if (map.containsKey(requestedSlot)) {
-                    // NEW: For single-slot calls, return the value directly
                     if (node.isSingleSlotCall) {
                         return map.get(requestedSlot);
                     }
@@ -1170,6 +1369,7 @@ public Object visit(MethodCallNode node) {
 
         // Default: return whatever the method produced
         return methodResult != null ? methodResult : slotValues;
+        
     } catch (ProgramError e) {
         throw e;
     } catch (Exception e) {
@@ -1241,76 +1441,75 @@ public Object visit(MethodCallNode node) {
         }
     }
 
-@SuppressWarnings("unchecked")
-@Override
-public Object visit(IndexAccessNode node) {
-    if (node == null) {
-        throw new InternalError("visit(IndexAccessNode) called with null node");
-    }
-    
-    try {
-        Object arrayObj = dispatch(node.array);
-        arrayObj = typeSystem.unwrap(arrayObj);
-        
-        // === FIX: Force materialization BEFORE index access ===
-        if (arrayObj instanceof NaturalArray) {
-            NaturalArray natural = (NaturalArray) arrayObj;
-            if (natural.hasPendingUpdates()) {
-                natural.commitUpdates(); // This evaluates all pending formulas
-            }
+    @SuppressWarnings("unchecked")
+    @Override
+    public Object visit(IndexAccessNode node) {
+        if (node == null) {
+            throw new InternalError("visit(IndexAccessNode) called with null node");
         }
         
-        Object indexObj = dispatch(node.index);
-        indexObj = typeSystem.unwrap(indexObj);
-
-        if (indexObj instanceof RangeSpec) {
-            return applyRangeIndex(arrayObj, (RangeSpec) indexObj);
-        }
-        
-        if (indexObj instanceof MultiRangeSpec) {
-            return applyMultiRangeIndex(arrayObj, (MultiRangeSpec) indexObj);
-        }
-
-        if (arrayObj instanceof NaturalArray) {
-            NaturalArray natural = (NaturalArray) arrayObj;
-            long index = expressionHandler.toLongIndex(indexObj);
+        try {
+            Object arrayObj = dispatch(node.array);
+            arrayObj = typeSystem.unwrap(arrayObj);
             
-            // Use the conversion-aware get method
-            if (natural.needsConversion()) {
-                return natural.get(index, true);
-            } else {
-                return natural.get(index);
-            }
-        }
-
-        if (arrayObj instanceof List) {
-            List<Object> list = (List<Object>) arrayObj;
-            if (indexObj instanceof AutoStackingNumber) {
-                int index = (int) ((AutoStackingNumber) indexObj).longValue();
-                if (index < 0 || index >= list.size()) {
-                    throw new ProgramError(
-                        "Index out of bounds: " + index + " for array of size " + list.size());
+            // Force materialization BEFORE index access
+            if (arrayObj instanceof NaturalArray) {
+                NaturalArray natural = (NaturalArray) arrayObj;
+                if (natural.hasPendingUpdates()) {
+                    natural.commitUpdates();
                 }
-                return list.get(index);
-            } else {
-                int index = expressionHandler.toIntIndex(indexObj);
-                if (index < 0 || index >= list.size()) {
-                    throw new ProgramError(
-                        "Index out of bounds: " + index + " for array of size " + list.size());
-                }
-                return list.get(index);
             }
-        }
+            
+            Object indexObj = dispatch(node.index);
+            indexObj = typeSystem.unwrap(indexObj);
 
-        throw new ProgramError(
-            "Invalid array access: expected NaturalArray or List, got "
-                + (arrayObj != null ? arrayObj.getClass().getSimpleName() : "null"));
-    } catch (ProgramError e) {
-        throw e;
-    } catch (Exception e) {
-        throw new InternalError("Index access failed", e);
+            if (indexObj instanceof RangeSpec) {
+                return applyRangeIndex(arrayObj, (RangeSpec) indexObj);
+            }
+            
+            if (indexObj instanceof MultiRangeSpec) {
+                return applyMultiRangeIndex(arrayObj, (MultiRangeSpec) indexObj);
+            }
+
+            if (arrayObj instanceof NaturalArray) {
+                NaturalArray natural = (NaturalArray) arrayObj;
+                long index = expressionHandler.toLongIndex(indexObj);
+                
+                if (natural.needsConversion()) {
+                    return natural.get(index, true);
+                } else {
+                    return natural.get(index);
+                }
+            }
+
+            if (arrayObj instanceof List) {
+                List<Object> list = (List<Object>) arrayObj;
+                if (indexObj instanceof AutoStackingNumber) {
+                    int index = (int) ((AutoStackingNumber) indexObj).longValue();
+                    if (index < 0 || index >= list.size()) {
+                        throw new ProgramError(
+                            "Index out of bounds: " + index + " for array of size " + list.size());
+                    }
+                    return list.get(index);
+                } else {
+                    int index = expressionHandler.toIntIndex(indexObj);
+                    if (index < 0 || index >= list.size()) {
+                        throw new ProgramError(
+                            "Index out of bounds: " + index + " for array of size " + list.size());
+                    }
+                    return list.get(index);
+                }
+            }
+
+            throw new ProgramError(
+                "Invalid array access: expected NaturalArray or List, got "
+                    + (arrayObj != null ? arrayObj.getClass().getSimpleName() : "null"));
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Index access failed", e);
+        }
     }
-}
 
     @Override
     public Object visit(RangeIndexNode node) {
@@ -1364,6 +1563,21 @@ public Object visit(IndexAccessNode node) {
             throw new InternalError("Equality chain evaluation failed", e);
         }
     }
+    
+@Override
+public Object visit(ChainedComparisonNode node) {
+    if (node == null) {
+        throw new InternalError("visit(ChainedComparisonNode) called with null node");
+    }
+    
+    try {
+        return expressionHandler.handleChainedComparison(node, getCurrentContext());
+    } catch (ProgramError e) {
+        throw e;
+    } catch (Exception e) {
+        throw new InternalError("Chained comparison execution failed", e);
+    }
+}
 
     @Override
     public Object visit(BooleanChainNode node) {
@@ -1437,6 +1651,7 @@ public Object visit(IndexAccessNode node) {
                             requestedSlot = method.returnSlots.get(index).name;
                         }
                     } catch (NumberFormatException e) {
+                        // Not an index
                     }
                 }
 
