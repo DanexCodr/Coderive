@@ -141,11 +141,6 @@ public class ExpressionParser extends BaseParser {
                 methodName = qualifiedNameStr.substring(qualifiedNameStr.lastIndexOf('.') + 1);
             }
             
-            // DEBUG: Only for createMessage
-            if (methodName.equals("createMessage")) {
-                System.err.println("=== DEBUG: createMessage call detected ===");
-            }
-            
             MethodCallNode call = ASTFactory.createMethodCall(methodName, qualifiedNameStr, nameStartToken);
             
             if (!qualifiedNameStr.contains(".") && globalFunctionNames != null && 
@@ -159,21 +154,6 @@ public class ExpressionParser extends BaseParser {
                 if (isNamedArgument()) {
                     parseNamedArgumentList(call.arguments, call.argNames);
                 } else {
-                    // DEBUG: Parse the argument
-                    if (methodName.equals("createMessage")) {
-                        System.err.println("  Parsing argument for createMessage");
-                        Token argToken = now();
-                        System.err.println("  Argument token type: " + argToken.type);
-                        System.err.println("  Argument token raw slice: '" + 
-                            new String(argToken.source, argToken.start, argToken.length) + "'");
-                        System.err.println("  Argument token getText(): '" + argToken.getText() + "'");
-                        System.err.println("  Argument token start=" + argToken.start + ", length=" + argToken.length);
-                        System.err.println("  First char: '" + argToken.source[argToken.start] + 
-                            "' (" + (int)argToken.source[argToken.start] + ")");
-                        System.err.println("  Last char: '" + argToken.source[argToken.start + argToken.length - 1] + 
-                            "' (" + (int)argToken.source[argToken.start + argToken.length - 1] + ")");
-                    }
-                    
                     call.arguments.add(parseExpr());
                     call.argNames.add(null);
                     
@@ -184,10 +164,6 @@ public class ExpressionParser extends BaseParser {
                 }
             }
             expect(RPAREN);
-            
-            if (methodName.equals("createMessage")) {
-                System.err.println("=== END createMessage debug ===");
-            }
             
             return call;
         }

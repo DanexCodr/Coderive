@@ -73,26 +73,15 @@ public class Token {
     public String getText() {
         if (cachedText == null && length > 0) {
             if (type == TokenType.TEXT_LIT && length >= 2) {
-                // Find where the actual content starts (skip quotes and pipes)
-                int contentStart = start;
-                int contentEnd = start + length - 1;
-                
-                // Skip leading quote characters
-                while (contentStart <= contentEnd && 
-                       (source[contentStart] == '"' || source[contentStart] == '|')) {
-                    contentStart++;
-                }
-                
-                // Skip trailing quote characters
-                while (contentEnd >= contentStart && 
-                       (source[contentEnd] == '"' || source[contentEnd] == '|')) {
-                    contentEnd--;
-                }
-                
-                if (contentStart <= contentEnd) {
-                    cachedText = new String(source, contentStart, contentEnd - contentStart + 1);
+                int end = start + length - 1;
+                if (length >= 4 &&
+                    source[start] == '|' && source[start + 1] == '"' &&
+                    source[end - 1] == '"' && source[end] == '|') {
+                    cachedText = new String(source, start + 2, length - 4);
+                } else if (source[start] == '"' && source[end] == '"') {
+                    cachedText = new String(source, start + 1, length - 2);
                 } else {
-                    cachedText = "";
+                    cachedText = new String(source, start, length);
                 }
             } else {
                 cachedText = new String(source, start, length);

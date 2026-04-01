@@ -2,6 +2,7 @@ package cod.math;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.math.BigDecimal;
 
 /**
  * Auto-stacking fixed-point number with 1-7 stacks of 64-bit words.
@@ -24,6 +25,7 @@ public static final long serialVersionUID = 1L;
     private static final int WORD_BITS = 64;
     private static final long WORD_MASK = 0xFFFFFFFFFFFFFFFFL;
     private static final long FRAC_MASK = (1L << 60) - 1;  // 60 bits of ones for fractional parts
+    private static final BigDecimal DECIMAL_COMPARISON_EPSILON = new BigDecimal("0.000000000000001");
     
     // Zero and One constants for each stack level
     private static final AutoStackingNumber[][] CONSTANTS = new AutoStackingNumber[MAX_STACKS + 1][3];
@@ -752,6 +754,30 @@ public static final long serialVersionUID = 1L;
                     }
                 }
                 if (allZero) break;
+            }
+
+            String exact = sb.toString();
+            String pretty = Double.toString(doubleValue());
+            if (pretty.indexOf('E') >= 0 || pretty.indexOf('e') >= 0) {
+                pretty = BigDecimal.valueOf(doubleValue()).stripTrailingZeros().toPlainString();
+            }
+
+            try {
+                if (pretty.length() < exact.length()) {
+                    BigDecimal exactValue = new BigDecimal(exact);
+                    BigDecimal prettyValue = new BigDecimal(pretty);
+                    BigDecimal delta = exactValue.subtract(prettyValue).abs();
+                    BigDecimal relative = exactValue.abs().multiply(DECIMAL_COMPARISON_EPSILON);
+                    BigDecimal tolerance =
+                        relative.compareTo(DECIMAL_COMPARISON_EPSILON) > 0
+                            ? relative
+                            : DECIMAL_COMPARISON_EPSILON;
+                    if (delta.compareTo(tolerance) <= 0) {
+                        return pretty;
+                    }
+                }
+            } catch (Exception ignored) {
+                // Fallback to exact representation from internal stacks
             }
         }
         
