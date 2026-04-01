@@ -5,6 +5,10 @@ import cod.ast.nodes.*;
 import cod.debug.DebugSystem;
 import cod.interpreter.Interpreter;
 import cod.debug.Linter;
+import cod.util.Index;
+import cod.util.BytecodeManager;
+
+import java.io.File;
 import java.util.List;
 import java.util.Scanner;
 
@@ -15,14 +19,16 @@ For production use CommandRunner.
 
 public class TestRunner extends BaseRunner {
 
-    private final String TEST_FILE = "LoopWithIOTest";
+    private final String TEST_FILE = "ParamSkip";
     
     private final String androidPath = "/storage/emulated/0";
     private final String definedFilePath =
-        "/JavaNIDE/Programming-Language/Coderive/executables/src/main/test/" + TEST_FILE + ".cod";
+        "/JavaNIDE/Programming-Language/Coderive/app/src/main/cod/src/main/test/" + TEST_FILE + ".cod";
     private final String NAME = "TEST";
+    private final DebugSystem.Level level = DebugSystem.Level.OFF;
 
     private final Interpreter interpreter;
+    private BytecodeManager bytecodeManager;
 
     public TestRunner() {
         this.interpreter = new Interpreter();
@@ -42,8 +48,8 @@ public class TestRunner extends BaseRunner {
                 new Configuration() {
                     @Override
                     public void configure(RunnerConfig config) {
-                        // Set to at least INFO so we see debug messages
-                        config.withDebugLevel(DebugSystem.Level.OFF);
+                        // Enable DEBUG to see index generation logs
+                        config.withDebugLevel(level);
                     }
                 });
 
@@ -58,6 +64,9 @@ public class TestRunner extends BaseRunner {
 
         // Parse with interpreter for unit validation
         ProgramNode ast = parse(config.inputFilename, interpreter);
+
+        // Initialize bytecode manager after parsing (project root is now known)
+        initializeBytecodeManager();
 
         // Perform linting and check completion status
         boolean lintingCompleted = performLinting(ast);
@@ -74,6 +83,20 @@ public class TestRunner extends BaseRunner {
                 NAME + LOG_TAG, 
                 "Linting did not complete successfully. Interpreter execution aborted.");
             throw new RuntimeException("Linting phase failed to complete");
+        }
+    }
+
+    /**
+     * Initialize bytecode manager after project root is known
+     */
+    private void initializeBytecodeManager() {
+        String srcMainRoot = interpreter.getImportResolver().getSrcMainRoot();
+        if (srcMainRoot != null) {
+            String projectRoot = Index.getProjectRoot();
+            if (projectRoot != null) {
+                this.bytecodeManager = new BytecodeManager(projectRoot);
+                DebugSystem.debug(NAME + LOG_TAG, "Bytecode manager initialized with root: " + projectRoot);
+            }
         }
     }
 
@@ -124,15 +147,128 @@ public class TestRunner extends BaseRunner {
         }
     }
 
-   private void executeWithManualInterpreter(ProgramNode ast) {
-    DebugSystem.info(NAME + LOG_TAG, "Running Interpreter");
+    private void executeWithManualInterpreter(ProgramNode ast) {
+        DebugSystem.info(NAME + LOG_TAG, "Running Interpreter");
+        
+        // Generate indexes before execution for O(1) import resolution
+        DebugSystem.info(NAME + LOG_TAG, "Generating indexes...");
+        generateIndexes(ast, interpreter);
+        
+        // Compile to bytecode after index generation
+        if (bytecodeManager != null && ast != null && ast.unit != null) {
+            DebugSystem.info(NAME + LOG_TAG, "Generating bytecode...");
+            compileToBytecode(ast);
+        }
+        
+        // ========== DEBUG: Check if index was generated ==========
+        DebugSystem.info(NAME + LOG_TAG, "Checking for generated indexes...");
+        
+        // Get the unit name from the AST
+        String unitName = null;
+        if (ast != null && ast.unit != null) {
+            unitName = ast.unit.name;
+            DebugSystem.info(NAME + LOG_TAG, "Main unit name: " + unitName);
+        }
+        
+        // Try to load index for the main unit
+        if (unitName != null && !unitName.equals("default")) {
+            Index idx = Index.load(unitName);
+            if (idx != null) {
+                DebugSystem.info(NAME + LOG_TAG, "✓ Index found for unit '" + unitName + 
+                                 "' with " + idx.size() + " classes");
+                if (DebugSystem.getLevel().compareTo(DebugSystem.Level.TRACE) >= 0) {
+                    DebugSystem.trace(NAME + LOG_TAG, "  Classes: " + idx.getClassNames());
+                }
+            } else {
+                DebugSystem.warn(NAME + LOG_TAG, "✗ No index found for unit '" + unitName + "'");
+            }
+        }
+        
+        // Also check for imported units
+        if (ast != null && ast.unit != null && ast.unit.imports != null) {
+            for (String importName : ast.unit.imports.imports) {
+                String[] parts = importName.split("\\.");
+                if (parts.length > 0) {
+                    String importedUnit = parts[0];
+                    Index importedIdx = Index.load(importedUnit);
+                    if (importedIdx != null) {
+                        DebugSystem.info(NAME + LOG_TAG, "✓ Index found for imported unit '" + 
+                                         importedUnit + "' with " + importedIdx.size() + " classes");
+                    } else {
+                        DebugSystem.warn(NAME + LOG_TAG, "✗ No index found for imported unit '" + 
+                                         importedUnit + "'");
+                    }
+                }
+            }
+        }
+        
+        // Check src/idx directory using project root
+        String projectRoot = Index.getProjectRoot();
+        if (projectRoot != null) {
+            File idxDir = new File(projectRoot + File.separator + "src" + File.separator + "idx");
+            if (idxDir.exists() && idxDir.isDirectory()) {
+                DebugSystem.info(NAME + LOG_TAG, "Index directory exists at: " + idxDir.getAbsolutePath());
+                String[] files = idxDir.list();
+                if (files != null && files.length > 0) {
+                    DebugSystem.info(NAME + LOG_TAG, "  Contents: " + java.util.Arrays.toString(files));
+                } else {
+                    DebugSystem.warn(NAME + LOG_TAG, "  Index directory is empty");
+                }
+            } else {
+                DebugSystem.info(NAME + LOG_TAG, "Index directory will be created at: " + idxDir.getAbsolutePath());
+            }
+            
+            // Check bytecode directory
+            File binDir = new File(projectRoot + File.separator + "src" + File.separator + "bin");
+            if (binDir.exists() && binDir.isDirectory()) {
+                DebugSystem.info(NAME + LOG_TAG, "Bytecode directory exists at: " + binDir.getAbsolutePath());
+                String[] files = binDir.list();
+                if (files != null && files.length > 0) {
+                    DebugSystem.info(NAME + LOG_TAG, "  Contents: " + java.util.Arrays.toString(files));
+                }
+            } else {
+                DebugSystem.info(NAME + LOG_TAG, "Bytecode directory will be created at: " + binDir.getAbsolutePath());
+            }
+        } else {
+            DebugSystem.warn(NAME + LOG_TAG, "Project root not set, cannot verify directories");
+            DebugSystem.warn(NAME + LOG_TAG, "  Current working directory: " + new File(".").getAbsolutePath());
+        }
+        
+        DebugSystem.startTimer("interpretation");
+        interpreter.run(ast);
+        double duration = DebugSystem.stopTimer("interpretation");
+        
+        DebugSystem.info(NAME + LOG_TAG, String.format("Interpretation completed in %.3f ms", duration));
+    }
     
-    DebugSystem.startTimer("interpretation");
-    interpreter.run(ast);
-    double duration = DebugSystem.stopTimer("interpretation");
-    
-    DebugSystem.info(NAME + LOG_TAG, String.format("Interpretation completed in %.3f ms", duration));
-}
+    /**
+     * Compile all classes in the program to .codb bytecode files
+     */
+    private void compileToBytecode(ProgramNode ast) {
+        if (ast == null || ast.unit == null || bytecodeManager == null) {
+            return;
+        }
+        
+        String unitName = ast.unit.name;
+        if (unitName == null || unitName.equals("default")) {
+            return;
+        }
+        
+        int compiled = 0;
+        for (TypeNode type : ast.unit.types) {
+            try {
+                bytecodeManager.save(unitName, type);
+                compiled++;
+                DebugSystem.debug(NAME + LOG_TAG, "Compiled: " + type.name + " → " + type.name + ".codb");
+            } catch (Exception e) {
+                DebugSystem.warn(NAME + LOG_TAG, "Failed to compile " + type.name + ": " + e.getMessage());
+            }
+        }
+        
+        if (compiled > 0) {
+            DebugSystem.info(NAME + LOG_TAG, "Compiled " + compiled + " class(es) to bytecode");
+        }
+    }
 
     private boolean performLinting(ProgramNode ast) {
         DebugSystem.startTimer("linting");
