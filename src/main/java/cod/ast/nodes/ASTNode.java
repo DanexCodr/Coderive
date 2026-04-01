@@ -3,11 +3,14 @@ package cod.ast.nodes;
 import cod.ast.VisitorImpl;
 import cod.ast.SourceSpan;
 import cod.lexer.Token;
+import java.io.Serializable;
 import java.util.List;
 
-public abstract class ASTNode {
+public abstract class ASTNode implements Serializable {
+    private static final long serialVersionUID = 1L;
+    
     // Source span for error reporting
-    public SourceSpan sourceSpan;
+    public transient SourceSpan sourceSpan;
     
     // Get the source span (with null-safe default)
     public SourceSpan getSourceSpan() {
