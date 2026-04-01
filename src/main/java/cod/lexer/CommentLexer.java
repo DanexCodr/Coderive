@@ -25,20 +25,24 @@ public class CommentLexer {
     private Token scanLineComment() {
         int startLine = lexer.line;
         int startCol = lexer.column;
-        StringBuilder text = new StringBuilder();
+        int startPos = lexer.getPosition();
+        int length = 0;
 
-        text.append(lexer.consume()); // '/'
-        text.append(lexer.consume()); // '/'
+        lexer.consume(); // '/'
+        lexer.consume(); // '/'
+        length += 2;
 
-        while (lexer.getPosition() < lexer.getInput().length() && 
+        while (lexer.getPosition() < lexer.getInput().length && 
                lexer.peek() != '\n') {
-            text.append(lexer.consume());
+            lexer.consume();
+            length++;
         }
 
-        String commentText = text.toString();
-        Token token = new Token(TokenType.LINE_COMMENT, commentText, 
+        char[] source = lexer.getInputArray();
+        Token token = new Token(TokenType.LINE_COMMENT, source, startPos, length,
                                 startLine, startCol, null, null, null, null);
         
+        String commentText = new String(source, startPos, length);
         extractedComments.add(new Comment(commentText, startLine, startCol, CommentType.LINE));
         return token;
     }
@@ -46,24 +50,29 @@ public class CommentLexer {
     private Token scanBlockComment() {
         int startLine = lexer.line;
         int startCol = lexer.column;
-        StringBuilder text = new StringBuilder();
+        int startPos = lexer.getPosition();
+        int length = 0;
 
-        text.append(lexer.consume()); // '/'
-        text.append(lexer.consume()); // '*'
+        lexer.consume(); // '/'
+        lexer.consume(); // '*'
+        length += 2;
 
-        while (lexer.getPosition() < lexer.getInput().length() - 1) {
+        while (lexer.getPosition() < lexer.getInput().length - 1) {
             if (lexer.peek() == '*' && lexer.peek(1) == '/') {
-                text.append(lexer.consume()); // '*'
-                text.append(lexer.consume()); // '/'
+                lexer.consume(); // '*'
+                lexer.consume(); // '/'
+                length += 2;
                 break;
             }
-            text.append(lexer.consume());
+            lexer.consume();
+            length++;
         }
 
-        String commentText = text.toString();
-        Token token = new Token(TokenType.BLOCK_COMMENT, commentText, 
+        char[] source = lexer.getInputArray();
+        Token token = new Token(TokenType.BLOCK_COMMENT, source, startPos, length,
                                 startLine, startCol, null, null, null, null);
         
+        String commentText = new String(source, startPos, length);
         extractedComments.add(new Comment(commentText, startLine, startCol, CommentType.BLOCK));
         return token;
     }
@@ -78,7 +87,7 @@ public class CommentLexer {
         lexer.line = 1;
         lexer.column = 1;
 
-        while (lexer.getPosition() < lexer.getInput().length()) {
+        while (lexer.getPosition() < lexer.getInput().length) {
             Token token = scan();
             if (token == null) {
                 lexer.consume(); // skip non-comment chars
@@ -101,7 +110,7 @@ public class CommentLexer {
         lexer.line = 1;
         lexer.column = 1;
 
-        while (lexer.getPosition() < lexer.getInput().length()) {
+        while (lexer.getPosition() < lexer.getInput().length) {
             Token token = scan();
             if (token == null) {
                 processor.process(String.valueOf(lexer.consume()), null);
@@ -113,7 +122,6 @@ public class CommentLexer {
         lexer.column = savedCol;
     }
 
-    // Comment data class
     public static class Comment {
         public final String text;
         public final int line;

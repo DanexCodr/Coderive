@@ -18,15 +18,18 @@ public class WhitespaceLexer {
     private Token scanWhitespace() {
         int startLine = lexer.line;
         int startCol = lexer.column;
-        StringBuilder text = new StringBuilder();
+        int startPos = lexer.getPosition();
+        int length = 0;
 
-        while (lexer.getPosition() < lexer.getInput().length() && 
+        while (lexer.getPosition() < lexer.getInput().length && 
                Character.isWhitespace(lexer.peek())) {
-            text.append(lexer.consume());
+            lexer.consume();
+            length++;
         }
 
-        return new Token(TokenType.WS, text.toString(), startLine, startCol, 
-                        null, null, null, null);
+        char[] source = lexer.getInputArray();
+        return new Token(TokenType.WS, source, startPos, length, 
+                         startLine, startCol, null, null, null, null);
     }
 
     public boolean isAtWhitespace() {

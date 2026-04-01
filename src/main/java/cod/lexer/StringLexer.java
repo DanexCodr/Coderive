@@ -22,14 +22,20 @@ public class StringLexer {
         return null;
     }
 
+    // Helper method to create text literal token without quotes
+    private Token createTextLiteralWithoutQuotes(char[] source, int start, int length, int line, int col) {
+        return Token.createTextLiteral(source, start, length, line, col);
+    }
+
     private Token readText() {
         int startLine = lexer.line;
         int startCol = lexer.column;
-
-        StringBuilder sb = new StringBuilder();
+        int startPos = lexer.getPosition();
+        int length = 0;
+        
         List<Token> parts = new ArrayList<Token>();
         List<Token> childTokens = new ArrayList<Token>();
-
+        
         boolean isMultiline = false;
 
         // Check if this is a multiline string (|")
@@ -37,143 +43,187 @@ public class StringLexer {
             isMultiline = true;
             lexer.consume(); // consume '|'
             lexer.consume(); // consume '"'
+            length += 2;
         } else {
             lexer.consume(); // consume regular opening quote
+            length++;
         }
-
-        while (lexer.getPosition() < lexer.getInput().length()) {
+        
+        int textStart = lexer.getPosition();
+        int textLength = 0;
+        
+        while (lexer.getPosition() < lexer.getInput().length) {
             char c = lexer.peek();
-
+            
             // Check for newline in regular string
-            if (!isMultiline && (c == '\n' || c == '\r')) {
+            if (!isMultiline && c == '\n') {
                 throw new RuntimeException(
                     "Syntax Error: Unterminated string at line " + startLine + 
                     ", column " + startCol
                 );
             }
-
+            
             // Check for closing quote
             if (!isMultiline && c == '"') {
                 lexer.consume(); // consume closing quote
+                length++;
                 break;
             } else if (isMultiline && c == '"' && lexer.peek(1) == '|') {
                 lexer.consume(); // consume '"'
                 lexer.consume(); // consume '|'
+                length += 2;
                 break;
             }
-
+            
             // Handle escape sequences
             if (c == '\\') {
+                // If we have accumulated text, create a token for it
+                if (textLength > 0) {
+                    char[] source = lexer.getInputArray();
+                    Token textToken = createTextLiteralWithoutQuotes(source, textStart, textLength, startLine, startCol);
+                    parts.add(textToken);
+                    childTokens.add(textToken);
+                    textStart = lexer.getPosition();
+                    textLength = 0;
+                }
+                
                 lexer.consume(); // consume backslash
-                if (lexer.getPosition() >= lexer.getInput().length()) {
+                length++;
+                
+                if (lexer.getPosition() >= lexer.getInput().length) {
                     throw new RuntimeException(
                         "Syntax Error: Unterminated escape sequence at line " + lexer.line
                     );
                 }
                 char escaped = lexer.consume();
+                length++;
+                
+                // Convert escape sequence to actual character
+                char actualChar;
                 switch (escaped) {
-                    case 'n': sb.append('\n'); break;
-                    case 't': sb.append('\t'); break;
-                    case 'r': sb.append('\r'); break;
-                    case '\\': sb.append('\\'); break;
-                    case '"': sb.append('"'); break;
-                    case '{': sb.append('{'); break;
-                    default: sb.append('\\').append(escaped); break;
+                    case 'n': actualChar = '\n'; break;
+                    case 't': actualChar = '\t'; break;
+                    case 'r': actualChar = '\r'; break;
+                    case '\\': actualChar = '\\'; break;
+                    case '"': actualChar = '"'; break;
+                    case '{': actualChar = '{'; break;
+                    default: actualChar = escaped; break;
                 }
+                
+                // Add escaped character as a text literal (already without quotes)
+                String escapedStr = String.valueOf(actualChar);
+                Token escapedToken = Token.createTextLiteral(escapedStr, lexer.line, lexer.column - 1);
+                parts.add(escapedToken);
+                childTokens.add(escapedToken);
+                
+                textStart = lexer.getPosition();
+                textLength = 0;
                 continue;
             }
-
+            
             // Handle interpolation
             if (c == '{' && !isMultiline) {
+                // If we have accumulated text, create a token for it
+                if (textLength > 0) {
+                    char[] source = lexer.getInputArray();
+                    Token textToken = createTextLiteralWithoutQuotes(source, textStart, textLength, startLine, startCol);
+                    parts.add(textToken);
+                    childTokens.add(textToken);
+                }
+                
                 int braceLine = lexer.line;
                 int braceColumn = lexer.column;
                 lexer.consume(); // consume '{'
-
-                // Save current text part
-                if (sb.length() > 0) {
-                    Token textToken = Token.createTextLiteral(sb.toString(), startLine, startCol);
-                    parts.add(textToken);
-                    childTokens.add(textToken);
-                    sb = new StringBuilder();
-                }
-
+                length++;
+                
                 // Parse interpolation expression
-                StringBuilder exprBuilder = new StringBuilder();
+                int exprStart = lexer.getPosition();
+                int exprLength = 0;
                 int braceDepth = 1;
                 
-                while (lexer.getPosition() < lexer.getInput().length() && braceDepth > 0) {
+                while (lexer.getPosition() < lexer.getInput().length && braceDepth > 0) {
                     char ch = lexer.peek();
                     
                     if (ch == '{') {
                         braceDepth++;
-                        exprBuilder.append(lexer.consume());
+                        lexer.consume();
+                        exprLength++;
                     } else if (ch == '}') {
                         braceDepth--;
                         if (braceDepth > 0) {
-                            exprBuilder.append(lexer.consume());
+                            lexer.consume();
+                            exprLength++;
                         } else {
                             lexer.consume(); // consume closing '}'
+                            exprLength++;
                         }
                     } else {
-                        exprBuilder.append(lexer.consume());
+                        lexer.consume();
+                        exprLength++;
                     }
                 }
                 
-                // Tokenize the expression
-                String exprText = exprBuilder.toString().trim();
-                MainLexer exprLexer = new MainLexer(exprText, true);
+                // Create INTERPOL token with child tokens
+                char[] source = lexer.getInputArray();
+                char[] exprSlice = Arrays.copyOfRange(source, exprStart, exprStart + exprLength - 1);
+                MainLexer exprLexer = new MainLexer(new String(exprSlice), true);
                 List<Token> exprTokens = exprLexer.tokenize();
                 
-                // Create INTERPOL token with child tokens
                 Token interpToken = Token.createInterpolation(braceLine, braceColumn, exprTokens);
                 parts.add(interpToken);
                 childTokens.addAll(exprTokens);
                 
+                textStart = lexer.getPosition();
+                textLength = 0;
                 continue;
             }
-
+            
             // Regular character
-            sb.append(lexer.consume());
+            lexer.consume();
+            textLength++;
+            length++;
         }
-
+        
         // Add any remaining text part
-        if (sb.length() > 0) {
-            Token textToken = Token.createTextLiteral(sb.toString(), startLine, startCol);
+        if (textLength > 0) {
+            char[] source = lexer.getInputArray();
+            Token textToken = createTextLiteralWithoutQuotes(source, textStart, textLength, startLine, startCol);
             parts.add(textToken);
             childTokens.add(textToken);
         }
-
-        // Build full text representation
+        
+        char[] fullSource = lexer.getInputArray();
+        
+        // Build full text representation (for backward compatibility)
         StringBuilder fullText = new StringBuilder(isMultiline ? "|\"" : "\"");
         for (Token part : parts) {
             if (part.type == TokenType.TEXT_LIT) {
-                fullText.append(part.text);
+                fullText.append(part.getText());
             } else if (part.type == TokenType.INTERPOL) {
                 if (part.hasChildTokens()) {
                     StringBuilder exprBuilder = new StringBuilder();
                     for (Token exprToken : part.childTokens) {
-                        exprBuilder.append(exprToken.text);
+                        exprBuilder.append(exprToken.getText());
                     }
                     fullText.append("{").append(exprBuilder.toString()).append("}");
                 } else {
-                    fullText.append("{").append(part.text).append("}");
+                    fullText.append("{").append(part.getText()).append("}");
                 }
             }
         }
         fullText.append(isMultiline ? "\"|" : "\"");
         
         extractedStrings.add(fullText.toString());
-
+        
         // If no interpolations, return a simple text literal
         if (parts.size() == 1 && parts.get(0).type == TokenType.TEXT_LIT) {
-            return parts.get(0);
+            return Token.createTextLiteral(fullSource, startPos, length, startLine, startCol);
         }
-
+        
         return new Token(
             TokenType.INTERPOL,
-            fullText.toString(),
-            startLine,
-            startCol,
+            fullSource, startPos, length,
+            startLine, startCol,
             null, null, parts, null
         );
     }
@@ -181,92 +231,92 @@ public class StringLexer {
     private Token readMultilineText() {
         int startLine = lexer.line;
         int startCol = lexer.column;
+        int startPos = lexer.getPosition();
         
         if (!(lexer.peek() == '|' && lexer.peek(1) == '"')) {
             throw new RuntimeException("Invalid multiline text opening at line " + startLine + ", column " + startCol);
         }
         
         int baselineColumn = startCol;
+        int length = 0;
         
         lexer.consume(); // consume '|'
         lexer.consume(); // consume '"'
+        length += 2;
         
         // Skip whitespace after opening delimiter
-        while (lexer.getPosition() < lexer.getInput().length()) {
+        while (lexer.getPosition() < lexer.getInput().length) {
             char after = lexer.peek();
-            if (after == '\n' || after == '\r') {
+            if (after == '\n') {
                 break;
             } else if (!Character.isWhitespace(after)) {
-                // Reset position and throw error
                 throw new RuntimeException(
                     "After multiline text opening delimiter '|\"', only whitespace allowed on same line. " +
                     "Text content must start on next line. Found: '" + after + "' at line " + startLine + ", column " + startCol
                 );
             }
             lexer.consume();
+            length++;
         }
         
         // Skip to next line
-        if (lexer.getPosition() < lexer.getInput().length() && lexer.peek() == '\n') {
+        if (lexer.getPosition() < lexer.getInput().length && lexer.peek() == '\n') {
             lexer.consume();
-        } else if (lexer.getPosition() < lexer.getInput().length() && lexer.peek() == '\r') {
-            lexer.consume();
-            if (lexer.getPosition() < lexer.getInput().length() && lexer.peek() == '\n') {
-                lexer.consume();
-            }
+            length++;
+            lexer.line++;
+            lexer.column = 1;
         }
         
         List<Token> interpolations = new ArrayList<Token>();
         List<Token> childTokens = new ArrayList<Token>();
-        StringBuilder currentTextPart = new StringBuilder();
-        StringBuilder currentLine = new StringBuilder();
         
         int currentColumnInLine = 1;
+        StringBuilder currentLine = new StringBuilder();
         
-        while (lexer.getPosition() < lexer.getInput().length()) {
+        while (lexer.getPosition() < lexer.getInput().length) {
             char c = lexer.peek();
             
             // Check for closing delimiter
             if (c == '"' && lexer.peek(1) == '|') {
-                validateLineForBaseline(currentLine.toString(), baselineColumn, lexer.line);
-                
-                if (lexer.column != baselineColumn) {
-                    throw new RuntimeException(
-                        "Multiline text closing delimiter '\"|' must align with opening delimiter baseline. " +
-                        "Opening '|' was at column " + baselineColumn + ", closing '\"' at column " + lexer.column + ". " +
-                        "All content indentation is measured from column " + baselineColumn + ".");
-                }
-                
+                // Add any remaining text
                 if (currentLine.length() > 0) {
-                    String strippedLine = stripLeftOfBaseline(currentLine.toString(), baselineColumn, lexer.line);
-                    currentTextPart.append(strippedLine);
-                    currentLine.setLength(0);
-                }
-                
-                // Add any remaining text part
-                if (currentTextPart.length() > 0) {
-                    Token textToken = Token.createTextLiteral(currentTextPart.toString(), startLine, startCol);
-                    childTokens.add(textToken);
-                    interpolations.add(textToken);
+                    // Strip baseline indentation
+                    int skip = 0;
+                    for (int i = 0; i < currentLine.length() && skip < baselineColumn - 1; i++) {
+                        char ch = currentLine.charAt(i);
+                        if (ch == ' ' || ch == '\t') {
+                            skip++;
+                        } else {
+                            break;
+                        }
+                    }
+                    if (skip < currentLine.length()) {
+                        String lineText = currentLine.substring(skip);
+                        // Create text token without quotes (multiline content doesn't have quotes)
+                        Token textToken = Token.createTextLiteral(lineText, startLine, startCol);
+                        interpolations.add(textToken);
+                        childTokens.add(textToken);
+                    }
                 }
                 
                 lexer.consume(); // consume '"'
                 lexer.consume(); // consume '|'
+                length += 2;
                 
-                // Build final text
+                char[] fullSource = lexer.getInputArray();
                 StringBuilder finalText = new StringBuilder("|\"");
                 for (Token part : interpolations) {
                     if (part.type == TokenType.TEXT_LIT) {
-                        finalText.append(part.text);
+                        finalText.append(part.getText());
                     } else if (part.type == TokenType.INTERPOL) {
                         if (part.hasChildTokens()) {
                             StringBuilder exprBuilder = new StringBuilder();
                             for (Token exprToken : part.childTokens) {
-                                exprBuilder.append(exprToken.text);
+                                exprBuilder.append(exprToken.getText());
                             }
                             finalText.append("{").append(exprBuilder.toString()).append("}");
                         } else {
-                            finalText.append("{").append(part.text).append("}");
+                            finalText.append("{").append(part.getText()).append("}");
                         }
                     }
                 }
@@ -274,21 +324,58 @@ public class StringLexer {
                 
                 extractedStrings.add(finalText.toString());
                 
-                // If no interpolations, return text literal
                 if (interpolations.size() == 1 && interpolations.get(0).type == TokenType.TEXT_LIT) {
-                    return Token.createTextLiteral(finalText.toString(), startLine, startCol);
+                    return Token.createTextLiteral(fullSource, startPos, length, startLine, startCol);
                 }
                 
                 return new Token(
                     TokenType.INTERPOL,
-                    finalText.toString(),
-                    startLine,
-                    startCol,
+                    fullSource, startPos, length,
+                    startLine, startCol,
                     null, null, interpolations, null
                 );
             }
             
-            // Check for content to left of baseline
+            // Handle newlines
+            if (c == '\n') {
+                // Process the current line
+                if (currentLine.length() > 0) {
+                    // Strip baseline indentation
+                    int skip = 0;
+                    for (int i = 0; i < currentLine.length() && skip < baselineColumn - 1; i++) {
+                        char ch = currentLine.charAt(i);
+                        if (ch == ' ' || ch == '\t') {
+                            skip++;
+                        } else {
+                            break;
+                        }
+                    }
+                    if (skip < currentLine.length()) {
+                        String lineText = currentLine.substring(skip);
+                        Token textToken = Token.createTextLiteral(lineText, startLine, startCol);
+                        interpolations.add(textToken);
+                        childTokens.add(textToken);
+                    }
+                }
+                
+                // Add newline as actual newline character
+                Token newlineToken = Token.createTextLiteral("\n", lexer.line, lexer.column);
+                interpolations.add(newlineToken);
+                childTokens.add(newlineToken);
+                
+                // Consume newline
+                lexer.consume();
+                length++;
+                lexer.line++;
+                lexer.column = 1;
+                currentColumnInLine = 1;
+                
+                // Reset for next line
+                currentLine.setLength(0);
+                continue;
+            }
+            
+            // Handle content to the left of baseline (error)
             if (currentColumnInLine < baselineColumn && !Character.isWhitespace(c) && c != '\\' && c != '{') {
                 throw new RuntimeException(
                     "Multiline text violation at line " + lexer.line + ", column " + currentColumnInLine + "\n" +
@@ -300,91 +387,96 @@ public class StringLexer {
             // Handle escapes
             if (c == '\\') {
                 lexer.consume();
+                length++;
                 currentColumnInLine++;
                 
-                if (lexer.getPosition() >= lexer.getInput().length()) {
+                if (lexer.getPosition() >= lexer.getInput().length) {
                     throw new RuntimeException("Unterminated escape sequence at line " + lexer.line);
                 }
                 char escaped = lexer.consume();
+                length++;
                 currentColumnInLine++;
                 
-                currentLine.append('\\').append(escaped);
+                // Convert escape sequences to actual characters
+                char actualChar;
+                switch (escaped) {
+                    case 'n': actualChar = '\n'; break;
+                    case 't': actualChar = '\t'; break;
+                    case 'r': actualChar = '\r'; break;
+                    case '\\': actualChar = '\\'; break;
+                    case '"': actualChar = '"'; break;
+                    case '{': actualChar = '{'; break;
+                    default: actualChar = escaped; break;
+                }
+                currentLine.append(actualChar);
+                continue;
+            }
+            
+            // Handle interpolation
+            if (c == '{') {
+                // Add current text first
+                if (currentLine.length() > 0) {
+                    // Strip baseline from current line segment
+                    int skip = 0;
+                    for (int i = 0; i < currentLine.length() && skip < baselineColumn - 1; i++) {
+                        char ch = currentLine.charAt(i);
+                        if (ch == ' ' || ch == '\t') {
+                            skip++;
+                        } else {
+                            break;
+                        }
+                    }
+                    if (skip < currentLine.length()) {
+                        String lineText = currentLine.substring(skip);
+                        Token textToken = Token.createTextLiteral(lineText, startLine, startCol);
+                        interpolations.add(textToken);
+                        childTokens.add(textToken);
+                    }
+                    currentLine.setLength(0);
+                }
                 
-            } else if (c == '{') {
-                // Handle interpolation in multiline string
                 int braceLine = lexer.line;
                 int braceColumn = lexer.column;
                 lexer.consume();
+                length++;
                 currentColumnInLine++;
-                
-                // Save current text part
-                if (currentLine.length() > 0) {
-                    String strippedLine = stripLeftOfBaseline(currentLine.toString(), baselineColumn, braceLine);
-                    currentTextPart.append(strippedLine);
-                    currentLine.setLength(0);
-                }
-                if (currentTextPart.length() > 0) {
-                    Token textToken = Token.createTextLiteral(currentTextPart.toString(), startLine, startCol);
-                    childTokens.add(textToken);
-                    interpolations.add(textToken);
-                    currentTextPart.setLength(0);
-                }
                 
                 // Parse interpolation expression
                 StringBuilder exprBuilder = new StringBuilder();
                 int braceDepth = 1;
                 
-                while (lexer.getPosition() < lexer.getInput().length() && braceDepth > 0) {
+                while (lexer.getPosition() < lexer.getInput().length && braceDepth > 0) {
                     char ch = lexer.peek();
                     
                     if (ch == '\\') {
                         exprBuilder.append(lexer.consume());
-                        currentColumnInLine++;
-                        if (lexer.getPosition() < lexer.getInput().length()) {
+                        if (lexer.getPosition() < lexer.getInput().length) {
                             exprBuilder.append(lexer.consume());
-                            currentColumnInLine++;
                         }
                     } else if (ch == '{') {
                         braceDepth++;
                         exprBuilder.append(lexer.consume());
-                        currentColumnInLine++;
                     } else if (ch == '}') {
                         braceDepth--;
                         if (braceDepth > 0) {
                             exprBuilder.append(lexer.consume());
-                            currentColumnInLine++;
                         } else {
                             lexer.consume(); // consume closing '}'
-                            currentColumnInLine++;
                         }
-                    } else if (ch == '\n' || ch == '\r') {
-                        if (ch == '\n') {
-                            exprBuilder.append('\n');
-                            lexer.consume();
-                            lexer.line++;
-                            lexer.column = 1;
-                            currentColumnInLine = 1;
-                        } else if (ch == '\r') {
-                            lexer.consume();
-                            currentColumnInLine++;
-                            if (lexer.getPosition() < lexer.getInput().length() && lexer.peek() == '\n') {
-                                exprBuilder.append('\n');
-                                lexer.consume();
-                                lexer.line++;
-                                lexer.column = 1;
-                                currentColumnInLine = 1;
-                            } else {
-                                exprBuilder.append('\r');
-                            }
-                        }
+                    } else if (ch == '\n') {
+                        exprBuilder.append('\n');
+                        lexer.consume();
+                        lexer.line++;
+                        lexer.column = 1;
+                        currentColumnInLine = 1;
                     } else {
                         exprBuilder.append(lexer.consume());
                         currentColumnInLine++;
                     }
                 }
                 
-                // Tokenize expression
-                String exprText = exprBuilder.toString().trim();
+                // Tokenize the expression
+                String exprText = exprBuilder.toString();
                 MainLexer exprLexer = new MainLexer(exprText, true);
                 List<Token> exprTokens = exprLexer.tokenize();
                 
@@ -392,31 +484,11 @@ public class StringLexer {
                 childTokens.addAll(exprTokens);
                 interpolations.add(interpToken);
                 
-            } else if (c == '\n' || c == '\r') {
-                validateLineForBaseline(currentLine.toString(), baselineColumn, lexer.line);
-                
-                String strippedLine = stripLeftOfBaseline(currentLine.toString(), baselineColumn, lexer.line);
-                currentTextPart.append(strippedLine);
-                currentTextPart.append('\n');
-                currentLine.setLength(0);
-                
-                if (c == '\n') {
-                    lexer.consume();
-                    lexer.line++;
-                    lexer.column = 1;
-                    currentColumnInLine = 1;
-                } else if (c == '\r') {
-                    lexer.consume();
-                    if (lexer.getPosition() < lexer.getInput().length() && lexer.peek() == '\n') {
-                        lexer.consume();
-                        lexer.line++;
-                        lexer.column = 1;
-                    }
-                    currentColumnInLine = 1;
-                }
-                
             } else {
-                currentLine.append(lexer.consume());
+                // Regular character
+                lexer.consume();
+                currentLine.append(c);
+                length++;
                 currentColumnInLine++;
             }
         }
@@ -426,51 +498,28 @@ public class StringLexer {
             ", column " + startCol
         );
     }
-
-    // Helper methods for multiline text
-    private void validateLineForBaseline(String line, int baselineColumn, int lineNumber) {
-        for (int i = 0; i < baselineColumn - 1 && i < line.length(); i++) {
-            if (!Character.isWhitespace(line.charAt(i))) {
-                throw new RuntimeException(
-                    "Multiline text violation at line " + lineNumber + ", column " + (i + 1) + "\n" +
-                    "Character '" + line.charAt(i) + "' appears to the left of baseline column " + baselineColumn + "\n" +
-                    "All content must start at or right of the opening '|' column"
-                );
-            }
-        }
-    }
-
-    private String stripLeftOfBaseline(String line, int baselineColumn, int lineNumber) {
-        validateLineForBaseline(line, baselineColumn, lineNumber);
-        
-        if (line.length() >= baselineColumn) {
-            return line.substring(baselineColumn - 1);
-        } else {
-            return "";
-        }
-    }
-
+    
     public List<String> extractAllStrings() {
         extractedStrings.clear();
         int savedPos = lexer.getPosition();
         int savedLine = lexer.line;
         int savedCol = lexer.column;
-
+        
         lexer.setPosition(0);
         lexer.line = 1;
         lexer.column = 1;
-
-        while (lexer.getPosition() < lexer.getInput().length()) {
+        
+        while (lexer.getPosition() < lexer.getInput().length) {
             Token token = scan();
             if (token == null) {
                 lexer.consume();
             }
         }
-
+        
         lexer.setPosition(savedPos);
         lexer.line = savedLine;
         lexer.column = savedCol;
-
+        
         return new ArrayList<String>(extractedStrings);
     }
 }
