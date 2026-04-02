@@ -28,13 +28,15 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     class PatternResult {
         public final PatternType type;
         public final Object pattern;
+        public final ExprNode targetArray;
         
-        public PatternResult(PatternType type, Object pattern) {
+        public PatternResult(PatternType type, Object pattern, ExprNode targetArray) {
             if (type == null) {
                 throw new InternalError("PatternResult constructed with null type");
             }
             this.type = type;
             this.pattern = pattern;
+            this.targetArray = targetArray;
         }
     }
 
@@ -622,7 +624,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         if (seqPattern != null && seqPattern.isOptimizable()) {
             try {
                 List<PatternResult> patterns = new ArrayList<PatternResult>();
-                patterns.add(new PatternResult(PatternType.SEQUENCE, seqPattern));
+                patterns.add(new PatternResult(PatternType.SEQUENCE, seqPattern, seqPattern.targetArray));
                 Object result = applyPatterns(node, patterns);
                 ArrayTracker.markLoopOptimized(loopId);
                 return result;
@@ -636,9 +638,11 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         for (StmtNode stmt : node.body.statements) {
             if (stmt instanceof StmtIfNode) {
                 StmtIfNode ifStmt = (StmtIfNode) stmt;
-                ConditionalPattern pattern = extractConditionalPattern(ifStmt, node.iterator);
-                if (pattern != null && pattern.isOptimizable()) {
-                    allPatterns.add(new PatternResult(PatternType.CONDITIONAL, pattern));
+                List<ConditionalPattern> patterns = extractConditionalPatterns(ifStmt, node.iterator);
+                for (ConditionalPattern pattern : patterns) {
+                    if (pattern != null && pattern.isOptimizable()) {
+                        allPatterns.add(new PatternResult(PatternType.CONDITIONAL, pattern, pattern.array));
+                    }
                 }
             }
         }
@@ -1884,29 +1888,46 @@ public Object visit(ChainedComparisonNode node) {
         }
         
         try {
-            Object arrayObj = null;
+            List<NaturalArray> targetArrays = new ArrayList<NaturalArray>();
+            List<List<PatternResult>> groupedPatterns = new ArrayList<List<PatternResult>>();
             
             for (PatternResult result : patterns) {
-                if (result.type == PatternType.SEQUENCE) {
-                    SequencePattern.Pattern seqPattern = (SequencePattern.Pattern) result.pattern;
-                    if (seqPattern.targetArray != null) {
-                        arrayObj = dispatch(seqPattern.targetArray);
-                    }
-                } else if (result.type == PatternType.CONDITIONAL) {
-                    ConditionalPattern condPattern = (ConditionalPattern) result.pattern;
-                    if (condPattern.array != null) {
-                        arrayObj = dispatch(condPattern.array);
+                if (result == null || result.targetArray == null) {
+                    continue;
+                }
+                
+                Object resolvedArray = dispatch(result.targetArray);
+                resolvedArray = typeSystem.unwrap(resolvedArray);
+                
+                if (!(resolvedArray instanceof NaturalArray)) {
+                    DebugSystem.debug("OPTIMIZER", "Array not optimizable, falling back to normal execution");
+                    return executeForLoopNormally(node);
+                }
+                
+                NaturalArray naturalArray = (NaturalArray) resolvedArray;
+                int groupIndex = -1;
+                
+                for (int i = 0; i < targetArrays.size(); i++) {
+                    if (targetArrays.get(i).getArrayId() == naturalArray.getArrayId()) {
+                        groupIndex = i;
+                        break;
                     }
                 }
-                if (arrayObj != null) break;
+                
+                if (groupIndex == -1) {
+                    targetArrays.add(naturalArray);
+                    List<PatternResult> newGroup = new ArrayList<PatternResult>();
+                    newGroup.add(result);
+                    groupedPatterns.add(newGroup);
+                } else {
+                    groupedPatterns.get(groupIndex).add(result);
+                }
             }
             
-            if (!(arrayObj instanceof NaturalArray)) {
-                DebugSystem.debug("OPTIMIZER", "Array not optimizable, falling back to normal execution");
+            if (targetArrays.isEmpty()) {
+                DebugSystem.debug("OPTIMIZER", "No target arrays found, falling back to normal execution");
                 return executeForLoopNormally(node);
             }
-            
-            NaturalArray arr = (NaturalArray) arrayObj;
             
             long start = 0, end = 0;
             boolean boundsFound = false;
@@ -1937,15 +1958,20 @@ public Object visit(ChainedComparisonNode node) {
             long min = Math.min(start, end);
             long max = Math.max(start, end);
             
-            for (PatternResult result : patterns) {
-                if (result.type == PatternType.SEQUENCE) {
-                    applySequencePattern(arr, (SequencePattern.Pattern) result.pattern, min, max, node.iterator);
-                } else if (result.type == PatternType.CONDITIONAL) {
-                    applyConditionalPattern(arr, (ConditionalPattern) result.pattern, min, max, node.iterator);
+            for (int arrayIndex = 0; arrayIndex < targetArrays.size(); arrayIndex++) {
+                NaturalArray arr = targetArrays.get(arrayIndex);
+                List<PatternResult> arrayPatterns = groupedPatterns.get(arrayIndex);
+                
+                for (PatternResult result : arrayPatterns) {
+                    if (result.type == PatternType.SEQUENCE) {
+                        applySequencePattern(arr, (SequencePattern.Pattern) result.pattern, min, max, node.iterator);
+                    } else if (result.type == PatternType.CONDITIONAL) {
+                        applyConditionalPattern(arr, (ConditionalPattern) result.pattern, min, max, node.iterator);
+                    }
                 }
             }
             
-            return arr;
+            return targetArrays.get(0);
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -2474,12 +2500,12 @@ public Object visit(ChainedComparisonNode node) {
         return value;
     }
 
-    private ConditionalPattern extractConditionalPattern(StmtIfNode ifStmt, String iterator) {
+    private List<ConditionalPattern> extractConditionalPatterns(StmtIfNode ifStmt, String iterator) {
         try {
-            return ConditionalPattern.extract(ifStmt, iterator);
+            return ConditionalPattern.extractAll(ifStmt, iterator);
         } catch (Exception e) {
             DebugSystem.debug("OPTIMIZER", "Failed to extract conditional pattern: " + e.getMessage());
-            return null;
+            return new ArrayList<ConditionalPattern>();
         }
     }
 }
