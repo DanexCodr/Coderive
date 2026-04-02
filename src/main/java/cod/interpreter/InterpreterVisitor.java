@@ -1890,6 +1890,7 @@ public Object visit(ChainedComparisonNode node) {
         try {
             List<NaturalArray> targetArrays = new ArrayList<NaturalArray>();
             List<List<PatternResult>> groupedPatterns = new ArrayList<List<PatternResult>>();
+            Map<Integer, Integer> arrayIdToGroupIndex = new HashMap<Integer, Integer>();
             
             for (PatternResult result : patterns) {
                 if (result == null || result.targetArray == null) {
@@ -1905,20 +1906,16 @@ public Object visit(ChainedComparisonNode node) {
                 }
                 
                 NaturalArray naturalArray = (NaturalArray) resolvedArray;
-                int groupIndex = -1;
-                
-                for (int i = 0; i < targetArrays.size(); i++) {
-                    if (targetArrays.get(i).getArrayId() == naturalArray.getArrayId()) {
-                        groupIndex = i;
-                        break;
-                    }
-                }
+                int arrayId = naturalArray.getArrayId();
+                Integer existingGroup = arrayIdToGroupIndex.get(arrayId);
+                int groupIndex = existingGroup != null ? existingGroup : -1;
                 
                 if (groupIndex == -1) {
                     targetArrays.add(naturalArray);
                     List<PatternResult> newGroup = new ArrayList<PatternResult>();
                     newGroup.add(result);
                     groupedPatterns.add(newGroup);
+                    arrayIdToGroupIndex.put(arrayId, targetArrays.size() - 1);
                 } else {
                     groupedPatterns.get(groupIndex).add(result);
                 }
@@ -1971,7 +1968,8 @@ public Object visit(ChainedComparisonNode node) {
                 }
             }
             
-            return targetArrays.get(0);
+            // Preserve backward behavior by returning the last processed optimized target array.
+            return targetArrays.get(targetArrays.size() - 1);
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {

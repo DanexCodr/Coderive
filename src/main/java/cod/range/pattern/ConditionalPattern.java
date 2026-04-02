@@ -43,6 +43,7 @@ public class ConditionalPattern {
     
     /**
      * Extract one conditional pattern per target array from an if/elif/else chain.
+     * @return list of patterns (one per unique target array) or an empty list when not extractable
      */
     public static List<ConditionalPattern> extractAll(StmtIfNode ifStmt, String iterator) {
         if (ifStmt == null || iterator == null) {
@@ -124,16 +125,18 @@ public class ConditionalPattern {
     
     private static List<ExprNode> collectTargetArrays(ChainExtraction chain, String iterator) {
         List<ExprNode> targets = new ArrayList<ExprNode>();
+        Set<String> seenTargets = new HashSet<String>();
         
         for (Branch branch : chain.branches) {
-            addTargetsFromStatements(targets, branch.statements, iterator);
+            addTargetsFromStatements(targets, seenTargets, branch.statements, iterator);
         }
-        addTargetsFromStatements(targets, chain.elseStatements, iterator);
+        addTargetsFromStatements(targets, seenTargets, chain.elseStatements, iterator);
         
         return targets;
     }
     
-    private static void addTargetsFromStatements(List<ExprNode> targets, List<StmtNode> statements, String iterator) {
+    private static void addTargetsFromStatements(List<ExprNode> targets, Set<String> seenTargets,
+                                                 List<StmtNode> statements, String iterator) {
         if (statements == null) {
             return;
         }
@@ -144,17 +147,19 @@ public class ConditionalPattern {
                 continue;
             }
             
-            boolean exists = false;
-            for (ExprNode existing : targets) {
-                if (isSameArray(existing, stmtArray)) {
-                    exists = true;
-                    break;
-                }
-            }
-            if (!exists) {
+            String key = arrayKey(stmtArray);
+            if (seenTargets.add(key)) {
                 targets.add(stmtArray);
             }
         }
+    }
+    
+    private static String arrayKey(ExprNode arrayExpr) {
+        if (arrayExpr instanceof IdentifierNode) {
+            return "id:" + ((IdentifierNode) arrayExpr).name;
+        }
+        // Fallback key for non-identifiers; this is heuristic and based on node string form.
+        return "expr:" + String.valueOf(arrayExpr);
     }
     
     private static List<StmtNode> filterStatementsForArray(List<StmtNode> statements, String iterator, ExprNode targetArray) {
