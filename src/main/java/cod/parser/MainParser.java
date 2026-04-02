@@ -16,6 +16,8 @@ import static cod.syntax.Keyword.*;
 import static cod.syntax.Symbol.*;
 
 public class MainParser extends BaseParser {
+    private static final String DEFAULT_UNIT_NAME = "default";
+    private static final String SELF_BROADCAST_NAME = "this";
 
     private final ExpressionParser expressionParser;
     private final StatementParser statementParser;
@@ -63,7 +65,7 @@ public class MainParser extends BaseParser {
     if (is(UNIT)) {
         program.unit = parseUnit();
     } else {
-        program.unit = ASTFactory.createUnit("default", (Token) null);
+        program.unit = ASTFactory.createUnit(DEFAULT_UNIT_NAME, (Token) null);
     }
 
     // Parse USE statements (imports)
@@ -219,7 +221,7 @@ public class MainParser extends BaseParser {
                                          List<TypeNode> typesInFile,
                                          List<PolicyNode> policiesInFile) {
         
-        boolean hasUnit = program.unit.name != null && !program.unit.name.equals("default");
+        boolean hasUnit = program.unit.name != null && !program.unit.name.equals(DEFAULT_UNIT_NAME);
         
         List<StmtNode> actualStatements = new ArrayList<StmtNode>();
         for (StmtNode stmt : topLevelStatements) {
@@ -238,7 +240,7 @@ public class MainParser extends BaseParser {
         boolean hasClasses = !typesInFile.isEmpty();
         boolean hasPolicies = !policiesInFile.isEmpty();
         boolean hasMainClassDeclaration = !nil(program.unit.mainClassName);
-        boolean isSelfBroadcast = hasMainClassDeclaration && "this".equals(program.unit.mainClassName);
+        boolean isSelfBroadcast = hasMainClassDeclaration && SELF_BROADCAST_NAME.equals(program.unit.mainClassName);
         
         if (hasDirectCode) {
             if (hasMethods) {
@@ -584,7 +586,7 @@ public class MainParser extends BaseParser {
                 expect(COLON);
                 
                 Token mainTargetToken = now();
-                if (is(THIS) || (is(mainTargetToken, ID) && "this".equals(mainTargetToken.getText()))) {
+                if (is(mainTargetToken, THIS) || (is(mainTargetToken, ID) && SELF_BROADCAST_NAME.equals(mainTargetToken.getText()))) {
                     mainClassName = consume().getText();
                 } else {
                     mainClassName = parseQualifiedName();

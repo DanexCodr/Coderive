@@ -799,11 +799,9 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
         Map<String, String> slotTypes = new LinkedHashMap<String, String>();
         
-        if (!lambdaSlots.isEmpty()) {
-            for (SlotNode slot : lambdaSlots) {
-                slotValues.put(slot.name, null);
-                slotTypes.put(slot.name, slot.type);
-            }
+        for (SlotNode slot : lambdaSlots) {
+            slotValues.put(slot.name, null);
+            slotTypes.put(slot.name, slot.type);
         }
         
         Map<String, Object> lambdaLocals = new HashMap<String, Object>(allLocals);
