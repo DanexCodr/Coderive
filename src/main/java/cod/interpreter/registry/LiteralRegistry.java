@@ -69,6 +69,16 @@ public class LiteralRegistry {
             },
             RangeNode.class, NaturalArray.class
         );
+
+        define("length",
+            new PropertyHandler() {
+                @Override
+                public Object handle(Object literal, ExecutionContext ctx) {
+                    return handleStringLength(literal);
+                }
+            },
+            String.class
+        );
         
         define("map",
             new MethodHandler() {
@@ -98,6 +108,146 @@ public class LiteralRegistry {
                 }
             },
             NaturalArray.class, List.class
+        );
+
+        define("has",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringHas(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("find",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringFind(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("findLast",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringFindLast(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("replace",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringReplace(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("split",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringSplit(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("starts",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringStarts(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("ends",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringEnds(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("trim",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringTrim(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("isEmpty",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringIsEmpty(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("isBlank",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringIsBlank(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("repeat",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringRepeat(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("toUpper",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringToUpper(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("toLower",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringToLower(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("isUpper",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringIsUpper(literal, arguments);
+                }
+            },
+            String.class
         );
         
         // Future definitions:
@@ -271,6 +421,173 @@ public class LiteralRegistry {
         }
         long size = array.size();
         return (size <= Integer.MAX_VALUE) ? (int) size : size;
+    }
+
+    private Object handleStringLength(Object literal) {
+        if (!(literal instanceof String)) {
+            throw new ProgramError("length is only supported on text values");
+        }
+        return ((String) literal).length();
+    }
+
+    private String asText(Object value) {
+        if (value == null) return "none";
+        if (value instanceof String) return (String) value;
+        if (value instanceof TextLiteralNode) return ((TextLiteralNode) value).value;
+        return String.valueOf(value);
+    }
+
+    private void requireArgCount(String method, List<Object> arguments, int expected) {
+        int actual = arguments == null ? 0 : arguments.size();
+        if (actual != expected) {
+            throw new ProgramError(method + " expects " + expected + " argument(s), got " + actual);
+        }
+    }
+
+    private String requireStringTarget(Object literal, String method) {
+        if (!(literal instanceof String)) {
+            throw new ProgramError(method + " is only supported on text values");
+        }
+        return (String) literal;
+    }
+
+    private Object handleStringHas(Object literal, List<Object> arguments) {
+        requireArgCount("has", arguments, 1);
+        String target = requireStringTarget(literal, "has");
+        return target.contains(asText(arguments.get(0)));
+    }
+
+    private Object handleStringFind(Object literal, List<Object> arguments) {
+        requireArgCount("find", arguments, 1);
+        String target = requireStringTarget(literal, "find");
+        return target.indexOf(asText(arguments.get(0)));
+    }
+
+    private Object handleStringFindLast(Object literal, List<Object> arguments) {
+        requireArgCount("findLast", arguments, 1);
+        String target = requireStringTarget(literal, "findLast");
+        return target.lastIndexOf(asText(arguments.get(0)));
+    }
+
+    private Object handleStringReplace(Object literal, List<Object> arguments) {
+        requireArgCount("replace", arguments, 2);
+        String target = requireStringTarget(literal, "replace");
+        return target.replace(asText(arguments.get(0)), asText(arguments.get(1)));
+    }
+
+    private Object handleStringSplit(Object literal, List<Object> arguments) {
+        requireArgCount("split", arguments, 1);
+        String target = requireStringTarget(literal, "split");
+        String delimiter = asText(arguments.get(0));
+        List<Object> result = new ArrayList<Object>();
+        if (delimiter.length() == 0) {
+            for (int i = 0; i < target.length(); i++) {
+                result.add(String.valueOf(target.charAt(i)));
+            }
+            return result;
+        }
+
+        int from = 0;
+        while (true) {
+            int at = target.indexOf(delimiter, from);
+            if (at < 0) {
+                result.add(target.substring(from));
+                break;
+            }
+            result.add(target.substring(from, at));
+            from = at + delimiter.length();
+        }
+        return result;
+    }
+
+    private Object handleStringStarts(Object literal, List<Object> arguments) {
+        requireArgCount("starts", arguments, 1);
+        String target = requireStringTarget(literal, "starts");
+        return target.startsWith(asText(arguments.get(0)));
+    }
+
+    private Object handleStringEnds(Object literal, List<Object> arguments) {
+        requireArgCount("ends", arguments, 1);
+        String target = requireStringTarget(literal, "ends");
+        return target.endsWith(asText(arguments.get(0)));
+    }
+
+    private Object handleStringTrim(Object literal, List<Object> arguments) {
+        requireArgCount("trim", arguments, 0);
+        String target = requireStringTarget(literal, "trim");
+        return target.trim();
+    }
+
+    private Object handleStringIsEmpty(Object literal, List<Object> arguments) {
+        requireArgCount("isEmpty", arguments, 0);
+        String target = requireStringTarget(literal, "isEmpty");
+        return target.isEmpty();
+    }
+
+    private Object handleStringIsBlank(Object literal, List<Object> arguments) {
+        requireArgCount("isBlank", arguments, 0);
+        String target = requireStringTarget(literal, "isBlank");
+        for (int i = 0; i < target.length(); i++) {
+            if (!Character.isWhitespace(target.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Object handleStringRepeat(Object literal, List<Object> arguments) {
+        requireArgCount("repeat", arguments, 1);
+        String target = requireStringTarget(literal, "repeat");
+        long count = toLong(arguments.get(0));
+        if (count < 0) {
+            throw new ProgramError("repeat expects a non-negative count, got " + count);
+        }
+        if (count == 0) return "";
+        if (count > Integer.MAX_VALUE) {
+            throw new ProgramError("repeat count is too large: " + count);
+        }
+        long expectedLength;
+        try {
+            expectedLength = Math.multiplyExact((long) target.length(), count);
+        } catch (ArithmeticException e) {
+            throw new ProgramError("repeat result is too large");
+        }
+        if (expectedLength > Integer.MAX_VALUE) {
+            throw new ProgramError("repeat result is too large");
+        }
+        StringBuilder sb = new StringBuilder((int) expectedLength);
+        for (int i = 0; i < (int) count; i++) {
+            sb.append(target);
+        }
+        return sb.toString();
+    }
+
+    private Object handleStringToUpper(Object literal, List<Object> arguments) {
+        requireArgCount("toUpper", arguments, 0);
+        String target = requireStringTarget(literal, "toUpper");
+        return target.toUpperCase();
+    }
+
+    private Object handleStringToLower(Object literal, List<Object> arguments) {
+        requireArgCount("toLower", arguments, 0);
+        String target = requireStringTarget(literal, "toLower");
+        return target.toLowerCase();
+    }
+
+    private Object handleStringIsUpper(Object literal, List<Object> arguments) {
+        requireArgCount("isUpper", arguments, 0);
+        String target = requireStringTarget(literal, "isUpper");
+        boolean seenLetter = false;
+        for (int i = 0; i < target.length(); i++) {
+            char ch = target.charAt(i);
+            if (Character.isLetter(ch)) {
+                seenLetter = true;
+                if (!Character.isUpperCase(ch)) {
+                    return false;
+                }
+            }
+        }
+        return seenLetter;
     }
     
     @SuppressWarnings("unchecked")
@@ -489,6 +806,9 @@ public class LiteralRegistry {
         }
         if (obj instanceof Number) {
             return ((Number) obj).longValue();
+        }
+        if (obj instanceof cod.math.AutoStackingNumber) {
+            return ((cod.math.AutoStackingNumber) obj).longValue();
         }
         if (obj instanceof String) {
             try {
