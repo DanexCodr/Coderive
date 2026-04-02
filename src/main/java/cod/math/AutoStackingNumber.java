@@ -303,19 +303,26 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         
         long intPart = (long) value;
         double fracPart = value - intPart;
-        
-        AutoStackingNumber result = new AutoStackingNumber(MAX_STACKS);
-        result.words[0] = negative ? -intPart : intPart;
-        
+
+        if (fracPart <= 1e-18) {
+            return fromLong(negative ? -intPart : intPart);
+        }
+
+        long[] tmp = new long[MAX_STACKS];
+        tmp[0] = negative ? -intPart : intPart;
+
+        int usedStacks = 1;
         double remaining = fracPart;
         for (int i = 1; i < MAX_STACKS && remaining > 1e-18; i++) {
-            remaining *= 1L << 60;
+            remaining *= (1L << 60);
             long word = (long) remaining;
-            result.words[i] = word;
+            tmp[i] = word;
             remaining -= word;
-            // DON'T divide here - remaining is already the fractional part for next word
+            usedStacks = i + 1;
         }
-        
+
+        AutoStackingNumber result = new AutoStackingNumber(usedStacks);
+        System.arraycopy(tmp, 0, result.words, 0, usedStacks);
         return result;
     }
 
@@ -353,13 +360,9 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             long a = this.words[0];
             long b = other.words[0];
             long sum = a + b;
-            if (((a ^ sum) & (b ^ sum)) < 0) {
-                AutoStackingNumber promoted = new AutoStackingNumber(2);
-                promoted.words[0] = (sum < 0) ? -1L : 1L;
-                promoted.words[1] = sum;
-                return promoted;
+            if (((a ^ sum) & (b ^ sum)) >= 0) {
+                return fromLong(sum);
             }
-            return fromLong(sum);
         }
 
         int maxStacks = Math.max(this.stacks, other.stacks);
@@ -402,13 +405,9 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             long a = this.words[0];
             long b = other.words[0];
             long diff = a - b;
-            if (((a ^ b) & (a ^ diff)) < 0) {
-                AutoStackingNumber promoted = new AutoStackingNumber(2);
-                promoted.words[0] = (diff < 0) ? -1L : 1L;
-                promoted.words[1] = diff;
-                return promoted;
+            if (((a ^ b) & (a ^ diff)) >= 0) {
+                return fromLong(diff);
             }
-            return fromLong(diff);
         }
         return add(other.negate());
     }
@@ -430,15 +429,19 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             
             // Check if product overflowed 64 bits
             if (a.words[0] != 0 && product / a.words[0] != b.words[0]) {
-                // Handle as multi-stack
-                return multiplyMulti(a, b, resultNegative);
+                double preciseEnough = ((double) a.words[0]) * ((double) b.words[0]);
+                return fromDouble(resultNegative ? -preciseEnough : preciseEnough);
             }
             
             AutoStackingNumber result = new AutoStackingNumber(1, resultNegative ? -product : product);
             return result;
         }
-        
-        return multiplyMulti(a, b, resultNegative);
+
+        double product = a.doubleValue() * b.doubleValue();
+        if (Double.isInfinite(product) || Double.isNaN(product)) {
+            throw new ArithmeticException("Multiplication overflow");
+        }
+        return fromDouble(resultNegative ? -product : product);
     }
     
     /**
@@ -955,4 +958,4 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         }
         return hash;
     }
-              }
+}
