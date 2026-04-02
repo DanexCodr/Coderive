@@ -709,6 +709,10 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
         
         try {
+            if (node.lambda != null) {
+                return evaluateLambdaAssignment(node, ctx, allLocals);
+            }
+            
             Object res = interpreter.evalMethodCall(node.methodCall, ctx.objectInstance, allLocals, null);
 
             if (res instanceof Map) {
@@ -765,6 +769,74 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         } catch (Exception e) {
             throw new InternalError("Return slot assignment failed", e);
         }
+    }
+
+    private Object evaluateLambdaAssignment(
+        ReturnSlotAssignmentNode node,
+        ExecutionContext parentCtx,
+        Map<String, Object> allLocals) {
+        
+        LambdaNode lambda = node.lambda;
+        if (lambda == null) {
+            throw new ProgramError("Lambda assignment missing lambda expression");
+        }
+        
+        List<ParamNode> params = lambda.parameters != null ? lambda.parameters : new ArrayList<ParamNode>();
+        if (!params.isEmpty()) {
+            throw new ProgramError("Lambda assignment currently requires zero-parameter lambda");
+        }
+        
+        List<SlotNode> lambdaSlots =
+            lambda.returnSlots != null ? lambda.returnSlots : new ArrayList<SlotNode>();
+        if (lambdaSlots.isEmpty()) {
+            throw new ProgramError(
+                "Lambda assignment requires a return contract (::) to map values to variables");
+        }
+        
+        if (lambdaSlots.size() != node.variableNames.size()) {
+            throw new ProgramError(
+                "Number of assigned variables (" + node.variableNames.size()
+                    + ") does not match lambda return slots (" + lambdaSlots.size() + ")");
+        }
+        
+        Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
+        Map<String, String> slotTypes = new LinkedHashMap<String, String>();
+        
+        if (!lambdaSlots.isEmpty()) {
+            for (SlotNode slot : lambdaSlots) {
+                slotValues.put(slot.name, null);
+                slotTypes.put(slot.name, slot.type);
+            }
+        }
+        
+        ExecutionContext lambdaCtx =
+            new ExecutionContext(parentCtx.objectInstance, allLocals, slotValues, slotTypes, typeSystem);
+        lambdaCtx.currentClass = parentCtx.currentClass;
+        
+        pushContext(lambdaCtx);
+        try {
+            if (lambda.body != null) {
+                visit((ASTNode) lambda.body);
+            }
+        } catch (EarlyExitException e) {
+            // normal lambda early exit
+        } finally {
+            popContext();
+        }
+        
+        Object result = slotValues;
+        for (int i = 0; i < node.variableNames.size(); i++) {
+            String varName = node.variableNames.get(i);
+            if ("_".equals(varName)) continue;
+            
+            String slotName = lambdaSlots.get(i).name;
+            if (!slotValues.containsKey(slotName)) {
+                throw new ProgramError("Missing slot: " + slotName);
+            }
+            parentCtx.setVariable(varName, slotValues.get(slotName));
+        }
+        
+        return result;
     }
 
     @Override

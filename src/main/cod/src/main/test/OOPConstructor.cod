@@ -1,0 +1,45 @@
+unit test
+
+policy Named {
+    name() :: text
+}
+
+share Animal with Named {
+    value: int = 0
+    label: text = "unset"
+    
+    share this(v: int) {
+        this.value = v
+        this.label = "animal"
+    }
+    
+    policy name() :: text {
+        ~> label
+    }
+    
+    share getValue() :: int {
+        ~> this.value
+    }
+}
+
+share Dog is Animal {
+    tag: text = "none"
+    
+    share this(v: int, t: text) super(v) {
+        this.tag = t
+        this.label = "dog"
+    }
+    
+    share getTag() :: text {
+        ~> this.tag
+    }
+}
+
+share Main {
+    share main() {
+        dog := Dog(9, "pet")
+        out(getValue():dog)
+        out(name():dog)
+        out(getTag():dog)
+    }
+}

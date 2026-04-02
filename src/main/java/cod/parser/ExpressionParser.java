@@ -481,9 +481,7 @@ public class ExpressionParser extends BaseParser {
             );
         }
         
-        LambdaNode lambda = ASTFactory.createLambda(parameters, returnSlots, body, lambdaToken);
-        lambda.returnSlots = returnSlots;
-        return lambda;
+        return ASTFactory.createLambda(parameters, returnSlots, body, lambdaToken);
     }
 
     private ParamNode parseLambdaParameter() {

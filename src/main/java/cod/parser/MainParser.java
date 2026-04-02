@@ -59,12 +59,12 @@ public class MainParser extends BaseParser {
     public ProgramNode parseProgram() {
     ProgramNode program = ASTFactory.createProgram();
     
-    // UNIT declaration is required
-    if (!is(UNIT)) {
-        throw error("Static modules must start with the `unit` declaration.");
+    // UNIT declaration is optional (required only for static modules)
+    if (is(UNIT)) {
+        program.unit = parseUnit();
+    } else {
+        program.unit = ASTFactory.createUnit("default", (Token) null);
     }
-    program.unit = parseUnit();
-    program.programType = ProgramType.STATIC_MODULE;
 
     // Parse USE statements (imports)
     while (is(USE)) {
@@ -155,7 +155,7 @@ public class MainParser extends BaseParser {
     }
     
     // Validate module-specific rules if this is a module
-    if (program.programType == ProgramType.STATIC_MODULE) {
+    if (program.programType == ProgramType.STATIC_MODULE || program.programType == ProgramType.MODULE) {
         validateModule(program, typesInFile, policiesInFile);
     }
     
@@ -236,18 +236,56 @@ public class MainParser extends BaseParser {
         boolean hasDirectCode = !actualStatements.isEmpty();
         boolean hasMethods = !topLevelMethods.isEmpty();
         boolean hasClasses = !typesInFile.isEmpty();
+        boolean hasPolicies = !policiesInFile.isEmpty();
+        boolean hasMainClassDeclaration = !nil(program.unit.mainClassName);
+        boolean isSelfBroadcast = hasMainClassDeclaration && "this".equals(program.unit.mainClassName);
         
-        if (!hasUnit) {
-            throw error("Static modules must declare a unit.", now());
+        if (hasDirectCode) {
+            if (hasMethods) {
+                throw error("Cannot mix method declarations with direct code. Use a class or unit.", now());
+            }
+            if (hasClasses || hasPolicies) {
+                throw error("Cannot mix class/policy declarations with direct script code in the same file.", now());
+            }
+            if (hasUnit && !isSelfBroadcast) {
+                throw error(
+                    "Script unit declarations are only allowed with self broadcast: unit <name> (main: this)",
+                    now()
+                );
+            }
+            program.programType = ProgramType.SCRIPT;
+            return;
         }
         
-        if (hasDirectCode && hasMethods) {
-            throw error("Cannot mix method declarations with direct code. Use a class or unit.", now());
-        } else if (hasDirectCode) {
-            throw error("Static modules cannot have direct code outside methods/classes.", now());
+        if (hasMethods) {
+            if (!hasUnit) {
+                throw error("Static modules with top-level methods must declare a unit.", now());
+            }
+            if (isSelfBroadcast) {
+                throw error("Self broadcast (main: this) is only valid for script files with direct code.", now());
+            }
+            program.programType = ProgramType.STATIC_MODULE;
+            return;
         }
         
-        program.programType = ProgramType.STATIC_MODULE;
+        if (hasClasses || hasPolicies) {
+            if (hasUnit && isSelfBroadcast) {
+                throw error("Self broadcast (main: this) is only valid for script files with direct code.", now());
+            }
+            program.programType = ProgramType.MODULE;
+            return;
+        }
+        
+        if (hasUnit) {
+            if (isSelfBroadcast) {
+                program.programType = ProgramType.SCRIPT;
+            } else {
+                program.programType = ProgramType.STATIC_MODULE;
+            }
+            return;
+        }
+        
+        program.programType = ProgramType.SCRIPT;
     }
 
     private void validateModule(ProgramNode program, 
@@ -545,7 +583,11 @@ public class MainParser extends BaseParser {
                 consume();
                 expect(COLON);
                 
-                mainClassName = parseQualifiedName();
+                if (is(THIS)) {
+                    mainClassName = expect(THIS).getText();
+                } else {
+                    mainClassName = parseQualifiedName();
+                }
                 
                 expect(RPAREN);
             }
