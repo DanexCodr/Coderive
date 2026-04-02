@@ -16,7 +16,10 @@ import java.math.BigDecimal;
  */
 public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Serializable {
 
-public static final long serialVersionUID = 1L;
+    public static final long serialVersionUID = 1L;
+    private static final AutoStackingNumber ZERO_1 = new AutoStackingNumber(1, 0L);
+    private static final AutoStackingNumber ONE_1 = new AutoStackingNumber(1, 1L);
+    private static final AutoStackingNumber MINUS_ONE_1 = new AutoStackingNumber(1, -1L);
     
     // Maximum stacks (lucky number 7!)
     public static final int MAX_STACKS = 7;
@@ -280,6 +283,9 @@ public static final long serialVersionUID = 1L;
     }
     
     public static AutoStackingNumber fromLong(long value) {
+        if (value == 0L) return ZERO_1;
+        if (value == 1L) return ONE_1;
+        if (value == -1L) return MINUS_ONE_1;
         return new AutoStackingNumber(value);
     }
     
@@ -343,6 +349,19 @@ public static final long serialVersionUID = 1L;
     // ========== CORE ARITHMETIC ==========
     
     public AutoStackingNumber add(AutoStackingNumber other) {
+        if (this.stacks == 1 && other.stacks == 1) {
+            long a = this.words[0];
+            long b = other.words[0];
+            long sum = a + b;
+            if (((a ^ sum) & (b ^ sum)) < 0) {
+                AutoStackingNumber promoted = new AutoStackingNumber(2);
+                promoted.words[0] = (sum < 0) ? -1L : 1L;
+                promoted.words[1] = sum;
+                return promoted;
+            }
+            return fromLong(sum);
+        }
+
         int maxStacks = Math.max(this.stacks, other.stacks);
         AutoStackingNumber result = new AutoStackingNumber(maxStacks);
         
@@ -379,10 +398,28 @@ public static final long serialVersionUID = 1L;
     }
     
     public AutoStackingNumber subtract(AutoStackingNumber other) {
+        if (this.stacks == 1 && other.stacks == 1) {
+            long a = this.words[0];
+            long b = other.words[0];
+            long diff = a - b;
+            if (((a ^ b) & (a ^ diff)) < 0) {
+                AutoStackingNumber promoted = new AutoStackingNumber(2);
+                promoted.words[0] = (diff < 0) ? -1L : 1L;
+                promoted.words[1] = diff;
+                return promoted;
+            }
+            return fromLong(diff);
+        }
         return add(other.negate());
     }
     
     public AutoStackingNumber multiply(AutoStackingNumber other) {
+        if (this.isZero() || other.isZero()) return zero(Math.max(this.stacks, other.stacks));
+        if (this.stacks == 1 && this.words[0] == 1L) return other;
+        if (other.stacks == 1 && other.words[0] == 1L) return this;
+        if (this.stacks == 1 && this.words[0] == -1L) return other.negate();
+        if (other.stacks == 1 && other.words[0] == -1L) return this.negate();
+
         boolean resultNegative = (isNegative() ^ other.isNegative());
         AutoStackingNumber a = abs();
         AutoStackingNumber b = other.abs();
@@ -478,6 +515,9 @@ public static final long serialVersionUID = 1L;
         if (this.stacks == 1 && other.stacks == 1) {
             long dividend = this.words[0];
             long divisor = other.words[0];
+
+            if (divisor == 1L) return this;
+            if (divisor == -1L) return this.negate();
             
             if (divisor == 0) {
                 throw new ArithmeticException("Division by zero");
@@ -486,7 +526,7 @@ public static final long serialVersionUID = 1L;
             // Check if division is exact (no remainder)
             if (dividend % divisor == 0) {
                 long quotient = dividend / divisor;
-                return new AutoStackingNumber(1, quotient);
+                return fromLong(quotient);
             }
             
             // Not exact - use double but avoid circular dependency
@@ -534,6 +574,12 @@ public static final long serialVersionUID = 1L;
         // Special case: can't negate MIN_VALUE
         if (isMinValue()) {
             throw new ArithmeticException("Cannot negate minimum value");
+        }
+
+        if (stacks == 1) {
+            if (words[0] == 0L) return ZERO_1;
+            if (words[0] == 1L) return MINUS_ONE_1;
+            if (words[0] == -1L) return ONE_1;
         }
         
         AutoStackingNumber result = new AutoStackingNumber(this.stacks);
@@ -609,6 +655,13 @@ public static final long serialVersionUID = 1L;
         }
         
         AutoStackingNumber result = new AutoStackingNumber(stacks - wordShift);
+
+        if (bitShift == 0) {
+            for (int i = wordShift; i < stacks; i++) {
+                result.words[i - wordShift] = this.words[i];
+            }
+            return result;
+        }
         
         long carry = 0;
         for (int i = stacks - 1; i >= wordShift; i--) {
@@ -624,6 +677,13 @@ public static final long serialVersionUID = 1L;
     
     @Override
     public int compareTo(AutoStackingNumber other) {
+        if (this == other) return 0;
+        if (this.stacks == 1 && other.stacks == 1) {
+            long a = this.words[0];
+            long b = other.words[0];
+            return (a < b) ? -1 : ((a == b) ? 0 : 1);
+        }
+
         // Compare as signed numbers
         long thisVal = this.words[0];
         long otherVal = other.words[0];
@@ -644,6 +704,7 @@ public static final long serialVersionUID = 1L;
     }
     
     public boolean isZero() {
+        if (stacks == 1) return words[0] == 0L;
         for (long word : words) {
             if (word != 0) return false;
         }
@@ -661,6 +722,7 @@ public static final long serialVersionUID = 1L;
     // ========== CONVERSION METHODS ==========
     
     public long longValue() {
+        if (stacks == 1) return words[0];
         if (stacks > 1) {
             for (int i = 1; i < stacks; i++) {
                 if (words[i] != 0) {
@@ -697,9 +759,8 @@ public static final long serialVersionUID = 1L;
     
     @Override
     public String toString() {
-        if (isZero()) {
-            return "0";
-        }
+        if (stacks == 1) return Long.toString(words[0]);
+        if (isZero()) return "0";
         
         StringBuilder sb = new StringBuilder();
         boolean negative = isNegative();
@@ -851,14 +912,22 @@ public static final long serialVersionUID = 1L;
     public AutoStackingNumber pow(int exponent) {
         if (exponent == 0) return one(this.stacks);
         if (exponent < 0) throw new IllegalArgumentException("Negative exponent not supported");
-        
+
+        if (exponent == 1) return this;
+
         AutoStackingNumber result = one(this.stacks);
-        AutoStackingNumber base = new AutoStackingNumber(this);
-        
-        for (int i = 0; i < exponent; i++) {
-            result = result.multiply(base);
+        AutoStackingNumber base = this;
+        int exp = exponent;
+        while (exp > 0) {
+            if ((exp & 1) != 0) {
+                result = result.multiply(base);
+            }
+            exp >>= 1;
+            if (exp > 0) {
+                base = base.multiply(base);
+            }
         }
-        
+
         return result;
     }
     
