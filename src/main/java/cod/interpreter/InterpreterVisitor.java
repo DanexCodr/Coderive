@@ -1829,11 +1829,27 @@ public Object visit(TextLiteralNode node) {
             }
 
             if (indexObj instanceof RangeSpec) {
+                if (arrayObj instanceof String) {
+                    return applyStringRangeIndex((String) arrayObj, (RangeSpec) indexObj);
+                }
                 return applyRangeIndex(arrayObj, (RangeSpec) indexObj);
             }
             
             if (indexObj instanceof MultiRangeSpec) {
                 return applyMultiRangeIndex(arrayObj, (MultiRangeSpec) indexObj);
+            }
+
+            if (arrayObj instanceof String) {
+                String text = (String) arrayObj;
+                int index = expressionHandler.toIntIndex(indexObj);
+                if (index < 0) {
+                    index = text.length() + index;
+                }
+                if (index < 0 || index >= text.length()) {
+                    throw new ProgramError(
+                        "Index out of bounds: " + index + " for text of length " + text.length());
+                }
+                return String.valueOf(text.charAt(index));
             }
 
             if (arrayObj instanceof NaturalArray) {
@@ -2445,6 +2461,44 @@ public Object visit(ChainedComparisonNode node) {
             throw e;
         } catch (Exception e) {
             throw new InternalError("List multi-range extraction failed", e);
+        }
+    }
+
+    private String applyStringRangeIndex(String text, RangeSpec range) {
+        try {
+            long start = expressionHandler.toLongIndex(range.start);
+            long end = expressionHandler.toLongIndex(range.end);
+            long step = expressionHandler.calculateStep(range);
+
+            int length = text.length();
+            if (start < 0) start = length + start;
+            if (end < 0) end = length + end;
+
+            if (start < 0 || start >= length) {
+                throw new ProgramError("Range start index out of bounds: " + start + " for text of length " + length);
+            }
+            if (end < 0 || end >= length) {
+                throw new ProgramError("Range end index out of bounds: " + end + " for text of length " + length);
+            }
+            if (step == 0) {
+                throw new ProgramError("Range step cannot be zero");
+            }
+
+            StringBuilder result = new StringBuilder();
+            if (step > 0) {
+                for (long i = start; i <= end; i += step) {
+                    result.append(text.charAt((int) i));
+                }
+            } else {
+                for (long i = start; i >= end; i += step) {
+                    result.append(text.charAt((int) i));
+                }
+            }
+            return result.toString();
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("String range extraction failed", e);
         }
     }
 
