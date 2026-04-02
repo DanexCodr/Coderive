@@ -1,0 +1,9 @@
+unit test.StaticImportsMethodProvider
+
+share ping() {
+    out("PONG")
+}
+
+share add(a: int, b: int) {
+    out(a + b)
+}

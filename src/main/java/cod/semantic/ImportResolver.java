@@ -1056,12 +1056,7 @@ public class ImportResolver {
                     }
                 }
             }
-        } catch (ProgramError ignoreTypeError) {
-            MethodNode moduleMethod = findMethodInStaticModule(actualImportName, methodName);
-            if (moduleMethod != null) {
-                return moduleMethod;
-            }
-        }
+        } catch (ProgramError ignoreTypeError) {}
         
         MethodNode moduleMethod = findMethodInStaticModule(actualImportName, methodName);
         if (moduleMethod != null) {
