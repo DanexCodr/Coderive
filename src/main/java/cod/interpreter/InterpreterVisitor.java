@@ -1229,6 +1229,21 @@ public Object visit(TextLiteralNode node) {
                 }
             }
             
+            if (node.right instanceof MethodCallNode) {
+                MethodCallNode literalMethod = (MethodCallNode) node.right;
+                String methodName = literalMethod.name;
+                if (literalRegistry.hasMethod(leftObj, methodName)) {
+                    List<Object> evaluatedArgs = new ArrayList<Object>();
+                    if (literalMethod.arguments != null) {
+                        for (ExprNode arg : literalMethod.arguments) {
+                            Object argValue = dispatch(arg);
+                            evaluatedArgs.add(typeSystem.unwrap(argValue));
+                        }
+                    }
+                    return literalRegistry.handleMethod(leftObj, methodName, evaluatedArgs, ctx);
+                }
+            }
+            
             if (leftObj instanceof NaturalArray) {
                 NaturalArray natural = (NaturalArray) leftObj;
                 if (natural.hasPendingUpdates()) {
@@ -1395,23 +1410,42 @@ public Object visit(TextLiteralNode node) {
 
     @SuppressWarnings("unchecked")
     @Override
-public Object visit(MethodCallNode node) {
+    public Object visit(MethodCallNode node) {
     if (node == null) {
         throw new InternalError("visit(MethodCallNode) called with null node");
     }
     
-    try {
-        // Handle super calls first
-        if (node.isSuperCall) {
-            return handleSuperMethodCall(node);
-        }
-        
-        // Evaluate all arguments first
-        List<Object> evaluatedArgs = new ArrayList<Object>();
-        for (ExprNode arg : node.arguments) {
-            Object argValue = dispatch(arg);
-            evaluatedArgs.add(typeSystem.unwrap(argValue));
-        }
+        try {
+            // Handle super calls first
+            if (node.isSuperCall) {
+                return handleSuperMethodCall(node);
+            }
+            
+            ExecutionContext ctx = getCurrentContext();
+            if (ctx != null && node.qualifiedName != null && node.qualifiedName.contains(".")) {
+                String[] parts = node.qualifiedName.split("\\.");
+                if (parts.length == 2) {
+                    String receiverName = parts[0];
+                    String methodName = parts[1];
+                    Object receiverValue = ctx.getVariable(receiverName);
+                    receiverValue = typeSystem.unwrap(receiverValue);
+                    if (literalRegistry.hasMethod(receiverValue, methodName)) {
+                        List<Object> evaluatedArgs = new ArrayList<Object>();
+                        for (ExprNode arg : node.arguments) {
+                            Object argValue = dispatch(arg);
+                            evaluatedArgs.add(typeSystem.unwrap(argValue));
+                        }
+                        return literalRegistry.handleMethod(receiverValue, methodName, evaluatedArgs, ctx);
+                    }
+                }
+            }
+            
+            // Evaluate all arguments first
+            List<Object> evaluatedArgs = new ArrayList<Object>();
+            for (ExprNode arg : node.arguments) {
+                Object argValue = dispatch(arg);
+                evaluatedArgs.add(typeSystem.unwrap(argValue));
+            }
         
         // ========== CHECK GLOBAL FUNCTIONS FIRST ==========
         // This must come BEFORE any other resolution to ensure out(), in(), etc.
@@ -1425,9 +1459,7 @@ public Object visit(MethodCallNode node) {
         // ========== END GLOBAL CHECK ==========
         
         // Try to find method in current class hierarchy
-        ExecutionContext ctx = getCurrentContext();
         MethodNode method = null;
-
         if (ctx.currentClass != null) {
             method = interpreter
                 .getConstructorResolver()
@@ -1693,6 +1725,10 @@ public Object visit(MethodCallNode node) {
                     return new NaturalArray(range, this, getCurrentContext());
                 }
             }
+            
+            if (node.elements.size() > 1 && allElementsAreRanges(node.elements)) {
+                return buildDimensionArray(node.elements, 0);
+            }
 
             // Regular array literal handling
             List<Object> result = new ArrayList<Object>();
@@ -1728,6 +1764,35 @@ public Object visit(MethodCallNode node) {
             throw new InternalError("Array creation failed", e);
         }
     }
+    
+    private boolean allElementsAreRanges(List<ExprNode> elements) {
+        if (elements == null || elements.isEmpty()) return false;
+        for (ExprNode element : elements) {
+            if (!(element instanceof RangeNode)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    private Object buildDimensionArray(List<ExprNode> ranges, int dimension) {
+        RangeNode currentRange = (RangeNode) ranges.get(dimension);
+        NaturalArray currentNatural = new NaturalArray(currentRange, this, getCurrentContext());
+        if (dimension == ranges.size() - 1) {
+            return currentNatural;
+        }
+        
+        long length = currentNatural.size();
+        if (length > Integer.MAX_VALUE) {
+            throw new ProgramError("Dimension size too large for nested ND array literal: " + length + " (max " + Integer.MAX_VALUE + ")");
+        }
+        
+        List<Object> result = new ArrayList<Object>((int) length);
+        for (int i = 0; i < (int) length; i++) {
+            result.add(buildDimensionArray(ranges, dimension + 1));
+        }
+        return result;
+    }
 
     @SuppressWarnings("unchecked")
     @Override
@@ -1750,6 +1815,10 @@ public Object visit(MethodCallNode node) {
             
             Object indexObj = dispatch(node.index);
             indexObj = typeSystem.unwrap(indexObj);
+            
+            if (indexObj instanceof List) {
+                return applyTupleIndices(arrayObj, (List<?>) indexObj);
+            }
 
             if (indexObj instanceof RangeSpec) {
                 return applyRangeIndex(arrayObj, (RangeSpec) indexObj);
@@ -1982,6 +2051,40 @@ public Object visit(ChainedComparisonNode node) {
         }
         throw new ProgramError("Cannot apply multi-range index to " + 
             (array != null ? array.getClass().getSimpleName() : "null"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object applyTupleIndices(Object array, List<?> indices) {
+        Object current = array;
+        for (Object rawIndex : indices) {
+            Object indexObj = typeSystem.unwrap(rawIndex);
+            if (indexObj instanceof RangeSpec) {
+                current = applyRangeIndex(current, (RangeSpec) indexObj);
+                continue;
+            }
+            if (indexObj instanceof MultiRangeSpec) {
+                current = applyMultiRangeIndex(current, (MultiRangeSpec) indexObj);
+                continue;
+            }
+            if (current instanceof NaturalArray) {
+                NaturalArray natural = (NaturalArray) current;
+                long idx = expressionHandler.toLongIndex(indexObj);
+                current = natural.needsConversion() ? natural.get(idx, true) : natural.get(idx);
+                continue;
+            }
+            if (current instanceof List) {
+                List<Object> list = (List<Object>) current;
+                int idx = expressionHandler.toIntIndex(indexObj);
+                if (idx < 0 || idx >= list.size()) {
+                    throw new ProgramError("Index out of bounds: " + idx + " for array of size " + list.size());
+                }
+                current = list.get(idx);
+                continue;
+            }
+            throw new ProgramError("Invalid array access during multidimensional indexing: expected NaturalArray or List, got "
+                + (current != null ? current.getClass().getSimpleName() : "null"));
+        }
+        return current;
     }
 
     private List<Object> getListRange(List<Object> list, RangeSpec range) {

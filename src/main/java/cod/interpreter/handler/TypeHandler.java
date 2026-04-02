@@ -382,6 +382,18 @@ public class TypeHandler {
             resultSize = sizeB;
         } else if (sizeB == 1) {
             resultSize = sizeA;
+        } else if (canBroadcastNestedWithVector(listA, listB)) {
+            List<Object> result = new ArrayList<Object>(sizeA);
+            for (Object elemA : listA) {
+                result.add(applyScalarOperation(elemA, listB, op));
+            }
+            return result;
+        } else if (canBroadcastNestedWithVector(listB, listA)) {
+            List<Object> result = new ArrayList<Object>(sizeB);
+            for (Object elemB : listB) {
+                result.add(applyScalarOperation(listA, elemB, op));
+            }
+            return result;
         } else {
             throw new ProgramError(
                 "Arrays are not broadcast-compatible for '" + op + "'. " +
@@ -397,6 +409,25 @@ public class TypeHandler {
         }
         
         return result;
+    }
+    
+    private boolean canBroadcastNestedWithVector(List<Object> nestedCandidate, List<Object> vectorCandidate) {
+        if (nestedCandidate.isEmpty()) return false;
+        for (Object element : nestedCandidate) {
+            if (!(element instanceof List || element instanceof NaturalArray)) {
+                return false;
+            }
+            List<Object> inner = toList(element);
+            int innerSize = inner.size();
+            int vectorSize = vectorCandidate.size();
+            boolean sameSize = innerSize == vectorSize;
+            boolean innerBroadcastable = innerSize == 1;
+            boolean vectorBroadcastable = vectorSize == 1;
+            if (!sameSize && !innerBroadcastable && !vectorBroadcastable) {
+                return false;
+            }
+        }
+        return true;
     }
     
     private Object applyArrayScalarOperation(Object array, Object scalar, String op) {

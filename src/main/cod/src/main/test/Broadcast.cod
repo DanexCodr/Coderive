@@ -1,5 +1,40 @@
 unit test
 
 Broadcaster {
+    share main() {
+        out("=== Array Broadcasting (not unit broadcast) ===")
+        
+        a := [1 to 5]
+        b := [1 to 5]
+        c := a * b
+        out("c[0] = " + c[0] + " (expect 1)")
+        out("c[4] = " + c[4] + " (expect 25)")
+        
+        matrix := [[1, 2, 3], [4, 5, 6]]
+        vector := [10, 20, 30]
+        sum := matrix + vector
+        out("sum[0,0] = " + sum[0,0] + " (expect 11)")
+        out("sum[1,2] = " + sum[1,2] + " (expect 36)")
+        
+        matrix[1,2] = 99
+        out("matrix[1,2] = " + matrix[1,2] + " (expect 99)")
+        
+        naturalGrid := [[1 to 3], [4 to 6]]
+        naturalGrid[0,1] = 777
+        out("naturalGrid[0,1] = " + naturalGrid[0,1] + " (expect 777)")
+        
+        nd := [1 to 2, 1 to 3]
+        out("nd[1,2] = " + nd[1,2] + " (expect 3)")
+        
+        mapped := [1, 2, 3].map("+", 10)
+        filtered := [1, 2, 3, 4].filter(">=", 3)
+        reduced := [1, 2, 3, 4].reduce("+", 0)
+        
+        out("mapped[0] = " + mapped[0] + " (expect 11)")
+        out("mapped[2] = " + mapped[2] + " (expect 13)")
+        out("filtered[0] = " + filtered[0] + " (expect 3)")
+        out("filtered[1] = " + filtered[1] + " (expect 4)")
+        out("reduced = " + reduced + " (expect 10)")
+    }
 
 }
