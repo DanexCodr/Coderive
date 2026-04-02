@@ -420,6 +420,13 @@ public class ExpressionParser extends BaseParser {
         
         expect(RPAREN);
         
+        // Expression-body lambda, e.g. \() $left + $right
+        if (!is(DOUBLE_COLON) && !is(TILDE_ARROW) && !is(LBRACE)) {
+            LambdaNode lambda = ASTFactory.createLambda(parameters, null, null, lambdaToken);
+            lambda.expressionBody = parseExpr();
+            return lambda;
+        }
+        
         // Parse optional return contract (::)
         List<SlotNode> returnSlots = null;
         if (is(DOUBLE_COLON)) {
@@ -695,6 +702,11 @@ public class ExpressionParser extends BaseParser {
                     }
                     baseExpr = ASTFactory.createIdentifier(idName, idToken);
                 }
+            }
+            else if (is(DOLLAR)) {
+                Token dollarToken = expect(DOLLAR);
+                Token nameToken = expect(ID);
+                baseExpr = ASTFactory.createIdentifier("$" + nameToken.getText(), dollarToken);
             }
             else if (is(LPAREN)) {
                 if (isTypeCast()) {

@@ -38,6 +38,7 @@ public enum Symbol {
   PIPE,
   QUESTION,
   AMPERSAND,
+  DOLLAR,
   UNDERSCORE,
   
   RANGE_DOTDOT,      // ".." for range

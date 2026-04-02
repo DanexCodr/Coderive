@@ -104,6 +104,14 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             popContext();
         }
     }
+    
+    @Override
+    public Object invokeLambda(Object callback, List<Object> arguments, ExecutionContext ctx, String ownerMethod) {
+        if (ctx == null) {
+            throw new InternalError("invokeLambda called with null context");
+        }
+        return invokeLambdaCallback(callback, arguments, ctx, ownerMethod);
+    }
 
     public void pushContext(ExecutionContext context) {
         if (context == null) {
@@ -1958,7 +1966,314 @@ public Object visit(ChainedComparisonNode node) {
 
     @Override
     public Object visit(LambdaNode node) {
-        return node;
+        if (node == null) {
+            throw new InternalError("visit(LambdaNode) called with null node");
+        }
+        
+        ExecutionContext ctx = getCurrentContext();
+        Map<String, Object> captured = new HashMap<String, Object>();
+        for (int i = 0; i < ctx.getScopeDepth(); i++) {
+            Map<String, Object> scope = ctx.getScope(i);
+            if (scope != null) {
+                captured.putAll(scope);
+            }
+        }
+        
+        return new LambdaClosure(node, captured, ctx.objectInstance, ctx.currentClass);
+    }
+    
+    private Object invokeLambdaCallback(
+        Object callbackObj,
+        List<Object> args,
+        ExecutionContext parentCtx,
+        String ownerMethod) {
+        
+        Object callback = typeSystem.unwrap(callbackObj);
+        LambdaClosure closure;
+        if (callback instanceof LambdaClosure) {
+            closure = (LambdaClosure) callback;
+        } else if (callback instanceof LambdaNode) {
+            closure = new LambdaClosure((LambdaNode) callback, parentCtx.locals(), parentCtx.objectInstance, parentCtx.currentClass);
+        } else {
+            String actualType = callback == null ? "null" : callback.getClass().getSimpleName();
+            throw new ProgramError(ownerMethod + " expects a lambda callback, got: " + actualType);
+        }
+        
+        LambdaNode lambda = closure.lambda;
+        List<ParamNode> params = lambda.parameters != null ? lambda.parameters : new ArrayList<ParamNode>();
+        List<Object> values = args != null ? args : Collections.<Object>emptyList();
+        
+        if (params.isEmpty()) {
+            params = inferLambdaParamsFromPlaceholders(lambda);
+            if (params.isEmpty()) {
+                throw new ProgramError(
+                    "Lambda with empty parameter list must use named placeholders "
+                        + "like $left, $right in its body, or declare parameters explicitly");
+            }
+        }
+        
+        Map<String, Object> lambdaLocals = new HashMap<String, Object>(closure.capturedLocals);
+        for (int i = 0; i < params.size(); i++) {
+            ParamNode param = params.get(i);
+            if (param == null || param.name == null) continue;
+            
+            Object boundValue = null;
+            boolean found = false;
+            
+            if (i < values.size()) {
+                boundValue = values.get(i);
+                found = true;
+            } else if (param.hasDefaultValue && param.defaultValue != null) {
+                ExecutionContext defaultCtx =
+                    new ExecutionContext(closure.objectInstance, lambdaLocals, null, null, typeSystem);
+                defaultCtx.currentClass = closure.currentClass;
+                pushContext(defaultCtx);
+                try {
+                    boundValue = visit((ASTNode) param.defaultValue);
+                    found = true;
+                } finally {
+                    popContext();
+                }
+            }
+            
+            if (!found) {
+                throw new ProgramError(
+                    "Missing value for lambda parameter '" + param.name + "' in " + ownerMethod + " callback");
+            }
+            
+            if (param.type != null && !typeSystem.validateType(param.type, boundValue)) {
+                throw new ProgramError(
+                    "Lambda parameter type mismatch for '" + param.name + "'. Expected "
+                        + param.type + ", got: " + typeSystem.getConcreteType(boundValue));
+            }
+            
+            lambdaLocals.put(param.name, boundValue);
+        }
+        
+        if (lambda.expressionBody != null) {
+            ExecutionContext exprCtx =
+                new ExecutionContext(closure.objectInstance, lambdaLocals, null, null, typeSystem);
+            exprCtx.currentClass = closure.currentClass;
+            pushContext(exprCtx);
+            try {
+                return dispatch(lambda.expressionBody);
+            } finally {
+                popContext();
+            }
+        }
+        
+        List<SlotNode> lambdaSlots =
+            lambda.returnSlots != null ? lambda.returnSlots : new ArrayList<SlotNode>();
+        if (lambdaSlots.isEmpty()) {
+            throw new ProgramError(
+                "Lambda with explicit body requires a return contract (::). "
+                    + "Use expression body syntax for implicit return values.");
+        }
+        
+        Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
+        Map<String, String> slotTypes = new LinkedHashMap<String, String>();
+        for (SlotNode slot : lambdaSlots) {
+            slotValues.put(slot.name, null);
+            slotTypes.put(slot.name, slot.type);
+        }
+        
+        ExecutionContext lambdaCtx =
+            new ExecutionContext(closure.objectInstance, lambdaLocals, slotValues, slotTypes, typeSystem);
+        lambdaCtx.currentClass = closure.currentClass;
+        
+        pushContext(lambdaCtx);
+        try {
+            if (lambda.body != null) {
+                visit((ASTNode) lambda.body);
+            }
+        } catch (EarlyExitException e) {
+            // normal lambda early exit
+        } finally {
+            popContext();
+        }
+        
+        if (lambdaSlots.size() == 1) {
+            return slotValues.get(lambdaSlots.get(0).name);
+        }
+        return slotValues;
+    }
+    
+    private List<ParamNode> inferLambdaParamsFromPlaceholders(LambdaNode lambda) {
+        if (lambda == null) {
+            return new ArrayList<ParamNode>();
+        }
+        LinkedHashSet<String> names = new LinkedHashSet<String>();
+        
+        if (lambda.expressionBody != null) {
+            collectPlaceholderNames(lambda.expressionBody, names);
+        } else if (lambda.body != null) {
+            collectPlaceholderNames(lambda.body, names);
+        }
+        
+        List<ParamNode> params = new ArrayList<ParamNode>();
+        for (String name : names) {
+            ParamNode param = new ParamNode();
+            param.name = name;
+            param.type = null;
+            param.typeInferred = true;
+            param.isLambdaParameter = true;
+            params.add(param);
+        }
+        return params;
+    }
+    
+    private void collectPlaceholderNames(ASTNode node, LinkedHashSet<String> names) {
+        if (node == null) return;
+        
+        if (node instanceof IdentifierNode) {
+            String name = ((IdentifierNode) node).name;
+            if (name != null && name.startsWith("$") && name.length() > 1) {
+                names.add(name);
+            }
+            return;
+        }
+        
+        if (node instanceof BinaryOpNode) {
+            BinaryOpNode n = (BinaryOpNode) node;
+            collectPlaceholderNames(n.left, names);
+            collectPlaceholderNames(n.right, names);
+            return;
+        }
+        if (node instanceof UnaryNode) {
+            collectPlaceholderNames(((UnaryNode) node).operand, names);
+            return;
+        }
+        if (node instanceof TypeCastNode) {
+            collectPlaceholderNames(((TypeCastNode) node).expression, names);
+            return;
+        }
+        if (node instanceof MethodCallNode) {
+            MethodCallNode n = (MethodCallNode) node;
+            if (n.arguments != null) {
+                for (ExprNode arg : n.arguments) {
+                    collectPlaceholderNames(arg, names);
+                }
+            }
+            if (n.target != null) {
+                collectPlaceholderNames(n.target, names);
+            }
+            return;
+        }
+        if (node instanceof PropertyAccessNode) {
+            PropertyAccessNode n = (PropertyAccessNode) node;
+            collectPlaceholderNames(n.left, names);
+            collectPlaceholderNames(n.right, names);
+            return;
+        }
+        if (node instanceof IndexAccessNode) {
+            IndexAccessNode n = (IndexAccessNode) node;
+            collectPlaceholderNames(n.array, names);
+            collectPlaceholderNames(n.index, names);
+            return;
+        }
+        if (node instanceof ArrayNode) {
+            ArrayNode n = (ArrayNode) node;
+            if (n.elements != null) {
+                for (ExprNode elem : n.elements) {
+                    collectPlaceholderNames(elem, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof TupleNode) {
+            TupleNode n = (TupleNode) node;
+            if (n.elements != null) {
+                for (ExprNode elem : n.elements) {
+                    collectPlaceholderNames(elem, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof ExprIfNode) {
+            ExprIfNode n = (ExprIfNode) node;
+            collectPlaceholderNames(n.condition, names);
+            collectPlaceholderNames(n.thenExpr, names);
+            collectPlaceholderNames(n.elseExpr, names);
+            return;
+        }
+        if (node instanceof BooleanChainNode) {
+            BooleanChainNode n = (BooleanChainNode) node;
+            if (n.expressions != null) {
+                for (ExprNode expr : n.expressions) {
+                    collectPlaceholderNames(expr, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof EqualityChainNode) {
+            EqualityChainNode n = (EqualityChainNode) node;
+            collectPlaceholderNames(n.left, names);
+            if (n.chainArguments != null) {
+                for (ExprNode expr : n.chainArguments) {
+                    collectPlaceholderNames(expr, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof ChainedComparisonNode) {
+            ChainedComparisonNode n = (ChainedComparisonNode) node;
+            if (n.expressions != null) {
+                for (ExprNode expr : n.expressions) {
+                    collectPlaceholderNames(expr, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof ValueExprNode) {
+            Object value = ((ValueExprNode) node).getValue();
+            if (value instanceof ASTNode) {
+                collectPlaceholderNames((ASTNode) value, names);
+            }
+            return;
+        }
+        if (node instanceof LambdaNode) {
+            // Nested lambdas infer their own placeholders independently.
+            return;
+        }
+        
+        if (node instanceof BlockNode) {
+            BlockNode n = (BlockNode) node;
+            if (n.statements != null) {
+                for (StmtNode stmt : n.statements) {
+                    collectPlaceholderNames(stmt, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof SlotAssignmentNode) {
+            collectPlaceholderNames(((SlotAssignmentNode) node).value, names);
+            return;
+        }
+        if (node instanceof MultipleSlotAssignmentNode) {
+            MultipleSlotAssignmentNode n = (MultipleSlotAssignmentNode) node;
+            if (n.assignments != null) {
+                for (SlotAssignmentNode asg : n.assignments) {
+                    collectPlaceholderNames(asg, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof AssignmentNode) {
+            AssignmentNode n = (AssignmentNode) node;
+            collectPlaceholderNames(n.left, names);
+            collectPlaceholderNames(n.right, names);
+            return;
+        }
+        if (node instanceof VarNode) {
+            collectPlaceholderNames(((VarNode) node).value, names);
+            return;
+        }
+        if (node instanceof ReturnSlotAssignmentNode) {
+            ReturnSlotAssignmentNode n = (ReturnSlotAssignmentNode) node;
+            collectPlaceholderNames(n.methodCall, names);
+            collectPlaceholderNames(n.lambda, names);
+            return;
+        }
     }
 
     @SuppressWarnings("unchecked")

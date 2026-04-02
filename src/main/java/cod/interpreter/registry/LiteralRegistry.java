@@ -288,53 +288,14 @@ public class LiteralRegistry {
         throw new ProgramError("Expected array literal target");
     }
     
-    private MethodCallNode asMethodCall(Object fn, String methodName) {
-        Object unwrapped = fn;
-        if (fn instanceof TypeHandler.Value) {
-            unwrapped = ((TypeHandler.Value) fn).value;
-        }
-        if (!(unwrapped instanceof MethodCallNode)) {
-            String actualType = (unwrapped == null) ? "null" : unwrapped.getClass().getSimpleName();
-            throw new ProgramError(methodName + " expects a method call callback argument, got: " + actualType);
-        }
-        return (MethodCallNode) unwrapped;
-    }
-    
     private Object invokeArrayCallback(Object callbackObj, String methodName, ExecutionContext ctx, Object... args) {
-        MethodCallNode callback = asMethodCall(callbackObj, methodName);
-        return evaluator.evaluate(buildRuntimeCall(callback, args), ctx);
-    }
-    
-    private MethodCallNode buildRuntimeCall(MethodCallNode original, Object... appendedArgs) {
-        MethodCallNode runtimeCall = new MethodCallNode();
-        runtimeCall.name = original.name;
-        runtimeCall.qualifiedName = original.qualifiedName;
-        runtimeCall.slotNames = new ArrayList<String>(original.slotNames);
-        runtimeCall.argNames = new ArrayList<String>(original.argNames);
-        runtimeCall.isSuperCall = original.isSuperCall;
-        runtimeCall.isGlobal = original.isGlobal;
-        runtimeCall.target = original.target;
-        runtimeCall.isSingleSlotCall = original.isSingleSlotCall;
-        runtimeCall.arguments = new ArrayList<ExprNode>();
-        
-        if (original.arguments != null) {
-            for (ExprNode arg : original.arguments) {
-                if (arg instanceof ValueExprNode) {
-                    runtimeCall.arguments.add(arg);
-                } else {
-                    throw new ProgramError(
-                        "Only value arguments are supported in array literal method callbacks, got: "
-                            + arg.getClass().getSimpleName());
-                }
+        List<Object> callbackArgs = new ArrayList<Object>();
+        if (args != null) {
+            for (Object arg : args) {
+                callbackArgs.add(arg);
             }
         }
-        
-        for (Object value : appendedArgs) {
-            runtimeCall.arguments.add(new ValueExprNode(value));
-            runtimeCall.argNames.add(null);
-        }
-        
-        return runtimeCall;
+        return evaluator.invokeLambda(callbackObj, callbackArgs, ctx, methodName);
     }
     
     private Object handleArrayMap(Object literal, List<Object> arguments, ExecutionContext ctx) {
