@@ -1,9 +1,7 @@
 unit sample
 
 share Imported {
-    
     share hello() {
         out("Hello world!")
-        }
-    
     }
+}

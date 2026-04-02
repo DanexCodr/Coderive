@@ -59,6 +59,7 @@ public class StatementParser extends BaseParser {
       if (is(EXIT)) return parseExitStmt();
       if (is(SKIP)) return parseSkipStmt();
       if (is(BREAK)) return parseBreakStmt();
+      if (is(SUPER)) return parseSimpleAssignment();
     }
 
     if (is(first, TRUE, FALSE)) {
@@ -132,6 +133,8 @@ public class StatementParser extends BaseParser {
   private void checkIllegalDeclaration() {
     Token current = now();
     if (current.type != KEYWORD) return;
+
+    if (is(current, IF, ELSE, ELIF, FOR, EXIT, SKIP, BREAK)) return;
 
     if (isTypeStart(current)) return;
 

@@ -1,0 +1,37 @@
+unit test
+
+share NoneAndTypeDemo {
+    local maybe(flag: bool) :: value: text? {
+        if flag {
+            ~> value: "ok"
+        }
+        ~> value: none
+    }
+
+    share main() {
+        a := maybe(true)
+        b := maybe(false)
+
+        out("a=" + a)
+        out("b=" + b)
+        out("b-eq-none=" + (b == none))
+
+        if b is none {
+            out("b-is-none")
+        } else {
+            out("b-not-none")
+        }
+
+        if a is none {
+            out("a-is-none")
+        } else {
+            out("a-not-none")
+        }
+
+        i := 42
+        t := "word"
+
+        out("i-is-int=" + (i is int))
+        out("t-is-text=" + (t is text))
+    }
+}

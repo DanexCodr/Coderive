@@ -328,13 +328,12 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
                 throw new ProgramError("Parent class not found for 'super." + fieldName + "'");
             }
             
-            Object existingField = resolver.getFieldFromHierarchy(parentType, fieldName, ctx);
-            if (existingField != null) {
+            boolean fieldDeclared = isFieldDeclaredInTypeHierarchy(parentType, fieldName, ctx);
+            if (fieldDeclared) {
                 ctx.objectInstance.fields.put(fieldName, newValue);
                 return newValue;
-            } else {
-                throw new ProgramError("Cannot assign to undefined field via super: " + fieldName);
             }
+            throw new ProgramError("Cannot assign to undefined field via super: " + fieldName);
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -351,6 +350,22 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
                 ". Expected " + declaredType + 
                 ", got " + typeSystem.getConcreteType(value));
         }
+    }
+
+    private boolean isFieldDeclaredInTypeHierarchy(TypeNode type, String fieldName, ExecutionContext ctx) {
+        TypeNode current = type;
+        ConstructorResolver resolver = interpreter.getConstructorResolver();
+        while (current != null) {
+            if (current.fields != null) {
+                for (FieldNode field : current.fields) {
+                    if (field != null && field.name != null && field.name.equals(fieldName)) {
+                        return true;
+                    }
+                }
+            }
+            current = resolver.findParentType(current, ctx);
+        }
+        return false;
     }
     
     // === Range/Multi-Range Assignment Methods ===

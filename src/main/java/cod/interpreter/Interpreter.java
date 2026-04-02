@@ -545,6 +545,9 @@ public void run(Object entryPoint) {
             }
             DebugSystem.methodExit("main", null);
             mainExecuted = true;
+        } catch (EarlyExitException e) {
+            DebugSystem.methodExit("main", null);
+            mainExecuted = true;
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {

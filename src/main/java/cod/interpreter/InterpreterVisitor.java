@@ -379,6 +379,10 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             }
             
             return null;
+        } catch (SkipIterationException e) {
+            throw e;
+        } catch (BreakLoopException e) {
+            throw e;
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -989,7 +993,7 @@ public Object visit(TextLiteralNode node) {
 
     @Override
     public Object visit(NoneLiteralNode node) {
-        return node;
+        return null;
     }
 
     @Override
@@ -2183,6 +2187,8 @@ public Object visit(ChainedComparisonNode node) {
                 ctx.setVariableType(iter, inferredType);
             }
             executeLoopBody(ctx, node);
+        } catch (BreakLoopException e) {
+            throw e;
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -2204,6 +2210,8 @@ public Object visit(ChainedComparisonNode node) {
                 if (!ctx.slotsInCurrentPath.isEmpty()
                     && interpreter.shouldReturnEarly(ctx.getSlotValues(), ctx.slotsInCurrentPath)) return;
             }
+        } catch (BreakLoopException e) {
+            throw e;
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
