@@ -2,9 +2,8 @@ unit test
 
 use {sample.Imported}
 
-Hello {
-	
-	main() {
-		Imported.hello()
-		}
-	}
+share Hello {
+    share main() {
+        Imported.hello()
+    }
+}

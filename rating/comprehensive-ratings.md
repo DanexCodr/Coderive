@@ -24,6 +24,19 @@ This document rates major Coderive components and language qualities based on th
 | Web playground/docs integration | 8.0 | 7.5 | 8.0 | 8.0 | 8.0 | 7.5 | 7.5 | 7.8 |
 | Test coverage (.cod + Gradle/server) | 6.5 | 6.5 | 7.0 | 7.0 | 7.5 | 6.5 | 7.0 | 6.9 |
 
+### What to improve for each core component rating
+
+- **Lexer (`cod/lexer`)**: add fuzz tests for token boundaries, unicode, malformed number literals, and multiline string edge cases.
+- **Parser (`cod/parser`)**: add grammar conformance tests for all statement/expression variants and recoverable error diagnostics.
+- **AST + Factory bridge (`cod/ast`)**: enforce dual-write invariants with unit checks that compare flat-node and legacy-node parity.
+- **Interpreter runtime (`cod/interpreter`)**: add deterministic behavior tests for control-flow exceptions, method dispatch variants, and slot propagation.
+- **Type handling (`TypeHandler`)**: add full matrix tests for union/nullable conversions, `is` checks, and arithmetic/comparison coercions.
+- **Range/Lazy arrays (`cod/range`)**: add benchmark guardrails and correctness tests for reverse/stepped/multi-range mutations.
+- **Import/index/bytecode flow**: add contract tests for index generation, stale index invalidation, and bytecode load/save round-trips.
+- **Runner UX (`CommandRunner`, etc.)**: improve error messages and add command integration tests for flags, compile mode, and invalid input.
+- **Web playground/docs integration**: add smoke tests for initialization and runtime fallback behavior across modern browsers.
+- **Test coverage (.cod + Gradle/server)**: wire language runtime `.cod` tests into CI so regressions fail builds automatically.
+
 ## Language Quality Ratings
 
 | Quality Area | Rating | Notes |
@@ -38,6 +51,19 @@ This document rates major Coderive components and language qualities based on th
 | Tooling maturity | 7.0 | CLI/playground exist; ecosystem automation and CI depth can grow. |
 | Extensibility | 8.0 | Modular parser/interpreter/registry architecture supports evolution. |
 | Production readiness | 7.4 | Very promising, but broader deterministic tests are needed for confidence. |
+
+### What to improve for each language quality rating
+
+- **Syntax readability**: add formatter/linter style guidance to keep idioms consistent across docs/examples.
+- **Behavioral consistency**: create golden-output regression tests for core language constructs and edge-case branches.
+- **Raw execution speed**: add repeatable benchmarks and regression thresholds for loops, method calls, and range/index operations.
+- **Memory efficiency**: add memory profiling checks for large lazy ranges and high-mutation scenarios.
+- **Expressive power**: expand tested examples for policies, inheritance, lambdas, and advanced slot usage.
+- **Safety model**: strengthen static checks and improve diagnostics for unsafe/invalid control-flow and type-mismatch paths.
+- **Developer ergonomics**: improve error wording, source spans, and quick-fix hints in parser/runtime errors.
+- **Tooling maturity**: expand CI coverage, add structured release validation, and automate runtime test execution.
+- **Extensibility**: document extension points and add tests that protect parser/interpreter modular boundaries.
+- **Production readiness**: formalize reliability gates (tests + performance + compatibility checks) before release tags.
 
 ## Strengths
 

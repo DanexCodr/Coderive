@@ -14,6 +14,7 @@ share NoneAndTypeDemo {
 
         out("a=" + a)
         out("b=" + b)
+        out("b-eq-none=" + (b == none))
 
         if b is none {
             out("b-is-none")
