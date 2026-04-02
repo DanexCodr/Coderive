@@ -2099,10 +2099,10 @@ public Object visit(ChainedComparisonNode node) {
     }
     
     private List<ParamNode> inferLambdaParamsFromPlaceholders(LambdaNode lambda) {
-        LinkedHashSet<String> names = new LinkedHashSet<String>();
         if (lambda == null) {
             return new ArrayList<ParamNode>();
         }
+        LinkedHashSet<String> names = new LinkedHashSet<String>();
         
         if (lambda.expressionBody != null) {
             collectPlaceholderNames(lambda.expressionBody, names);
@@ -2123,7 +2123,7 @@ public Object visit(ChainedComparisonNode node) {
     }
     
     private void collectPlaceholderNames(ASTNode node, LinkedHashSet<String> names) {
-        if (node == null || names == null) return;
+        if (node == null) return;
         
         if (node instanceof IdentifierNode) {
             String name = ((IdentifierNode) node).name;
@@ -2232,9 +2232,7 @@ public Object visit(ChainedComparisonNode node) {
             return;
         }
         if (node instanceof LambdaNode) {
-            LambdaNode n = (LambdaNode) node;
-            collectPlaceholderNames(n.expressionBody, names);
-            collectPlaceholderNames(n.body, names);
+            // Nested lambdas infer their own placeholders independently.
             return;
         }
         
@@ -2274,6 +2272,7 @@ public Object visit(ChainedComparisonNode node) {
             ReturnSlotAssignmentNode n = (ReturnSlotAssignmentNode) node;
             collectPlaceholderNames(n.methodCall, names);
             collectPlaceholderNames(n.lambda, names);
+            return;
         }
     }
 

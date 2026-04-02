@@ -420,6 +420,7 @@ public class ExpressionParser extends BaseParser {
         
         expect(RPAREN);
         
+        // Expression-body lambda, e.g. \() $left + $right
         if (!is(DOUBLE_COLON) && !is(TILDE_ARROW) && !is(LBRACE)) {
             LambdaNode lambda = ASTFactory.createLambda(parameters, null, null, lambdaToken);
             lambda.expressionBody = parseExpr();

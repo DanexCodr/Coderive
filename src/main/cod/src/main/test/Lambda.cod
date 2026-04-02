@@ -8,6 +8,7 @@ share LambdaDemo {
         z := [1, 2, 3].map(\() $item + 1)
         w := [1, 2, 3, 4].reduce(\(acc, value) acc + value, 0)
         out(z[0])
+        out(z[1])
         out(z[2])
         out(w)
         ~> sum: x, diff: y

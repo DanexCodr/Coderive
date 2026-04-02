@@ -30,6 +30,8 @@ Broadcaster {
         filtered := [1, 2, 3, 4].filter(\(x) x >= 3)
         reduced := [1, 2, 3, 4].reduce(\(acc, x) acc + x, 0)
         reducedNamed := [1, 2, 3, 4].reduce(\() $left + $right, 0)
+        reduceResult := 0
+        reduceResult = [result]:\() :: result: int ~> result: [1, 2, 3, 4].reduce(\() $left + $right, 0)
         
         out("mapped[0] = " + mapped[0] + " (expect 11)")
         out("mapped[2] = " + mapped[2] + " (expect 13)")
@@ -37,6 +39,7 @@ Broadcaster {
         out("filtered[1] = " + filtered[1] + " (expect 4)")
         out("reduced = " + reduced + " (expect 10)")
         out("reducedNamed = " + reducedNamed + " (expect 10)")
+        out("reduceResult = " + reduceResult + " (expect 10)")
     }
 
 }
