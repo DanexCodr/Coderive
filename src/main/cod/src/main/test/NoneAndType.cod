@@ -1,7 +1,7 @@
 unit test
 
 share NoneAndTypeDemo {
-    local maybe(flag: bool) :: value: text|none {
+    local maybe(flag: bool) :: value: text? {
         if flag {
             ~> value: "ok"
         }
@@ -28,4 +28,3 @@ share NoneAndTypeDemo {
         out("t-is-text=" + (t is text))
     }
 }
-
