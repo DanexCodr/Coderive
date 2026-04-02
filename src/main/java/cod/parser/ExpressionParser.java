@@ -281,7 +281,18 @@ public class ExpressionParser extends BaseParser {
             indexExpr = parseRangeIndex();
         } else {
             indexExpr = parseExpr();
-            expect(RBRACKET);
+            if (consume(COMMA)) {
+                List<ExprNode> indices = new ArrayList<ExprNode>();
+                indices.add(indexExpr);
+                indices.add(parseExpr());
+                while (consume(COMMA)) {
+                    indices.add(parseExpr());
+                }
+                expect(RBRACKET);
+                indexExpr = ASTFactory.createTuple(indices, lbracketToken);
+            } else {
+                expect(RBRACKET);
+            }
             return ASTFactory.createIndexAccess(arrayExpr, indexExpr, lbracketToken);
         }
         

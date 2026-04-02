@@ -279,8 +279,8 @@ public class TypeHandler {
         a = unwrap(a); 
         b = unwrap(b);
         
-        if (a instanceof List || b instanceof List) {
-            throw new ProgramError("Cannot add arrays using '+' operator");
+        if (isArray(a) || isArray(b)) {
+            return applyArrayOperation(a, b, "+");
         }
         
         if (a instanceof String || b instanceof String ||
@@ -297,8 +297,8 @@ public class TypeHandler {
         a = unwrap(a); 
         b = unwrap(b);
         
-        if (a instanceof List || b instanceof List) {
-            throw new ProgramError("Cannot subtract arrays using '-' operator");
+        if (isArray(a) || isArray(b)) {
+            return applyArrayOperation(a, b, "-");
         }
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
@@ -310,9 +310,8 @@ public class TypeHandler {
         a = unwrap(a); 
         b = unwrap(b);
         
-        // Handle array multiplication
         if (isArray(a) || isArray(b)) {
-            return multiplyArrayOrScalar(a, b);
+            return applyArrayOperation(a, b, "*");
         }
         
         // Handle string multiplication (repetition)
@@ -346,68 +345,156 @@ public class TypeHandler {
                obj instanceof Float || obj instanceof Double;
     }
     
-    private Object multiplyArrayOrScalar(Object a, Object b) {
+    private Object applyArrayOperation(Object a, Object b, String op) {
         boolean aIsArray = isArray(a);
         boolean bIsArray = isArray(b);
         
-        // Array * Array (element-wise)
         if (aIsArray && bIsArray) {
-            return multiplyArrays(a, b);
+            return applyArrayArrayOperation(a, b, op);
         }
         
-        // Array * Scalar (broadcast)
         if (aIsArray) {
-            return multiplyArrayByScalar(a, b);
+            return applyArrayScalarOperation(a, b, op);
         }
         
-        // Scalar * Array
         if (bIsArray) {
-            return multiplyArrayByScalar(b, a);
+            return applyArrayScalarOperation(b, a, op);
         }
         
         throw new InternalError(
-            "Invalid state in multiplyArrayOrScalar: neither a nor b is array. " +
+            "Invalid state in applyArrayOperation: neither a nor b is array. " +
             "a=" + (a != null ? a.getClass().getName() : "null") + 
             ", b=" + (b != null ? b.getClass().getName() : "null")
         );
     }
     
-    private Object multiplyArrays(Object a, Object b) {
+    private Object applyArrayArrayOperation(Object a, Object b, String op) {
         List<Object> listA = toList(a);
         List<Object> listB = toList(b);
         
-        if (listA.size() != listB.size()) {
+        int sizeA = listA.size();
+        int sizeB = listB.size();
+        int resultSize;
+        
+        if (sizeA == sizeB) {
+            resultSize = sizeA;
+        } else if (sizeA == 1) {
+            resultSize = sizeB;
+        } else if (sizeB == 1) {
+            resultSize = sizeA;
+        } else if (canBroadcastNestedWithVector(listA, listB)) {
+            List<Object> result = new ArrayList<Object>(sizeA);
+            for (Object elemA : listA) {
+                result.add(applyScalarOperation(elemA, listB, op));
+            }
+            return result;
+        } else if (canBroadcastNestedWithVector(listB, listA)) {
+            List<Object> result = new ArrayList<Object>(sizeB);
+            for (Object elemB : listB) {
+                result.add(applyScalarOperation(listA, elemB, op));
+            }
+            return result;
+        } else {
             throw new ProgramError(
-                "Arrays must have same size for element-wise multiplication. " +
-                "Left size: " + listA.size() + ", Right size: " + listB.size()
+                "Arrays are not broadcast-compatible for '" + op + "'. " +
+                "Left size: " + sizeA + ", Right size: " + sizeB
             );
         }
         
         List<Object> result = new ArrayList<Object>();
-        for (int i = 0; i < listA.size(); i++) {
-            Object elemA = listA.get(i);
-            Object elemB = listB.get(i);
-            result.add(multiplyNumbers(elemA, elemB));
+        for (int i = 0; i < resultSize; i++) {
+            Object elemA = listA.get(sizeA == 1 ? 0 : i);
+            Object elemB = listB.get(sizeB == 1 ? 0 : i);
+            result.add(applyScalarOperation(elemA, elemB, op));
         }
         
         return result;
     }
     
-    private Object multiplyArrayByScalar(Object array, Object scalar) {
+    private boolean canBroadcastNestedWithVector(List<Object> nestedCandidate, List<Object> vectorCandidate) {
+        if (nestedCandidate.isEmpty()) return false;
+        for (Object element : nestedCandidate) {
+            if (!(element instanceof List || element instanceof NaturalArray)) {
+                return false;
+            }
+            List<Object> inner = toList(element);
+            int innerSize = inner.size();
+            int vectorSize = vectorCandidate.size();
+            boolean sameSize = innerSize == vectorSize;
+            boolean innerBroadcastable = innerSize == 1;
+            boolean vectorBroadcastable = vectorSize == 1;
+            if (!sameSize && !innerBroadcastable && !vectorBroadcastable) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    private Object applyArrayScalarOperation(Object array, Object scalar, String op) {
         List<Object> list = toList(array);
         List<Object> result = new ArrayList<Object>();
-        
-        AutoStackingNumber scalarNum = toAutoStackingNumber(scalar);
-        
+
         for (Object elem : list) {
-            if (elem instanceof AutoStackingNumber) {
-                result.add(((AutoStackingNumber) elem).multiply(scalarNum));
-            } else {
-                result.add(multiplyNumbers(elem, scalar));
-            }
+            result.add(applyScalarOperation(elem, scalar, op));
         }
         
         return result;
+    }
+
+    private Object applyScalarOperation(Object a, Object b, String op) {
+        if (isArray(a) || isArray(b)) {
+            return applyArrayOperation(a, b, op);
+        }
+        
+        if ("+".equals(op)) {
+            if (a instanceof String || b instanceof String ||
+                a instanceof TextLiteralNode || b instanceof TextLiteralNode) {
+                return String.valueOf(a) + String.valueOf(b);
+            }
+            AutoStackingNumber numA = toAutoStackingNumber(a);
+            AutoStackingNumber numB = toAutoStackingNumber(b);
+            return numA.add(numB);
+        }
+        
+        if ("-".equals(op)) {
+            AutoStackingNumber numA = toAutoStackingNumber(a);
+            AutoStackingNumber numB = toAutoStackingNumber(b);
+            return numA.subtract(numB);
+        }
+        
+        if ("*".equals(op)) {
+            return multiplyScalars(a, b);
+        }
+        
+        if ("/".equals(op)) {
+            AutoStackingNumber numA = toAutoStackingNumber(a);
+            AutoStackingNumber numB = toAutoStackingNumber(b);
+            if (numB.isZero()) {
+                throw new ProgramError("Division by zero");
+            }
+            return numA.divide(numB);
+        }
+        
+        throw new InternalError("Unsupported array operation: " + op);
+    }
+
+    private Object multiplyScalars(Object a, Object b) {
+        if ((a instanceof TextLiteralNode && isNumeric(b)) || 
+            (b instanceof TextLiteralNode && isNumeric(a))) {
+            return multiplyString(a, b);
+        }
+        
+        if (a instanceof String && isNumeric(b)) {
+            return multiplyString(a, b);
+        }
+        
+        if (b instanceof String && isNumeric(a)) {
+            return multiplyString(a, b);
+        }
+        
+        AutoStackingNumber numA = toAutoStackingNumber(a);
+        AutoStackingNumber numB = toAutoStackingNumber(b);
+        return numA.multiply(numB);
     }
     
     private Object multiplyString(Object a, Object b) {
@@ -469,8 +556,8 @@ public class TypeHandler {
         a = unwrap(a); 
         b = unwrap(b);
         
-        if (a instanceof List || b instanceof List) {
-            throw new ProgramError("Cannot divide arrays using '/' operator");
+        if (isArray(a) || isArray(b)) {
+            return applyArrayOperation(a, b, "/");
         }
         
         AutoStackingNumber numA = toAutoStackingNumber(a);

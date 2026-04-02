@@ -174,6 +174,10 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
             Object indexObj = dispatcher.dispatch(indexAccess.index);
             indexObj = typeSystem.unwrap(indexObj);
             
+            if (indexObj instanceof List) {
+                return assignTupleIndex(arrayObj, (List<?>) indexObj, newValue);
+            }
+            
             if (indexObj instanceof RangeSpec) {
                 return assignRange(arrayObj, (RangeSpec) indexObj, newValue);
             }
@@ -203,6 +207,130 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
         } catch (Exception e) {
             throw new InternalError("Index assignment failed", e);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object assignTupleIndex(Object arrayObj, List<?> tupleIndices, Object newValue) {
+        if (tupleIndices == null || tupleIndices.isEmpty()) {
+            throw new ProgramError("Invalid multidimensional assignment: empty index tuple");
+        }
+        
+        Object current = arrayObj;
+        for (int i = 0; i < tupleIndices.size() - 1; i++) {
+            Object idxObj = typeSystem.unwrap(tupleIndices.get(i));
+            if (idxObj instanceof RangeSpec) {
+                current = extractRange(current, (RangeSpec) idxObj);
+                continue;
+            }
+            if (idxObj instanceof MultiRangeSpec) {
+                current = extractMultiRange(current, (MultiRangeSpec) idxObj);
+                continue;
+            }
+            if (current instanceof NaturalArray) {
+                NaturalArray natural = (NaturalArray) current;
+                long idx = expressionHandler.toLongIndex(idxObj);
+                current = natural.get(idx);
+                continue;
+            }
+            if (current instanceof List) {
+                List<Object> list = (List<Object>) current;
+                int idx = expressionHandler.toIntIndex(idxObj);
+                if (idx < 0 || idx >= list.size()) {
+                    throw new ProgramError("Index out of bounds: " + idx + " for array of size " + list.size());
+                }
+                current = list.get(idx);
+                continue;
+            }
+            throw new ProgramError("Invalid multidimensional assignment path: expected NaturalArray or List, got "
+                + (current != null ? current.getClass().getSimpleName() : "null"));
+        }
+        
+        Object lastIdxObj = typeSystem.unwrap(tupleIndices.get(tupleIndices.size() - 1));
+        if (lastIdxObj instanceof RangeSpec) {
+            return assignRange(current, (RangeSpec) lastIdxObj, newValue);
+        }
+        if (lastIdxObj instanceof MultiRangeSpec) {
+            return assignMultiRange(current, (MultiRangeSpec) lastIdxObj, newValue);
+        }
+        if (current instanceof NaturalArray) {
+            NaturalArray natural = (NaturalArray) current;
+            long idx = expressionHandler.toLongIndex(lastIdxObj);
+            natural.set(idx, newValue);
+            return newValue;
+        }
+        if (current instanceof List) {
+            List<Object> list = (List<Object>) current;
+            int idx = expressionHandler.toIntIndex(lastIdxObj);
+            list.set(idx, newValue);
+            return newValue;
+        }
+        
+        throw new ProgramError("Invalid array assignment target in multidimensional assignment: " +
+            (current != null ? current.getClass().getSimpleName() : "null"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object extractRange(Object array, RangeSpec range) {
+        if (array instanceof NaturalArray) {
+            return ((NaturalArray) array).getRange(range);
+        }
+        if (array instanceof List) {
+            List<Object> list = (List<Object>) array;
+            List<Object> result = new ArrayList<Object>();
+            long start = expressionHandler.toLongIndex(range.start);
+            long end = expressionHandler.toLongIndex(range.end);
+            long step = expressionHandler.calculateStep(range);
+            start = normalizeListIndex(start, list.size());
+            end = normalizeListIndex(end, list.size());
+            
+            if (start < 0 || start >= list.size()) {
+                throw new ProgramError("Range start index out of bounds: " + start + " for array of size " + list.size());
+            }
+            if (end < 0 || end >= list.size()) {
+                throw new ProgramError("Range end index out of bounds: " + end + " for array of size " + list.size());
+            }
+            if (step > 0) {
+                for (long i = start; i <= end && i < list.size(); i += step) {
+                    result.add(list.get((int) i));
+                }
+            } else if (step < 0) {
+                for (long i = start; i >= end && i >= 0; i += step) {
+                    result.add(list.get((int) i));
+                }
+            } else {
+                throw new ProgramError("Range step cannot be zero");
+            }
+            return result;
+        }
+        throw new ProgramError("Cannot apply range index during multidimensional assignment to " +
+            (array != null ? array.getClass().getSimpleName() : "null"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object extractMultiRange(Object array, MultiRangeSpec multiRange) {
+        if (array instanceof NaturalArray) {
+            return ((NaturalArray) array).getMultiRange(multiRange);
+        }
+        if (array instanceof List) {
+            List<Object> list = (List<Object>) array;
+            List<Object> result = new ArrayList<Object>();
+            for (RangeSpec range : multiRange.ranges) {
+                Object sub = extractRange(list, range);
+                if (sub instanceof List) {
+                    result.addAll((List<Object>) sub);
+                }
+            }
+            return result;
+        }
+        throw new ProgramError("Cannot apply multi-range index during multidimensional assignment to " +
+            (array != null ? array.getClass().getSimpleName() : "null"));
+    }
+    
+    private long normalizeListIndex(long index, int size) {
+        if (index < 0) {
+            return size + index;
+        }
+        return index;
     }
     
     private Object handleVariableAssignment(ExprNode target, Object newValue, ExecutionContext ctx) {

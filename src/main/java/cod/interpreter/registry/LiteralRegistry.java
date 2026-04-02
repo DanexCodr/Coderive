@@ -4,6 +4,7 @@ import cod.ast.nodes.*;
 import cod.error.ProgramError;
 import cod.interpreter.context.ExecutionContext;
 import cod.interpreter.Evaluator;
+import cod.interpreter.handler.TypeHandler;
 import cod.range.NaturalArray;
 import java.util.*;
 
@@ -67,6 +68,36 @@ public class LiteralRegistry {
                 }
             },
             RangeNode.class, NaturalArray.class
+        );
+        
+        define("map",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleArrayMap(literal, arguments, ctx);
+                }
+            },
+            NaturalArray.class, List.class
+        );
+        
+        define("filter",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleArrayFilter(literal, arguments, ctx);
+                }
+            },
+            NaturalArray.class, List.class
+        );
+        
+        define("reduce",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleArrayReduce(literal, arguments, ctx);
+                }
+            },
+            NaturalArray.class, List.class
         );
         
         // Future definitions:
@@ -240,6 +271,239 @@ public class LiteralRegistry {
         }
         long size = array.size();
         return (size <= Integer.MAX_VALUE) ? (int) size : size;
+    }
+    
+    @SuppressWarnings("unchecked")
+    private List<Object> asList(Object literal) {
+        if (literal instanceof NaturalArray) {
+            NaturalArray arr = (NaturalArray) literal;
+            if (arr.hasPendingUpdates()) {
+                arr.commitUpdates();
+            }
+            return arr.toList();
+        }
+        if (literal instanceof List) {
+            return (List<Object>) literal;
+        }
+        throw new ProgramError("Expected array literal target");
+    }
+    
+    private MethodCallNode asMethodCall(Object fn, String methodName) {
+        Object unwrapped = fn;
+        if (fn instanceof TypeHandler.Value) {
+            unwrapped = ((TypeHandler.Value) fn).value;
+        }
+        if (!(unwrapped instanceof MethodCallNode)) {
+            String actualType = (unwrapped == null) ? "null" : unwrapped.getClass().getSimpleName();
+            throw new ProgramError(methodName + " expects a method call callback argument, got: " + actualType);
+        }
+        return (MethodCallNode) unwrapped;
+    }
+    
+    private Object invokeArrayCallback(Object callbackObj, String methodName, ExecutionContext ctx, Object... args) {
+        MethodCallNode callback = asMethodCall(callbackObj, methodName);
+        return evaluator.evaluate(buildRuntimeCall(callback, args), ctx);
+    }
+    
+    private MethodCallNode buildRuntimeCall(MethodCallNode original, Object... appendedArgs) {
+        MethodCallNode runtimeCall = new MethodCallNode();
+        runtimeCall.name = original.name;
+        runtimeCall.qualifiedName = original.qualifiedName;
+        runtimeCall.slotNames = new ArrayList<String>(original.slotNames);
+        runtimeCall.argNames = new ArrayList<String>(original.argNames);
+        runtimeCall.isSuperCall = original.isSuperCall;
+        runtimeCall.isGlobal = original.isGlobal;
+        runtimeCall.target = original.target;
+        runtimeCall.isSingleSlotCall = original.isSingleSlotCall;
+        runtimeCall.arguments = new ArrayList<ExprNode>();
+        
+        if (original.arguments != null) {
+            for (ExprNode arg : original.arguments) {
+                if (arg instanceof ValueExprNode) {
+                    runtimeCall.arguments.add(arg);
+                } else {
+                    throw new ProgramError(
+                        "Only value arguments are supported in array literal method callbacks, got: "
+                            + arg.getClass().getSimpleName());
+                }
+            }
+        }
+        
+        for (Object value : appendedArgs) {
+            runtimeCall.arguments.add(new ValueExprNode(value));
+            runtimeCall.argNames.add(null);
+        }
+        
+        return runtimeCall;
+    }
+    
+    private Object handleArrayMap(Object literal, List<Object> arguments, ExecutionContext ctx) {
+        if (arguments == null || arguments.isEmpty()) {
+            throw new ProgramError("map expects a callback or (operator, operand)");
+        }
+        List<Object> source = asList(literal);
+        
+        if (looksLikeOperatorMap(arguments)) {
+            String op = String.valueOf(arguments.get(0));
+            Object operand = arguments.get(1);
+            TypeHandler typeHandler = ctx.getTypeHandler();
+            List<Object> result = new ArrayList<Object>(source.size());
+            for (int i = 0; i < source.size(); i++) {
+                Object value = source.get(i);
+                result.add(applyOperator(typeHandler, value, op, operand));
+            }
+            return result;
+        }
+        
+        if (arguments.size() != 1) {
+            throw new ProgramError("map callback mode expects exactly one argument");
+        }
+        
+        List<Object> result = new ArrayList<Object>(source.size());
+        for (int i = 0; i < source.size(); i++) {
+            Object value = source.get(i);
+            Object mapped = invokeArrayCallback(arguments.get(0), "map", ctx, value, i);
+            result.add(mapped);
+        }
+        return result;
+    }
+    
+    private Object handleArrayFilter(Object literal, List<Object> arguments, ExecutionContext ctx) {
+        if (arguments == null || arguments.isEmpty()) {
+            throw new ProgramError("filter expects a callback or (operator, operand)");
+        }
+        List<Object> source = asList(literal);
+        
+        if (looksLikeOperatorFilter(arguments)) {
+            String op = String.valueOf(arguments.get(0));
+            Object operand = arguments.get(1);
+            TypeHandler typeHandler = ctx.getTypeHandler();
+            List<Object> result = new ArrayList<Object>();
+            for (int i = 0; i < source.size(); i++) {
+                Object value = source.get(i);
+                Object comparison = compareWithOperator(typeHandler, value, op, operand);
+                if (isTruthy(comparison)) {
+                    result.add(value);
+                }
+            }
+            return result;
+        }
+        
+        if (arguments.size() != 1) {
+            throw new ProgramError("filter callback mode expects exactly one argument");
+        }
+        
+        List<Object> result = new ArrayList<Object>();
+        for (int i = 0; i < source.size(); i++) {
+            Object value = source.get(i);
+            Object keep = invokeArrayCallback(arguments.get(0), "filter", ctx, value, i);
+            if (isTruthy(keep)) {
+                result.add(value);
+            }
+        }
+        return result;
+    }
+    
+    private Object handleArrayReduce(Object literal, List<Object> arguments, ExecutionContext ctx) {
+        if (arguments == null || arguments.isEmpty() || arguments.size() > 2) {
+            throw new ProgramError("reduce expects callback/op and optional initial value");
+        }
+        List<Object> source = asList(literal);
+        if (source.isEmpty() && arguments.size() < 2) {
+            throw new ProgramError("reduce on empty array requires an initial value");
+        }
+        
+        if (isOperatorReduce(arguments.get(0))) {
+            String op = String.valueOf(arguments.get(0));
+            Object accumulator;
+            int startIndex;
+            if (arguments.size() == 2) {
+                accumulator = arguments.get(1);
+                startIndex = 0;
+            } else {
+                accumulator = source.get(0);
+                startIndex = 1;
+            }
+            TypeHandler typeHandler = ctx.getTypeHandler();
+            for (int i = startIndex; i < source.size(); i++) {
+                accumulator = applyOperator(typeHandler, accumulator, op, source.get(i));
+            }
+            return accumulator;
+        }
+        
+        Object accumulator;
+        int startIndex;
+        if (arguments.size() == 2) {
+            accumulator = arguments.get(1);
+            startIndex = 0;
+        } else {
+            accumulator = source.get(0);
+            startIndex = 1;
+        }
+        
+        for (int i = startIndex; i < source.size(); i++) {
+            Object value = source.get(i);
+            accumulator = invokeArrayCallback(arguments.get(0), "reduce", ctx, accumulator, value, i);
+        }
+        return accumulator;
+    }
+    
+    private boolean looksLikeOperatorMap(List<Object> arguments) {
+        return arguments.size() == 2 && isOperatorReduce(arguments.get(0));
+    }
+    
+    private boolean looksLikeOperatorFilter(List<Object> arguments) {
+        if (arguments.size() != 2) return false;
+        String op = String.valueOf(arguments.get(0));
+        return "==".equals(op) || "!=".equals(op) || ">".equals(op) || "<".equals(op) || ">=".equals(op) || "<=".equals(op);
+    }
+    
+    private boolean isOperatorReduce(Object opObj) {
+        String op = String.valueOf(opObj);
+        return "+".equals(op) || "-".equals(op) || "*".equals(op) || "/".equals(op);
+    }
+    
+    private Object applyOperator(TypeHandler typeHandler, Object left, String op, Object right) {
+        if ("+".equals(op)) return typeHandler.addNumbers(left, right);
+        if ("-".equals(op)) return typeHandler.subtractNumbers(left, right);
+        if ("*".equals(op)) return typeHandler.multiplyNumbers(left, right);
+        if ("/".equals(op)) return typeHandler.divideNumbers(left, right);
+        throw new ProgramError("Unsupported operator for array method: " + op);
+    }
+    
+    private Object compareWithOperator(TypeHandler typeHandler, Object left, String op, Object right) {
+        int cmp = typeHandler.compare(left, right);
+        if ("==".equals(op)) return cmp == 0;
+        if ("!=".equals(op)) return cmp != 0;
+        if (">".equals(op)) return cmp > 0;
+        if ("<".equals(op)) return cmp < 0;
+        if (">=".equals(op)) return cmp >= 0;
+        if ("<=".equals(op)) return cmp <= 0;
+        throw new ProgramError("Unsupported comparison operator for filter: " + op);
+    }
+    
+    private boolean isTruthy(Object value) {
+        Object unwrapped = value;
+        if (value instanceof TypeHandler.Value) {
+            unwrapped = ((TypeHandler.Value) value).value;
+        }
+        if (unwrapped == null) return false;
+        if (unwrapped instanceof Boolean) return ((Boolean) unwrapped).booleanValue();
+        if (unwrapped instanceof Number) return ((Number) unwrapped).doubleValue() != 0.0;
+        if (unwrapped instanceof String) {
+            String str = (String) unwrapped;
+            return !str.isEmpty() && !"false".equalsIgnoreCase(str);
+        }
+        if (unwrapped instanceof List) return !((List<?>) unwrapped).isEmpty();
+        if (unwrapped instanceof NaturalArray) return ((NaturalArray) unwrapped).size() > 0;
+        if (unwrapped instanceof BoolLiteralNode) return ((BoolLiteralNode) unwrapped).value;
+        if (unwrapped instanceof IntLiteralNode) return !((IntLiteralNode) unwrapped).value.isZero();
+        if (unwrapped instanceof FloatLiteralNode) return !((FloatLiteralNode) unwrapped).value.isZero();
+        if (unwrapped instanceof TextLiteralNode) {
+            String str = ((TextLiteralNode) unwrapped).value;
+            return !str.isEmpty() && !"false".equalsIgnoreCase(str);
+        }
+        return true;
     }
     
     /**
