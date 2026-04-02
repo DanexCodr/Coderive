@@ -55,6 +55,7 @@ public class SymbolLexer {
         SINGLE_CHAR_SYMBOLS['|'] = PIPE;
         SINGLE_CHAR_SYMBOLS['&'] = AMPERSAND;
         SINGLE_CHAR_SYMBOLS['?'] = QUESTION;
+        SINGLE_CHAR_SYMBOLS['$'] = DOLLAR;
         SINGLE_CHAR_SYMBOLS['%'] = MOD;
         SINGLE_CHAR_SYMBOLS[','] = COMMA;
         SINGLE_CHAR_SYMBOLS['('] = LPAREN;

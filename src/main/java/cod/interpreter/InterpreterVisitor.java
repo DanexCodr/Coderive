@@ -2002,23 +2002,17 @@ public Object visit(ChainedComparisonNode node) {
         LambdaNode lambda = closure.lambda;
         List<ParamNode> params = lambda.parameters != null ? lambda.parameters : new ArrayList<ParamNode>();
         List<Object> values = args != null ? args : Collections.<Object>emptyList();
-        boolean usesImplicitIt = false;
         
         if (params.isEmpty()) {
-            ParamNode implicitIt = new ParamNode();
-            implicitIt.name = "it";
-            implicitIt.type = null;
-            implicitIt.typeInferred = true;
-            implicitIt.isLambdaParameter = true;
-            params = new ArrayList<ParamNode>();
-            params.add(implicitIt);
-            usesImplicitIt = true;
+            params = inferLambdaParamsFromPlaceholders(lambda);
+            if (params.isEmpty()) {
+                throw new ProgramError(
+                    "Lambda with empty parameter list must use named placeholders "
+                        + "like $left, $right in its body, or declare parameters explicitly");
+            }
         }
         
         Map<String, Object> lambdaLocals = new HashMap<String, Object>(closure.capturedLocals);
-        if (usesImplicitIt && !values.isEmpty()) {
-            lambdaLocals.put("it", values.get(0));
-        }
         for (int i = 0; i < params.size(); i++) {
             ParamNode param = params.get(i);
             if (param == null || param.name == null) continue;
@@ -2102,6 +2096,185 @@ public Object visit(ChainedComparisonNode node) {
             return slotValues.get(lambdaSlots.get(0).name);
         }
         return slotValues;
+    }
+    
+    private List<ParamNode> inferLambdaParamsFromPlaceholders(LambdaNode lambda) {
+        LinkedHashSet<String> names = new LinkedHashSet<String>();
+        if (lambda == null) {
+            return new ArrayList<ParamNode>();
+        }
+        
+        if (lambda.expressionBody != null) {
+            collectPlaceholderNames(lambda.expressionBody, names);
+        } else if (lambda.body != null) {
+            collectPlaceholderNames(lambda.body, names);
+        }
+        
+        List<ParamNode> params = new ArrayList<ParamNode>();
+        for (String name : names) {
+            ParamNode param = new ParamNode();
+            param.name = name;
+            param.type = null;
+            param.typeInferred = true;
+            param.isLambdaParameter = true;
+            params.add(param);
+        }
+        return params;
+    }
+    
+    private void collectPlaceholderNames(ASTNode node, LinkedHashSet<String> names) {
+        if (node == null || names == null) return;
+        
+        if (node instanceof IdentifierNode) {
+            String name = ((IdentifierNode) node).name;
+            if (name != null && name.startsWith("$") && name.length() > 1) {
+                names.add(name);
+            }
+            return;
+        }
+        
+        if (node instanceof BinaryOpNode) {
+            BinaryOpNode n = (BinaryOpNode) node;
+            collectPlaceholderNames(n.left, names);
+            collectPlaceholderNames(n.right, names);
+            return;
+        }
+        if (node instanceof UnaryNode) {
+            collectPlaceholderNames(((UnaryNode) node).operand, names);
+            return;
+        }
+        if (node instanceof TypeCastNode) {
+            collectPlaceholderNames(((TypeCastNode) node).expression, names);
+            return;
+        }
+        if (node instanceof MethodCallNode) {
+            MethodCallNode n = (MethodCallNode) node;
+            if (n.arguments != null) {
+                for (ExprNode arg : n.arguments) {
+                    collectPlaceholderNames(arg, names);
+                }
+            }
+            if (n.target != null) {
+                collectPlaceholderNames(n.target, names);
+            }
+            return;
+        }
+        if (node instanceof PropertyAccessNode) {
+            PropertyAccessNode n = (PropertyAccessNode) node;
+            collectPlaceholderNames(n.left, names);
+            collectPlaceholderNames(n.right, names);
+            return;
+        }
+        if (node instanceof IndexAccessNode) {
+            IndexAccessNode n = (IndexAccessNode) node;
+            collectPlaceholderNames(n.array, names);
+            collectPlaceholderNames(n.index, names);
+            return;
+        }
+        if (node instanceof ArrayNode) {
+            ArrayNode n = (ArrayNode) node;
+            if (n.elements != null) {
+                for (ExprNode elem : n.elements) {
+                    collectPlaceholderNames(elem, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof TupleNode) {
+            TupleNode n = (TupleNode) node;
+            if (n.elements != null) {
+                for (ExprNode elem : n.elements) {
+                    collectPlaceholderNames(elem, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof ExprIfNode) {
+            ExprIfNode n = (ExprIfNode) node;
+            collectPlaceholderNames(n.condition, names);
+            collectPlaceholderNames(n.thenExpr, names);
+            collectPlaceholderNames(n.elseExpr, names);
+            return;
+        }
+        if (node instanceof BooleanChainNode) {
+            BooleanChainNode n = (BooleanChainNode) node;
+            if (n.expressions != null) {
+                for (ExprNode expr : n.expressions) {
+                    collectPlaceholderNames(expr, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof EqualityChainNode) {
+            EqualityChainNode n = (EqualityChainNode) node;
+            collectPlaceholderNames(n.left, names);
+            if (n.chainArguments != null) {
+                for (ExprNode expr : n.chainArguments) {
+                    collectPlaceholderNames(expr, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof ChainedComparisonNode) {
+            ChainedComparisonNode n = (ChainedComparisonNode) node;
+            if (n.expressions != null) {
+                for (ExprNode expr : n.expressions) {
+                    collectPlaceholderNames(expr, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof ValueExprNode) {
+            Object value = ((ValueExprNode) node).getValue();
+            if (value instanceof ASTNode) {
+                collectPlaceholderNames((ASTNode) value, names);
+            }
+            return;
+        }
+        if (node instanceof LambdaNode) {
+            LambdaNode n = (LambdaNode) node;
+            collectPlaceholderNames(n.expressionBody, names);
+            collectPlaceholderNames(n.body, names);
+            return;
+        }
+        
+        if (node instanceof BlockNode) {
+            BlockNode n = (BlockNode) node;
+            if (n.statements != null) {
+                for (StmtNode stmt : n.statements) {
+                    collectPlaceholderNames(stmt, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof SlotAssignmentNode) {
+            collectPlaceholderNames(((SlotAssignmentNode) node).value, names);
+            return;
+        }
+        if (node instanceof MultipleSlotAssignmentNode) {
+            MultipleSlotAssignmentNode n = (MultipleSlotAssignmentNode) node;
+            if (n.assignments != null) {
+                for (SlotAssignmentNode asg : n.assignments) {
+                    collectPlaceholderNames(asg, names);
+                }
+            }
+            return;
+        }
+        if (node instanceof AssignmentNode) {
+            AssignmentNode n = (AssignmentNode) node;
+            collectPlaceholderNames(n.left, names);
+            collectPlaceholderNames(n.right, names);
+            return;
+        }
+        if (node instanceof VarNode) {
+            collectPlaceholderNames(((VarNode) node).value, names);
+            return;
+        }
+        if (node instanceof ReturnSlotAssignmentNode) {
+            ReturnSlotAssignmentNode n = (ReturnSlotAssignmentNode) node;
+            collectPlaceholderNames(n.methodCall, names);
+            collectPlaceholderNames(n.lambda, names);
+        }
     }
 
     @SuppressWarnings("unchecked")

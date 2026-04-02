@@ -702,6 +702,11 @@ public class ExpressionParser extends BaseParser {
                     baseExpr = ASTFactory.createIdentifier(idName, idToken);
                 }
             }
+            else if (is(DOLLAR)) {
+                Token dollarToken = expect(DOLLAR);
+                Token nameToken = expect(ID);
+                baseExpr = ASTFactory.createIdentifier("$" + nameToken.getText(), dollarToken);
+            }
             else if (is(LPAREN)) {
                 if (isTypeCast()) {
                     baseExpr = parseTypeCast();

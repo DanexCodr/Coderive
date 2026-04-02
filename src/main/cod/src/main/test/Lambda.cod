@@ -5,7 +5,7 @@ share LambdaDemo {
         a := 9
         b := 4
         x, y = [sum, diff]:\() :: sum: int, diff: int ~> sum: a + b, diff: a - b
-        z := [1, 2, 3].map(\() it + 1)
+        z := [1, 2, 3].map(\() $item + 1)
         w := [1, 2, 3, 4].reduce(\(acc, value) acc + value, 0)
         out(z[0])
         out(z[2])
