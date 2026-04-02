@@ -1,0 +1,16 @@
+unit test
+
+share LambdaDemo {
+    local compute() :: sum: int, diff: int {
+        a := 9
+        b := 4
+        x, y = [sum, diff]:\() :: sum: int, diff: int ~> sum: a + b, diff: a - b
+        ~> sum: x, diff: y
+    }
+    
+    share main() {
+        sum, diff := [sum, diff]:compute()
+        out(sum)
+        out(diff)
+    }
+}

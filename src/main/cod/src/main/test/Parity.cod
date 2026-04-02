@@ -1,8 +1,6 @@
-unit test
+unit test (main: this)
 
-share main() {
-    n := in(int, "Enter an integer: ")
+n := in(int, "Enter an integer: ")
 
-    if n % 2 == 0 outs(n, "is even.")
-    else outs(n, "is odd.")
-}
+if n % 2 == 0 outs(n, "is even.")
+else outs(n, "is odd.")
