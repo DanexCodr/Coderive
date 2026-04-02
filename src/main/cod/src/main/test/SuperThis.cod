@@ -1,0 +1,32 @@
+unit test
+
+share Parent {
+    label: text = "parent"
+
+    share this(initial: text) {
+        this.label = initial
+    }
+
+    share who() :: text {
+        ~> "P:" + this.label
+    }
+}
+
+share Child is Parent {
+    share this(initial: text) {
+        super.label = initial + "-via-super"
+    }
+
+    share who() :: text {
+        base := super.who()
+        ~> base + ":C"
+    }
+}
+
+share SuperThisMain {
+    share main() {
+        c := Child("x")
+        out(who():c)
+    }
+}
+
