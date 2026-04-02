@@ -2501,10 +2501,7 @@ public Object visit(ChainedComparisonNode node) {
     }
 
     private int normalizeTextIndex(int index, int length) {
-        if (index < 0) {
-            return length + index;
-        }
-        return index;
+        return (int) normalizeTextIndex((long) index, length);
     }
 
     private long normalizeTextIndex(long index, int length) {

@@ -546,7 +546,12 @@ public class LiteralRegistry {
         if (count > Integer.MAX_VALUE) {
             throw new ProgramError("repeat count is too large: " + count);
         }
-        long expectedLength = (long) target.length() * count;
+        long expectedLength;
+        try {
+            expectedLength = Math.multiplyExact((long) target.length(), count);
+        } catch (ArithmeticException e) {
+            throw new ProgramError("repeat result is too large");
+        }
         if (expectedLength > Integer.MAX_VALUE) {
             throw new ProgramError("repeat result is too large");
         }
