@@ -2002,6 +2002,7 @@ public Object visit(ChainedComparisonNode node) {
         LambdaNode lambda = closure.lambda;
         List<ParamNode> params = lambda.parameters != null ? lambda.parameters : new ArrayList<ParamNode>();
         List<Object> values = args != null ? args : Collections.<Object>emptyList();
+        boolean usesImplicitIt = false;
         
         if (params.isEmpty()) {
             ParamNode implicitIt = new ParamNode();
@@ -2011,9 +2012,13 @@ public Object visit(ChainedComparisonNode node) {
             implicitIt.isLambdaParameter = true;
             params = new ArrayList<ParamNode>();
             params.add(implicitIt);
+            usesImplicitIt = true;
         }
         
         Map<String, Object> lambdaLocals = new HashMap<String, Object>(closure.capturedLocals);
+        if (usesImplicitIt && !values.isEmpty()) {
+            lambdaLocals.put("it", values.get(0));
+        }
         for (int i = 0; i < params.size(); i++) {
             ParamNode param = params.get(i);
             if (param == null || param.name == null) continue;
@@ -2023,9 +2028,6 @@ public Object visit(ChainedComparisonNode node) {
             
             if (i < values.size()) {
                 boundValue = values.get(i);
-                found = true;
-            } else if ("it".equals(param.name) && !values.isEmpty()) {
-                boundValue = values.get(0);
                 found = true;
             } else if (param.hasDefaultValue && param.defaultValue != null) {
                 ExecutionContext defaultCtx =
@@ -2054,10 +2056,6 @@ public Object visit(ChainedComparisonNode node) {
             lambdaLocals.put(param.name, boundValue);
         }
         
-        if (!lambdaLocals.containsKey("it") && !values.isEmpty()) {
-            lambdaLocals.put("it", values.get(0));
-        }
-        
         if (lambda.expressionBody != null) {
             ExecutionContext exprCtx =
                 new ExecutionContext(closure.objectInstance, lambdaLocals, null, null, typeSystem);
@@ -2073,7 +2071,9 @@ public Object visit(ChainedComparisonNode node) {
         List<SlotNode> lambdaSlots =
             lambda.returnSlots != null ? lambda.returnSlots : new ArrayList<SlotNode>();
         if (lambdaSlots.isEmpty()) {
-            throw new ProgramError("Lambda callback requires expression body or return contract (::)");
+            throw new ProgramError(
+                "Lambda with explicit body requires a return contract (::). "
+                    + "Use expression body syntax for implicit return values.");
         }
         
         Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
