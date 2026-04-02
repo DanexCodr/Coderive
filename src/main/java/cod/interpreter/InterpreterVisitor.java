@@ -1842,9 +1842,7 @@ public Object visit(TextLiteralNode node) {
             if (arrayObj instanceof String) {
                 String text = (String) arrayObj;
                 int index = expressionHandler.toIntIndex(indexObj);
-                if (index < 0) {
-                    index = text.length() + index;
-                }
+                index = normalizeTextIndex(index, text.length());
                 if (index < 0 || index >= text.length()) {
                     throw new ProgramError(
                         "Index out of bounds: " + index + " for text of length " + text.length());
@@ -2471,8 +2469,8 @@ public Object visit(ChainedComparisonNode node) {
             long step = expressionHandler.calculateStep(range);
 
             int length = text.length();
-            if (start < 0) start = length + start;
-            if (end < 0) end = length + end;
+            start = normalizeTextIndex(start, length);
+            end = normalizeTextIndex(end, length);
 
             if (start < 0 || start >= length) {
                 throw new ProgramError("Range start index out of bounds: " + start + " for text of length " + length);
@@ -2500,6 +2498,20 @@ public Object visit(ChainedComparisonNode node) {
         } catch (Exception e) {
             throw new InternalError("String range extraction failed", e);
         }
+    }
+
+    private int normalizeTextIndex(int index, int length) {
+        if (index < 0) {
+            return length + index;
+        }
+        return index;
+    }
+
+    private long normalizeTextIndex(long index, int length) {
+        if (index < 0) {
+            return length + index;
+        }
+        return index;
     }
 
     private Object applyPatterns(ForNode node, List<PatternResult> patterns) {

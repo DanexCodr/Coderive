@@ -546,7 +546,11 @@ public class LiteralRegistry {
         if (count > Integer.MAX_VALUE) {
             throw new ProgramError("repeat count is too large: " + count);
         }
-        StringBuilder sb = new StringBuilder(target.length() * (int) count);
+        long expectedLength = (long) target.length() * count;
+        if (expectedLength > Integer.MAX_VALUE) {
+            throw new ProgramError("repeat result is too large");
+        }
+        StringBuilder sb = new StringBuilder((int) expectedLength);
         for (int i = 0; i < (int) count; i++) {
             sb.append(target);
         }
@@ -797,6 +801,9 @@ public class LiteralRegistry {
         }
         if (obj instanceof Number) {
             return ((Number) obj).longValue();
+        }
+        if (obj instanceof cod.math.AutoStackingNumber) {
+            return ((cod.math.AutoStackingNumber) obj).longValue();
         }
         if (obj instanceof String) {
             try {
