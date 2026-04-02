@@ -413,7 +413,11 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     }
     
     public AutoStackingNumber multiply(AutoStackingNumber other) {
-        if (this.isZero() || other.isZero()) return zero(Math.max(this.stacks, other.stacks));
+        if ((this.stacks == 1 && this.words[0] == 0L) ||
+            (other.stacks == 1 && other.words[0] == 0L) ||
+            this.isZero() || other.isZero()) {
+            return zero(Math.max(this.stacks, other.stacks));
+        }
         if (this.stacks == 1 && this.words[0] == 1L) return other;
         if (other.stacks == 1 && other.words[0] == 1L) return this;
         if (this.stacks == 1 && this.words[0] == -1L) return other.negate();
@@ -429,8 +433,8 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             
             // Check if product overflowed 64 bits
             if (a.words[0] != 0 && product / a.words[0] != b.words[0]) {
-                double preciseEnough = ((double) a.words[0]) * ((double) b.words[0]);
-                return fromDouble(resultNegative ? -preciseEnough : preciseEnough);
+                double approximateProduct = ((double) a.words[0]) * ((double) b.words[0]);
+                return fromDouble(resultNegative ? -approximateProduct : approximateProduct);
             }
             
             AutoStackingNumber result = new AutoStackingNumber(1, resultNegative ? -product : product);
