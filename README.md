@@ -299,7 +299,7 @@ share Document with Printable {
 
     share main() {
         doc := Document()
-        msg := print():doc
+        msg := doc.print()
         out(msg)
     }
 }
