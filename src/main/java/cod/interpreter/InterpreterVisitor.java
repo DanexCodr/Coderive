@@ -617,6 +617,18 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 DebugSystem.debug("OPTIMIZER", "Output pattern failed: " + e.getMessage());
             }
         }
+
+        // Try multi-array sequence chain pattern
+        List<PatternResult> multiArrayPatterns = extractMultiArraySequencePatterns(node);
+        if (!multiArrayPatterns.isEmpty()) {
+            try {
+                Object result = applyPatterns(node, multiArrayPatterns);
+                ArrayTracker.markLoopOptimized(loopId);
+                return result;
+            } catch (Exception e) {
+                DebugSystem.debug("OPTIMIZER", "Multi-array pattern failed: " + e.getMessage());
+            }
+        }
         
         // Try sequence pattern
         SequencePattern.Pattern seqPattern = 
@@ -658,6 +670,145 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
         
         return null;
+    }
+
+    private List<PatternResult> extractMultiArraySequencePatterns(ForNode node) {
+        List<PatternResult> results = new ArrayList<PatternResult>();
+        if (node == null || node.body == null || node.body.statements == null) {
+            return results;
+        }
+
+        List<StmtNode> statements = node.body.statements;
+        if (statements.size() < 2) {
+            return results;
+        }
+
+        List<String> orderedTargets = new ArrayList<String>();
+        List<AssignmentNode> orderedAssignments = new ArrayList<AssignmentNode>();
+
+        for (StmtNode stmt : statements) {
+            if (!(stmt instanceof AssignmentNode)) {
+                return new ArrayList<PatternResult>();
+            }
+
+            AssignmentNode assign = (AssignmentNode) stmt;
+            if (assign.isDeclaration || !(assign.left instanceof IndexAccessNode)) {
+                return new ArrayList<PatternResult>();
+            }
+
+            IndexAccessNode indexAccess = (IndexAccessNode) assign.left;
+            if (!(indexAccess.array instanceof IdentifierNode) || !(indexAccess.index instanceof IdentifierNode)) {
+                return new ArrayList<PatternResult>();
+            }
+
+            IdentifierNode index = (IdentifierNode) indexAccess.index;
+            if (!node.iterator.equals(index.name)) {
+                return new ArrayList<PatternResult>();
+            }
+
+            String targetName = ((IdentifierNode) indexAccess.array).name;
+            if (orderedTargets.contains(targetName)) {
+                return new ArrayList<PatternResult>();
+            }
+
+            orderedTargets.add(targetName);
+            orderedAssignments.add(assign);
+        }
+
+        for (int i = 0; i < orderedAssignments.size(); i++) {
+            AssignmentNode assign = orderedAssignments.get(i);
+            IndexAccessNode indexAccess = (IndexAccessNode) assign.left;
+            IdentifierNode targetArray = (IdentifierNode) indexAccess.array;
+
+            Set<String> refs = new HashSet<String>();
+            collectIndexedArrayRefs(assign.right, node.iterator, refs);
+
+            for (String ref : refs) {
+                int refIndex = orderedTargets.indexOf(ref);
+                if (refIndex == -1 || refIndex > i) {
+                    return new ArrayList<PatternResult>();
+                }
+            }
+
+            List<SequencePattern.Step> steps = new ArrayList<SequencePattern.Step>();
+            steps.add(new SequencePattern.Step(null, assign.right));
+            SequencePattern.Pattern pattern = new SequencePattern.Pattern(steps, targetArray, node.iterator);
+            results.add(new PatternResult(PatternType.SEQUENCE, pattern, targetArray));
+        }
+
+        return results;
+    }
+
+    private void collectIndexedArrayRefs(ExprNode expr, String iterator, Set<String> refs) {
+        if (expr == null || refs == null) {
+            return;
+        }
+
+        if (expr instanceof IndexAccessNode) {
+            IndexAccessNode access = (IndexAccessNode) expr;
+            if (access.array instanceof IdentifierNode && access.index instanceof IdentifierNode) {
+                IdentifierNode idx = (IdentifierNode) access.index;
+                if (iterator.equals(idx.name)) {
+                    refs.add(((IdentifierNode) access.array).name);
+                }
+            }
+            collectIndexedArrayRefs(access.array, iterator, refs);
+            collectIndexedArrayRefs(access.index, iterator, refs);
+            return;
+        }
+
+        if (expr instanceof BinaryOpNode) {
+            BinaryOpNode bin = (BinaryOpNode) expr;
+            collectIndexedArrayRefs(bin.left, iterator, refs);
+            collectIndexedArrayRefs(bin.right, iterator, refs);
+            return;
+        }
+
+        if (expr instanceof UnaryNode) {
+            collectIndexedArrayRefs(((UnaryNode) expr).operand, iterator, refs);
+            return;
+        }
+
+        if (expr instanceof MethodCallNode) {
+            MethodCallNode call = (MethodCallNode) expr;
+            if (call.arguments != null) {
+                for (ExprNode arg : call.arguments) {
+                    collectIndexedArrayRefs(arg, iterator, refs);
+                }
+            }
+            return;
+        }
+
+        if (expr instanceof TypeCastNode) {
+            collectIndexedArrayRefs(((TypeCastNode) expr).expression, iterator, refs);
+            return;
+        }
+
+        if (expr instanceof PropertyAccessNode) {
+            PropertyAccessNode prop = (PropertyAccessNode) expr;
+            collectIndexedArrayRefs(prop.left, iterator, refs);
+            collectIndexedArrayRefs(prop.right, iterator, refs);
+            return;
+        }
+
+        if (expr instanceof TupleNode) {
+            TupleNode tuple = (TupleNode) expr;
+            if (tuple.elements != null) {
+                for (ExprNode elem : tuple.elements) {
+                    collectIndexedArrayRefs(elem, iterator, refs);
+                }
+            }
+            return;
+        }
+
+        if (expr instanceof ArrayNode) {
+            ArrayNode array = (ArrayNode) expr;
+            if (array.elements != null) {
+                for (ExprNode elem : array.elements) {
+                    collectIndexedArrayRefs(elem, iterator, refs);
+                }
+            }
+        }
     }
 
     @Override
