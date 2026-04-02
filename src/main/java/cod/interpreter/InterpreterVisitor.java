@@ -725,7 +725,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
 
             for (String ref : refs) {
                 int refIndex = orderedTargets.indexOf(ref);
-                if (refIndex == i || refIndex > i) {
+                if (refIndex == -1 || refIndex > i) {
                     return new ArrayList<PatternResult>();
                 }
             }
