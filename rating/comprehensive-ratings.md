@@ -5,7 +5,7 @@ This document rates major Coderive components and language qualities based on th
 ## Rating Scale
 
 - **10** = excellent, production-ready with very low risk
-- **7–9** = strong, practical, mostly mature
+- **7-9** = strong, practical, mostly mature
 - **4–6** = usable but with meaningful limitations
 - **1–3** = early/fragile
 
@@ -63,8 +63,7 @@ This document rates major Coderive components and language qualities based on th
 
 ## Final Summary Score
 
-- **Overall repository health score: 7.8 / 10**
+- **Overall repository health score: 7.6 / 10**
 - **Language concept power score: 9.0 / 10**
 - **Runtime performance potential score: 9.1 / 10**
 - **Current testing confidence score: 6.9 / 10**
-

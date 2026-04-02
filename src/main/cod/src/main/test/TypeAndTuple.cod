@@ -3,9 +3,9 @@ unit test
 share TypeAndTupleDemo {
     share main() {
         point: (int, text, bool) = (7, "x", true)
-        out("tuple-a=" + point[0])
-        out("tuple-b=" + point[1])
-        out("tuple-c=" + point[2])
+        out("tuple-a=" + point[0]) // int position
+        out("tuple-b=" + point[1]) // text label
+        out("tuple-c=" + point[2]) // bool flag
 
         whole := 9
         ratio := 9.5
@@ -18,4 +18,3 @@ share TypeAndTupleDemo {
         out("flag-is-bool=" + (flag is bool))
     }
 }
-

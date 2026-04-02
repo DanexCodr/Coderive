@@ -21,6 +21,12 @@ share NoneAndTypeDemo {
             out("b-not-none")
         }
 
+        if a is none {
+            out("a-is-none")
+        } else {
+            out("a-not-none")
+        }
+
         i := 42
         t := "word"
 
