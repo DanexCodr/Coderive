@@ -8,6 +8,7 @@ public class LambdaNode extends ExprNode {
     public List<ParamNode> parameters;
     public List<SlotNode> returnSlots;
     public StmtNode body;
+    public ExprNode expressionBody;
     
     public LambdaNode() {
         this.parameters = new ArrayList<ParamNode>();
@@ -18,6 +19,7 @@ public class LambdaNode extends ExprNode {
         this.parameters = parameters != null ? parameters : new ArrayList<ParamNode>();
         this.returnSlots = returnSlots != null ? returnSlots : new ArrayList<SlotNode>();
         this.body = body;
+        this.expressionBody = null;
     }
     
     @Override

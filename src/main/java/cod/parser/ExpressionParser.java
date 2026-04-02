@@ -420,6 +420,12 @@ public class ExpressionParser extends BaseParser {
         
         expect(RPAREN);
         
+        if (!is(DOUBLE_COLON) && !is(TILDE_ARROW) && !is(LBRACE)) {
+            LambdaNode lambda = ASTFactory.createLambda(parameters, null, null, lambdaToken);
+            lambda.expressionBody = parseExpr();
+            return lambda;
+        }
+        
         // Parse optional return contract (::)
         List<SlotNode> returnSlots = null;
         if (is(DOUBLE_COLON)) {

@@ -104,6 +104,14 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             popContext();
         }
     }
+    
+    @Override
+    public Object invokeLambda(Object callback, List<Object> arguments, ExecutionContext ctx, String ownerMethod) {
+        if (ctx == null) {
+            throw new InternalError("invokeLambda called with null context");
+        }
+        return invokeLambdaCallback(callback, arguments, ctx, ownerMethod);
+    }
 
     public void pushContext(ExecutionContext context) {
         if (context == null) {
@@ -1958,7 +1966,142 @@ public Object visit(ChainedComparisonNode node) {
 
     @Override
     public Object visit(LambdaNode node) {
-        return node;
+        if (node == null) {
+            throw new InternalError("visit(LambdaNode) called with null node");
+        }
+        
+        ExecutionContext ctx = getCurrentContext();
+        Map<String, Object> captured = new HashMap<String, Object>();
+        for (int i = 0; i < ctx.getScopeDepth(); i++) {
+            Map<String, Object> scope = ctx.getScope(i);
+            if (scope != null) {
+                captured.putAll(scope);
+            }
+        }
+        
+        return new LambdaClosure(node, captured, ctx.objectInstance, ctx.currentClass);
+    }
+    
+    private Object invokeLambdaCallback(
+        Object callbackObj,
+        List<Object> args,
+        ExecutionContext parentCtx,
+        String ownerMethod) {
+        
+        Object callback = typeSystem.unwrap(callbackObj);
+        LambdaClosure closure;
+        if (callback instanceof LambdaClosure) {
+            closure = (LambdaClosure) callback;
+        } else if (callback instanceof LambdaNode) {
+            closure = new LambdaClosure((LambdaNode) callback, parentCtx.locals(), parentCtx.objectInstance, parentCtx.currentClass);
+        } else {
+            String actualType = callback == null ? "null" : callback.getClass().getSimpleName();
+            throw new ProgramError(ownerMethod + " expects a lambda callback, got: " + actualType);
+        }
+        
+        LambdaNode lambda = closure.lambda;
+        List<ParamNode> params = lambda.parameters != null ? lambda.parameters : new ArrayList<ParamNode>();
+        List<Object> values = args != null ? args : Collections.<Object>emptyList();
+        
+        if (params.isEmpty()) {
+            ParamNode implicitIt = new ParamNode();
+            implicitIt.name = "it";
+            implicitIt.type = null;
+            implicitIt.typeInferred = true;
+            implicitIt.isLambdaParameter = true;
+            params = new ArrayList<ParamNode>();
+            params.add(implicitIt);
+        }
+        
+        Map<String, Object> lambdaLocals = new HashMap<String, Object>(closure.capturedLocals);
+        for (int i = 0; i < params.size(); i++) {
+            ParamNode param = params.get(i);
+            if (param == null || param.name == null) continue;
+            
+            Object boundValue = null;
+            boolean found = false;
+            
+            if (i < values.size()) {
+                boundValue = values.get(i);
+                found = true;
+            } else if ("it".equals(param.name) && !values.isEmpty()) {
+                boundValue = values.get(0);
+                found = true;
+            } else if (param.hasDefaultValue && param.defaultValue != null) {
+                ExecutionContext defaultCtx =
+                    new ExecutionContext(closure.objectInstance, lambdaLocals, null, null, typeSystem);
+                defaultCtx.currentClass = closure.currentClass;
+                pushContext(defaultCtx);
+                try {
+                    boundValue = visit((ASTNode) param.defaultValue);
+                    found = true;
+                } finally {
+                    popContext();
+                }
+            }
+            
+            if (!found) {
+                throw new ProgramError(
+                    "Missing value for lambda parameter '" + param.name + "' in " + ownerMethod + " callback");
+            }
+            
+            if (param.type != null && !typeSystem.validateType(param.type, boundValue)) {
+                throw new ProgramError(
+                    "Lambda parameter type mismatch for '" + param.name + "'. Expected "
+                        + param.type + ", got: " + typeSystem.getConcreteType(boundValue));
+            }
+            
+            lambdaLocals.put(param.name, boundValue);
+        }
+        
+        if (!lambdaLocals.containsKey("it") && !values.isEmpty()) {
+            lambdaLocals.put("it", values.get(0));
+        }
+        
+        if (lambda.expressionBody != null) {
+            ExecutionContext exprCtx =
+                new ExecutionContext(closure.objectInstance, lambdaLocals, null, null, typeSystem);
+            exprCtx.currentClass = closure.currentClass;
+            pushContext(exprCtx);
+            try {
+                return dispatch(lambda.expressionBody);
+            } finally {
+                popContext();
+            }
+        }
+        
+        List<SlotNode> lambdaSlots =
+            lambda.returnSlots != null ? lambda.returnSlots : new ArrayList<SlotNode>();
+        if (lambdaSlots.isEmpty()) {
+            throw new ProgramError("Lambda callback requires expression body or return contract (::)");
+        }
+        
+        Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
+        Map<String, String> slotTypes = new LinkedHashMap<String, String>();
+        for (SlotNode slot : lambdaSlots) {
+            slotValues.put(slot.name, null);
+            slotTypes.put(slot.name, slot.type);
+        }
+        
+        ExecutionContext lambdaCtx =
+            new ExecutionContext(closure.objectInstance, lambdaLocals, slotValues, slotTypes, typeSystem);
+        lambdaCtx.currentClass = closure.currentClass;
+        
+        pushContext(lambdaCtx);
+        try {
+            if (lambda.body != null) {
+                visit((ASTNode) lambda.body);
+            }
+        } catch (EarlyExitException e) {
+            // normal lambda early exit
+        } finally {
+            popContext();
+        }
+        
+        if (lambdaSlots.size() == 1) {
+            return slotValues.get(lambdaSlots.get(0).name);
+        }
+        return slotValues;
     }
 
     @SuppressWarnings("unchecked")
