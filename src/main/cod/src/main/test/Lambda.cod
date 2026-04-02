@@ -2,7 +2,9 @@ unit test
 
 share LambdaDemo {
     local compute() :: sum: int, diff: int {
-        x, y = [sum, diff]:\(a: int, b: int) :: sum: int, diff: int ~> sum: a + b, diff: a - b
+        a := 9
+        b := 4
+        x, y = [sum, diff]:\() :: sum: int, diff: int ~> sum: a + b, diff: a - b
         ~> sum: x, diff: y
     }
     

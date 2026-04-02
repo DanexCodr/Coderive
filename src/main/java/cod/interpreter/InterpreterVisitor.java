@@ -782,9 +782,6 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
         
         List<ParamNode> params = lambda.parameters != null ? lambda.parameters : new ArrayList<ParamNode>();
-        if (!params.isEmpty()) {
-            throw new ProgramError("Lambda assignment currently requires zero-parameter lambda");
-        }
         
         List<SlotNode> lambdaSlots =
             lambda.returnSlots != null ? lambda.returnSlots : new ArrayList<SlotNode>();
@@ -809,8 +806,50 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             }
         }
         
+        Map<String, Object> lambdaLocals = new HashMap<String, Object>(allLocals);
+        for (ParamNode param : params) {
+            if (param == null || param.name == null) continue;
+            
+            Object boundValue = null;
+            boolean found = false;
+            
+            if (lambdaLocals.containsKey(param.name)) {
+                boundValue = lambdaLocals.get(param.name);
+                found = true;
+            } else if (param.hasDefaultValue && param.defaultValue != null) {
+                ExecutionContext defaultCtx = new ExecutionContext(
+                    parentCtx.objectInstance,
+                    lambdaLocals,
+                    null,
+                    null,
+                    typeSystem
+                );
+                pushContext(defaultCtx);
+                try {
+                    boundValue = visit((ASTNode) param.defaultValue);
+                    found = true;
+                } finally {
+                    popContext();
+                }
+            }
+            
+            if (!found) {
+                throw new ProgramError(
+                    "Missing value for lambda parameter '" + param.name + "'. "
+                        + "Declare a local variable with that name or provide a default value.");
+            }
+            
+            if (param.type != null && !typeSystem.validateType(param.type, boundValue)) {
+                throw new ProgramError(
+                    "Lambda parameter type mismatch for '" + param.name + "'. Expected "
+                        + param.type + ", got: " + typeSystem.getConcreteType(boundValue));
+            }
+            
+            lambdaLocals.put(param.name, boundValue);
+        }
+        
         ExecutionContext lambdaCtx =
-            new ExecutionContext(parentCtx.objectInstance, allLocals, slotValues, slotTypes, typeSystem);
+            new ExecutionContext(parentCtx.objectInstance, lambdaLocals, slotValues, slotTypes, typeSystem);
         lambdaCtx.currentClass = parentCtx.currentClass;
         
         pushContext(lambdaCtx);

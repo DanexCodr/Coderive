@@ -583,8 +583,9 @@ public class MainParser extends BaseParser {
                 consume();
                 expect(COLON);
                 
-                if (is(THIS)) {
-                    mainClassName = expect(THIS).getText();
+                Token mainTargetToken = now();
+                if (is(THIS) || (is(mainTargetToken, ID) && "this".equals(mainTargetToken.getText()))) {
+                    mainClassName = consume().getText();
                 } else {
                     mainClassName = parseQualifiedName();
                 }

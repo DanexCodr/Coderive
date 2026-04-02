@@ -77,6 +77,7 @@ public class ExpressionParser extends BaseParser {
     private ExprNode parseConstructorCall() {
         Token classNameToken = now();
         String className = expect(ID).getText();  // Lazy allocation
+        expect(LPAREN);
 
         List<ExprNode> args = new ArrayList<ExprNode>();
         List<String> argNames = new ArrayList<String>();
