@@ -18,4 +18,3 @@ share IsAndUnionDemo {
         out("b-is-text=" + (b is text))
     }
 }
-

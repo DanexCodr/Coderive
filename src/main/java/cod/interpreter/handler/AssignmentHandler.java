@@ -328,9 +328,8 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
                 throw new ProgramError("Parent class not found for 'super." + fieldName + "'");
             }
             
-            Object existingField = resolver.getFieldFromHierarchy(parentType, fieldName, ctx);
             boolean fieldDeclared = isFieldDeclaredInTypeHierarchy(parentType, fieldName, ctx);
-            if (fieldDeclared || existingField != null) {
+            if (fieldDeclared) {
                 ctx.objectInstance.fields.put(fieldName, newValue);
                 return newValue;
             }
