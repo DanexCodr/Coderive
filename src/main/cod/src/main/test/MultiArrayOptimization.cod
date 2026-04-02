@@ -1,0 +1,60 @@
+unit test
+
+share main() {
+    out("=== Multi-array optimization test ===")
+    
+    first := [0 to 2000]
+    second := [0 to 2000]
+    third := [0 to 2000]
+    
+    for i of [0 to 2000] {
+        if i % 2 == 0 {
+            base := i * 2
+            first[i] = base
+            second[i] = base + i
+            third[i] = base + 10
+        } elif i % 3 == 0 {
+            shifted := i + 5
+            first[i] = shifted
+            second[i] = shifted * 2
+            third[i] = shifted - 3
+        } else {
+            first[i] = i
+            second[i] = i * 3
+            third[i] = i * i
+        }
+    }
+    
+    out("first[10]=" + first[10] + " expected=20")
+    out("second[10]=" + second[10] + " expected=30")
+    out("third[10]=" + third[10] + " expected=30")
+    
+    out("first[9]=" + first[9] + " expected=14")
+    out("second[9]=" + second[9] + " expected=28")
+    out("third[9]=" + third[9] + " expected=11")
+    
+    out("first[7]=" + first[7] + " expected=7")
+    out("second[7]=" + second[7] + " expected=21")
+    out("third[7]=" + third[7] + " expected=49")
+    
+    left := [0 to 1M]
+    right := [0 to 1M]
+    
+    start := timer()
+    for i of [0 to 1M] {
+        if i < 500K {
+            left[i] = i + 1
+            right[i] = i + 2
+        } else {
+            left[i] = i - 1
+            right[i] = i - 2
+        }
+    }
+    total := timer() - start
+    
+    out("large-loop-time-ms=" + total)
+    out("left[123]=" + left[123] + " expected=124")
+    out("right[123]=" + right[123] + " expected=125")
+    out("left[700000]=" + left[700K] + " expected=699999")
+    out("right[700000]=" + right[700K] + " expected=699998")
+}

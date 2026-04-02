@@ -34,7 +34,182 @@ public class ConditionalPattern {
     }
     
     public static ConditionalPattern extract(StmtIfNode ifStmt, String iterator) {
-        return extractRecursive(ifStmt, iterator, null, new ArrayList<Branch>());
+        List<ConditionalPattern> patterns = extractAll(ifStmt, iterator);
+        if (patterns.isEmpty()) {
+            return null;
+        }
+        return patterns.get(0);
+    }
+    
+    /**
+     * Extract one conditional pattern per target array from an if/elif/else chain.
+     * @return list of patterns (one per unique target array) or an empty list when not extractable
+     */
+    public static List<ConditionalPattern> extractAll(StmtIfNode ifStmt, String iterator) {
+        if (ifStmt == null || iterator == null) {
+            return new ArrayList<ConditionalPattern>();
+        }
+        
+        ChainExtraction chain = flattenChain(ifStmt);
+        if (chain == null || chain.branches.isEmpty()) {
+            return new ArrayList<ConditionalPattern>();
+        }
+        
+        List<ExprNode> targetArrays = collectTargetArrays(chain, iterator);
+        List<ConditionalPattern> results = new ArrayList<ConditionalPattern>();
+        
+        for (ExprNode targetArray : targetArrays) {
+            List<Branch> filteredBranches = new ArrayList<Branch>();
+            boolean hasAnyAssignment = false;
+            
+            for (Branch branch : chain.branches) {
+                List<StmtNode> filtered = filterStatementsForArray(branch.statements, iterator, targetArray);
+                if (!filtered.isEmpty()) {
+                    filteredBranches.add(new Branch(branch.condition, filtered));
+                    if (containsArrayAssignment(filtered, iterator, targetArray)) {
+                        hasAnyAssignment = true;
+                    }
+                }
+            }
+            
+            List<StmtNode> filteredElse = filterStatementsForArray(chain.elseStatements, iterator, targetArray);
+            if (containsArrayAssignment(filteredElse, iterator, targetArray)) {
+                hasAnyAssignment = true;
+            }
+            
+            if (hasAnyAssignment && !filteredBranches.isEmpty()) {
+                results.add(new ConditionalPattern(targetArray, iterator, filteredBranches, filteredElse));
+            }
+        }
+        
+        return results;
+    }
+    
+    private static class ChainExtraction {
+        final List<Branch> branches;
+        final List<StmtNode> elseStatements;
+        
+        ChainExtraction(List<Branch> branches, List<StmtNode> elseStatements) {
+            this.branches = branches;
+            this.elseStatements = elseStatements;
+        }
+    }
+    
+    private static ChainExtraction flattenChain(StmtIfNode ifStmt) {
+        List<Branch> branches = new ArrayList<Branch>();
+        List<StmtNode> elseStatements = new ArrayList<StmtNode>();
+        StmtIfNode current = ifStmt;
+        
+        while (current != null) {
+            List<StmtNode> thenStatements = current.thenBlock != null && current.thenBlock.statements != null
+                ? current.thenBlock.statements
+                : new ArrayList<StmtNode>();
+            branches.add(new Branch(current.condition, thenStatements));
+            
+            if (current.elseBlock == null || current.elseBlock.statements == null ||
+                current.elseBlock.statements.isEmpty()) {
+                break;
+            }
+            
+            StmtNode firstElse = current.elseBlock.statements.get(0);
+            if (firstElse instanceof StmtIfNode) {
+                current = (StmtIfNode) firstElse;
+            } else {
+                elseStatements = current.elseBlock.statements;
+                break;
+            }
+        }
+        
+        return new ChainExtraction(branches, elseStatements);
+    }
+    
+    private static List<ExprNode> collectTargetArrays(ChainExtraction chain, String iterator) {
+        List<ExprNode> targets = new ArrayList<ExprNode>();
+        Set<String> seenTargets = new HashSet<String>();
+        
+        for (Branch branch : chain.branches) {
+            addTargetsFromStatements(targets, seenTargets, branch.statements, iterator);
+        }
+        addTargetsFromStatements(targets, seenTargets, chain.elseStatements, iterator);
+        
+        return targets;
+    }
+    
+    private static void addTargetsFromStatements(List<ExprNode> targets, Set<String> seenTargets,
+                                                 List<StmtNode> statements, String iterator) {
+        if (statements == null) {
+            return;
+        }
+        
+        for (StmtNode stmt : statements) {
+            ExprNode stmtArray = validateStatementTarget(stmt, iterator);
+            if (stmtArray == null) {
+                continue;
+            }
+            
+            String key = arrayKey(stmtArray);
+            if (seenTargets.add(key)) {
+                targets.add(stmtArray);
+            }
+        }
+    }
+    
+    private static String arrayKey(ExprNode arrayExpr) {
+        if (arrayExpr instanceof IdentifierNode) {
+            return "id:" + ((IdentifierNode) arrayExpr).name;
+        }
+        // Fallback key for non-identifiers; this is heuristic and based on node string form.
+        return "expr:" + String.valueOf(arrayExpr);
+    }
+    
+    private static List<StmtNode> filterStatementsForArray(List<StmtNode> statements, String iterator, ExprNode targetArray) {
+        List<StmtNode> filtered = new ArrayList<StmtNode>();
+        if (statements == null) {
+            return filtered;
+        }
+        
+        for (StmtNode stmt : statements) {
+            ExprNode stmtArray = validateStatementTarget(stmt, iterator);
+            if (stmtArray == null) {
+                if (isVariableDeclaration(stmt)) {
+                    filtered.add(stmt);
+                }
+                continue;
+            }
+            
+            if (isSameArray(stmtArray, targetArray)) {
+                filtered.add(stmt);
+            }
+        }
+        
+        return filtered;
+    }
+    
+    private static boolean isVariableDeclaration(StmtNode stmt) {
+        if (stmt instanceof VarNode) {
+            return true;
+        }
+        
+        if (stmt instanceof AssignmentNode) {
+            return ((AssignmentNode) stmt).isDeclaration;
+        }
+        
+        return false;
+    }
+    
+    private static boolean containsArrayAssignment(List<StmtNode> statements, String iterator, ExprNode targetArray) {
+        if (statements == null) {
+            return false;
+        }
+        
+        for (StmtNode stmt : statements) {
+            ExprNode stmtArray = validateStatementTarget(stmt, iterator);
+            if (stmtArray != null && isSameArray(stmtArray, targetArray)) {
+                return true;
+            }
+        }
+        
+        return false;
     }
     
     private static ConditionalPattern extractRecursive(
