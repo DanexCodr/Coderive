@@ -1056,7 +1056,9 @@ public class ImportResolver {
                     }
                 }
             }
-        } catch (ProgramError ignoreTypeError) {}
+        } catch (ProgramError ignoreTypeError) {
+            // Not a class import; may still be a static-module method import.
+        }
         
         MethodNode moduleMethod = findMethodInStaticModule(actualImportName, methodName);
         if (moduleMethod != null) {

@@ -61,7 +61,7 @@ public class MainParser extends BaseParser {
     
     // UNIT declaration is required
     if (!is(UNIT)) {
-        throw error("Static modules must start with a 'unit' declaration.");
+        throw error("Static modules must start with the `unit` declaration.");
     }
     program.unit = parseUnit();
     program.programType = ProgramType.STATIC_MODULE;
@@ -594,7 +594,7 @@ public class MainParser extends BaseParser {
         
         String value = spec.toString();
         if (value.isEmpty()) {
-            throw error("Expected import spec inside use block.");
+            throw error("Expected import spec inside use block (e.g. unit.Class, unit.method(*), unit.*, unit.**, unit.FIELD).");
         }
         return value;
     }
