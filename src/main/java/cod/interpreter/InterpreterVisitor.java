@@ -827,6 +827,14 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 return fieldValue;
             }
         }
+
+        FieldNode importedField = interpreter.getImportResolver().findField(name);
+        if (importedField != null) {
+            if (importedField.value != null) {
+                return dispatch(importedField.value);
+            }
+            return null;
+        }
         
         throw new ProgramError("Undefined variable: " + name);
     }

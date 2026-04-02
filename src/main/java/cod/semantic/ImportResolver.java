@@ -18,6 +18,10 @@ public class ImportResolver {
     private Map<String, ProgramNode> loadedPrograms = new HashMap<String, ProgramNode>();
     private Map<String, ProgramNode> preloadedImports = new HashMap<String, ProgramNode>();
     private Set<String> registeredImports = new HashSet<String>();
+    private List<String> methodImportSpecs = new ArrayList<String>();
+    private Set<String> wildcardEverythingUnits = new HashSet<String>();
+    private Set<String> wildcardClassUnits = new HashSet<String>();
+    private Map<String, String> explicitFieldImports = new HashMap<String, String>();
     private List<String> importPaths = new ArrayList<String>();
     private Map<String, String> packageBroadcasts = new HashMap<String, String>();
     
@@ -475,7 +479,35 @@ public class ImportResolver {
         if (importName == null || importName.isEmpty()) {
             throw new InternalError("registerImport called with null/empty importName");
         }
-        
+
+        if (importName.contains("(")) {
+            if (!methodImportSpecs.contains(importName)) {
+                methodImportSpecs.add(importName);
+            }
+            DebugSystem.debug("IMPORTS", "Registered method import spec: " + importName);
+            return;
+        }
+
+        if (importName.endsWith(".**")) {
+            String unitName = importName.substring(0, importName.length() - 3);
+            wildcardEverythingUnits.add(unitName);
+            DebugSystem.debug("IMPORTS", "Registered everything wildcard import: " + importName);
+            return;
+        }
+
+        if (importName.endsWith(".*")) {
+            String unitName = importName.substring(0, importName.length() - 2);
+            wildcardClassUnits.add(unitName);
+            DebugSystem.debug("IMPORTS", "Registered class wildcard import: " + importName);
+            return;
+        }
+
+        int lastDot = importName.lastIndexOf('.');
+        if (lastDot > 0 && lastDot < importName.length() - 1) {
+            String alias = importName.substring(lastDot + 1);
+            explicitFieldImports.put(alias, importName);
+        }
+
         if (!registeredImports.contains(importName)) {
             registeredImports.add(importName);
             cacheImportName(importName);
@@ -905,6 +937,30 @@ public class ImportResolver {
                 }
             }
         }
+
+        for (String unitName : wildcardClassUnits) {
+            try {
+                TypeNode type = resolveImport(unitName + "." + typeName);
+                if (type != null) {
+                    typeCache.put(typeName, type);
+                    return type;
+                }
+            } catch (Exception e) {
+                // Continue searching
+            }
+        }
+        
+        for (String unitName : wildcardEverythingUnits) {
+            try {
+                TypeNode type = resolveImport(unitName + "." + typeName);
+                if (type != null) {
+                    typeCache.put(typeName, type);
+                    return type;
+                }
+            } catch (Exception e) {
+                // Continue searching
+            }
+        }
         
         return null;
     }
@@ -916,6 +972,10 @@ public class ImportResolver {
         fileCache.clear();
         fileMetadataCache.clear();
         loadedTypes.clear();
+        explicitFieldImports.clear();
+        methodImportSpecs.clear();
+        wildcardEverythingUnits.clear();
+        wildcardClassUnits.clear();
         if (bytecodeManager != null) {
             bytecodeManager.clearCache();
         }
@@ -967,7 +1027,10 @@ public class ImportResolver {
         
         int lastDot = qualifiedMethodName.lastIndexOf('.');
         if (lastDot == -1) {
-            DebugSystem.debug("IMPORTS", "No dots in method name, not an imported method");
+            MethodNode methodBySpec = findMethodFromSpecs(qualifiedMethodName);
+            if (methodBySpec != null) {
+                return methodBySpec;
+            }
             return null;
         }
         
@@ -980,16 +1043,29 @@ public class ImportResolver {
         
         DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', method: '" + methodName + "'");
         
-        TypeNode type = findType(actualImportName);
-        if (type != null) {
-            DebugSystem.debug("IMPORTS", "Searching for method '" + methodName + "' in type: " + type.name);
-            for (MethodNode method : type.methods) {
-                DebugSystem.debug("IMPORTS", "    Checking method: " + method.methodName);
-                if (method.methodName.equals(methodName)) {
-                    DebugSystem.debug("IMPORTS", "    *** FOUND METHOD: " + method.methodName + " ***");
-                    return method;
+        TypeNode type = null;
+        try {
+            type = findType(actualImportName);
+            if (type != null) {
+                DebugSystem.debug("IMPORTS", "Searching for method '" + methodName + "' in type: " + type.name);
+                for (MethodNode method : type.methods) {
+                    DebugSystem.debug("IMPORTS", "    Checking method: " + method.methodName);
+                    if (method.methodName.equals(methodName)) {
+                        DebugSystem.debug("IMPORTS", "    *** FOUND METHOD: " + method.methodName + " ***");
+                        return method;
+                    }
                 }
             }
+        } catch (ProgramError ignoreTypeError) {
+            MethodNode moduleMethod = findMethodInStaticModule(actualImportName, methodName);
+            if (moduleMethod != null) {
+                return moduleMethod;
+            }
+        }
+        
+        MethodNode moduleMethod = findMethodInStaticModule(actualImportName, methodName);
+        if (moduleMethod != null) {
+            return moduleMethod;
         }
         
         throw new ProgramError(
@@ -1187,5 +1263,169 @@ public class ImportResolver {
     
     public Set<String> getRegisteredImports() {
         return new HashSet<String>(registeredImports);
+    }
+
+    public FieldNode findField(String qualifiedFieldName) {
+        if (qualifiedFieldName == null || qualifiedFieldName.isEmpty()) {
+            return null;
+        }
+        
+        String fullName = qualifiedFieldName;
+        if (explicitFieldImports.containsKey(qualifiedFieldName)) {
+            fullName = explicitFieldImports.get(qualifiedFieldName);
+        }
+        
+        int lastDot = fullName.lastIndexOf('.');
+        if (lastDot <= 0 || lastDot >= fullName.length() - 1) {
+            return null;
+        }
+        
+        String unitName = fullName.substring(0, lastDot);
+        String fieldName = fullName.substring(lastDot + 1);
+        
+        TypeNode staticType = loadStaticModuleType(unitName);
+        if (staticType != null && staticType.fields != null) {
+            for (FieldNode field : staticType.fields) {
+                if (fieldName.equals(field.name)) {
+                    return field;
+                }
+            }
+        }
+        
+        for (String wildcardUnit : wildcardEverythingUnits) {
+            TypeNode wildcardType = loadStaticModuleType(wildcardUnit);
+            if (wildcardType != null && wildcardType.fields != null) {
+                for (FieldNode field : wildcardType.fields) {
+                    if (qualifiedFieldName.equals(field.name) || fieldName.equals(field.name)) {
+                        return field;
+                    }
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    private MethodNode findMethodFromSpecs(String methodName) {
+        for (String spec : methodImportSpecs) {
+            ParsedMethodImport parsed = parseMethodImport(spec);
+            if (parsed != null && parsed.methodName.equals(methodName)) {
+                MethodNode method = findMethodInStaticModule(parsed.unitName, parsed.methodName);
+                if (method != null) {
+                    return method;
+                }
+            }
+        }
+        
+        for (String unitName : wildcardEverythingUnits) {
+            MethodNode method = findMethodInStaticModule(unitName, methodName);
+            if (method != null) {
+                return method;
+            }
+        }
+        
+        return null;
+    }
+
+    private MethodNode findMethodInStaticModule(String unitName, String methodName) {
+        TypeNode staticType = loadStaticModuleType(unitName);
+        if (staticType == null || staticType.methods == null) {
+            return null;
+        }
+        
+        for (MethodNode method : staticType.methods) {
+            if (methodName.equals(method.methodName)) {
+                return method;
+            }
+        }
+        
+        return null;
+    }
+
+    private TypeNode loadStaticModuleType(String unitName) {
+        if (unitName == null || unitName.isEmpty()) {
+            return null;
+        }
+        
+        ProgramNode program = loadedPrograms.get(unitName);
+        if (program == null) {
+            program = loadStaticModuleProgram(unitName);
+            if (program != null) {
+                loadedPrograms.put(unitName, program);
+            }
+        }
+        
+        if (program == null || program.unit == null || program.unit.types == null) {
+            return null;
+        }
+        
+        for (TypeNode type : program.unit.types) {
+            if ("__StaticModule__".equals(type.name)) {
+                return type;
+            }
+        }
+        
+        return null;
+    }
+
+    private ProgramNode loadStaticModuleProgram(String unitName) {
+        String dirPath = unitName.replace('.', '/');
+        List<String> pathsToTry = new ArrayList<String>();
+        
+        if (srcMainRoot != null) {
+            pathsToTry.add(srcMainRoot + "/" + dirPath + ".cod");
+        }
+        
+        if (currentFileDirectory != null && 
+            (srcMainRoot == null || !currentFileDirectory.equals(srcMainRoot))) {
+            pathsToTry.add(currentFileDirectory + "/" + dirPath + ".cod");
+        }
+        
+        for (String basePath : importPaths) {
+            if (basePath == null || basePath.isEmpty()) continue;
+            if (srcMainRoot != null && basePath.equals(srcMainRoot)) continue;
+            pathsToTry.add(basePath + "/" + dirPath + ".cod");
+        }
+        
+        pathsToTry.add(dirPath + ".cod");
+        
+        for (String path : pathsToTry) {
+            try {
+                ProgramNode program = loadImportFromFileCached(path);
+                if (program != null) {
+                    return program;
+                }
+            } catch (Exception e) {
+                // Continue trying
+            }
+        }
+        
+        return null;
+    }
+
+    private ParsedMethodImport parseMethodImport(String spec) {
+        int open = spec.indexOf('(');
+        int close = spec.lastIndexOf(')');
+        if (open <= 0 || close <= open) {
+            return null;
+        }
+        
+        String head = spec.substring(0, open);
+        int lastDot = head.lastIndexOf('.');
+        if (lastDot <= 0 || lastDot >= head.length() - 1) {
+            return null;
+        }
+        
+        ParsedMethodImport parsed = new ParsedMethodImport();
+        parsed.unitName = head.substring(0, lastDot);
+        parsed.methodName = head.substring(lastDot + 1);
+        parsed.signature = spec.substring(open + 1, close);
+        return parsed;
+    }
+
+    private static class ParsedMethodImport {
+        String unitName;
+        String methodName;
+        String signature;
     }
 }

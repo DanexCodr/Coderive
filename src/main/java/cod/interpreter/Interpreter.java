@@ -187,8 +187,8 @@ public class Interpreter {
           case SCRIPT:
             runScript(program);
             break;
-          case METHOD_SCRIPT:
-            runMethodScript(program);
+          case STATIC_MODULE:
+            runStaticModule(program);
             break;
           default:
             throw new InternalError("Unknown program type: " + program.programType);
@@ -833,9 +833,9 @@ public void run(Object entryPoint) {
     DebugSystem.methodExit("script", "completed");
   }
 
-  private void runMethodScript(ProgramNode program) {
+  private void runStaticModule(ProgramNode program) {
     if (program == null || program.unit == null) {
-        throw new InternalError("runMethodScript called with null program or unit");
+        throw new InternalError("runStaticModule called with null program or unit");
     }
     
     UnitNode unit = program.unit;
@@ -845,7 +845,7 @@ public void run(Object entryPoint) {
     TypeNode containerType = null;
 
     for (TypeNode type : unit.types) {
-        if (type.name != null && type.name.equals("__MethodScript__")) {
+        if (type.name != null && type.name.equals("__StaticModule__")) {
             containerType = type;
             if (type.methods != null) {
                 for (MethodNode node : type.methods) {
@@ -877,7 +877,7 @@ public void run(Object entryPoint) {
     }
 
     if (mainMethod == null) {
-        throw new ProgramError("Method script requires a 'main()' method");
+        throw new ProgramError("Static module requires a 'main()' method");
     }
 
     DebugSystem.methodEntry("main", Collections.<String, Object>emptyMap());
@@ -898,7 +898,7 @@ public void run(Object entryPoint) {
     } catch (ProgramError e) {
         throw e;
     } catch (Exception e) {
-        throw new InternalError("Method script execution failed", e);
+        throw new InternalError("Static module execution failed", e);
     } finally {
         visitor.popContext();
     }

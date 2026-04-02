@@ -76,7 +76,7 @@ public class Linter {
 
     private void checkNamingConventions(TypeNode type) {
         // --- FIX: Skip PascalCase check for synthetic types ---
-        if (type.name.equals("__MethodScript__") || 
+        if (type.name.equals("__StaticModule__") ||
             type.name.equals("__Script__") ||
             (type.name.startsWith("__") && type.name.endsWith("__"))) {
             // Skip PascalCase check for synthetic/internal types
