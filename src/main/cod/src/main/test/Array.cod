@@ -1,3 +1,5 @@
+unit test
+
 use {
     lang.Math
 }

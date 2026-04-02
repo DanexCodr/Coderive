@@ -11,8 +11,8 @@ import java.util.*;
  * Validates that a program conforms to the rules of its detected program type.
  * Enforces the three-worlds design:
  * - SCRIPT: Only statements, no methods, no classes
- * - METHOD_SCRIPT: Only methods, no direct code, no classes  
- * - MODULE: Unit + Classes only, no direct code outside methods
+ * - STATIC_MODULE: Unit + top-level methods/fields + classes, no direct code
+ * - MODULE: Legacy mode
  */
 public class ProgramValidator {
     
@@ -35,8 +35,8 @@ public class ProgramValidator {
             case SCRIPT:
                 validateScript(program);
                 break;
-            case METHOD_SCRIPT:
-                validateMethodScript(program);
+            case STATIC_MODULE:
+                validateStaticModule(program);
                 break;
             default:
                 throw new ProgramError("Unknown program type: " + programType);
@@ -201,55 +201,21 @@ public class ProgramValidator {
     }
 
     /**
-     * Validates a METHOD_SCRIPT program.
+     * Validates a STATIC_MODULE program.
      * Rules:
-     * 1. Must contain at least one method
-     * 2. Cannot have direct code outside methods
-     * 3. Cannot have class declarations
-     * 4. Cannot have field declarations
-     * 5. Should have main() method (warning only)
+     * 1. Cannot have direct code outside methods
+     * 2. Should have main() method (warning only)
      */
-    private static void validateMethodScript(ProgramNode program) {
-        boolean hasMethods = false;
+    private static void validateStaticModule(ProgramNode program) {
+        boolean hasMain = false;
         
         for (TypeNode type : program.unit.types) {
-            if (type.methods != null && !type.methods.isEmpty()) {
-                hasMethods = true;
-            }
-            
             if (type.statements != null && !type.statements.isEmpty()) {
                 throw new ProgramError(
-                    "Method scripts cannot have direct code outside methods.\n" +
+                    "Static modules cannot have direct code outside methods.\n" +
                     "Place all code inside method declarations."
                 );
             }
-            
-            // Synthetic type name is OK
-            if (type.name != null && !type.name.startsWith("__")) {
-                // Check if it's actually a synthetic type created by parser
-                // If not, it's an error
-                throw new ProgramError(
-                    "Method scripts cannot contain class declarations.\n" +
-                    "Found: " + type.name + "\n" +
-                    "Remove the class or add 'unit' to make it a module."
-                );
-            }
-            
-            if (type.fields != null && !type.fields.isEmpty()) {
-                throw new ProgramError(
-                    "Method scripts cannot contain field declarations.\n" +
-                    "Remove field declarations or add 'unit' to make it a module."
-                );
-            }
-        }
-        
-        if (!hasMethods) {
-            throw new ProgramError("Method script must contain at least one method.");
-        }
-        
-        // Warning for missing main() - optional
-        boolean hasMain = false;
-        for (TypeNode type : program.unit.types) {
             if (type.methods != null) {
                 for (MethodNode method : type.methods) {
                     if ("main".equals(method.methodName)) {
@@ -264,7 +230,7 @@ public class ProgramValidator {
         }
         
         if (!hasMain) {
-            System.err.println("Warning: Method script should have a 'main() method");
+            System.err.println("Warning: Static module should have a 'main()' method");
         }
     }
     

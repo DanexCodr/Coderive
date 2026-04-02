@@ -827,6 +827,14 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 return fieldValue;
             }
         }
+
+        FieldNode importedField = interpreter.getImportResolver().findField(name);
+        if (importedField != null) {
+            if (importedField.value != null) {
+                return dispatch(importedField.value);
+            }
+            return null;
+        }
         
         throw new ProgramError("Undefined variable: " + name);
     }
@@ -929,6 +937,18 @@ public Object visit(TextLiteralNode node) {
         ExecutionContext ctx = getCurrentContext();
         
         try {
+            if (node.left instanceof IdentifierNode && node.right instanceof IdentifierNode) {
+                String leftName = ((IdentifierNode) node.left).name;
+                String rightName = ((IdentifierNode) node.right).name;
+                FieldNode importedField = interpreter.getImportResolver().findField(leftName + "." + rightName);
+                if (importedField != null) {
+                    if (importedField.value != null) {
+                        return dispatch(importedField.value);
+                    }
+                    return null;
+                }
+            }
+
             Object leftObj = dispatch(node.left);
             leftObj = typeSystem.unwrap(leftObj);
             

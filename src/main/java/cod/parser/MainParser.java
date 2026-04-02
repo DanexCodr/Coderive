@@ -26,10 +26,10 @@ public class MainParser extends BaseParser {
     /** Only direct statements - no methods, no classes, no unit */
     SCRIPT,
     
-    /** Only methods - no direct code, no classes, no unit */
-    METHOD_SCRIPT,
+    /** Unit-based static module with top-level methods/fields and classes */
+    STATIC_MODULE,
     
-    /** Unit declaration with classes only - no direct code, no methods outside classes */
+    /** Legacy module mode */
     MODULE
 }
 
@@ -59,15 +59,12 @@ public class MainParser extends BaseParser {
     public ProgramNode parseProgram() {
     ProgramNode program = ASTFactory.createProgram();
     
-    // First, check for UNIT declaration
-    if (is(UNIT)) {
-        program.unit = parseUnit();
-        program.programType = ProgramType.MODULE;
-    } else {
-        // No unit - create a default unit
-        program.unit = ASTFactory.createUnit("default", null);
-        program.programType = ProgramType.SCRIPT;
+    // UNIT declaration is required
+    if (!is(UNIT)) {
+        throw error("Static modules must start with the `unit` declaration.");
     }
+    program.unit = parseUnit();
+    program.programType = ProgramType.STATIC_MODULE;
 
     // Parse USE statements (imports)
     while (is(USE)) {
@@ -84,6 +81,7 @@ public class MainParser extends BaseParser {
     List<PolicyNode> policiesInFile = new ArrayList<>();
     List<StmtNode> topLevelStatements = new ArrayList<>();
     List<MethodNode> topLevelMethods = new ArrayList<>();
+    List<FieldNode> topLevelFields = new ArrayList<>();
     
     while (!is(EOF)) {
         Token currentToken = now();
@@ -106,6 +104,12 @@ public class MainParser extends BaseParser {
         if (isMethodDeclarationStart() || isTopLevelMethodDeclaration()) {
             MethodNode method = declarationParser.parseMethod();
             topLevelMethods.add(method);
+            continue;
+        }
+        
+        if (isTopLevelFieldDeclaration()) {
+            FieldNode field = declarationParser.parseField();
+            topLevelFields.add(field);
             continue;
         }
         
@@ -141,18 +145,17 @@ public class MainParser extends BaseParser {
     validateProgramStructure(program, topLevelStatements, topLevelMethods, typesInFile, policiesInFile);
     
     // Add top-level elements to the appropriate places based on program type
-    if (program.programType == ProgramType.MODULE) {
-        // Modules already added types and policies during parsing
-    } else if (program.programType == ProgramType.METHOD_SCRIPT) {
-        TypeNode methodScriptType = findOrCreateImplicitType(program.unit, "__MethodScript__");
-        methodScriptType.methods.addAll(topLevelMethods);
+    if (program.programType == ProgramType.STATIC_MODULE) {
+        TypeNode staticModuleType = findOrCreateImplicitType(program.unit, "__StaticModule__");
+        staticModuleType.methods.addAll(topLevelMethods);
+        staticModuleType.fields.addAll(topLevelFields);
     } else if (program.programType == ProgramType.SCRIPT) {
         TypeNode scriptType = findOrCreateImplicitType(program.unit, "__Script__");
         scriptType.statements.addAll(topLevelStatements);
     }
     
     // Validate module-specific rules if this is a module
-    if (program.programType == ProgramType.MODULE) {
+    if (program.programType == ProgramType.STATIC_MODULE) {
         validateModule(program, typesInFile, policiesInFile);
     }
     
@@ -234,36 +237,17 @@ public class MainParser extends BaseParser {
         boolean hasMethods = !topLevelMethods.isEmpty();
         boolean hasClasses = !typesInFile.isEmpty();
         
-        if (hasUnit) {
-            program.programType = ProgramType.MODULE;
-            
-            if (hasDirectCode) {
-                throw error("Modules cannot have direct code outside classes.", now());
-            }
-            if (hasMethods) {
-                throw error("Modules cannot have methods outside classes.", now());
-            }
-            
-        } else if (hasMethods && !hasDirectCode) {
-            program.programType = ProgramType.METHOD_SCRIPT;
-            
-            if (hasClasses) {
-                throw error("Method scripts cannot contain class declarations.", now());
-            }
-            
-        } else if (hasDirectCode && !hasMethods && !hasClasses) {
-            program.programType = ProgramType.SCRIPT;
-            
-        } else if (hasDirectCode && hasMethods) {
-            throw error("Cannot mix method declarations with direct code. Use a class or unit.", now());
-            
-        } else if (hasClasses) {
-            program.programType = ProgramType.MODULE;
-            program.unit.name = "default";
-            
-        } else {
-            program.programType = ProgramType.SCRIPT;
+        if (!hasUnit) {
+            throw error("Static modules must declare a unit.", now());
         }
+        
+        if (hasDirectCode && hasMethods) {
+            throw error("Cannot mix method declarations with direct code. Use a class or unit.", now());
+        } else if (hasDirectCode) {
+            throw error("Static modules cannot have direct code outside methods/classes.", now());
+        }
+        
+        program.programType = ProgramType.STATIC_MODULE;
     }
 
     private void validateModule(ProgramNode program, 
@@ -578,13 +562,68 @@ public class MainParser extends BaseParser {
         expect(LBRACE);
         List<String> imports = new ArrayList<String>();
         if (!is(RBRACE)) {
-            imports.add(parseQualifiedName());
+            imports.add(parseUseImportSpec());
             while (consume(COMMA)) {
-                imports.add(parseQualifiedName());
+                imports.add(parseUseImportSpec());
             }
         }
         expect(RBRACE);
         return ASTFactory.createUseNode(imports, useToken);
+    }
+
+    private String parseUseImportSpec() {
+        StringBuilder spec = new StringBuilder();
+        int parenDepth = 0;
+        int bracketDepth = 0;
+        
+        while (!is(EOF)) {
+            if (parenDepth == 0 && bracketDepth == 0 && (is(COMMA) || is(RBRACE))) {
+                break;
+            }
+            Token token = consume();
+            if (token == null || token.type == EOF) {
+                break;
+            }
+            if (token.symbol == LPAREN) parenDepth++;
+            else if (token.symbol == RPAREN && parenDepth > 0) parenDepth--;
+            else if (token.symbol == LBRACKET) bracketDepth++;
+            else if (token.symbol == RBRACKET && bracketDepth > 0) bracketDepth--;
+            
+            spec.append(token.getText());
+        }
+        
+        String value = spec.toString();
+        if (value.isEmpty()) {
+            throw error("Expected import spec inside use block (e.g. unit.Class, unit.method(*), unit.*, unit.**, unit.FIELD).");
+        }
+        return value;
+    }
+
+    private boolean isTopLevelFieldDeclaration() {
+        return next(new ParserAction<Boolean>() {
+            @Override
+            public Boolean parse() throws ParseError {
+                ParserState savedState = getCurrentState();
+                try {
+                    if (is(SHARE, LOCAL)) {
+                        consume();
+                    }
+                    
+                    if (!is(ID)) {
+                        return false;
+                    }
+                    consume();
+                    
+                    if (!is(COLON)) {
+                        return false;
+                    }
+                    
+                    return !is(next(), COLON);
+                } finally {
+                    setState(savedState);
+                }
+            }
+        });
     }
 
     private boolean isMethodDeclarationStart() {
