@@ -441,9 +441,9 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     private boolean isMinValue() {
         if (stacks < MAX_STACKS) return false;
         // Check if all words are zero except most significant which is Long.MIN_VALUE
-        if (words[0] != Long.MIN_VALUE) return false;
+        if (wordAt(0) != Long.MIN_VALUE) return false;
         for (int i = 1; i < stacks; i++) {
-            if (words[i] != 0) return false;
+            if (wordAt(i) != 0) return false;
         }
         return true;
     }
@@ -452,8 +452,8 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     
     public AutoStackingNumber add(AutoStackingNumber other) {
         if (this.stacks == 1 && other.stacks == 1) {
-            long a = this.words[0];
-            long b = other.words[0];
+            long a = this.wordAt(0);
+            long b = other.wordAt(0);
             long sum = a + b;
             if (((a ^ sum) & (b ^ sum)) >= 0) {
                 return fromLong(sum);
@@ -465,8 +465,8 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         
         long carry = 0;
         for (int i = maxStacks - 1; i >= 0; i--) {
-            long a = i < this.stacks ? this.words[i] : 0;
-            long b = i < other.stacks ? other.words[i] : 0;
+            long a = i < this.stacks ? this.wordAt(i) : 0;
+            long b = i < other.stacks ? other.wordAt(i) : 0;
             
             long sum = a + b + carry;
             
@@ -497,8 +497,8 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     
     public AutoStackingNumber subtract(AutoStackingNumber other) {
         if (this.stacks == 1 && other.stacks == 1) {
-            long a = this.words[0];
-            long b = other.words[0];
+            long a = this.wordAt(0);
+            long b = other.wordAt(0);
             long diff = a - b;
             if (((a ^ b) & (a ^ diff)) >= 0) {
                 return fromLong(diff);
@@ -511,10 +511,10 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         if (this.isZero() || other.isZero()) {
             return zero(Math.max(this.stacks, other.stacks));
         }
-        if (this.stacks == 1 && this.words[0] == 1L) return other;
-        if (other.stacks == 1 && other.words[0] == 1L) return this;
-        if (this.stacks == 1 && this.words[0] == -1L) return other.negate();
-        if (other.stacks == 1 && other.words[0] == -1L) return this.negate();
+        if (this.stacks == 1 && this.wordAt(0) == 1L) return other;
+        if (other.stacks == 1 && other.wordAt(0) == 1L) return this;
+        if (this.stacks == 1 && this.wordAt(0) == -1L) return other.negate();
+        if (other.stacks == 1 && other.wordAt(0) == -1L) return this.negate();
 
         boolean resultNegative = (isNegative() ^ other.isNegative());
         AutoStackingNumber a = abs();
@@ -522,12 +522,14 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         
         // Simple case: single stack multiplication
         if (a.stacks == 1 && b.stacks == 1) {
-            long product = a.words[0] * b.words[0];
+            long aVal = a.wordAt(0);
+            long bVal = b.wordAt(0);
+            long product = aVal * bVal;
             
             // Check if product overflowed 64 bits
-            if (a.words[0] != 0 && product / a.words[0] != b.words[0]) {
-                java.math.BigInteger exactProduct = java.math.BigInteger.valueOf(a.words[0])
-                    .multiply(java.math.BigInteger.valueOf(b.words[0]));
+            if (aVal != 0 && product / aVal != bVal) {
+                java.math.BigInteger exactProduct = java.math.BigInteger.valueOf(aVal)
+                    .multiply(java.math.BigInteger.valueOf(bVal));
                 if (resultNegative) {
                     exactProduct = exactProduct.negate();
                 }
@@ -556,9 +558,9 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         long[] temp = new long[resultStacks * 2 + 2]; // Extra space for overflow detection
         
         for (int i = 0; i < a.stacks; i++) {
-            long aWord = a.words[i] & WORD_MASK;
+            long aWord = a.wordAt(i) & WORD_MASK;
             for (int j = 0; j < b.stacks; j++) {
-                long bWord = b.words[j] & WORD_MASK;
+                long bWord = b.wordAt(j) & WORD_MASK;
                 
                 // Split into high/low 32-bit parts
                 long aLow = aWord & 0xFFFFFFFFL;
@@ -617,8 +619,8 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         
         // Simple case: single stack integer division
         if (this.stacks == 1 && other.stacks == 1) {
-            long dividend = this.words[0];
-            long divisor = other.words[0];
+            long dividend = this.wordAt(0);
+            long divisor = other.wordAt(0);
 
             if (divisor == 1L) return this;
             if (divisor == -1L) return this.negate();
@@ -657,8 +659,8 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         
         // Simple case: single stack integer remainder
         if (this.stacks == 1 && other.stacks == 1) {
-            long dividend = this.words[0];
-            long divisor = other.words[0];
+            long dividend = this.wordAt(0);
+            long divisor = other.wordAt(0);
             
             if (divisor == 0) {
                 throw new ArithmeticException("Division by zero");
@@ -681,14 +683,15 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         }
 
         if (stacks == 1) {
-            if (words[0] == 0L) return ZERO_1;
-            if (words[0] == 1L) return MINUS_ONE_1;
-            if (words[0] == -1L) return ONE_1;
+            long v = wordAt(0);
+            if (v == 0L) return ZERO_1;
+            if (v == 1L) return MINUS_ONE_1;
+            if (v == -1L) return ONE_1;
         }
         
         AutoStackingNumber result = new AutoStackingNumber(this.stacks);
         for (int i = 0; i < stacks; i++) {
-            result.words[i] = -this.words[i];
+            result.words[i] = -this.wordAt(i);
         }
         return result;
     }
@@ -714,13 +717,13 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             // Check if any bits would be shifted out of existence
             if (wordShift > 0) {
                 for (int i = MAX_STACKS - wordShift; i < stacks; i++) {
-                    if (words[i] != 0) {
+                    if (wordAt(i) != 0) {
                         throw new ArithmeticException("Shift left would lose data (exceeds " + MAX_STACKS + " stacks)");
                     }
                 }
             }
             if (bitShift > 0 && stacks > 0) {
-                long highBits = words[stacks - 1] >>> (WORD_BITS - bitShift);
+                long highBits = wordAt(stacks - 1) >>> (WORD_BITS - bitShift);
                 if (highBits != 0) {
                     throw new ArithmeticException("Shift left would lose data (exceeds " + MAX_STACKS + " stacks)");
                 }
@@ -733,7 +736,7 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         for (int i = 0; i < stacks; i++) {
             int newIdx = i + wordShift;
             if (newIdx < newStacks) {
-                long val = (this.words[i] & WORD_MASK) << bitShift;
+                long val = (this.wordAt(i) & WORD_MASK) << bitShift;
                 result.words[newIdx] = (val & WORD_MASK) | carry;
                 carry = val >>> WORD_BITS;
             }
@@ -762,16 +765,16 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
 
         if (bitShift == 0) {
             for (int i = wordShift; i < stacks; i++) {
-                result.words[i - wordShift] = this.words[i];
+                result.words[i - wordShift] = this.wordAt(i);
             }
             return result;
         }
         
         long carry = 0;
         for (int i = stacks - 1; i >= wordShift; i--) {
-            long val = (this.words[i] & WORD_MASK) >>> bitShift;
+            long val = (this.wordAt(i) & WORD_MASK) >>> bitShift;
             result.words[i - wordShift] = val | (carry << (WORD_BITS - bitShift));
-            carry = this.words[i] & ((1L << bitShift) - 1);
+            carry = this.wordAt(i) & ((1L << bitShift) - 1);
         }
         
         return result;
@@ -783,22 +786,22 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     public int compareTo(AutoStackingNumber other) {
         if (this == other) return 0;
         if (this.stacks == 1 && other.stacks == 1) {
-            long a = this.words[0];
-            long b = other.words[0];
+            long a = this.wordAt(0);
+            long b = other.wordAt(0);
             return (a < b) ? -1 : ((a == b) ? 0 : 1);
         }
 
         // Compare as signed numbers
-        long thisVal = this.words[0];
-        long otherVal = other.words[0];
+        long thisVal = this.wordAt(0);
+        long otherVal = other.wordAt(0);
         
         if (thisVal < otherVal) return -1;
         if (thisVal > otherVal) return 1;
         
         // Compare remaining words if same sign and first word equal
         for (int i = 1; i < Math.max(this.stacks, other.stacks); i++) {
-            long a = i < this.stacks ? (this.words[i] & WORD_MASK) : 0;
-            long b = i < other.stacks ? (other.words[i] & WORD_MASK) : 0;
+            long a = i < this.stacks ? (this.wordAt(i) & WORD_MASK) : 0;
+            long b = i < other.stacks ? (other.wordAt(i) & WORD_MASK) : 0;
             
             if (a < b) return -1;
             if (a > b) return 1;
@@ -808,33 +811,33 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     }
     
     public boolean isZero() {
-        if (stacks == 1) return words[0] == 0L;
-        for (long word : words) {
-            if (word != 0) return false;
+        if (stacks == 1) return wordAt(0) == 0L;
+        for (int i = 0; i < stacks; i++) {
+            if (wordAt(i) != 0) return false;
         }
         return true;
     }
     
     public boolean isNegative() {
-        return words[0] < 0;
+        return wordAt(0) < 0;
     }
     
     public boolean isPositive() {
-        return words[0] > 0;
+        return wordAt(0) > 0;
     }
     
     // ========== CONVERSION METHODS ==========
     
     public long longValue() {
-        if (stacks == 1) return words[0];
+        if (stacks == 1) return wordAt(0);
         if (stacks > 1) {
             for (int i = 1; i < stacks; i++) {
-                if (words[i] != 0) {
+                if (wordAt(i) != 0) {
                     throw new ArithmeticException("Number has fractional part");
                 }
             }
         }
-        return words[0];
+        return wordAt(0);
     }
     
     public double doubleValue() {
@@ -844,16 +847,17 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         boolean negative = isNegative();
         
         // Integer part (word 0)
-        long intVal = words[0] & WORD_MASK;
+        long firstWord = wordAt(0);
+        long intVal = firstWord & WORD_MASK;
         if (negative) {
-            intVal = (-words[0]) & WORD_MASK;
+            intVal = (-firstWord) & WORD_MASK;
         }
         result = intVal;
         
         // Fractional parts - each subsequent word represents 2^(-60) of the previous
         scale = 1.0 / (1L << 60);  // 2^-60
         for (int i = 1; i < stacks; i++) {
-            long wordVal = words[i] & WORD_MASK;
+            long wordVal = wordAt(i) & WORD_MASK;
             result += wordVal * scale;
             scale /= (1L << 60);  // Divide by 2^60 for each subsequent word
         }
@@ -871,7 +875,7 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     }
 
     private String computeToString() {
-        if (stacks == 1) return Long.toString(words[0]);
+        if (stacks == 1) return Long.toString(wordAt(0));
         if (isZero()) return "0";
         
         StringBuilder sb = new StringBuilder();
@@ -882,13 +886,14 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         }
         
         // Integer part
-        long intPart = negative ? -words[0] : words[0];
+        long firstWord = wordAt(0);
+        long intPart = negative ? -firstWord : firstWord;
         sb.append(intPart);
         
         // Check for fractional part
         boolean hasFraction = false;
         for (int i = 1; i < stacks; i++) {
-            if ((words[i] & FRAC_MASK) != 0) {
+            if ((wordAt(i) & FRAC_MASK) != 0) {
                 hasFraction = true;
                 break;
             }
@@ -900,7 +905,7 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             // Work with unsigned 60‑bit fractional words
             long[] fracWords = new long[stacks - 1];
             for (int i = 0; i < stacks - 1; i++) {
-                fracWords[i] = words[i + 1] & FRAC_MASK;
+                fracWords[i] = wordAt(i + 1) & FRAC_MASK;
             }
             
             int maxDigits = 18;
@@ -968,13 +973,13 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     }
     
     public long[] getWords() {
-        return Arrays.copyOf(words, words.length);
+        return copyWordsInternal();
     }
     
     public boolean fitsInStacks(int targetStacks) {
         if (targetStacks >= stacks) return true;
         for (int i = targetStacks; i < stacks; i++) {
-            if (words[i] != 0) return false;
+            if (wordAt(i) != 0) return false;
         }
         return true;
     }
@@ -988,7 +993,9 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         }
         
         AutoStackingNumber result = new AutoStackingNumber(newStacks);
-        System.arraycopy(this.words, 0, result.words, 0, this.stacks);
+        for (int i = 0; i < this.stacks; i++) {
+            result.words[i] = this.wordAt(i);
+        }
         return result;
     }
     
@@ -1002,19 +1009,21 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         
         // Check if demotion would lose data
         for (int i = newStacks; i < stacks; i++) {
-            if (words[i] != 0) {
+            if (wordAt(i) != 0) {
                 throw new ArithmeticException("Cannot demote - would lose fractional data");
             }
         }
         
         AutoStackingNumber result = new AutoStackingNumber(newStacks);
-        System.arraycopy(this.words, 0, result.words, 0, newStacks);
+        for (int i = 0; i < newStacks; i++) {
+            result.words[i] = this.wordAt(i);
+        }
         return result;
     }
     
     public int getOptimalStacks() {
         for (int s = stacks; s > 1; s--) {
-            if (words[s - 1] != 0) {
+            if (wordAt(s - 1) != 0) {
                 return s;
             }
         }
@@ -1054,7 +1063,7 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         if (this.stacks != other.stacks) return false;
         
         for (int i = 0; i < stacks; i++) {
-            if (this.words[i] != other.words[i]) return false;
+            if (this.wordAt(i) != other.wordAt(i)) return false;
         }
         return true;
     }
@@ -1063,7 +1072,8 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     public int hashCode() {
         int hash = stacks;
         for (int i = 0; i < stacks; i++) {
-            hash = 31 * hash + (int) (words[i] ^ (words[i] >>> 32));
+            long w = wordAt(i);
+            hash = 31 * hash + (int) (w ^ (w >>> 32));
         }
         return hash;
     }
