@@ -229,7 +229,7 @@
 
 .repl-input {
     flex: 1;
-    background: #0d0d0d;
+    background: transparent;
     border: 1px solid #333;
     color: transparent;
     caret-color: #e0e0e0;
