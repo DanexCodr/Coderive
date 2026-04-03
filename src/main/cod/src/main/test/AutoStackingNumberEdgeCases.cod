@@ -1,0 +1,36 @@
+unit test
+
+share AutoStackingNumberEdgeCases {
+share main() {
+    out("=== AutoStackingNumber Edge Cases ===")
+
+    // Overflow boundary around signed 64-bit max
+    near := 9223372036854775807
+    promoted := near + 1
+    out(promoted)
+    out(promoted - 1)
+
+    // Mixed small/big arithmetic
+    big := 123456789012345678901234567890
+    out(big + 5)
+    out(big - 5)
+    out(big * 3)
+    out(big / 3)
+    out(big % 7)
+
+    // Decimal parsing and sign handling
+    d := -12.75
+    e := 2.5
+    out(d + e)
+    out(d - e)
+    out(d * e)
+    out(d / e)
+    out(d % e)
+
+    // Mixed decimal + big integer
+    out(big + 0.125)
+    out((big + 0.125) - big)
+
+    out("=== edge done ===")
+}
+}
