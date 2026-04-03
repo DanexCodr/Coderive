@@ -25,12 +25,12 @@
     }
 
     function toSegments(input) {
-        var src = input == null ? '' : String(input);
+        var sourceText = input === null || input === undefined ? '' : String(input);
         var tokenize = global.CoderiveLanguage && global.CoderiveLanguage.tokenize;
-        if (!tokenize) return [{ kind: 'plain', text: src }];
+        if (!tokenize) return [{ kind: 'plain', text: sourceText }];
 
         try {
-            var tokens = tokenize(src) || [];
+            var tokens = tokenize(sourceText) || [];
             var segments = [];
             var cursor = 0;
 
@@ -38,14 +38,14 @@
                 var token = tokens[i];
                 if (!token || token.type === 'EOF') continue;
 
-                var raw = token.text == null ? '' : String(token.text);
+                var raw = token.text === null || token.text === undefined ? '' : String(token.text);
                 if (!raw.length) continue;
 
-                var foundAt = src.indexOf(raw, cursor);
+                var foundAt = sourceText.indexOf(raw, cursor);
                 if (foundAt === -1) continue;
 
                 if (foundAt > cursor) {
-                    segments.push({ kind: 'plain', text: src.slice(cursor, foundAt) });
+                    segments.push({ kind: 'plain', text: sourceText.slice(cursor, foundAt) });
                 }
 
                 var kind = kindForToken(token);
@@ -53,12 +53,12 @@
                 cursor = foundAt + raw.length;
             }
 
-            if (cursor < src.length) {
-                segments.push({ kind: 'plain', text: src.slice(cursor) });
+            if (cursor < sourceText.length) {
+                segments.push({ kind: 'plain', text: sourceText.slice(cursor) });
             }
             return segments;
         } catch (e) {
-            return [{ kind: 'plain', text: src }];
+            return [{ kind: 'plain', text: sourceText }];
         }
     }
 

@@ -1,7 +1,6 @@
 # Gradle
 .gradle/
 build/
-server/build/
 **/build/
 
 # Compiled output

@@ -30,22 +30,6 @@
     align-items: center;
 }
 
-.editor-runtime-label {
-    color: #b0b0b0;
-    font-family: 'JetBrains Mono Light', monospace;
-    font-size: 12px;
-}
-
-.editor-runtime-select {
-    background: #0d0d0d;
-    color: #e0e0e0;
-    border: 1px solid #333;
-    border-radius: 4px;
-    padding: 8px 10px;
-    font-family: 'JetBrains Mono Light', monospace;
-    font-size: 12px;
-}
-
 .editor-layout {
     display: grid;
     grid-template-columns: 1fr 1fr;

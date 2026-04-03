@@ -21,12 +21,11 @@
 
         var input = document.getElementById('editorInput');
         var output = document.getElementById('editorOutput');
-        var runtime = document.getElementById('editorRuntime');
         var runBtn = document.getElementById('editorRunBtn');
         var clearBtn = document.getElementById('editorClearBtn');
         var resetBtn = document.getElementById('editorResetBtn');
 
-        if (!input || !output || !runtime || !runBtn || !clearBtn || !resetBtn) return;
+        if (!input || !output || !runBtn || !clearBtn || !resetBtn) return;
 
         input.value = DEFAULT_SOURCE;
         updateHighlight();
@@ -45,14 +44,8 @@
 
         function runProgram() {
             var src = input.value || '';
-            var selected = runtime.value;
             setStatus('⏳ Running...');
-
-            if (selected === 'java7') {
-                runJava7(src);
-            } else {
-                runJs(src);
-            }
+            runJs(src);
         }
 
         function runJs(src) {
@@ -64,27 +57,6 @@
             var result = CodREPLRunner.compileAndRun(src, { reset: false });
             renderOutput(result || '');
             setStatus('✅ Ran with JavaScript runtime');
-        }
-
-        function runJava7(src) {
-            fetch('https://coderive-repl.onrender.com/eval', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-                body: new URLSearchParams({ code: src }).toString()
-            }).then(function(res) {
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                return res.text();
-            }).then(function(text) {
-                renderOutput(text || '');
-                setStatus('✅ Ran with Java 7 server runtime');
-            }).catch(function() {
-                var fallback = '';
-                if (window.CodREPLRunner && typeof CodREPLRunner.compileAndRun === 'function') {
-                    fallback = CodREPLRunner.compileAndRun(src, { reset: false });
-                }
-                renderOutput(fallback || '');
-                setStatus('⚠ Java 7 server unavailable — used JS fallback');
-            });
         }
     }
 

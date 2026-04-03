@@ -2687,7 +2687,7 @@
      * Compile and run a complete multi-line Coderive program.
      * @param {string} source
      * @param {{ reset?: boolean }} options
-     * @returns {string}
+     * @returns {string} Program output, or empty string when source is empty/whitespace-only.
      */
     compileAndRun(source, options) {
       const opts = options || {};

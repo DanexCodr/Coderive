@@ -18,7 +18,7 @@ This folder tracks what is already implemented in the language/runtime and how c
 | Builtins and literal registry | Implemented and in active use | Medium-High |
 | Runtime runners (`CommandRunner`, `REPLRunner`, `TestRunner`) | Implemented and in active use | High |
 | Bytecode manager (`cod.util.BytecodeManager`) | Implemented (basic pipeline present) | Medium |
-| Web playground + server (`docs/`, `server/`) | Implemented and in active use | Medium-High |
+| Web playground (`docs/`) JS runtime | Implemented and in active use | Medium-High |
 
 ## Notes
 

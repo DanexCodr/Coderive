@@ -2,11 +2,6 @@
 // Read version from the VERSION file in the repo root
 version = new File("${rootDir}/VERSION").text.trim()
 
-// Delegates fatJar task to the server subproject
-task fatJar {
-    dependsOn ':server:fatJar'
-}
-
 // Packages every file inside src/ into source_.jar as-is (preserving paths)
 task sourceJar(type: Jar) {
     archiveFileName = 'source_.jar'
