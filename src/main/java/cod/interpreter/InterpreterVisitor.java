@@ -79,6 +79,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     
     // ========== SIMPLE LOOP OPTIMIZATION CONSTANTS ==========
     private static final int LAZY_THRESHOLD = 10;  // From your data: 10+ iterations = worth it
+    private static final int MAX_SUPPORTED_LAG = 64;
 
     public InterpreterVisitor(Interpreter interpreter, TypeHandler typeSystem, 
                               LiteralRegistry literalRegistry) {
@@ -766,7 +767,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             }
         }
 
-        AutoStackingNumber[] coeff = new AutoStackingNumber[64];
+        // Index 0 is intentionally unused; coefficient for lag k is stored at coeff[k].
+        AutoStackingNumber[] coeff = new AutoStackingNumber[MAX_SUPPORTED_LAG + 1];
         for (int i = 0; i < coeff.length; i++) coeff[i] = AutoStackingNumber.fromLong(0L);
         AutoStackingNumber[] constant = new AutoStackingNumber[]{AutoStackingNumber.fromLong(0L)};
         if (!collectLinearTerms(assign.right, targetName, iter, coeff, constant, AutoStackingNumber.fromLong(1L))) {
@@ -898,7 +900,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             return null;
         }
         int lag = extractLag(access.index, iterator);
-        if (lag <= 0 || lag >= 64) {
+        if (lag <= 0 || lag > MAX_SUPPORTED_LAG) {
             return null;
         }
         return new TermRef(lag);
@@ -912,14 +914,6 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 AutoStackingNumber n = toNumericLiteral(bin.right);
                 if (n == null) return -1;
                 long lag = n.longValue();
-                if (lag <= 0 || lag > Integer.MAX_VALUE) return -1;
-                return (int) lag;
-            }
-            if ("+".equals(bin.op) && bin.right instanceof IdentifierNode &&
-                iterator.equals(((IdentifierNode) bin.right).name)) {
-                AutoStackingNumber n = toNumericLiteral(bin.left);
-                if (n == null) return -1;
-                long lag = -n.longValue();
                 if (lag <= 0 || lag > Integer.MAX_VALUE) return -1;
                 return (int) lag;
             }

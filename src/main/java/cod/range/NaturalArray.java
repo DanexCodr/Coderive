@@ -821,8 +821,6 @@ public class NaturalArray {
         // Then linear recurrence formulas
         Object recurrenceResult = evaluateLinearRecurrenceFormulas(index);
         if (recurrenceResult != null) {
-            if (computedCache == null) computedCache = new HashMap<Long, Object>();
-            computedCache.put(index, recurrenceResult);
             lastIndex = index;
             lastValue = recurrenceResult;
             updateRecentCache(index, recurrenceResult);

@@ -9,6 +9,7 @@ share main() {
     for i of [2 to 2000] {
         fib[i] = fib[i-1] + fib[i-2]
     }
+    out("fib-metadata=" + fib)
     out("fib[10]=" + fib[10] + " expected=55")
     out("fib[20]=" + fib[20] + " expected=6765")
     out("fib[30]=" + fib[30] + " expected=832040")

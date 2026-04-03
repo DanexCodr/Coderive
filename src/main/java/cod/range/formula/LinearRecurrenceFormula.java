@@ -40,7 +40,7 @@ public class LinearRecurrenceFormula {
     }
 
     public Object evaluate(long index) {
-        if (order <= 0 || seedValues == null || seedValues.length < order) {
+        if (order <= 0 || seedValues == null || seedValues.length != order) {
             return null;
         }
 
@@ -52,15 +52,8 @@ public class LinearRecurrenceFormula {
             return null;
         }
 
-        long t = recurrenceStart - 1L;
-        long steps = index - t;
-        if (steps <= 0) {
-            int offset = (int) (index - seedStartIndex);
-            if (offset >= 0 && offset < seedValues.length) {
-                return seedValues[offset];
-            }
-            return null;
-        }
+        long lastSeedIndex = recurrenceStart - 1L;
+        long steps = index - lastSeedIndex;
 
         int dim = hasConstantTerm ? order + 1 : order;
         AutoStackingNumber[][] transition = new AutoStackingNumber[dim][dim];
