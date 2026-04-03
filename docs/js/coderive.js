@@ -447,8 +447,7 @@
       while (!this.atEOF()) {
         const t = this.now();
         if (t.type === TT.INVALID) {
-          this.consume();
-          continue;
+          throw new ParseError(`Invalid token: '${t.text}'`);
         }
         statements.push(this.parseStmt());
       }
@@ -457,7 +456,17 @@
 
     parseSingleLine() {
       if (this.atEOF()) return null;
+      if (this.now().type === TT.INVALID) {
+        throw new ParseError(`Invalid token: '${this.now().text}'`);
+      }
       const stmt = this.parseStmt();
+      const trailing = this.now();
+      if (trailing && trailing.type !== TT.EOF) {
+        if (trailing.type === TT.INVALID) {
+          throw new ParseError(`Invalid token: '${trailing.text}'`);
+        }
+        throw new ParseError(`Unexpected token: '${trailing.text}' (${trailing.type})`);
+      }
       return stmt;
     }
 
@@ -2702,6 +2711,9 @@
 
         _interp.resetOutput();
         _interp.evalRepl(ast, _globals);
+        if (_interp.methods && _interp.methods.main) {
+          _interp.callUserMethod(_interp.methods.main, [], null, null, []);
+        }
         return _interp.getOutput();
       } catch (e) {
         if (e instanceof ParseError) return 'Parse error: ' + e.message;

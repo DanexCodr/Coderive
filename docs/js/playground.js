@@ -20,7 +20,7 @@
 
         // The JS interpreter is already loaded synchronously — no waiting needed.
         var status = document.getElementById('apiStatus');
-        if (status) status.textContent = '✅ Ready';
+        if (status) status.textContent = '✅ Runtime ready';
 
         input.disabled = false;
         input.focus();
