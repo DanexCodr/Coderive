@@ -17,7 +17,12 @@
     }
 
     async function listDirectory(path) {
-        const response = await fetch(REPO_API_BASE + '/' + encodeURI(path));
+        const encodedPath = String(path || '')
+            .split('/')
+            .filter(Boolean)
+            .map(function(part) { return encodeURIComponent(part); })
+            .join('/');
+        const response = await fetch(REPO_API_BASE + '/' + encodedPath);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return await response.json();
     }

@@ -43,7 +43,7 @@
 
         var i = cursor;
         while (i <= sourceText.length - raw.length) {
-            if (sourceText.substr(i, raw.length) !== raw) {
+            if (sourceText.slice(i, i + raw.length) !== raw) {
                 i++;
                 continue;
             }
