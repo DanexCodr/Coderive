@@ -46,11 +46,7 @@ public class LinearRecurrenceFormula {
             if (index < start || index > end) {
                 return null;
             }
-            long offset = index - start;
-            if (offset < 0 || offset >= precomputedValues.length) {
-                return null;
-            }
-            return precomputedValues[(int) offset];
+            return precomputedValues[(int) (index - start)];
         }
 
         if (order <= 0 || seedValues == null || seedValues.length != order) {
@@ -123,12 +119,15 @@ public class LinearRecurrenceFormula {
         long computeStart = Math.min(start, seedStartIndex);
         for (long idx = computeStart; idx <= end; idx++) {
             AutoStackingNumber value = values.get(idx);
-            if (value == null && !values.containsKey(idx)) {
+            boolean hasIndex = values.containsKey(idx);
+            if (value == null && !hasIndex) {
                 if (idx >= recurrenceStart) {
                     AutoStackingNumber sum = hasConstantTerm ? constantTerm : ZERO;
                     for (int lag = 1; lag <= order; lag++) {
-                        AutoStackingNumber prev = values.get(idx - lag);
-                        if (prev == null && !values.containsKey(idx - lag)) {
+                        long prevIndex = idx - lag;
+                        AutoStackingNumber prev = values.get(prevIndex);
+                        boolean hasPrev = values.containsKey(prevIndex);
+                        if (prev == null && !hasPrev) {
                             sum = null;
                             break;
                         }
@@ -148,7 +147,7 @@ public class LinearRecurrenceFormula {
             }
 
             if (idx >= start) {
-                table[(int) (idx - start)] = values.get(idx);
+                table[(int) (idx - start)] = value;
             }
         }
 
