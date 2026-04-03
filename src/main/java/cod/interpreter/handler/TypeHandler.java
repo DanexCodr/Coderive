@@ -461,7 +461,7 @@ public class TypeHandler {
             );
         }
         
-        List<Object> result = new ArrayList<Object>();
+        List<Object> result = new ArrayList<Object>(resultSize);
         for (int i = 0; i < resultSize; i++) {
             Object elemA = listA.get(sizeA == 1 ? 0 : i);
             Object elemB = listB.get(sizeB == 1 ? 0 : i);
@@ -491,9 +491,22 @@ public class TypeHandler {
     }
     
     private Object applyArrayScalarOperation(Object array, Object scalar, String op) {
-        List<Object> list = toList(array);
-        List<Object> result = new ArrayList<Object>();
+        if (array instanceof NaturalArray) {
+            NaturalArray natural = (NaturalArray) array;
+            long sizeLong = natural.size();
+            if (sizeLong > Integer.MAX_VALUE) {
+                throw new ProgramError("Array too large for scalar operation: " + sizeLong);
+            }
+            int size = (int) sizeLong;
+            List<Object> result = new ArrayList<Object>(size);
+            for (int i = 0; i < size; i++) {
+                result.add(applyScalarOperation(natural.get(i), scalar, op));
+            }
+            return result;
+        }
 
+        List<Object> list = toList(array);
+        List<Object> result = new ArrayList<Object>(list.size());
         for (Object elem : list) {
             result.add(applyScalarOperation(elem, scalar, op));
         }
@@ -507,32 +520,23 @@ public class TypeHandler {
         }
         
         if ("+".equals(op)) {
-            if (a instanceof String || b instanceof String ||
-                a instanceof TextLiteralNode || b instanceof TextLiteralNode) {
-                return String.valueOf(a) + String.valueOf(b);
-            }
-            AutoStackingNumber numA = toAutoStackingNumber(a);
-            AutoStackingNumber numB = toAutoStackingNumber(b);
-            return numA.add(numB);
+            return addNumbers(a, b);
         }
         
         if ("-".equals(op)) {
-            AutoStackingNumber numA = toAutoStackingNumber(a);
-            AutoStackingNumber numB = toAutoStackingNumber(b);
-            return numA.subtract(numB);
+            return subtractNumbers(a, b);
         }
         
         if ("*".equals(op)) {
-            return multiplyScalars(a, b);
+            return multiplyNumbers(a, b);
         }
         
         if ("/".equals(op)) {
-            AutoStackingNumber numA = toAutoStackingNumber(a);
-            AutoStackingNumber numB = toAutoStackingNumber(b);
-            if (numB.isZero()) {
-                throw new ProgramError("Division by zero");
-            }
-            return numA.divide(numB);
+            return divideNumbers(a, b);
+        }
+
+        if ("%".equals(op)) {
+            return modulusNumbers(a, b);
         }
         
         throw new InternalError("Unsupported array operation: " + op);
