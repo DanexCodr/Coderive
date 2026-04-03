@@ -75,11 +75,7 @@
     function renderOutput(text) {
         var output = document.getElementById('editorOutput');
         if (!output) return;
-        if (window.CoderiveSyntaxHighlighter && typeof CoderiveSyntaxHighlighter.renderTo === 'function') {
-            CoderiveSyntaxHighlighter.renderTo(output, text || '', false);
-        } else {
-            output.textContent = text || '';
-        }
+        output.textContent = text || '';
     }
 
     function syncHighlightScroll() {

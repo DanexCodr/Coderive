@@ -37,6 +37,29 @@
         return null;
     }
 
+    function findTokenStart(sourceText, token, cursor) {
+        var raw = token.text === null || token.text === undefined ? '' : String(token.text);
+        if (!raw.length) return -1;
+
+        var i = cursor;
+        while (i <= sourceText.length - raw.length) {
+            if (sourceText.slice(i, i + raw.length) !== raw) {
+                i++;
+                continue;
+            }
+            if (token.type === 'ID') {
+                var prev = i > 0 ? sourceText.charAt(i - 1) : '';
+                var next = i + raw.length < sourceText.length ? sourceText.charAt(i + raw.length) : '';
+                if (/\w/.test(prev) || /\w/.test(next)) {
+                    i++;
+                    continue;
+                }
+            }
+            return i;
+        }
+        return -1;
+    }
+
     function toSegments(input) {
         var sourceText = input === null || input === undefined ? '' : String(input);
         var tokenize = global.CoderiveLanguage && global.CoderiveLanguage.tokenize;
@@ -54,7 +77,7 @@
                 var raw = token.text === null || token.text === undefined ? '' : String(token.text);
                 if (!raw.length) continue;
 
-                var foundAt = sourceText.indexOf(raw, cursor);
+                var foundAt = findTokenStart(sourceText, token, cursor);
                 if (foundAt === -1) continue;
 
                 if (foundAt > cursor) {
