@@ -2,6 +2,9 @@ package cod.math;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.math.BigDecimal;
 
 /**
@@ -20,6 +23,18 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     private static final AutoStackingNumber ZERO_1 = new AutoStackingNumber(1, 0L);
     private static final AutoStackingNumber ONE_1 = new AutoStackingNumber(1, 1L);
     private static final AutoStackingNumber MINUS_ONE_1 = new AutoStackingNumber(1, -1L);
+    private static final int SMALL_LONG_CACHE_MIN = -128;
+    private static final int SMALL_LONG_CACHE_MAX = 127;
+    private static final AutoStackingNumber[] SMALL_LONG_CACHE =
+        new AutoStackingNumber[SMALL_LONG_CACHE_MAX - SMALL_LONG_CACHE_MIN + 1];
+    private static final int VALUE_OF_CACHE_MAX_SIZE = 4096;
+    private static final int VALUE_OF_CACHEABLE_LENGTH = 64;
+    private static final Map<String, AutoStackingNumber> VALUE_OF_CACHE =
+        Collections.synchronizedMap(new LinkedHashMap<String, AutoStackingNumber>(512, 0.75f, true) {
+            protected boolean removeEldestEntry(Map.Entry<String, AutoStackingNumber> eldest) {
+                return size() > VALUE_OF_CACHE_MAX_SIZE;
+            }
+        });
     
     // Maximum stacks (lucky number 7!)
     public static final int MAX_STACKS = 7;
@@ -38,11 +53,15 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     // Instance fields
     private final int stacks;
     private final long[] words;  // words[0] = most significant, words[stacks-1] = least significant
+    private transient volatile String cachedToString;
     
     static {
         // Initialize constants lazily
         for (int s = 1; s <= MAX_STACKS; s++) {
             CONSTANTS[s] = new AutoStackingNumber[3];
+        }
+        for (int i = SMALL_LONG_CACHE_MIN; i <= SMALL_LONG_CACHE_MAX; i++) {
+            SMALL_LONG_CACHE[i - SMALL_LONG_CACHE_MIN] = new AutoStackingNumber((long) i);
         }
     }
     
@@ -117,6 +136,11 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         }
         
         s = s.trim();
+        String cacheKey = s;
+        AutoStackingNumber cached = VALUE_OF_CACHE.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
         
         // Handle empty string
         if (s.isEmpty()) {
@@ -165,7 +189,8 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             if (fracPart.isEmpty()) {
                 // It was something like "5.0" - just return the integer part
                 AutoStackingNumber result = valueOf(intPart);
-                return negative ? result.negate() : result;
+                result = negative ? result.negate() : result;
+                return cacheValueOf(cacheKey, result);
             }
             
             // Parse integer part using existing integer parsing
@@ -203,8 +228,8 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             
             // Add integer and fractional parts
             AutoStackingNumber result = intNum.add(fracNum);
-            
-            return negative ? result.negate() : result;
+            result = negative ? result.negate() : result;
+            return cacheValueOf(cacheKey, result);
         }
         
         // No decimal point - use existing integer parsing logic
@@ -220,7 +245,7 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         // Try parsing as long first (fast path)
         try {
             long longValue = Long.parseLong(s);
-            return new AutoStackingNumber(1, negative ? -longValue : longValue);
+            return cacheValueOf(cacheKey, fromLong(negative ? -longValue : longValue));
         } catch (NumberFormatException e) {
             // Not a long, continue with your existing multi-word parsing
         }
@@ -266,7 +291,14 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             result.words[0] = -result.words[0];
         }
         
-        return result;
+        return cacheValueOf(cacheKey, result);
+    }
+
+    private static AutoStackingNumber cacheValueOf(String key, AutoStackingNumber value) {
+        if (key != null && key.length() <= VALUE_OF_CACHEABLE_LENGTH) {
+            VALUE_OF_CACHE.put(key, value);
+        }
+        return value;
     }
 
     /**
@@ -306,6 +338,9 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         if (value == 0L) return ZERO_1;
         if (value == 1L) return ONE_1;
         if (value == -1L) return MINUS_ONE_1;
+        if (value >= SMALL_LONG_CACHE_MIN && value <= SMALL_LONG_CACHE_MAX) {
+            return SMALL_LONG_CACHE[(int) value - SMALL_LONG_CACHE_MIN];
+        }
         return new AutoStackingNumber(value);
     }
     
@@ -787,6 +822,14 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     
     @Override
     public String toString() {
+        String cached = cachedToString;
+        if (cached != null) return cached;
+        String value = computeToString();
+        cachedToString = value;
+        return value;
+    }
+
+    private String computeToString() {
         if (stacks == 1) return Long.toString(words[0]);
         if (isZero()) return "0";
         
