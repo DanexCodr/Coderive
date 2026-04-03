@@ -137,15 +137,6 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             throw new NumberFormatException("Missing digits after sign");
         }
 
-        final int len = s.length();
-        int lead = 0;
-        while (lead < len - 1 && s.charAt(lead) == '0') {
-            lead++;
-        }
-        if (lead > 0) {
-            s = s.substring(lead);
-        }
-        
         // Check for decimal point
         int dotIndex = s.indexOf('.');
         if (dotIndex >= 0) {
@@ -217,6 +208,15 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         }
         
         // No decimal point - use existing integer parsing logic
+        final int len = s.length();
+        int lead = 0;
+        while (lead < len - 1 && s.charAt(lead) == '0') {
+            lead++;
+        }
+        if (lead > 0) {
+            s = s.substring(lead);
+        }
+
         // Try parsing as long first (fast path)
         try {
             long longValue = Long.parseLong(s);
