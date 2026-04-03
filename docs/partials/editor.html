@@ -1,0 +1,38 @@
+<div class="top-section">
+    <div class="hamburger-group">
+        <button class="hamburger-btn" id="editorDrawerToggle" aria-label="Menu">☰</button>
+        <span class="home-text">Editor</span>
+    </div>
+    <div class="divider"></div>
+</div>
+
+<div class="editor-container">
+    <div class="editor-header">
+        <h1 class="editor-title">Coderive Editor</h1>
+        <div class="editor-controls">
+            <label class="editor-runtime-label" for="editorRuntime">Runtime</label>
+            <select id="editorRuntime" class="editor-runtime-select">
+                <option value="js">JavaScript (in-browser)</option>
+                <option value="java7">Java 7 server (if available)</option>
+            </select>
+            <button id="editorRunBtn" class="playground-btn">▶ Compile & Run</button>
+            <button id="editorClearBtn" class="playground-btn secondary">Clear Output</button>
+            <button id="editorResetBtn" class="playground-btn secondary">⟲ Reset JS State</button>
+            <span class="badge" id="editorStatus">✅ Ready</span>
+        </div>
+    </div>
+
+    <div class="editor-layout">
+        <section class="editor-pane">
+            <h2 class="editor-pane-title">Source</h2>
+            <textarea id="editorInput" class="editor-textarea" spellcheck="false"></textarea>
+            <div class="editor-highlight-layer" id="editorHighlight" aria-hidden="true"></div>
+        </section>
+
+        <section class="editor-pane">
+            <h2 class="editor-pane-title">Output</h2>
+            <pre id="editorOutput" class="editor-output"></pre>
+        </section>
+    </div>
+    <p class="editor-note">Syntax highlighting supports Coderive source targeting both JS runtime and Java 7 runtime syntax.</p>
+</div>

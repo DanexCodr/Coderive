@@ -442,6 +442,19 @@
 
     // ── Entry point ──────────────────────────────────────────
 
+    parseProgram() {
+      const statements = [];
+      while (!this.atEOF()) {
+        const t = this.now();
+        if (t.type === TT.INVALID) {
+          this.consume();
+          continue;
+        }
+        statements.push(this.parseStmt());
+      }
+      return mkNode(N.PROGRAM, { statements });
+    }
+
     parseSingleLine() {
       if (this.atEOF()) return null;
       const stmt = this.parseStmt();
@@ -1655,6 +1668,7 @@
         case N.SKIP:      throw new SkipSignal();
         case N.EXIT:      throw new ExitSignal();
         case N.BLOCK:     return this.evalBlock(node, scope);
+        case N.PROGRAM:   return this.evalBlock(node, scope);
 
         // ── Slot assignments ──
         case N.SLOT_ASSIGN:  return this.evalSlotAssign(node, scope);
@@ -2670,6 +2684,33 @@
     },
 
     /**
+     * Compile and run a complete multi-line Coderive program.
+     * @param {string} source
+     * @param {{ reset?: boolean }} options
+     * @returns {string}
+     */
+    compileAndRun(source, options) {
+      const opts = options || {};
+      if (!source || !source.trim()) return '';
+
+      if (opts.reset) this.reset();
+
+      try {
+        const tokens = tokenize(source);
+        const parser = new Parser(tokens);
+        const ast = parser.parseProgram();
+
+        _interp.resetOutput();
+        _interp.evalRepl(ast, _globals);
+        return _interp.getOutput();
+      } catch (e) {
+        if (e instanceof ParseError) return 'Parse error: ' + e.message;
+        if (e instanceof CodError)  return 'Error: ' + e.message;
+        return 'Error: ' + (e && e.message ? e.message : String(e));
+      }
+    },
+
+    /**
      * Reset REPL state — clears all variables, types, and methods.
      */
     reset() {
@@ -2683,6 +2724,7 @@
   // Export
   if (typeof window !== 'undefined') {
     window.CodREPLRunner = CodREPLRunner;
+    window.CoderiveLanguage = { tokenize };
   } else if (typeof module !== 'undefined' && module.exports) {
     module.exports = { CodREPLRunner, tokenize, Parser, CodInterpreter };
   }
