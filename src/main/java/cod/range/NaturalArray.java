@@ -62,6 +62,8 @@ public class NaturalArray {
     // Formula collections
     private List<SequenceFormula> sequenceFormulas = new ArrayList<SequenceFormula>();
     private List<ConditionalFormula> conditionalFormulas = new ArrayList<ConditionalFormula>();
+    private List<LinearRecurrenceFormula> linearRecurrenceFormulas = new ArrayList<LinearRecurrenceFormula>();
+    private Map<Long, Integer> linearRecurrenceFormulaIndexCache = new HashMap<Long, Integer>();
     private Map<Long, Object> computedCache = new HashMap<Long, Object>();
     
     // Pending updates for lazy assignment
@@ -816,6 +818,15 @@ public class NaturalArray {
             updateRecentCache(index, conditionalResult);
             return maybeConvert(conditionalResult);
         }
+        
+        // Then linear recurrence formulas
+        Object recurrenceResult = evaluateLinearRecurrenceFormulas(index);
+        if (recurrenceResult != null) {
+            lastIndex = index;
+            lastValue = recurrenceResult;
+            updateRecentCache(index, recurrenceResult);
+            return maybeConvert(recurrenceResult);
+        }
 
         // Finally, base calculation
         Object result = calculateValue(index);
@@ -1386,9 +1397,25 @@ public class NaturalArray {
         clearCache();
     }
 
+    public void addLinearRecurrenceFormula(LinearRecurrenceFormula formula) {
+        if (formula == null) {
+            throw new InternalError("Attempted to add null LinearRecurrenceFormula");
+        }
+        
+        if (tracked) {
+            ArrayTracker.recordFormulaApplication(this);
+        }
+        
+        linearRecurrenceFormulas.add(formula);
+        clearCache();
+    }
+
     public void clearCache() {
         if (computedCache != null) {
             computedCache.clear();
+        }
+        if (linearRecurrenceFormulaIndexCache != null) {
+            linearRecurrenceFormulaIndexCache.clear();
         }
         clearRecentCache();
         lastIndex = null;
@@ -1450,6 +1477,66 @@ public class NaturalArray {
                 } catch (Exception e) {
                     throw new InternalError(
                         "Conditional formula evaluation failed at index " + index, e);
+                }
+            }
+        }
+        return null;
+    }
+
+    private Object evaluateLinearRecurrenceFormulas(long index) {
+        if (linearRecurrenceFormulas.isEmpty()) return null;
+
+        Integer cachedFormulaIndex = linearRecurrenceFormulaIndexCache.get(index);
+        if (cachedFormulaIndex != null) {
+            int idx = cachedFormulaIndex.intValue();
+            if (idx >= 0 && idx < linearRecurrenceFormulas.size()) {
+                LinearRecurrenceFormula cachedFormula = linearRecurrenceFormulas.get(idx);
+                if (cachedFormula != null && cachedFormula.contains(index)) {
+                    try {
+                        Object cachedResult = cachedFormula.evaluate(index);
+                        if (cachedResult != null) {
+                            if (computedCache == null) {
+                                computedCache = new HashMap<Long, Object>();
+                            }
+                            computedCache.put(index, cachedResult);
+                            return cachedResult;
+                        }
+                    } catch (ProgramError e) {
+                        throw e;
+                    } catch (Exception e) {
+                        throw new InternalError(
+                            "Linear recurrence formula evaluation failed at index " + index, e);
+                    }
+                }
+            }
+            linearRecurrenceFormulaIndexCache.remove(index);
+        }
+
+        for (int i = linearRecurrenceFormulas.size() - 1; i >= 0; i--) {
+            LinearRecurrenceFormula formula = linearRecurrenceFormulas.get(i);
+            if (formula == null) {
+                throw new InternalError("Null LinearRecurrenceFormula in list");
+            }
+            
+            if (formula.contains(index)) {
+                try {
+                    Object result = formula.evaluate(index);
+                    if (result != null) {
+                        if (computedCache == null) {
+                            computedCache = new HashMap<Long, Object>();
+                        }
+                        computedCache.put(index, result);
+                        if (linearRecurrenceFormulaIndexCache == null) {
+                            linearRecurrenceFormulaIndexCache = new HashMap<Long, Integer>();
+                        }
+                        linearRecurrenceFormulaIndexCache.put(index, i);
+                    }
+                    return result;
+                } catch (ProgramError e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new InternalError(
+                        "Linear recurrence formula evaluation failed at index " + index, e);
                 }
             }
         }
@@ -1609,6 +1696,9 @@ public class NaturalArray {
             }
             if (!conditionalFormulas.isEmpty()) {
                 sb.append("\n  Conditional formulas: ").append(conditionalFormulas.size());
+            }
+            if (!linearRecurrenceFormulas.isEmpty()) {
+                sb.append("\n  Linear recurrence formulas: ").append(linearRecurrenceFormulas.size());
             }
             return sb.toString();
             

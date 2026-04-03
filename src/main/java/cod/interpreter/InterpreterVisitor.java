@@ -22,7 +22,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
 
     enum PatternType {
         CONDITIONAL,
-        SEQUENCE
+        SEQUENCE,
+        LINEAR_RECURRENCE
     }
 
     class PatternResult {
@@ -40,6 +41,34 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
     }
 
+    private static class LinearRecurrencePattern {
+        public final ExprNode targetArray;
+        public final int order;
+        public final AutoStackingNumber[] coefficientsByLag;
+        public final AutoStackingNumber constantTerm;
+        public final long recurrenceStart;
+        public final long seedStart;
+        public final AutoStackingNumber[] seedValues;
+
+        LinearRecurrencePattern(
+            ExprNode targetArray,
+            int order,
+            AutoStackingNumber[] coefficientsByLag,
+            AutoStackingNumber constantTerm,
+            long recurrenceStart,
+            long seedStart,
+            AutoStackingNumber[] seedValues
+        ) {
+            this.targetArray = targetArray;
+            this.order = order;
+            this.coefficientsByLag = coefficientsByLag;
+            this.constantTerm = constantTerm;
+            this.recurrenceStart = recurrenceStart;
+            this.seedStart = seedStart;
+            this.seedValues = seedValues;
+        }
+    }
+
     private final Interpreter interpreter;
     public final TypeHandler typeSystem;
     private final Stack<ExecutionContext> contextStack = new Stack<ExecutionContext>();
@@ -50,6 +79,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     
     // ========== SIMPLE LOOP OPTIMIZATION CONSTANTS ==========
     private static final int LAZY_THRESHOLD = 10;  // From your data: 10+ iterations = worth it
+    private static final int MAX_SUPPORTED_LAG = 64;
 
     public InterpreterVisitor(Interpreter interpreter, TypeHandler typeSystem, 
                               LiteralRegistry literalRegistry) {
@@ -637,6 +667,20 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 DebugSystem.debug("OPTIMIZER", "Multi-array pattern failed: " + e.getMessage());
             }
         }
+
+        // Try automatic linear recurrence pattern (generic)
+        LinearRecurrencePattern recurrencePattern = extractLinearRecurrencePattern(node);
+        if (recurrencePattern != null) {
+            try {
+                List<PatternResult> patterns = new ArrayList<PatternResult>();
+                patterns.add(new PatternResult(PatternType.LINEAR_RECURRENCE, recurrencePattern, recurrencePattern.targetArray));
+                Object result = applyPatterns(node, patterns);
+                ArrayTracker.markLoopOptimized(loopId);
+                return result;
+            } catch (Exception e) {
+                DebugSystem.debug("OPTIMIZER", "Linear recurrence pattern failed: " + e.getMessage());
+            }
+        }
         
         // Try sequence pattern
         SequencePattern.Pattern seqPattern = 
@@ -677,6 +721,251 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             }
         }
         
+        return null;
+    }
+
+    private LinearRecurrencePattern extractLinearRecurrencePattern(ForNode node) {
+        if (node == null || node.body == null || node.body.statements == null) {
+            return null;
+        }
+        if (node.body.statements.size() != 1) {
+            return null;
+        }
+        if (!(node.body.statements.get(0) instanceof AssignmentNode)) {
+            return null;
+        }
+        AssignmentNode assign = (AssignmentNode) node.body.statements.get(0);
+        if (!(assign.left instanceof IndexAccessNode)) {
+            return null;
+        }
+        IndexAccessNode leftAccess = (IndexAccessNode) assign.left;
+        if (!(leftAccess.array instanceof IdentifierNode) || !(leftAccess.index instanceof IdentifierNode)) {
+            return null;
+        }
+        String iter = node.iterator;
+        IdentifierNode idx = (IdentifierNode) leftAccess.index;
+        if (!iter.equals(idx.name)) {
+            return null;
+        }
+
+        Object resolved = dispatch(leftAccess.array);
+        resolved = typeSystem.unwrap(resolved);
+        if (!(resolved instanceof NaturalArray)) {
+            return null;
+        }
+        NaturalArray targetArray = (NaturalArray) resolved;
+
+        Set<String> deps = new HashSet<String>();
+        collectIndexedArrayRefs(assign.right, iter, deps);
+        String targetName = ((IdentifierNode) leftAccess.array).name;
+        if (!deps.contains(targetName)) {
+            return null;
+        }
+        for (String dep : deps) {
+            if (!targetName.equals(dep)) {
+                return null;
+            }
+        }
+
+        // Index 0 is intentionally unused; coefficient for lag k is stored at coeff[k].
+        AutoStackingNumber[] coeff = new AutoStackingNumber[MAX_SUPPORTED_LAG + 1];
+        for (int i = 0; i < coeff.length; i++) coeff[i] = AutoStackingNumber.fromLong(0L);
+        AutoStackingNumber[] constant = new AutoStackingNumber[]{AutoStackingNumber.fromLong(0L)};
+        if (!collectLinearTerms(assign.right, targetName, iter, coeff, constant, AutoStackingNumber.fromLong(1L))) {
+            return null;
+        }
+
+        int maxLag = 0;
+        boolean hasAnyLag = false;
+        for (int lag = 1; lag < coeff.length; lag++) {
+            if (!coeff[lag].isZero()) {
+                hasAnyLag = true;
+                if (lag > maxLag) maxLag = lag;
+            }
+        }
+        if (!hasAnyLag || maxLag <= 0) {
+            return null;
+        }
+
+        int order = maxLag;
+        AutoStackingNumber[] coeffByLag = new AutoStackingNumber[order];
+        for (int lag = 1; lag <= order; lag++) {
+            coeffByLag[lag - 1] = coeff[lag];
+        }
+
+        long[] bounds = resolveLoopBounds(node);
+        if (bounds == null) {
+            return null;
+        }
+        long min = bounds[0];
+        long max = bounds[1];
+        long recurrenceStart = min;
+        if (recurrenceStart < order) {
+            recurrenceStart = order;
+        }
+        if (recurrenceStart > max) {
+            return null;
+        }
+
+        AutoStackingNumber[] seed = new AutoStackingNumber[order];
+        long seedStart = recurrenceStart - order;
+        for (int i = 0; i < order; i++) {
+            long idxSeed = seedStart + i;
+            Object vObj = targetArray.get(idxSeed);
+            AutoStackingNumber v = typeSystem.toAutoStackingNumber(vObj);
+            if (v == null) {
+                return null;
+            }
+            seed[i] = v;
+        }
+
+        return new LinearRecurrencePattern(
+            leftAccess.array,
+            order,
+            coeffByLag,
+            constant[0],
+            recurrenceStart,
+            seedStart,
+            seed
+        );
+    }
+
+    private boolean collectLinearTerms(
+        ExprNode expr,
+        String targetArrayName,
+        String iterator,
+        AutoStackingNumber[] coeffByLag,
+        AutoStackingNumber[] constant,
+        AutoStackingNumber sign
+    ) {
+        if (expr == null) return false;
+
+        if (expr instanceof BinaryOpNode) {
+            BinaryOpNode bin = (BinaryOpNode) expr;
+            if ("+".equals(bin.op)) {
+                return collectLinearTerms(bin.left, targetArrayName, iterator, coeffByLag, constant, sign) &&
+                       collectLinearTerms(bin.right, targetArrayName, iterator, coeffByLag, constant, sign);
+            }
+            if ("-".equals(bin.op)) {
+                return collectLinearTerms(bin.left, targetArrayName, iterator, coeffByLag, constant, sign) &&
+                       collectLinearTerms(bin.right, targetArrayName, iterator, coeffByLag, constant, sign.multiply(AutoStackingNumber.fromLong(-1L)));
+            }
+            if ("*".equals(bin.op)) {
+                TermRef ref = extractIndexedTargetTerm(bin.left, targetArrayName, iterator);
+                AutoStackingNumber scalar = toNumericLiteral(bin.right);
+                if (ref == null || scalar == null) {
+                    ref = extractIndexedTargetTerm(bin.right, targetArrayName, iterator);
+                    scalar = toNumericLiteral(bin.left);
+                }
+                if (ref != null && scalar != null) {
+                    AutoStackingNumber c = sign.multiply(scalar);
+                    coeffByLag[ref.lag] = coeffByLag[ref.lag].add(c);
+                    return true;
+                }
+                return false;
+            }
+            return false;
+        }
+
+        TermRef ref = extractIndexedTargetTerm(expr, targetArrayName, iterator);
+        if (ref != null) {
+            coeffByLag[ref.lag] = coeffByLag[ref.lag].add(sign);
+            return true;
+        }
+
+        AutoStackingNumber literal = toNumericLiteral(expr);
+        if (literal != null) {
+            constant[0] = constant[0].add(sign.multiply(literal));
+            return true;
+        }
+
+        return false;
+    }
+
+    private static class TermRef {
+        final int lag;
+        TermRef(int lag) { this.lag = lag; }
+    }
+
+    private TermRef extractIndexedTargetTerm(ExprNode expr, String targetArrayName, String iterator) {
+        if (!(expr instanceof IndexAccessNode)) {
+            return null;
+        }
+        IndexAccessNode access = (IndexAccessNode) expr;
+        if (!(access.array instanceof IdentifierNode)) {
+            return null;
+        }
+        String arrayName = ((IdentifierNode) access.array).name;
+        if (!targetArrayName.equals(arrayName)) {
+            return null;
+        }
+        int lag = extractLag(access.index, iterator);
+        if (lag <= 0 || lag > MAX_SUPPORTED_LAG) {
+            return null;
+        }
+        return new TermRef(lag);
+    }
+
+    private int extractLag(ExprNode indexExpr, String iterator) {
+        if (indexExpr instanceof BinaryOpNode) {
+            BinaryOpNode bin = (BinaryOpNode) indexExpr;
+            if ("-".equals(bin.op) && bin.left instanceof IdentifierNode &&
+                iterator.equals(((IdentifierNode) bin.left).name)) {
+                AutoStackingNumber n = toNumericLiteral(bin.right);
+                if (n == null) return -1;
+                long lag = n.longValue();
+                if (lag <= 0 || lag > Integer.MAX_VALUE) return -1;
+                return (int) lag;
+            }
+        }
+        return -1;
+    }
+
+    private AutoStackingNumber toNumericLiteral(ExprNode expr) {
+        if (expr instanceof IntLiteralNode) {
+            return ((IntLiteralNode) expr).value;
+        }
+        if (expr instanceof FloatLiteralNode) {
+            return ((FloatLiteralNode) expr).value;
+        }
+        if (expr instanceof UnaryNode) {
+            UnaryNode unary = (UnaryNode) expr;
+            if ("-".equals(unary.op)) {
+                AutoStackingNumber inner = toNumericLiteral(unary.operand);
+                if (inner == null) return null;
+                return AutoStackingNumber.fromLong(0L).subtract(inner);
+            }
+            if ("+".equals(unary.op)) {
+                return toNumericLiteral(unary.operand);
+            }
+        }
+        return null;
+    }
+
+    private long[] resolveLoopBounds(ForNode node) {
+        if (node == null) return null;
+        if (node.range != null) {
+            Object startObj = dispatch(node.range.start);
+            Object endObj = dispatch(node.range.end);
+            long start = expressionHandler.toLong(startObj);
+            long end = expressionHandler.toLong(endObj);
+            return new long[]{Math.min(start, end), Math.max(start, end)};
+        }
+        if (node.arraySource != null) {
+            Object sourceObj = dispatch(node.arraySource);
+            sourceObj = typeSystem.unwrap(sourceObj);
+            if (sourceObj instanceof NaturalArray) {
+                NaturalArray sourceArr = (NaturalArray) sourceObj;
+                if (sourceArr.size() > 0) {
+                    return new long[]{0L, sourceArr.size() - 1L};
+                }
+            } else if (sourceObj instanceof List) {
+                List<?> list = (List<?>) sourceObj;
+                if (!list.isEmpty()) {
+                    return new long[]{0L, list.size() - 1L};
+                }
+            }
+        }
         return null;
     }
 
@@ -2596,6 +2885,8 @@ public Object visit(ChainedComparisonNode node) {
                         applySequencePattern(arr, (SequencePattern.Pattern) result.pattern, min, max, node.iterator);
                     } else if (result.type == PatternType.CONDITIONAL) {
                         applyConditionalPattern(arr, (ConditionalPattern) result.pattern, min, max, node.iterator);
+                    } else if (result.type == PatternType.LINEAR_RECURRENCE) {
+                        applyLinearRecurrencePattern(arr, (LinearRecurrencePattern) result.pattern, min, max, node.iterator);
                     }
                 }
             }
@@ -2671,6 +2962,42 @@ public Object visit(ChainedComparisonNode node) {
             throw e;
         } catch (Exception e) {
             throw new InternalError("Failed to apply sequence pattern", e);
+        }
+    }
+
+    private void applyLinearRecurrencePattern(
+        NaturalArray arr,
+        LinearRecurrencePattern pattern,
+        long min,
+        long max,
+        String iterator
+    ) {
+        if (arr == null) {
+            throw new InternalError("applyLinearRecurrencePattern called with null array");
+        }
+        if (pattern == null) {
+            throw new InternalError("applyLinearRecurrencePattern called with null pattern");
+        }
+        try {
+            long start = Math.max(min, pattern.seedStart);
+            long end = max;
+            if (end < start) {
+                return;
+            }
+            LinearRecurrenceFormula formula = new LinearRecurrenceFormula(
+                start,
+                end,
+                pattern.recurrenceStart,
+                pattern.coefficientsByLag,
+                pattern.constantTerm,
+                pattern.seedValues,
+                pattern.seedStart
+            );
+            arr.addLinearRecurrenceFormula(formula);
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Failed to apply linear recurrence pattern", e);
         }
     }
 
