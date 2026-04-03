@@ -8,8 +8,10 @@ import cod.range.NaturalArray;
 import static cod.syntax.Keyword.*;
 
 import java.util.ArrayList;
+import java.util.AbstractList;
 import java.util.List;
 import java.util.Objects;
+import java.util.RandomAccess;
 
 public class TypeHandler {
     
@@ -561,6 +563,9 @@ public class TypeHandler {
                 throw new ProgramError("Array too large for scalar operation: " + sizeLong);
             }
             int size = (int) sizeLong;
+            if (!natural.isMutable() && !natural.hasPendingUpdates()) {
+                return new LazyNaturalArrayScalarResult(natural, scalar, op, opCode, size);
+            }
             List<Object> result = new ArrayList<Object>(size);
             for (int i = 0; i < size; i++) {
                 Object elem = natural.get(i);
@@ -584,6 +589,95 @@ public class TypeHandler {
         }
         
         return result;
+    }
+
+    private final class LazyNaturalArrayScalarResult extends AbstractList<Object> implements RandomAccess {
+        private final NaturalArray source;
+        private final Object scalar;
+        private final String op;
+        private final int opCode;
+        private final int size;
+        private List<Object> materialized;
+        private final Object[] memoValues;
+        private final boolean[] memoComputed;
+
+        private LazyNaturalArrayScalarResult(NaturalArray source, Object scalar, String op, int opCode, int size) {
+            this.source = source;
+            this.scalar = scalar;
+            this.op = op;
+            this.opCode = opCode;
+            this.size = size;
+            if (size <= 8192) {
+                this.memoValues = new Object[size];
+                this.memoComputed = new boolean[size];
+            } else {
+                this.memoValues = null;
+                this.memoComputed = null;
+            }
+        }
+
+        @Override
+        public Object get(int index) {
+            if (index < 0 || index >= size) {
+                throw new IndexOutOfBoundsException("Index: " + index + ", Size: " + size);
+            }
+            if (materialized != null) {
+                return materialized.get(index);
+            }
+            if (memoComputed != null && memoComputed[index]) {
+                return memoValues[index];
+            }
+            Object elem = source.get(index);
+            Object computed;
+            if (isArray(elem)) {
+                computed = applyArrayOperation(elem, scalar, op);
+            } else {
+                computed = applyScalarByOpCode(elem, scalar, opCode);
+            }
+            if (memoComputed != null) {
+                memoValues[index] = computed;
+                memoComputed[index] = true;
+            }
+            return computed;
+        }
+
+        @Override
+        public int size() {
+            if (materialized != null) {
+                return materialized.size();
+            }
+            return size;
+        }
+
+        @Override
+        public Object set(int index, Object element) {
+            return ensureMaterialized().set(index, element);
+        }
+
+        @Override
+        public void add(int index, Object element) {
+            ensureMaterialized().add(index, element);
+            modCount++;
+        }
+
+        @Override
+        public Object remove(int index) {
+            Object removed = ensureMaterialized().remove(index);
+            modCount++;
+            return removed;
+        }
+
+        private List<Object> ensureMaterialized() {
+            if (materialized != null) {
+                return materialized;
+            }
+            List<Object> eager = new ArrayList<Object>(size);
+            for (int i = 0; i < size; i++) {
+                eager.add(get(i));
+            }
+            materialized = eager;
+            return materialized;
+        }
     }
 
     private Object applyScalarOperation(Object a, Object b, String op) {
