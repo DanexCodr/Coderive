@@ -50,7 +50,7 @@
             if (token.type === 'ID') {
                 var prev = i > 0 ? sourceText.charAt(i - 1) : '';
                 var next = i + raw.length < sourceText.length ? sourceText.charAt(i + raw.length) : '';
-                if (/[\w]/.test(prev) || /[\w]/.test(next)) {
+                if (/\w/.test(prev) || /\w/.test(next)) {
                     i++;
                     continue;
                 }

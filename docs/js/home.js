@@ -32,7 +32,8 @@
     }
 
     async function findFirstCodPath() {
-        // Prefer a nested src/cod path when present, then fall back to src/main root traversal.
+        // Some repository layouts place generated/curated examples in this nested path.
+        // If it does not exist, traversal falls back to the broader src/main root.
         const preferredRoot = 'src/main/cod/src/main/src/cod';
         const fallbackRoot = 'src/main/cod/src/main';
         const roots = [preferredRoot, fallbackRoot];
