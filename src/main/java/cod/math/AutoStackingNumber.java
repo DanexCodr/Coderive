@@ -486,11 +486,12 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             
             // Check if product overflowed 64 bits
             if (a.words[0] != 0 && product / a.words[0] != b.words[0]) {
-                double approximateProduct = ((double) a.words[0]) * ((double) b.words[0]);
-                if (Double.isInfinite(approximateProduct) || Double.isNaN(approximateProduct)) {
-                    throw new ArithmeticException("Multiplication overflow");
+                java.math.BigInteger exactProduct = java.math.BigInteger.valueOf(a.words[0])
+                    .multiply(java.math.BigInteger.valueOf(b.words[0]));
+                if (resultNegative) {
+                    exactProduct = exactProduct.negate();
                 }
-                return fromDouble(resultNegative ? -approximateProduct : approximateProduct);
+                return valueOf(exactProduct.toString());
             }
             
             AutoStackingNumber result = new AutoStackingNumber(1, resultNegative ? -product : product);
