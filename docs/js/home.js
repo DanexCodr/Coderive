@@ -4,24 +4,20 @@
     const REPO_RAW_BASE = 'https://raw.githubusercontent.com/DanexCodr/Coderive/main';
     const REPO_BLOB_BASE = 'https://github.com/DanexCodr/Coderive/blob/main';
 
-    function toDisplayPath(path) {
-        return path || '';
-    }
-
-    function buildRawUrl(path) {
-        return REPO_RAW_BASE + '/' + path;
-    }
-
-    function buildBlobUrl(path) {
-        return REPO_BLOB_BASE + '/' + path;
-    }
-
     function encodePath(path) {
         return String(path || '')
             .split('/')
             .filter(Boolean)
             .map(function(part) { return encodeURIComponent(part); })
             .join('/');
+    }
+
+    function buildRawUrl(path) {
+        return REPO_RAW_BASE + '/' + encodePath(path);
+    }
+
+    function buildBlobUrl(path) {
+        return REPO_BLOB_BASE + '/' + encodePath(path);
     }
 
     function compareEntryNames(a, b) {
@@ -36,6 +32,7 @@
     }
 
     async function findFirstCodPath() {
+        // Prefer a nested src/cod path when present, then fall back to src/main root traversal.
         const preferredRoot = 'src/main/cod/src/main/src/cod';
         const fallbackRoot = 'src/main/cod/src/main';
         const roots = [preferredRoot, fallbackRoot];
@@ -101,7 +98,7 @@
             }
 
             renderHighlightedCode(codeContent, code);
-            if (filePathEl) filePathEl.textContent = toDisplayPath(codPath);
+            if (filePathEl) filePathEl.textContent = codPath;
             if (viewFullLink) viewFullLink.href = buildBlobUrl(codPath);
             Coderive.emit('codeLoaded');
         } catch (error) {
