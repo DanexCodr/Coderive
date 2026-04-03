@@ -1,0 +1,146 @@
+#editorPage {
+    background-color: #121212;
+    min-height: 100vh;
+}
+
+.editor-container {
+    padding: 20px;
+}
+
+.editor-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.editor-title {
+    font-family: 'JetBrains Mono Light', monospace;
+    color: #e0e0e0;
+    font-weight: 300;
+    margin: 0;
+}
+
+.editor-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.editor-runtime-label {
+    color: #b0b0b0;
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 12px;
+}
+
+.editor-runtime-select {
+    background: #0d0d0d;
+    color: #e0e0e0;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 12px;
+}
+
+.editor-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.editor-pane {
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.editor-pane-title {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 300;
+    color: #b0b0b0;
+    font-family: 'JetBrains Mono Light', monospace;
+}
+
+.editor-textarea {
+    width: 100%;
+    height: 62vh;
+    min-height: 360px;
+    resize: vertical;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: transparent;
+    color: transparent;
+    caret-color: #e0e0e0;
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 14px;
+    position: relative;
+    z-index: 2;
+}
+
+.editor-textarea:focus {
+    outline: none;
+    border-color: #4a6fa5;
+}
+
+.editor-pane {
+    position: relative;
+}
+
+.editor-highlight-layer {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 34px;
+    bottom: 10px;
+    padding: 14px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    pointer-events: none;
+    color: #e0e0e0;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: #0d0d0d;
+}
+
+.editor-output {
+    width: 100%;
+    height: 62vh;
+    min-height: 360px;
+    margin: 0;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: #0d0d0d;
+    color: #e0e0e0;
+    padding: 14px;
+    overflow: auto;
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.editor-note {
+    color: #888;
+    font-size: 12px;
+    margin-top: 10px;
+    font-family: 'JetBrains Mono Light', monospace;
+}
+
+@media (max-width: 900px) {
+    .editor-layout {
+        grid-template-columns: 1fr;
+    }
+}

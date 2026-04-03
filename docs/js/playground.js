@@ -24,6 +24,7 @@
 
         input.disabled = false;
         input.focus();
+        updateInputHighlight(input.value);
 
         appendOutput('Coderive Playground ready. Type code and press Enter.', 'output');
         appendOutput('Commands: ;help  ;reset', 'output');
@@ -65,6 +66,7 @@
             if (historyIndex > 0) {
                 historyIndex--;
                 e.target.value = replHistory[historyIndex];
+                updateInputHighlight(e.target.value);
             }
         } else if (e.key === 'ArrowDown') {
             e.preventDefault();
@@ -75,7 +77,27 @@
                 historyIndex = replHistory.length;
                 e.target.value = '';
             }
+            updateInputHighlight(e.target.value);
         }
+    }
+
+    function updateInputHighlight(value) {
+        var layer = document.getElementById('repl-input-highlight');
+        if (!layer || !window.CoderiveSyntaxHighlighter) return;
+        layer.innerHTML = CoderiveSyntaxHighlighter.render(value || '') + '<span class="syn-caret-space"> </span>';
+        var input = document.getElementById('repl-input');
+        if (input) {
+            layer.scrollLeft = input.scrollLeft;
+        }
+    }
+
+    function handleInputSync(e) {
+        updateInputHighlight(e.target.value);
+    }
+
+    function handleInputScroll(e) {
+        var layer = document.getElementById('repl-input-highlight');
+        if (layer) layer.scrollLeft = e.target.scrollLeft;
     }
 
     function appendOutput(text, type) {
@@ -83,7 +105,11 @@
         if (!output) return;
         var line = document.createElement('div');
         line.className = 'repl-line ' + type;
-        line.textContent = text;
+        if ((type === 'input' || type === 'output') && window.CoderiveSyntaxHighlighter) {
+            line.innerHTML = CoderiveSyntaxHighlighter.render(text);
+        } else {
+            line.textContent = text;
+        }
         output.appendChild(line);
         output.scrollTop = output.scrollHeight;
     }
@@ -113,4 +139,16 @@
             }
         });
     }
+
+    document.addEventListener('input', function(e) {
+        if (e.target && e.target.id === 'repl-input') {
+            handleInputSync(e);
+        }
+    });
+
+    document.addEventListener('scroll', function(e) {
+        if (e.target && e.target.id === 'repl-input') {
+            handleInputScroll(e);
+        }
+    }, true);
 })();

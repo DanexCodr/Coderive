@@ -14,7 +14,9 @@
             'js/home.js',
             'js/docs.js',
             'js/coderive.js',
-            'js/playground.js'
+            'js/syntax-highlighter.js',
+            'js/playground.js',
+            'js/editor.js'
         ];
         
         function loadNext(index) {
