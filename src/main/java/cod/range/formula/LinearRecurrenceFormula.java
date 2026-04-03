@@ -12,6 +12,7 @@ public class LinearRecurrenceFormula {
     public final AutoStackingNumber[] seedValues;
     public final long seedStartIndex;
     private final boolean hasConstantTerm;
+    private final AutoStackingNumber[] precomputedValues;
     private static final AutoStackingNumber ZERO = AutoStackingNumber.fromLong(0L);
     private static final AutoStackingNumber ONE = AutoStackingNumber.fromLong(1L);
 
@@ -33,6 +34,7 @@ public class LinearRecurrenceFormula {
         this.seedStartIndex = seedStartIndex;
         this.order = coefficientsByLag != null ? coefficientsByLag.length : 0;
         this.hasConstantTerm = !this.constantTerm.isZero();
+        this.precomputedValues = buildPrecomputedValues();
     }
 
     public boolean contains(long index) {
@@ -40,6 +42,17 @@ public class LinearRecurrenceFormula {
     }
 
     public Object evaluate(long index) {
+        if (precomputedValues != null) {
+            if (index < start || index > end) {
+                return null;
+            }
+            long offset = index - start;
+            if (offset < 0 || offset >= precomputedValues.length) {
+                return null;
+            }
+            return precomputedValues[(int) offset];
+        }
+
         if (order <= 0 || seedValues == null || seedValues.length != order) {
             return null;
         }
@@ -87,6 +100,59 @@ public class LinearRecurrenceFormula {
         AutoStackingNumber[][] power = matrixPow(transition, steps);
         AutoStackingNumber[] result = multiply(power, state);
         return result[0];
+    }
+
+    private AutoStackingNumber[] buildPrecomputedValues() {
+        if (order <= 0 || seedValues == null || seedValues.length != order) {
+            return null;
+        }
+
+        long total = end - start + 1L;
+        if (total <= 0L || total > Integer.MAX_VALUE) {
+            return null;
+        }
+
+        int size = (int) total;
+        AutoStackingNumber[] table = new AutoStackingNumber[size];
+        java.util.HashMap<Long, AutoStackingNumber> values = new java.util.HashMap<Long, AutoStackingNumber>();
+
+        for (int i = 0; i < seedValues.length; i++) {
+            values.put(seedStartIndex + i, seedValues[i]);
+        }
+
+        long computeStart = Math.min(start, seedStartIndex);
+        for (long idx = computeStart; idx <= end; idx++) {
+            AutoStackingNumber value = values.get(idx);
+            if (value == null && !values.containsKey(idx)) {
+                if (idx >= recurrenceStart) {
+                    AutoStackingNumber sum = hasConstantTerm ? constantTerm : ZERO;
+                    for (int lag = 1; lag <= order; lag++) {
+                        AutoStackingNumber prev = values.get(idx - lag);
+                        if (prev == null && !values.containsKey(idx - lag)) {
+                            sum = null;
+                            break;
+                        }
+                        AutoStackingNumber coeff = coefficientsByLag[lag - 1];
+                        AutoStackingNumber safeCoeff = coeff != null ? coeff : ZERO;
+                        if (prev == null) {
+                            sum = null;
+                            break;
+                        }
+                        sum = sum.add(safeCoeff.multiply(prev));
+                    }
+                    value = sum;
+                } else {
+                    value = null;
+                }
+                values.put(idx, value);
+            }
+
+            if (idx >= start) {
+                table[(int) (idx - start)] = values.get(idx);
+            }
+        }
+
+        return table;
     }
 
     private AutoStackingNumber[][] matrixPow(AutoStackingNumber[][] base, long exp) {
