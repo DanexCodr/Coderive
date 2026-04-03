@@ -103,6 +103,7 @@ public class TypeHandler {
     // AutoStackingNumber constants
     private static final AutoStackingNumber ZERO = AutoStackingNumber.valueOf("0");
     private static final AutoStackingNumber ONE = AutoStackingNumber.valueOf("1");
+    private static final int LAZY_ARRAY_MEMO_MAX_SIZE = 8192;
 
     // Helper to check if value is none
     public boolean isNoneValue(Object obj) {
@@ -618,7 +619,7 @@ public class TypeHandler {
             this.op = op;
             this.opCode = opCode;
             this.size = size;
-            if (size <= 8192) {
+            if (size <= LAZY_ARRAY_MEMO_MAX_SIZE) {
                 this.memoValues = new Object[size];
                 this.memoComputed = new boolean[size];
             } else {
@@ -672,8 +673,7 @@ public class TypeHandler {
 
         @Override
         public Object remove(int index) {
-            Object removed = ensureMaterialized().remove(index);
-            return removed;
+            return ensureMaterialized().remove(index);
         }
 
         private List<Object> ensureMaterialized() {
