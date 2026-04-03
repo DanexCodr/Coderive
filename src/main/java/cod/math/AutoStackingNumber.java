@@ -52,7 +52,9 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     
     // Instance fields
     private final int stacks;
-    private final long[] words;  // words[0] = most significant, words[stacks-1] = least significant
+    private final boolean isSmall;
+    private final long smallValue;
+    private final long[] words;  // null for small inline values; otherwise words[0]..words[stacks-1]
     private transient volatile String cachedToString;
     
     static {
@@ -72,13 +74,16 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             throw new IllegalArgumentException("Stacks must be 1-" + MAX_STACKS);
         }
         this.stacks = stacks;
+        this.isSmall = false;
+        this.smallValue = 0L;
         this.words = new long[stacks];
     }
     
     public AutoStackingNumber(long value) {
         this.stacks = 1;
-        this.words = new long[1];
-        this.words[0] = value;
+        this.isSmall = true;
+        this.smallValue = value;
+        this.words = null;
     }
     
     public AutoStackingNumber(int stacks, long value) {
@@ -86,8 +91,16 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             throw new IllegalArgumentException("Stacks must be 1-" + MAX_STACKS);
         }
         this.stacks = stacks;
-        this.words = new long[stacks];
-        this.words[0] = value;
+        if (stacks == 1) {
+            this.isSmall = true;
+            this.smallValue = value;
+            this.words = null;
+        } else {
+            this.isSmall = false;
+            this.smallValue = 0L;
+            this.words = new long[stacks];
+            this.words[0] = value;
+        }
     }
     
     public AutoStackingNumber(long[] words) {
@@ -95,12 +108,39 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             throw new IllegalArgumentException("Words must be 1-" + MAX_STACKS + " elements");
         }
         this.stacks = words.length;
-        this.words = Arrays.copyOf(words, words.length);
+        if (words.length == 1) {
+            this.isSmall = true;
+            this.smallValue = words[0];
+            this.words = null;
+        } else {
+            this.isSmall = false;
+            this.smallValue = 0L;
+            this.words = Arrays.copyOf(words, words.length);
+        }
     }
     
     public AutoStackingNumber(AutoStackingNumber other) {
         this.stacks = other.stacks;
-        this.words = Arrays.copyOf(other.words, other.words.length);
+        this.isSmall = other.isSmall;
+        this.smallValue = other.smallValue;
+        this.words = other.words == null ? null : Arrays.copyOf(other.words, other.words.length);
+    }
+
+    private long wordAt(int index) {
+        if (index < 0 || index >= stacks) {
+            throw new IndexOutOfBoundsException("Word index out of range: " + index);
+        }
+        if (isSmall) {
+            return index == 0 ? smallValue : 0L;
+        }
+        return words[index];
+    }
+
+    private long[] copyWordsInternal() {
+        if (isSmall) {
+            return new long[] { smallValue };
+        }
+        return Arrays.copyOf(words, words.length);
     }
     
     // ========== FACTORY METHODS ==========
