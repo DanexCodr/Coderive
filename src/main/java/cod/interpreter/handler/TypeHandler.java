@@ -393,8 +393,8 @@ public class TypeHandler {
             if (av == 0L || bv == 0L) {
                 return AutoStackingNumber.fromLong(0L);
             }
-            long product = av * bv;
-            if (product / av == bv) {
+            if (!isLongMultiplicationOverflow(av, bv)) {
+                long product = av * bv;
                 return AutoStackingNumber.fromLong(product);
             }
             return AutoStackingNumber.fromDouble((double) av * (double) bv);
@@ -403,6 +403,20 @@ public class TypeHandler {
         AutoStackingNumber numA = toAutoStackingNumber(a);
         AutoStackingNumber numB = toAutoStackingNumber(b);
         return numA.multiply(numB);
+    }
+    
+    private boolean isLongMultiplicationOverflow(long a, long b) {
+        if (a > 0) {
+            if (b > 0) return a > Long.MAX_VALUE / b;
+            if (b < 0) return b < Long.MIN_VALUE / a;
+            return false;
+        }
+        if (a < 0) {
+            if (b > 0) return a < Long.MIN_VALUE / b;
+            if (b < 0) return a != 0 && b < Long.MAX_VALUE / a;
+            return false;
+        }
+        return false;
     }
     
     private boolean isArray(Object obj) {
