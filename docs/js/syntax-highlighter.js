@@ -24,6 +24,19 @@
         }
     }
 
+    function classifyIdentifier(sourceText, token, tokenStart, tokenEnd) {
+        if (!token || token.type !== 'ID') return null;
+        var text = token.text === null || token.text === undefined ? '' : String(token.text);
+        if (!text) return null;
+
+        var prev = sourceText.slice(0, tokenStart);
+        if (/(^|[\s{};])(?:share|local|builtin)\s+$/.test(prev)) {
+            var after = sourceText.slice(tokenEnd);
+            if (/^\s*\{/.test(after)) return 'class';
+        }
+        return null;
+    }
+
     function toSegments(input) {
         var sourceText = input === null || input === undefined ? '' : String(input);
         var tokenize = global.CoderiveLanguage && global.CoderiveLanguage.tokenize;
@@ -49,6 +62,10 @@
                 }
 
                 var kind = kindForToken(token);
+                if (kind === 'id') {
+                    var refined = classifyIdentifier(sourceText, token, foundAt, foundAt + raw.length);
+                    if (refined) kind = refined;
+                }
                 segments.push({ kind: kind, text: raw });
                 cursor = foundAt + raw.length;
             }
@@ -101,6 +118,25 @@
 
     global.CoderiveSyntaxHighlighter = {
         render: render,
-        renderTo: renderTo
+        renderTo: renderTo,
+        registerTheme: function(theme) {
+            var styleId = 'coderive-syntax-theme';
+            var styleEl = document.getElementById(styleId);
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = styleId;
+                document.head.appendChild(styleEl);
+            }
+            var css = '';
+            if (theme && typeof theme === 'object') {
+                Object.keys(theme).forEach(function(tokenKind) {
+                    var color = theme[tokenKind];
+                    if (!color) return;
+                    css += '.syn-' + tokenKind + ' { color: ' + color + '; }\n';
+                });
+            }
+            styleEl.textContent = css;
+            return true;
+        }
     };
 })(typeof window !== 'undefined' ? window : this);

@@ -252,9 +252,10 @@
 }
 
 .syn-kw { color: #4a9eff; }
-.syn-num { color: #f4c542; }
-.syn-str { color: #7bc07f; }
-.syn-bool { color: #d18bff; }
+.syn-num { color: #ce9178; }
+.syn-str { color: #dcdcaa; }
+.syn-bool { color: #ce9178; }
+.syn-class { color: #4ec9b0; }
 .syn-id { color: #e0e0e0; }
 .syn-sym { color: #b0b0b0; }
 .syn-err { color: #ff6b6b; }
