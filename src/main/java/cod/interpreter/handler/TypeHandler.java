@@ -458,6 +458,7 @@ public class TypeHandler {
         int sizeA = getArrayLikeSize(a);
         int sizeB = getArrayLikeSize(b);
         int resultSize;
+        int opCode = resolveArrayOpCode(op);
         
         if (sizeA == sizeB) {
             resultSize = sizeA;
@@ -492,7 +493,11 @@ public class TypeHandler {
         for (int i = 0; i < resultSize; i++) {
             Object elemA = getArrayLikeElement(a, sizeA == 1 ? 0 : i);
             Object elemB = getArrayLikeElement(b, sizeB == 1 ? 0 : i);
-            result.add(applyScalarOperation(elemA, elemB, op));
+            if (isArray(elemA) || isArray(elemB)) {
+                result.add(applyArrayOperation(elemA, elemB, op));
+            } else {
+                result.add(applyScalarByOpCode(elemA, elemB, opCode));
+            }
         }
         
         return result;
@@ -548,6 +553,7 @@ public class TypeHandler {
     }
 
     private Object applyArrayScalarOperation(Object array, Object scalar, String op) {
+        int opCode = resolveArrayOpCode(op);
         if (array instanceof NaturalArray) {
             NaturalArray natural = (NaturalArray) array;
             long sizeLong = natural.size();
@@ -557,7 +563,12 @@ public class TypeHandler {
             int size = (int) sizeLong;
             List<Object> result = new ArrayList<Object>(size);
             for (int i = 0; i < size; i++) {
-                result.add(applyScalarOperation(natural.get(i), scalar, op));
+                Object elem = natural.get(i);
+                if (isArray(elem)) {
+                    result.add(applyArrayOperation(elem, scalar, op));
+                } else {
+                    result.add(applyScalarByOpCode(elem, scalar, opCode));
+                }
             }
             return result;
         }
@@ -565,7 +576,11 @@ public class TypeHandler {
         List<Object> list = toList(array);
         List<Object> result = new ArrayList<Object>(list.size());
         for (Object elem : list) {
-            result.add(applyScalarOperation(elem, scalar, op));
+            if (isArray(elem)) {
+                result.add(applyArrayOperation(elem, scalar, op));
+            } else {
+                result.add(applyScalarByOpCode(elem, scalar, opCode));
+            }
         }
         
         return result;
@@ -575,28 +590,27 @@ public class TypeHandler {
         if (isArray(a) || isArray(b)) {
             return applyArrayOperation(a, b, op);
         }
-        
-        if ("+".equals(op)) {
-            return addScalars(a, b);
-        }
-        
-        if ("-".equals(op)) {
-            return subtractScalars(a, b);
-        }
-        
-        if ("*".equals(op)) {
-            return multiplyScalars(a, b);
-        }
-        
-        if ("/".equals(op)) {
-            return divideScalars(a, b);
-        }
-
-        if ("%".equals(op)) {
-            return modulusScalars(a, b);
-        }
-        
+        return applyScalarByOpCode(a, b, resolveArrayOpCode(op));
+    }
+    
+    private int resolveArrayOpCode(String op) {
+        if ("+".equals(op)) return 1;
+        if ("-".equals(op)) return 2;
+        if ("*".equals(op)) return 3;
+        if ("/".equals(op)) return 4;
+        if ("%".equals(op)) return 5;
         throw new InternalError("Unsupported array operation: " + op);
+    }
+    
+    private Object applyScalarByOpCode(Object a, Object b, int opCode) {
+        switch (opCode) {
+            case 1: return addScalars(a, b);
+            case 2: return subtractScalars(a, b);
+            case 3: return multiplyScalars(a, b);
+            case 4: return divideScalars(a, b);
+            case 5: return modulusScalars(a, b);
+            default: throw new InternalError("Unsupported scalar op code: " + opCode);
+        }
     }
     
     private Object multiplyString(Object a, Object b) {
