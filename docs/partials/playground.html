@@ -22,12 +22,15 @@
         
         <div class="repl-input-line">
             <span class="repl-prompt" id="prompt">>></span>
-            <input type="text" 
-                   id="repl-input" 
-                   class="repl-input" 
-                   placeholder="Enter code..."
-                   autofocus
-                   autocomplete="off">
+            <div class="repl-input-wrap">
+                <div id="repl-input-highlight" class="repl-input-highlight" aria-hidden="true"></div>
+                <input type="text"
+                       id="repl-input"
+                       class="repl-input"
+                       placeholder="Enter code..."
+                       autofocus
+                       autocomplete="off">
+            </div>
         </div>
     </div>
 </div>

@@ -201,6 +201,25 @@
     border-top: 1px solid #333;
 }
 
+.repl-input-wrap {
+    position: relative;
+    flex: 1;
+}
+
+.repl-input-highlight {
+    position: absolute;
+    inset: 0;
+    padding: 8px 12px;
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    white-space: pre;
+    overflow: hidden;
+    pointer-events: none;
+    color: #e0e0e0;
+    border-radius: 4px;
+}
+
 .repl-prompt {
     font-family: 'JetBrains Mono Light', monospace;
     color: #4a6fa5;
@@ -212,12 +231,15 @@
     flex: 1;
     background: #0d0d0d;
     border: 1px solid #333;
-    color: #e0e0e0;
+    color: transparent;
+    caret-color: #e0e0e0;
     font-family: 'JetBrains Mono Light', monospace;
     font-size: 14px;
     padding: 8px 12px;
     border-radius: 4px;
     outline: none;
+    position: relative;
+    z-index: 1;
 }
 
 .repl-input:focus {
@@ -228,6 +250,15 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+.syn-kw { color: #4a9eff; }
+.syn-num { color: #f4c542; }
+.syn-str { color: #7bc07f; }
+.syn-bool { color: #d18bff; }
+.syn-id { color: #e0e0e0; }
+.syn-sym { color: #b0b0b0; }
+.syn-err { color: #ff6b6b; }
+.syn-caret-space { color: transparent; }
 
 .badge {
     font-family: 'JetBrains Mono Light', monospace;

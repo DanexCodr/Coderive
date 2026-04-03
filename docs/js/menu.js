@@ -8,6 +8,7 @@
         const homeDrawerToggle = document.getElementById('drawerToggle');
         const docsDrawerToggle = document.getElementById('docsDrawerToggle');
         const playgroundDrawerToggle = document.getElementById('playgroundDrawerToggle');
+        const editorDrawerToggle = document.getElementById('editorDrawerToggle');
         const drawerClose = document.getElementById('drawerClose');
         const drawerOverlay = document.getElementById('drawerOverlay');
         
@@ -35,6 +36,11 @@
         if (playgroundDrawerToggle) {
             playgroundDrawerToggle.addEventListener('click', openDrawer);
             console.log('Menu: playground toggle found');
+        }
+
+        if (editorDrawerToggle) {
+            editorDrawerToggle.addEventListener('click', openDrawer);
+            console.log('Menu: editor toggle found');
         }
         
         if (drawerClose) {
@@ -78,7 +84,8 @@
             
             if ((pageId === 'homePage' && route === 'home') ||
                 (pageId === 'docsPage' && route === 'docs') ||
-                (pageId === 'playgroundPage' && route === 'playground')) {
+                (pageId === 'playgroundPage' && route === 'playground') ||
+                (pageId === 'editorPage' && route === 'editor')) {
                 link.style.display = 'none';
                 link.closest('.drawer-item').style.display = 'none';
             } else {

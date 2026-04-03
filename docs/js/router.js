@@ -5,7 +5,8 @@
     const routes = {
         '#home': { id: 'homePage', title: 'Coderive · Modern language for Java 7' },
         '#docs': { id: 'docsPage', title: 'Coderive · Documentation' },
-        '#playground': { id: 'playgroundPage', title: 'Coderive · Playground' }
+        '#playground': { id: 'playgroundPage', title: 'Coderive · Playground' },
+        '#editor': { id: 'editorPage', title: 'Coderive · Editor' }
     };
     
     let currentPage = null;
@@ -124,14 +125,14 @@
             
             if (touchStartX < 30 && diffX > 80 && Math.abs(diffY) < 50 && timeDiff < 300) {
                 console.log('👉 Router: edge swipe back detected');
-                if (window.location.hash === '#docs' || window.location.hash === '#playground') {
+                if (window.location.hash === '#docs' || window.location.hash === '#playground' || window.location.hash === '#editor') {
                     navigateTo('#home', false);
                 }
             }
             
             if (diffX > 100 && Math.abs(diffY) < 50 && timeDiff < 300) {
                 console.log('👉 Router: swipe right detected');
-                if (window.location.hash === '#docs' || window.location.hash === '#playground') {
+                if (window.location.hash === '#docs' || window.location.hash === '#playground' || window.location.hash === '#editor') {
                     navigateTo('#home', false);
                 }
             }
@@ -168,6 +169,6 @@
         history.replaceState(null, document.title, initialHash);
         handleHashChange();
         
-        console.log('✅ Router initialized - Home replaces, Docs/Playground push');
+        console.log('✅ Router initialized - Home replaces, Docs/Playground/Editor push');
     });
 })();
