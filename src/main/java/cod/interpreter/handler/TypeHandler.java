@@ -429,11 +429,8 @@ public class TypeHandler {
     }
     
     private Object applyArrayArrayOperation(Object a, Object b, String op) {
-        List<Object> listA = toList(a);
-        List<Object> listB = toList(b);
-        
-        int sizeA = listA.size();
-        int sizeB = listB.size();
+        int sizeA = getArrayLikeSize(a);
+        int sizeB = getArrayLikeSize(b);
         int resultSize;
         
         if (sizeA == sizeB) {
@@ -442,33 +439,67 @@ public class TypeHandler {
             resultSize = sizeB;
         } else if (sizeB == 1) {
             resultSize = sizeA;
-        } else if (canBroadcastNestedWithVector(listA, listB)) {
-            List<Object> result = new ArrayList<Object>(sizeA);
-            for (Object elemA : listA) {
-                result.add(applyScalarOperation(elemA, listB, op));
-            }
-            return result;
-        } else if (canBroadcastNestedWithVector(listB, listA)) {
-            List<Object> result = new ArrayList<Object>(sizeB);
-            for (Object elemB : listB) {
-                result.add(applyScalarOperation(listA, elemB, op));
-            }
-            return result;
         } else {
-            throw new ProgramError(
-                "Arrays are not broadcast-compatible for '" + op + "'. " +
-                "Left size: " + sizeA + ", Right size: " + sizeB
-            );
+            List<Object> listA = toList(a);
+            List<Object> listB = toList(b);
+            if (canBroadcastNestedWithVector(listA, listB)) {
+                List<Object> result = new ArrayList<Object>(sizeA);
+                for (Object elemA : listA) {
+                    result.add(applyScalarOperation(elemA, listB, op));
+                }
+                return result;
+            } else if (canBroadcastNestedWithVector(listB, listA)) {
+                List<Object> result = new ArrayList<Object>(sizeB);
+                for (Object elemB : listB) {
+                    result.add(applyScalarOperation(listA, elemB, op));
+                }
+                return result;
+            } else {
+                throw new ProgramError(
+                    "Arrays are not broadcast-compatible for '" + op + "'. " +
+                    "Left size: " + sizeA + ", Right size: " + sizeB
+                );
+            }
         }
-        
+
         List<Object> result = new ArrayList<Object>(resultSize);
         for (int i = 0; i < resultSize; i++) {
-            Object elemA = listA.get(sizeA == 1 ? 0 : i);
-            Object elemB = listB.get(sizeB == 1 ? 0 : i);
+            Object elemA = getArrayLikeElement(a, sizeA == 1 ? 0 : i);
+            Object elemB = getArrayLikeElement(b, sizeB == 1 ? 0 : i);
             result.add(applyScalarOperation(elemA, elemB, op));
         }
         
         return result;
+    }
+    
+    private int getArrayLikeSize(Object obj) {
+        if (obj instanceof List) {
+            return ((List<?>) obj).size();
+        }
+        if (obj instanceof NaturalArray) {
+            long size = ((NaturalArray) obj).size();
+            if (size > Integer.MAX_VALUE) {
+                throw new ProgramError("Array too large to materialize operation result: " + size);
+            }
+            return (int) size;
+        }
+        throw new InternalError(
+            "Cannot get array-like size: " +
+            (obj != null ? obj.getClass().getName() : "null")
+        );
+    }
+    
+    private Object getArrayLikeElement(Object obj, int index) {
+        if (obj instanceof List) {
+            return ((List<?>) obj).get(index);
+        }
+        if (obj instanceof NaturalArray) {
+            return ((NaturalArray) obj).get(index);
+        }
+        throw new InternalError(
+            "Cannot get array-like element: " +
+            (obj != null ? obj.getClass().getName() : "null")
+        );
     }
     
     private boolean canBroadcastNestedWithVector(List<Object> nestedCandidate, List<Object> vectorCandidate) {
@@ -489,7 +520,7 @@ public class TypeHandler {
         }
         return true;
     }
-    
+
     private Object applyArrayScalarOperation(Object array, Object scalar, String op) {
         if (array instanceof NaturalArray) {
             NaturalArray natural = (NaturalArray) array;
