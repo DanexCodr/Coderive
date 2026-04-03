@@ -275,25 +275,39 @@ public class TypeHandler {
         return num.doubleValue();
     }
 
-    private Long tryFastLong(Object o) {
+    private boolean tryFastLongInto(Object o, long[] out, int index) {
         if (o instanceof Integer || o instanceof Long || o instanceof Short || o instanceof Byte) {
-            return Long.valueOf(((Number) o).longValue());
+            out[index] = ((Number) o).longValue();
+            return true;
         }
         if (o instanceof IntLiteralNode) {
             try {
-                return Long.valueOf(((IntLiteralNode) o).value.longValue());
+                out[index] = ((IntLiteralNode) o).value.longValue();
+                return true;
             } catch (ArithmeticException ignored) {
-                return null;
+                return false;
             }
         }
         if (o instanceof AutoStackingNumber) {
             try {
-                return Long.valueOf(((AutoStackingNumber) o).longValue());
+                out[index] = ((AutoStackingNumber) o).longValue();
+                return true;
             } catch (ArithmeticException ignored) {
-                return null;
+                return false;
             }
         }
-        return null;
+        return false;
+    }
+
+    private long[] getFastLongPair(Object a, Object b) {
+        long[] pair = new long[2];
+        if (!tryFastLongInto(a, pair, 0)) {
+            return null;
+        }
+        if (!tryFastLongInto(b, pair, 1)) {
+            return null;
+        }
+        return pair;
     }
     
     // === Arithmetic Operations ===
@@ -315,11 +329,10 @@ public class TypeHandler {
             return String.valueOf(a) + String.valueOf(b);
         }
 
-        Long fastAObj = tryFastLong(a);
-        Long fastBObj = tryFastLong(b);
-        if (fastAObj != null && fastBObj != null) {
-            long av = fastAObj.longValue();
-            long bv = fastBObj.longValue();
+        long[] fastPair = getFastLongPair(a, b);
+        if (fastPair != null) {
+            long av = fastPair[0];
+            long bv = fastPair[1];
             long sum = av + bv;
             if (((av ^ sum) & (bv ^ sum)) >= 0) {
                 return AutoStackingNumber.fromLong(sum);
@@ -344,11 +357,10 @@ public class TypeHandler {
     
     private Object subtractScalars(Object a, Object b) {
 
-        Long fastAObj = tryFastLong(a);
-        Long fastBObj = tryFastLong(b);
-        if (fastAObj != null && fastBObj != null) {
-            long av = fastAObj.longValue();
-            long bv = fastBObj.longValue();
+        long[] fastPair = getFastLongPair(a, b);
+        if (fastPair != null) {
+            long av = fastPair[0];
+            long bv = fastPair[1];
             long diff = av - bv;
             if (((av ^ bv) & (av ^ diff)) >= 0) {
                 return AutoStackingNumber.fromLong(diff);
@@ -387,11 +399,10 @@ public class TypeHandler {
             return multiplyString(a, b);
         }
 
-        Long fastAObj = tryFastLong(a);
-        Long fastBObj = tryFastLong(b);
-        if (fastAObj != null && fastBObj != null) {
-            long av = fastAObj.longValue();
-            long bv = fastBObj.longValue();
+        long[] fastPair = getFastLongPair(a, b);
+        if (fastPair != null) {
+            long av = fastPair[0];
+            long bv = fastPair[1];
             if (av == 0L || bv == 0L) {
                 return AutoStackingNumber.fromLong(0L);
             }
@@ -657,13 +668,11 @@ public class TypeHandler {
         @Override
         public void add(int index, Object element) {
             ensureMaterialized().add(index, element);
-            modCount++;
         }
 
         @Override
         public Object remove(int index) {
             Object removed = ensureMaterialized().remove(index);
-            modCount++;
             return removed;
         }
 
@@ -773,11 +782,10 @@ public class TypeHandler {
     }
     
     private Object divideScalars(Object a, Object b) {
-        Long fastAObj = tryFastLong(a);
-        Long fastBObj = tryFastLong(b);
-        if (fastAObj != null && fastBObj != null) {
-            long av = fastAObj.longValue();
-            long bv = fastBObj.longValue();
+        long[] fastPair = getFastLongPair(a, b);
+        if (fastPair != null) {
+            long av = fastPair[0];
+            long bv = fastPair[1];
             if (bv == 0L) {
                 throw new ProgramError("Division by zero");
             }
@@ -808,11 +816,10 @@ public class TypeHandler {
     }
     
     private Object modulusScalars(Object a, Object b) {
-        Long fastAObj = tryFastLong(a);
-        Long fastBObj = tryFastLong(b);
-        if (fastAObj != null && fastBObj != null) {
-            long av = fastAObj.longValue();
-            long bv = fastBObj.longValue();
+        long[] fastPair = getFastLongPair(a, b);
+        if (fastPair != null) {
+            long av = fastPair[0];
+            long bv = fastPair[1];
             if (bv == 0L) {
                 throw new ProgramError("Modulus by zero");
             }
@@ -858,11 +865,10 @@ public class TypeHandler {
             return strA.compareTo(strB);
         }
 
-        Long fastAObj = tryFastLong(a);
-        Long fastBObj = tryFastLong(b);
-        if (fastAObj != null && fastBObj != null) {
-            long av = fastAObj.longValue();
-            long bv = fastBObj.longValue();
+        long[] fastPair = getFastLongPair(a, b);
+        if (fastPair != null) {
+            long av = fastPair[0];
+            long bv = fastPair[1];
             return av < bv ? -1 : (av == bv ? 0 : 1);
         }
         
