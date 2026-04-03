@@ -16,12 +16,20 @@
         return REPO_BLOB_BASE + '/' + path;
     }
 
-    async function listDirectory(path) {
-        const encodedPath = String(path || '')
+    function encodePath(path) {
+        return String(path || '')
             .split('/')
             .filter(Boolean)
             .map(function(part) { return encodeURIComponent(part); })
             .join('/');
+    }
+
+    function compareEntryNames(a, b) {
+        return String(a.name || '').localeCompare(String(b.name || ''));
+    }
+
+    async function listDirectory(path) {
+        const encodedPath = encodePath(path);
         const response = await fetch(REPO_API_BASE + '/' + encodedPath);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return await response.json();
@@ -48,7 +56,7 @@
         }
         if (!Array.isArray(entries)) return null;
 
-        const sorted = entries.slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+        const sorted = entries.slice().sort(compareEntryNames);
         for (let i = 0; i < sorted.length; i++) {
             const entry = sorted[i];
             if (!entry || !entry.type || !entry.path) continue;
