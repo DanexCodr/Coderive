@@ -303,6 +303,10 @@ public class TypeHandler {
         if (isArray(a) || isArray(b)) {
             return applyArrayOperation(a, b, "+");
         }
+        return addScalars(a, b);
+    }
+    
+    private Object addScalars(Object a, Object b) {
         
         if (a instanceof String || b instanceof String ||
             a instanceof TextLiteralNode || b instanceof TextLiteralNode) {
@@ -333,6 +337,10 @@ public class TypeHandler {
         if (isArray(a) || isArray(b)) {
             return applyArrayOperation(a, b, "-");
         }
+        return subtractScalars(a, b);
+    }
+    
+    private Object subtractScalars(Object a, Object b) {
 
         Long fastAObj = tryFastLong(a);
         Long fastBObj = tryFastLong(b);
@@ -358,6 +366,10 @@ public class TypeHandler {
         if (isArray(a) || isArray(b)) {
             return applyArrayOperation(a, b, "*");
         }
+        return multiplyScalars(a, b);
+    }
+    
+    private Object multiplyScalars(Object a, Object b) {
         
         // Handle string multiplication (repetition)
         if ((a instanceof TextLiteralNode && isNumeric(b)) || 
@@ -551,45 +563,26 @@ public class TypeHandler {
         }
         
         if ("+".equals(op)) {
-            return addNumbers(a, b);
+            return addScalars(a, b);
         }
         
         if ("-".equals(op)) {
-            return subtractNumbers(a, b);
+            return subtractScalars(a, b);
         }
         
         if ("*".equals(op)) {
-            return multiplyNumbers(a, b);
+            return multiplyScalars(a, b);
         }
         
         if ("/".equals(op)) {
-            return divideNumbers(a, b);
+            return divideScalars(a, b);
         }
 
         if ("%".equals(op)) {
-            return modulusNumbers(a, b);
+            return modulusScalars(a, b);
         }
         
         throw new InternalError("Unsupported array operation: " + op);
-    }
-
-    private Object multiplyScalars(Object a, Object b) {
-        if ((a instanceof TextLiteralNode && isNumeric(b)) || 
-            (b instanceof TextLiteralNode && isNumeric(a))) {
-            return multiplyString(a, b);
-        }
-        
-        if (a instanceof String && isNumeric(b)) {
-            return multiplyString(a, b);
-        }
-        
-        if (b instanceof String && isNumeric(a)) {
-            return multiplyString(a, b);
-        }
-        
-        AutoStackingNumber numA = toAutoStackingNumber(a);
-        AutoStackingNumber numB = toAutoStackingNumber(b);
-        return numA.multiply(numB);
     }
     
     private Object multiplyString(Object a, Object b) {
@@ -654,7 +647,10 @@ public class TypeHandler {
         if (isArray(a) || isArray(b)) {
             return applyArrayOperation(a, b, "/");
         }
-
+        return divideScalars(a, b);
+    }
+    
+    private Object divideScalars(Object a, Object b) {
         Long fastAObj = tryFastLong(a);
         Long fastBObj = tryFastLong(b);
         if (fastAObj != null && fastBObj != null) {
@@ -686,7 +682,10 @@ public class TypeHandler {
         if (a instanceof List || b instanceof List) {
             throw new ProgramError("Cannot use modulus '%' on arrays");
         }
-
+        return modulusScalars(a, b);
+    }
+    
+    private Object modulusScalars(Object a, Object b) {
         Long fastAObj = tryFastLong(a);
         Long fastBObj = tryFastLong(b);
         if (fastAObj != null && fastBObj != null) {
