@@ -416,9 +416,7 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             usedStacks = i + 1;
         }
 
-        AutoStackingNumber result = new AutoStackingNumber(usedStacks);
-        System.arraycopy(tmp, 0, result.words, 0, usedStacks);
-        return result;
+        return new AutoStackingNumber(Arrays.copyOf(tmp, usedStacks));
     }
 
     // ========== OVERFLOW CHECKING ==========
