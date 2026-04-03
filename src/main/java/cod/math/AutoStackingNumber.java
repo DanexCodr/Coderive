@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 /**
  * Auto-stacking fixed-point number with 1-7 stacks of 64-bit words.
@@ -46,6 +47,7 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     private static final double FRACTIONAL_PRECISION_THRESHOLD = 1e-18;
     private static final AutoStackingNumber TEN_1 = new AutoStackingNumber(1, 10L);
     private static final BigDecimal DECIMAL_COMPARISON_EPSILON = new BigDecimal("0.000000000000001");
+    private static final int DIVISION_SCALE = 18;
     
     // Zero and One constants for each stack level
     private static final AutoStackingNumber[][] CONSTANTS = new AutoStackingNumber[MAX_STACKS + 1][3];
@@ -504,6 +506,22 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         }
         return add(other.negate());
     }
+
+    private static BigDecimal toBigDecimalValue(AutoStackingNumber value) {
+        return new BigDecimal(value.toPlainString());
+    }
+
+    private static AutoStackingNumber fromBigDecimalValue(BigDecimal value) {
+        if (value == null || value.signum() == 0) {
+            return ZERO_1;
+        }
+        BigDecimal normalized = value.stripTrailingZeros();
+        String text = normalized.toPlainString();
+        if ("-0".equals(text)) {
+            text = "0";
+        }
+        return valueOf(text);
+    }
     
     public AutoStackingNumber multiply(AutoStackingNumber other) {
         if (this.isZero() || other.isZero()) {
@@ -538,11 +556,13 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             return result;
         }
 
-        double product = a.doubleValue() * b.doubleValue();
-        if (Double.isInfinite(product) || Double.isNaN(product)) {
-            throw new ArithmeticException("Multiplication overflow");
+        BigDecimal left = toBigDecimalValue(a);
+        BigDecimal right = toBigDecimalValue(b);
+        BigDecimal product = left.multiply(right);
+        if (resultNegative) {
+            product = product.negate();
         }
-        return fromDouble(resultNegative ? -product : product);
+        return fromBigDecimalValue(product);
     }
     
     /**
@@ -638,16 +658,10 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             return fromDouble(result);
         }
         
-        // For multi-stack, use doubleValue()
-        double dividend = this.doubleValue();
-        double divisor = other.doubleValue();
-        
-        if (divisor == 0) {
-            throw new ArithmeticException("Division by zero");
-        }
-        
-        double quotient = dividend / divisor;
-        return fromDouble(quotient);
+        BigDecimal dividend = toBigDecimalValue(this);
+        BigDecimal divisor = toBigDecimalValue(other);
+        BigDecimal quotient = dividend.divide(divisor, DIVISION_SCALE, RoundingMode.HALF_UP);
+        return fromBigDecimalValue(quotient);
     }
     
     public AutoStackingNumber remainder(AutoStackingNumber other) {
@@ -668,10 +682,10 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             return new AutoStackingNumber(1, remainder);
         }
         
-        // Use division algorithm for multi-stack
-        AutoStackingNumber quotient = divide(other);
-        AutoStackingNumber product = quotient.multiply(other);
-        return this.subtract(product);
+        BigDecimal dividend = toBigDecimalValue(this);
+        BigDecimal divisor = toBigDecimalValue(other);
+        BigDecimal rem = dividend.remainder(divisor);
+        return fromBigDecimalValue(rem);
     }
     
     public AutoStackingNumber negate() {
