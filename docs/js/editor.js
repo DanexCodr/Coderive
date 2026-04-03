@@ -62,9 +62,7 @@
                 return;
             }
             var result = CodREPLRunner.compileAndRun(src, { reset: false });
-            output.innerHTML = window.CoderiveSyntaxHighlighter
-                ? CoderiveSyntaxHighlighter.render(result || '')
-                : String(result || '');
+            renderOutput(result || '');
             setStatus('✅ Ran with JavaScript runtime');
         }
 
@@ -77,18 +75,14 @@
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 return res.text();
             }).then(function(text) {
-                output.innerHTML = window.CoderiveSyntaxHighlighter
-                    ? CoderiveSyntaxHighlighter.render(text || '')
-                    : String(text || '');
+                renderOutput(text || '');
                 setStatus('✅ Ran with Java 7 server runtime');
             }).catch(function() {
                 var fallback = '';
                 if (window.CodREPLRunner && typeof CodREPLRunner.compileAndRun === 'function') {
                     fallback = CodREPLRunner.compileAndRun(src, { reset: false });
                 }
-                output.innerHTML = window.CoderiveSyntaxHighlighter
-                    ? CoderiveSyntaxHighlighter.render(fallback || '')
-                    : String(fallback || '');
+                renderOutput(fallback || '');
                 setStatus('⚠ Java 7 server unavailable — used JS fallback');
             });
         }
@@ -98,10 +92,22 @@
         var input = document.getElementById('editorInput');
         var layer = document.getElementById('editorHighlight');
         if (!input || !layer) return;
-        layer.innerHTML = window.CoderiveSyntaxHighlighter
-            ? CoderiveSyntaxHighlighter.render(input.value || '') + '<span class="syn-caret-space"> </span>'
-            : (input.value || '');
+        if (window.CoderiveSyntaxHighlighter && typeof CoderiveSyntaxHighlighter.renderTo === 'function') {
+            CoderiveSyntaxHighlighter.renderTo(layer, input.value || '', true);
+        } else {
+            layer.textContent = input.value || '';
+        }
         syncHighlightScroll();
+    }
+
+    function renderOutput(text) {
+        var output = document.getElementById('editorOutput');
+        if (!output) return;
+        if (window.CoderiveSyntaxHighlighter && typeof CoderiveSyntaxHighlighter.renderTo === 'function') {
+            CoderiveSyntaxHighlighter.renderTo(output, text || '', false);
+        } else {
+            output.textContent = text || '';
+        }
     }
 
     function syncHighlightScroll() {

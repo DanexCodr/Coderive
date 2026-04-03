@@ -84,7 +84,11 @@
     function updateInputHighlight(value) {
         var layer = document.getElementById('repl-input-highlight');
         if (!layer || !window.CoderiveSyntaxHighlighter) return;
-        layer.innerHTML = CoderiveSyntaxHighlighter.render(value || '') + '<span class="syn-caret-space"> </span>';
+        if (typeof CoderiveSyntaxHighlighter.renderTo === 'function') {
+            CoderiveSyntaxHighlighter.renderTo(layer, value || '', true);
+        } else {
+            layer.textContent = value || '';
+        }
         var input = document.getElementById('repl-input');
         if (input) {
             layer.scrollLeft = input.scrollLeft;
@@ -106,7 +110,11 @@
         var line = document.createElement('div');
         line.className = 'repl-line ' + type;
         if ((type === 'input' || type === 'output') && window.CoderiveSyntaxHighlighter) {
-            line.innerHTML = CoderiveSyntaxHighlighter.render(text);
+            if (typeof CoderiveSyntaxHighlighter.renderTo === 'function') {
+                CoderiveSyntaxHighlighter.renderTo(line, text, false);
+            } else {
+                line.textContent = text;
+            }
         } else {
             line.textContent = text;
         }

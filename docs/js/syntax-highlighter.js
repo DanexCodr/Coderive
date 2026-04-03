@@ -24,14 +24,14 @@
         }
     }
 
-    function render(input) {
+    function toSegments(input) {
         var src = input == null ? '' : String(input);
         var tokenize = global.CoderiveLanguage && global.CoderiveLanguage.tokenize;
-        if (!tokenize) return escapeHtml(src);
+        if (!tokenize) return [{ kind: 'plain', text: src }];
 
         try {
             var tokens = tokenize(src) || [];
-            var html = '';
+            var segments = [];
             var cursor = 0;
 
             for (var i = 0; i < tokens.length; i++) {
@@ -45,24 +45,62 @@
                 if (foundAt === -1) continue;
 
                 if (foundAt > cursor) {
-                    html += escapeHtml(src.slice(cursor, foundAt));
+                    segments.push({ kind: 'plain', text: src.slice(cursor, foundAt) });
                 }
 
                 var kind = kindForToken(token);
-                html += '<span class="syn-' + kind + '">' + escapeHtml(raw) + '</span>';
+                segments.push({ kind: kind, text: raw });
                 cursor = foundAt + raw.length;
             }
 
             if (cursor < src.length) {
-                html += escapeHtml(src.slice(cursor));
+                segments.push({ kind: 'plain', text: src.slice(cursor) });
             }
-            return html;
+            return segments;
         } catch (e) {
-            return escapeHtml(src);
+            return [{ kind: 'plain', text: src }];
+        }
+    }
+
+    function render(input) {
+        var segments = toSegments(input);
+        var html = '';
+        for (var i = 0; i < segments.length; i++) {
+            var seg = segments[i];
+            if (seg.kind === 'plain') {
+                html += escapeHtml(seg.text);
+            } else {
+                html += '<span class="syn-' + seg.kind + '">' + escapeHtml(seg.text) + '</span>';
+            }
+        }
+        return html;
+    }
+
+    function renderTo(element, input, addCaretSpace) {
+        if (!element) return;
+        var segments = toSegments(input);
+        element.textContent = '';
+        for (var i = 0; i < segments.length; i++) {
+            var seg = segments[i];
+            if (seg.kind === 'plain') {
+                element.appendChild(document.createTextNode(seg.text));
+            } else {
+                var span = document.createElement('span');
+                span.className = 'syn-' + seg.kind;
+                span.textContent = seg.text;
+                element.appendChild(span);
+            }
+        }
+        if (addCaretSpace) {
+            var caret = document.createElement('span');
+            caret.className = 'syn-caret-space';
+            caret.textContent = ' ';
+            element.appendChild(caret);
         }
     }
 
     global.CoderiveSyntaxHighlighter = {
-        render: render
+        render: render,
+        renderTo: renderTo
     };
 })(typeof window !== 'undefined' ? window : this);
