@@ -8,8 +8,10 @@ import cod.range.NaturalArray;
 import static cod.syntax.Keyword.*;
 
 import java.util.ArrayList;
+import java.util.AbstractList;
 import java.util.List;
 import java.util.Objects;
+import java.util.RandomAccess;
 
 public class TypeHandler {
     
@@ -101,6 +103,7 @@ public class TypeHandler {
     // AutoStackingNumber constants
     private static final AutoStackingNumber ZERO = AutoStackingNumber.valueOf("0");
     private static final AutoStackingNumber ONE = AutoStackingNumber.valueOf("1");
+    private static final int LAZY_ARRAY_MEMO_MAX_SIZE = 8192;
 
     // Helper to check if value is none
     public boolean isNoneValue(Object obj) {
@@ -272,6 +275,41 @@ public class TypeHandler {
         AutoStackingNumber num = toAutoStackingNumber(o);
         return num.doubleValue();
     }
+
+    private boolean tryFastLongInto(Object o, long[] out, int index) {
+        if (o instanceof Integer || o instanceof Long || o instanceof Short || o instanceof Byte) {
+            out[index] = ((Number) o).longValue();
+            return true;
+        }
+        if (o instanceof IntLiteralNode) {
+            try {
+                out[index] = ((IntLiteralNode) o).value.longValue();
+                return true;
+            } catch (ArithmeticException ignored) {
+                return false;
+            }
+        }
+        if (o instanceof AutoStackingNumber) {
+            try {
+                out[index] = ((AutoStackingNumber) o).longValue();
+                return true;
+            } catch (ArithmeticException ignored) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private long[] getFastLongPair(Object a, Object b) {
+        long[] pair = new long[2];
+        if (!tryFastLongInto(a, pair, 0)) {
+            return null;
+        }
+        if (!tryFastLongInto(b, pair, 1)) {
+            return null;
+        }
+        return pair;
+    }
     
     // === Arithmetic Operations ===
     
@@ -282,10 +320,25 @@ public class TypeHandler {
         if (isArray(a) || isArray(b)) {
             return applyArrayOperation(a, b, "+");
         }
+        return addScalars(a, b);
+    }
+    
+    private Object addScalars(Object a, Object b) {
         
         if (a instanceof String || b instanceof String ||
             a instanceof TextLiteralNode || b instanceof TextLiteralNode) {
             return String.valueOf(a) + String.valueOf(b);
+        }
+
+        long[] fastPair = getFastLongPair(a, b);
+        if (fastPair != null) {
+            long av = fastPair[0];
+            long bv = fastPair[1];
+            long sum = av + bv;
+            if (((av ^ sum) & (bv ^ sum)) >= 0) {
+                return AutoStackingNumber.fromLong(sum);
+            }
+            return AutoStackingNumber.fromDouble((double) av + (double) bv);
         }
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
@@ -300,6 +353,21 @@ public class TypeHandler {
         if (isArray(a) || isArray(b)) {
             return applyArrayOperation(a, b, "-");
         }
+        return subtractScalars(a, b);
+    }
+    
+    private Object subtractScalars(Object a, Object b) {
+
+        long[] fastPair = getFastLongPair(a, b);
+        if (fastPair != null) {
+            long av = fastPair[0];
+            long bv = fastPair[1];
+            long diff = av - bv;
+            if (((av ^ bv) & (av ^ diff)) >= 0) {
+                return AutoStackingNumber.fromLong(diff);
+            }
+            return AutoStackingNumber.fromDouble((double) av - (double) bv);
+        }
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
         AutoStackingNumber numB = toAutoStackingNumber(b);
@@ -313,6 +381,10 @@ public class TypeHandler {
         if (isArray(a) || isArray(b)) {
             return applyArrayOperation(a, b, "*");
         }
+        return multiplyScalars(a, b);
+    }
+    
+    private Object multiplyScalars(Object a, Object b) {
         
         // Handle string multiplication (repetition)
         if ((a instanceof TextLiteralNode && isNumeric(b)) || 
@@ -327,10 +399,38 @@ public class TypeHandler {
         if (b instanceof String && isNumeric(a)) {
             return multiplyString(a, b);
         }
+
+        long[] fastPair = getFastLongPair(a, b);
+        if (fastPair != null) {
+            long av = fastPair[0];
+            long bv = fastPair[1];
+            if (av == 0L || bv == 0L) {
+                return AutoStackingNumber.fromLong(0L);
+            }
+            if (!isLongMultiplicationOverflow(av, bv)) {
+                long product = av * bv;
+                return AutoStackingNumber.fromLong(product);
+            }
+            return AutoStackingNumber.fromDouble((double) av * (double) bv);
+        }
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
         AutoStackingNumber numB = toAutoStackingNumber(b);
         return numA.multiply(numB);
+    }
+    
+    private boolean isLongMultiplicationOverflow(long a, long b) {
+        if (a > 0) {
+            if (b > 0) return a > Long.MAX_VALUE / b;
+            if (b < 0) return b < Long.MIN_VALUE / a;
+            return false;
+        }
+        if (a < 0) {
+            if (b > 0) return a < Long.MIN_VALUE / b;
+            if (b < 0) return a != 0 && b < Long.MAX_VALUE / a;
+            return false;
+        }
+        return false;
     }
     
     private boolean isArray(Object obj) {
@@ -369,12 +469,10 @@ public class TypeHandler {
     }
     
     private Object applyArrayArrayOperation(Object a, Object b, String op) {
-        List<Object> listA = toList(a);
-        List<Object> listB = toList(b);
-        
-        int sizeA = listA.size();
-        int sizeB = listB.size();
+        int sizeA = getArrayLikeSize(a);
+        int sizeB = getArrayLikeSize(b);
         int resultSize;
+        int opCode = resolveArrayOpCode(op);
         
         if (sizeA == sizeB) {
             resultSize = sizeA;
@@ -382,33 +480,71 @@ public class TypeHandler {
             resultSize = sizeB;
         } else if (sizeB == 1) {
             resultSize = sizeA;
-        } else if (canBroadcastNestedWithVector(listA, listB)) {
-            List<Object> result = new ArrayList<Object>(sizeA);
-            for (Object elemA : listA) {
-                result.add(applyScalarOperation(elemA, listB, op));
-            }
-            return result;
-        } else if (canBroadcastNestedWithVector(listB, listA)) {
-            List<Object> result = new ArrayList<Object>(sizeB);
-            for (Object elemB : listB) {
-                result.add(applyScalarOperation(listA, elemB, op));
-            }
-            return result;
         } else {
-            throw new ProgramError(
-                "Arrays are not broadcast-compatible for '" + op + "'. " +
-                "Left size: " + sizeA + ", Right size: " + sizeB
-            );
+            List<Object> listA = toList(a);
+            List<Object> listB = toList(b);
+            if (canBroadcastNestedWithVector(listA, listB)) {
+                List<Object> result = new ArrayList<Object>(sizeA);
+                for (Object elemA : listA) {
+                    result.add(applyScalarOperation(elemA, listB, op));
+                }
+                return result;
+            } else if (canBroadcastNestedWithVector(listB, listA)) {
+                List<Object> result = new ArrayList<Object>(sizeB);
+                for (Object elemB : listB) {
+                    result.add(applyScalarOperation(listA, elemB, op));
+                }
+                return result;
+            } else {
+                throw new ProgramError(
+                    "Arrays are not broadcast-compatible for '" + op + "'. " +
+                    "Left size: " + sizeA + ", Right size: " + sizeB
+                );
+            }
         }
-        
-        List<Object> result = new ArrayList<Object>();
+
+        List<Object> result = new ArrayList<Object>(resultSize);
         for (int i = 0; i < resultSize; i++) {
-            Object elemA = listA.get(sizeA == 1 ? 0 : i);
-            Object elemB = listB.get(sizeB == 1 ? 0 : i);
-            result.add(applyScalarOperation(elemA, elemB, op));
+            Object elemA = getArrayLikeElement(a, sizeA == 1 ? 0 : i);
+            Object elemB = getArrayLikeElement(b, sizeB == 1 ? 0 : i);
+            if (isArray(elemA) || isArray(elemB)) {
+                result.add(applyArrayOperation(elemA, elemB, op));
+            } else {
+                result.add(applyScalarByOpCode(elemA, elemB, opCode));
+            }
         }
         
         return result;
+    }
+    
+    private int getArrayLikeSize(Object obj) {
+        if (obj instanceof List) {
+            return ((List<?>) obj).size();
+        }
+        if (obj instanceof NaturalArray) {
+            long size = ((NaturalArray) obj).size();
+            if (size > Integer.MAX_VALUE) {
+                throw new ProgramError("Array too large to materialize operation result: " + size);
+            }
+            return (int) size;
+        }
+        throw new InternalError(
+            "Cannot get array-like size: " +
+            (obj != null ? obj.getClass().getName() : "null")
+        );
+    }
+    
+    private Object getArrayLikeElement(Object obj, int index) {
+        if (obj instanceof List) {
+            return ((List<?>) obj).get(index);
+        }
+        if (obj instanceof NaturalArray) {
+            return ((NaturalArray) obj).get(index);
+        }
+        throw new InternalError(
+            "Cannot get array-like element: " +
+            (obj != null ? obj.getClass().getName() : "null")
+        );
     }
     
     private boolean canBroadcastNestedWithVector(List<Object> nestedCandidate, List<Object> vectorCandidate) {
@@ -429,72 +565,155 @@ public class TypeHandler {
         }
         return true;
     }
-    
-    private Object applyArrayScalarOperation(Object array, Object scalar, String op) {
-        List<Object> list = toList(array);
-        List<Object> result = new ArrayList<Object>();
 
+    private Object applyArrayScalarOperation(Object array, Object scalar, String op) {
+        int opCode = resolveArrayOpCode(op);
+        if (array instanceof NaturalArray) {
+            NaturalArray natural = (NaturalArray) array;
+            long sizeLong = natural.size();
+            if (sizeLong > Integer.MAX_VALUE) {
+                throw new ProgramError("Array too large for scalar operation: " + sizeLong);
+            }
+            int size = (int) sizeLong;
+            if (!natural.isMutable() && !natural.hasPendingUpdates()) {
+                return new LazyNaturalArrayScalarResult(natural, scalar, op, opCode, size);
+            }
+            List<Object> result = new ArrayList<Object>(size);
+            for (int i = 0; i < size; i++) {
+                Object elem = natural.get(i);
+                if (isArray(elem)) {
+                    result.add(applyArrayOperation(elem, scalar, op));
+                } else {
+                    result.add(applyScalarByOpCode(elem, scalar, opCode));
+                }
+            }
+            return result;
+        }
+
+        List<Object> list = toList(array);
+        List<Object> result = new ArrayList<Object>(list.size());
         for (Object elem : list) {
-            result.add(applyScalarOperation(elem, scalar, op));
+            if (isArray(elem)) {
+                result.add(applyArrayOperation(elem, scalar, op));
+            } else {
+                result.add(applyScalarByOpCode(elem, scalar, opCode));
+            }
         }
         
         return result;
+    }
+
+    private final class LazyNaturalArrayScalarResult extends AbstractList<Object> implements RandomAccess {
+        private final NaturalArray source;
+        private final Object scalar;
+        private final String op;
+        private final int opCode;
+        private final int size;
+        private List<Object> materialized;
+        private final Object[] memoValues;
+        private final boolean[] memoComputed;
+
+        private LazyNaturalArrayScalarResult(NaturalArray source, Object scalar, String op, int opCode, int size) {
+            this.source = source;
+            this.scalar = scalar;
+            this.op = op;
+            this.opCode = opCode;
+            this.size = size;
+            if (size <= LAZY_ARRAY_MEMO_MAX_SIZE) {
+                this.memoValues = new Object[size];
+                this.memoComputed = new boolean[size];
+            } else {
+                this.memoValues = null;
+                this.memoComputed = null;
+            }
+        }
+
+        @Override
+        public Object get(int index) {
+            if (index < 0 || index >= size) {
+                throw new IndexOutOfBoundsException("Index: " + index + ", Size: " + size);
+            }
+            if (materialized != null) {
+                return materialized.get(index);
+            }
+            if (memoComputed != null && memoComputed[index]) {
+                return memoValues[index];
+            }
+            Object elem = source.get(index);
+            Object computed;
+            if (isArray(elem)) {
+                computed = applyArrayOperation(elem, scalar, op);
+            } else {
+                computed = applyScalarByOpCode(elem, scalar, opCode);
+            }
+            if (memoComputed != null) {
+                memoValues[index] = computed;
+                memoComputed[index] = true;
+            }
+            return computed;
+        }
+
+        @Override
+        public int size() {
+            if (materialized != null) {
+                return materialized.size();
+            }
+            return size;
+        }
+
+        @Override
+        public Object set(int index, Object element) {
+            return ensureMaterialized().set(index, element);
+        }
+
+        @Override
+        public void add(int index, Object element) {
+            ensureMaterialized().add(index, element);
+        }
+
+        @Override
+        public Object remove(int index) {
+            return ensureMaterialized().remove(index);
+        }
+
+        private List<Object> ensureMaterialized() {
+            if (materialized != null) {
+                return materialized;
+            }
+            List<Object> eager = new ArrayList<Object>(size);
+            for (int i = 0; i < size; i++) {
+                eager.add(get(i));
+            }
+            materialized = eager;
+            return materialized;
+        }
     }
 
     private Object applyScalarOperation(Object a, Object b, String op) {
         if (isArray(a) || isArray(b)) {
             return applyArrayOperation(a, b, op);
         }
-        
-        if ("+".equals(op)) {
-            if (a instanceof String || b instanceof String ||
-                a instanceof TextLiteralNode || b instanceof TextLiteralNode) {
-                return String.valueOf(a) + String.valueOf(b);
-            }
-            AutoStackingNumber numA = toAutoStackingNumber(a);
-            AutoStackingNumber numB = toAutoStackingNumber(b);
-            return numA.add(numB);
-        }
-        
-        if ("-".equals(op)) {
-            AutoStackingNumber numA = toAutoStackingNumber(a);
-            AutoStackingNumber numB = toAutoStackingNumber(b);
-            return numA.subtract(numB);
-        }
-        
-        if ("*".equals(op)) {
-            return multiplyScalars(a, b);
-        }
-        
-        if ("/".equals(op)) {
-            AutoStackingNumber numA = toAutoStackingNumber(a);
-            AutoStackingNumber numB = toAutoStackingNumber(b);
-            if (numB.isZero()) {
-                throw new ProgramError("Division by zero");
-            }
-            return numA.divide(numB);
-        }
-        
+        return applyScalarByOpCode(a, b, resolveArrayOpCode(op));
+    }
+    
+    private int resolveArrayOpCode(String op) {
+        if ("+".equals(op)) return 1;
+        if ("-".equals(op)) return 2;
+        if ("*".equals(op)) return 3;
+        if ("/".equals(op)) return 4;
+        if ("%".equals(op)) return 5;
         throw new InternalError("Unsupported array operation: " + op);
     }
-
-    private Object multiplyScalars(Object a, Object b) {
-        if ((a instanceof TextLiteralNode && isNumeric(b)) || 
-            (b instanceof TextLiteralNode && isNumeric(a))) {
-            return multiplyString(a, b);
+    
+    private Object applyScalarByOpCode(Object a, Object b, int opCode) {
+        switch (opCode) {
+            case 1: return addScalars(a, b);
+            case 2: return subtractScalars(a, b);
+            case 3: return multiplyScalars(a, b);
+            case 4: return divideScalars(a, b);
+            case 5: return modulusScalars(a, b);
+            default: throw new InternalError("Unsupported scalar op code: " + opCode);
         }
-        
-        if (a instanceof String && isNumeric(b)) {
-            return multiplyString(a, b);
-        }
-        
-        if (b instanceof String && isNumeric(a)) {
-            return multiplyString(a, b);
-        }
-        
-        AutoStackingNumber numA = toAutoStackingNumber(a);
-        AutoStackingNumber numB = toAutoStackingNumber(b);
-        return numA.multiply(numB);
     }
     
     private Object multiplyString(Object a, Object b) {
@@ -559,6 +778,22 @@ public class TypeHandler {
         if (isArray(a) || isArray(b)) {
             return applyArrayOperation(a, b, "/");
         }
+        return divideScalars(a, b);
+    }
+    
+    private Object divideScalars(Object a, Object b) {
+        long[] fastPair = getFastLongPair(a, b);
+        if (fastPair != null) {
+            long av = fastPair[0];
+            long bv = fastPair[1];
+            if (bv == 0L) {
+                throw new ProgramError("Division by zero");
+            }
+            if (av % bv == 0L) {
+                return AutoStackingNumber.fromLong(av / bv);
+            }
+            return AutoStackingNumber.fromDouble((double) av / (double) bv);
+        }
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
         AutoStackingNumber numB = toAutoStackingNumber(b);
@@ -576,6 +811,19 @@ public class TypeHandler {
         
         if (a instanceof List || b instanceof List) {
             throw new ProgramError("Cannot use modulus '%' on arrays");
+        }
+        return modulusScalars(a, b);
+    }
+    
+    private Object modulusScalars(Object a, Object b) {
+        long[] fastPair = getFastLongPair(a, b);
+        if (fastPair != null) {
+            long av = fastPair[0];
+            long bv = fastPair[1];
+            if (bv == 0L) {
+                throw new ProgramError("Modulus by zero");
+            }
+            return AutoStackingNumber.fromLong(av % bv);
         }
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
@@ -615,6 +863,13 @@ public class TypeHandler {
             String strA = a instanceof TextLiteralNode ? ((TextLiteralNode) a).value : String.valueOf(a);
             String strB = b instanceof TextLiteralNode ? ((TextLiteralNode) b).value : String.valueOf(b);
             return strA.compareTo(strB);
+        }
+
+        long[] fastPair = getFastLongPair(a, b);
+        if (fastPair != null) {
+            long av = fastPair[0];
+            long bv = fastPair[1];
+            return av < bv ? -1 : (av == bv ? 0 : 1);
         }
         
         // Handle numbers

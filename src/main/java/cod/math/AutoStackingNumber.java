@@ -2,7 +2,11 @@ package cod.math;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 /**
  * Auto-stacking fixed-point number with 1-7 stacks of 64-bit words.
@@ -16,7 +20,22 @@ import java.math.BigDecimal;
  */
 public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Serializable {
 
-public static final long serialVersionUID = 1L;
+    public static final long serialVersionUID = 1L;
+    private static final AutoStackingNumber ZERO_1 = new AutoStackingNumber(1, 0L);
+    private static final AutoStackingNumber ONE_1 = new AutoStackingNumber(1, 1L);
+    private static final AutoStackingNumber MINUS_ONE_1 = new AutoStackingNumber(1, -1L);
+    private static final int SMALL_LONG_CACHE_MIN = -128;
+    private static final int SMALL_LONG_CACHE_MAX = 127;
+    private static final AutoStackingNumber[] SMALL_LONG_CACHE =
+        new AutoStackingNumber[SMALL_LONG_CACHE_MAX - SMALL_LONG_CACHE_MIN + 1];
+    private static final int VALUE_OF_CACHE_MAX_SIZE = 4096;
+    private static final int VALUE_OF_CACHEABLE_LENGTH = 64;
+    private static final Map<String, AutoStackingNumber> VALUE_OF_CACHE =
+        Collections.synchronizedMap(new LinkedHashMap<String, AutoStackingNumber>(512, 0.75f, true) {
+            protected boolean removeEldestEntry(Map.Entry<String, AutoStackingNumber> eldest) {
+                return size() > VALUE_OF_CACHE_MAX_SIZE;
+            }
+        });
     
     // Maximum stacks (lucky number 7!)
     public static final int MAX_STACKS = 7;
@@ -25,19 +44,28 @@ public static final long serialVersionUID = 1L;
     private static final int WORD_BITS = 64;
     private static final long WORD_MASK = 0xFFFFFFFFFFFFFFFFL;
     private static final long FRAC_MASK = (1L << 60) - 1;  // 60 bits of ones for fractional parts
+    private static final double FRACTIONAL_PRECISION_THRESHOLD = 1e-18;
+    private static final AutoStackingNumber TEN_1 = new AutoStackingNumber(1, 10L);
     private static final BigDecimal DECIMAL_COMPARISON_EPSILON = new BigDecimal("0.000000000000001");
+    private static final int DIVISION_SCALE = 18;
     
     // Zero and One constants for each stack level
     private static final AutoStackingNumber[][] CONSTANTS = new AutoStackingNumber[MAX_STACKS + 1][3];
     
     // Instance fields
     private final int stacks;
-    private final long[] words;  // words[0] = most significant, words[stacks-1] = least significant
+    private final boolean isSmall;
+    private final long smallValue;
+    private final long[] words;  // null for small inline values; otherwise words[0]..words[stacks-1]
+    private transient volatile String cachedToString;
     
     static {
         // Initialize constants lazily
         for (int s = 1; s <= MAX_STACKS; s++) {
             CONSTANTS[s] = new AutoStackingNumber[3];
+        }
+        for (int i = SMALL_LONG_CACHE_MIN; i <= SMALL_LONG_CACHE_MAX; i++) {
+            SMALL_LONG_CACHE[i - SMALL_LONG_CACHE_MIN] = new AutoStackingNumber((long) i);
         }
     }
     
@@ -48,13 +76,16 @@ public static final long serialVersionUID = 1L;
             throw new IllegalArgumentException("Stacks must be 1-" + MAX_STACKS);
         }
         this.stacks = stacks;
+        this.isSmall = false;
+        this.smallValue = 0L;
         this.words = new long[stacks];
     }
     
     public AutoStackingNumber(long value) {
         this.stacks = 1;
-        this.words = new long[1];
-        this.words[0] = value;
+        this.isSmall = true;
+        this.smallValue = value;
+        this.words = null;
     }
     
     public AutoStackingNumber(int stacks, long value) {
@@ -62,8 +93,16 @@ public static final long serialVersionUID = 1L;
             throw new IllegalArgumentException("Stacks must be 1-" + MAX_STACKS);
         }
         this.stacks = stacks;
-        this.words = new long[stacks];
-        this.words[0] = value;
+        if (stacks == 1) {
+            this.isSmall = true;
+            this.smallValue = value;
+            this.words = null;
+        } else {
+            this.isSmall = false;
+            this.smallValue = 0L;
+            this.words = new long[stacks];
+            this.words[0] = value;
+        }
     }
     
     public AutoStackingNumber(long[] words) {
@@ -71,12 +110,39 @@ public static final long serialVersionUID = 1L;
             throw new IllegalArgumentException("Words must be 1-" + MAX_STACKS + " elements");
         }
         this.stacks = words.length;
-        this.words = Arrays.copyOf(words, words.length);
+        if (words.length == 1) {
+            this.isSmall = true;
+            this.smallValue = words[0];
+            this.words = null;
+        } else {
+            this.isSmall = false;
+            this.smallValue = 0L;
+            this.words = Arrays.copyOf(words, words.length);
+        }
     }
     
     public AutoStackingNumber(AutoStackingNumber other) {
         this.stacks = other.stacks;
-        this.words = Arrays.copyOf(other.words, other.words.length);
+        this.isSmall = other.isSmall;
+        this.smallValue = other.smallValue;
+        this.words = other.words == null ? null : Arrays.copyOf(other.words, other.words.length);
+    }
+
+    private long wordAt(int index) {
+        if (index < 0 || index >= stacks) {
+            throw new IndexOutOfBoundsException("Word index out of range: " + index);
+        }
+        if (isSmall) {
+            return index == 0 ? smallValue : 0L;
+        }
+        return words[index];
+    }
+
+    private long[] copyWordsInternal() {
+        if (isSmall) {
+            return new long[] { smallValue };
+        }
+        return Arrays.copyOf(words, words.length);
     }
     
     // ========== FACTORY METHODS ==========
@@ -112,6 +178,11 @@ public static final long serialVersionUID = 1L;
         }
         
         s = s.trim();
+        String cacheKey = s;
+        AutoStackingNumber cached = VALUE_OF_CACHE.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
         
         // Handle empty string
         if (s.isEmpty()) {
@@ -131,7 +202,7 @@ public static final long serialVersionUID = 1L;
         if (s.isEmpty()) {
             throw new NumberFormatException("Missing digits after sign");
         }
-        
+
         // Check for decimal point
         int dotIndex = s.indexOf('.');
         if (dotIndex >= 0) {
@@ -141,17 +212,27 @@ public static final long serialVersionUID = 1L;
             // Handle cases like ".5" or "5."
             if (intPart.isEmpty()) intPart = "0";
             if (fracPart.isEmpty()) fracPart = "0";
-            
-            // Remove leading zeros from integer part
-            intPart = intPart.replaceFirst("^0+(?!$)", "");
-            if (intPart.isEmpty()) intPart = "0";
-            
-            // Remove trailing zeros from fractional part
-            fracPart = fracPart.replaceFirst("0+$", "");
+
+            int intLead = 0;
+            while (intLead < intPart.length() - 1 && intPart.charAt(intLead) == '0') {
+                intLead++;
+            }
+            if (intLead > 0) {
+                intPart = intPart.substring(intLead);
+            }
+
+            int fracEnd = fracPart.length();
+            while (fracEnd > 0 && fracPart.charAt(fracEnd - 1) == '0') {
+                fracEnd--;
+            }
+            if (fracEnd < fracPart.length()) {
+                fracPart = fracPart.substring(0, fracEnd);
+            }
             if (fracPart.isEmpty()) {
                 // It was something like "5.0" - just return the integer part
                 AutoStackingNumber result = valueOf(intPart);
-                return negative ? result.negate() : result;
+                result = negative ? result.negate() : result;
+                return cacheValueOf(cacheKey, result);
             }
             
             // Parse integer part using existing integer parsing
@@ -179,9 +260,9 @@ public static final long serialVersionUID = 1L;
             
             // Create denominator: 10^len
             int fracLen = fracPart.length();
-            AutoStackingNumber denominator = new AutoStackingNumber(1, 10);
+            AutoStackingNumber denominator = TEN_1;
             for (int i = 1; i < fracLen; i++) {
-                denominator = denominator.multiply(new AutoStackingNumber(1, 10));
+                denominator = denominator.multiply(TEN_1);
             }
             
             // Divide numerator by denominator
@@ -189,15 +270,24 @@ public static final long serialVersionUID = 1L;
             
             // Add integer and fractional parts
             AutoStackingNumber result = intNum.add(fracNum);
-            
-            return negative ? result.negate() : result;
+            result = negative ? result.negate() : result;
+            return cacheValueOf(cacheKey, result);
         }
         
         // No decimal point - use existing integer parsing logic
+        final int len = s.length();
+        int lead = 0;
+        while (lead < len - 1 && s.charAt(lead) == '0') {
+            lead++;
+        }
+        if (lead > 0) {
+            s = s.substring(lead);
+        }
+
         // Try parsing as long first (fast path)
         try {
             long longValue = Long.parseLong(s);
-            return new AutoStackingNumber(1, negative ? -longValue : longValue);
+            return cacheValueOf(cacheKey, fromLong(negative ? -longValue : longValue));
         } catch (NumberFormatException e) {
             // Not a long, continue with your existing multi-word parsing
         }
@@ -243,7 +333,14 @@ public static final long serialVersionUID = 1L;
             result.words[0] = -result.words[0];
         }
         
-        return result;
+        return cacheValueOf(cacheKey, result);
+    }
+
+    private static AutoStackingNumber cacheValueOf(String key, AutoStackingNumber value) {
+        if (key != null && key.length() <= VALUE_OF_CACHEABLE_LENGTH) {
+            VALUE_OF_CACHE.put(key, value);
+        }
+        return value;
     }
 
     /**
@@ -280,6 +377,12 @@ public static final long serialVersionUID = 1L;
     }
     
     public static AutoStackingNumber fromLong(long value) {
+        if (value == 0L) return ZERO_1;
+        if (value == 1L) return ONE_1;
+        if (value == -1L) return MINUS_ONE_1;
+        if (value >= SMALL_LONG_CACHE_MIN && value <= SMALL_LONG_CACHE_MAX) {
+            return SMALL_LONG_CACHE[(int) value - SMALL_LONG_CACHE_MIN];
+        }
         return new AutoStackingNumber(value);
     }
     
@@ -297,20 +400,25 @@ public static final long serialVersionUID = 1L;
         
         long intPart = (long) value;
         double fracPart = value - intPart;
-        
-        AutoStackingNumber result = new AutoStackingNumber(MAX_STACKS);
-        result.words[0] = negative ? -intPart : intPart;
-        
-        double remaining = fracPart;
-        for (int i = 1; i < MAX_STACKS && remaining > 1e-18; i++) {
-            remaining *= 1L << 60;
-            long word = (long) remaining;
-            result.words[i] = word;
-            remaining -= word;
-            // DON'T divide here - remaining is already the fractional part for next word
+
+        if (Math.abs(fracPart) < FRACTIONAL_PRECISION_THRESHOLD) {
+            return fromLong(negative ? -intPart : intPart);
         }
-        
-        return result;
+
+        long[] tmp = new long[MAX_STACKS];
+        tmp[0] = negative ? -intPart : intPart;
+
+        int usedStacks = 1;
+        double remaining = fracPart;
+        for (int i = 1; i < MAX_STACKS && remaining > FRACTIONAL_PRECISION_THRESHOLD; i++) {
+            remaining *= (1L << 60);
+            long word = (long) remaining;
+            tmp[i] = word;
+            remaining -= word;
+            usedStacks = i + 1;
+        }
+
+        return new AutoStackingNumber(Arrays.copyOf(tmp, usedStacks));
     }
 
     // ========== OVERFLOW CHECKING ==========
@@ -333,9 +441,9 @@ public static final long serialVersionUID = 1L;
     private boolean isMinValue() {
         if (stacks < MAX_STACKS) return false;
         // Check if all words are zero except most significant which is Long.MIN_VALUE
-        if (words[0] != Long.MIN_VALUE) return false;
+        if (wordAt(0) != Long.MIN_VALUE) return false;
         for (int i = 1; i < stacks; i++) {
-            if (words[i] != 0) return false;
+            if (wordAt(i) != 0) return false;
         }
         return true;
     }
@@ -343,13 +451,22 @@ public static final long serialVersionUID = 1L;
     // ========== CORE ARITHMETIC ==========
     
     public AutoStackingNumber add(AutoStackingNumber other) {
+        if (this.stacks == 1 && other.stacks == 1) {
+            long a = this.wordAt(0);
+            long b = other.wordAt(0);
+            long sum = a + b;
+            if (((a ^ sum) & (b ^ sum)) >= 0) {
+                return fromLong(sum);
+            }
+        }
+
         int maxStacks = Math.max(this.stacks, other.stacks);
         AutoStackingNumber result = new AutoStackingNumber(maxStacks);
         
         long carry = 0;
         for (int i = maxStacks - 1; i >= 0; i--) {
-            long a = i < this.stacks ? this.words[i] : 0;
-            long b = i < other.stacks ? other.words[i] : 0;
+            long a = i < this.stacks ? this.wordAt(i) : 0;
+            long b = i < other.stacks ? other.wordAt(i) : 0;
             
             long sum = a + b + carry;
             
@@ -379,29 +496,73 @@ public static final long serialVersionUID = 1L;
     }
     
     public AutoStackingNumber subtract(AutoStackingNumber other) {
+        if (this.stacks == 1 && other.stacks == 1) {
+            long a = this.wordAt(0);
+            long b = other.wordAt(0);
+            long diff = a - b;
+            if (((a ^ b) & (a ^ diff)) >= 0) {
+                return fromLong(diff);
+            }
+        }
         return add(other.negate());
+    }
+
+    private static BigDecimal toBigDecimalValue(AutoStackingNumber value) {
+        return new BigDecimal(value.toPlainString());
+    }
+
+    private static AutoStackingNumber fromBigDecimalValue(BigDecimal value) {
+        if (value == null || value.signum() == 0) {
+            return ZERO_1;
+        }
+        BigDecimal normalized = value.stripTrailingZeros();
+        String text = normalized.toPlainString();
+        if ("-0".equals(text)) {
+            text = "0";
+        }
+        return valueOf(text);
     }
     
     public AutoStackingNumber multiply(AutoStackingNumber other) {
+        if (this.isZero() || other.isZero()) {
+            return zero(Math.max(this.stacks, other.stacks));
+        }
+        if (this.stacks == 1 && this.wordAt(0) == 1L) return other;
+        if (other.stacks == 1 && other.wordAt(0) == 1L) return this;
+        if (this.stacks == 1 && this.wordAt(0) == -1L) return other.negate();
+        if (other.stacks == 1 && other.wordAt(0) == -1L) return this.negate();
+
         boolean resultNegative = (isNegative() ^ other.isNegative());
         AutoStackingNumber a = abs();
         AutoStackingNumber b = other.abs();
         
         // Simple case: single stack multiplication
         if (a.stacks == 1 && b.stacks == 1) {
-            long product = a.words[0] * b.words[0];
+            long aVal = a.wordAt(0);
+            long bVal = b.wordAt(0);
+            long product = aVal * bVal;
             
             // Check if product overflowed 64 bits
-            if (a.words[0] != 0 && product / a.words[0] != b.words[0]) {
-                // Handle as multi-stack
-                return multiplyMulti(a, b, resultNegative);
+            if (aVal != 0 && product / aVal != bVal) {
+                java.math.BigInteger exactProduct = java.math.BigInteger.valueOf(aVal)
+                    .multiply(java.math.BigInteger.valueOf(bVal));
+                if (resultNegative) {
+                    exactProduct = exactProduct.negate();
+                }
+                return valueOf(exactProduct.toString());
             }
             
             AutoStackingNumber result = new AutoStackingNumber(1, resultNegative ? -product : product);
             return result;
         }
-        
-        return multiplyMulti(a, b, resultNegative);
+
+        BigDecimal left = toBigDecimalValue(a);
+        BigDecimal right = toBigDecimalValue(b);
+        BigDecimal product = left.multiply(right);
+        if (resultNegative) {
+            product = product.negate();
+        }
+        return fromBigDecimalValue(product);
     }
     
     /**
@@ -415,9 +576,9 @@ public static final long serialVersionUID = 1L;
         long[] temp = new long[resultStacks * 2 + 2]; // Extra space for overflow detection
         
         for (int i = 0; i < a.stacks; i++) {
-            long aWord = a.words[i] & WORD_MASK;
+            long aWord = a.wordAt(i) & WORD_MASK;
             for (int j = 0; j < b.stacks; j++) {
-                long bWord = b.words[j] & WORD_MASK;
+                long bWord = b.wordAt(j) & WORD_MASK;
                 
                 // Split into high/low 32-bit parts
                 long aLow = aWord & 0xFFFFFFFFL;
@@ -476,8 +637,11 @@ public static final long serialVersionUID = 1L;
         
         // Simple case: single stack integer division
         if (this.stacks == 1 && other.stacks == 1) {
-            long dividend = this.words[0];
-            long divisor = other.words[0];
+            long dividend = this.wordAt(0);
+            long divisor = other.wordAt(0);
+
+            if (divisor == 1L) return this;
+            if (divisor == -1L) return this.negate();
             
             if (divisor == 0) {
                 throw new ArithmeticException("Division by zero");
@@ -486,7 +650,7 @@ public static final long serialVersionUID = 1L;
             // Check if division is exact (no remainder)
             if (dividend % divisor == 0) {
                 long quotient = dividend / divisor;
-                return new AutoStackingNumber(1, quotient);
+                return fromLong(quotient);
             }
             
             // Not exact - use double but avoid circular dependency
@@ -494,16 +658,10 @@ public static final long serialVersionUID = 1L;
             return fromDouble(result);
         }
         
-        // For multi-stack, use doubleValue()
-        double dividend = this.doubleValue();
-        double divisor = other.doubleValue();
-        
-        if (divisor == 0) {
-            throw new ArithmeticException("Division by zero");
-        }
-        
-        double quotient = dividend / divisor;
-        return fromDouble(quotient);
+        BigDecimal dividend = toBigDecimalValue(this);
+        BigDecimal divisor = toBigDecimalValue(other);
+        BigDecimal quotient = dividend.divide(divisor, DIVISION_SCALE, RoundingMode.HALF_UP);
+        return fromBigDecimalValue(quotient);
     }
     
     public AutoStackingNumber remainder(AutoStackingNumber other) {
@@ -513,8 +671,8 @@ public static final long serialVersionUID = 1L;
         
         // Simple case: single stack integer remainder
         if (this.stacks == 1 && other.stacks == 1) {
-            long dividend = this.words[0];
-            long divisor = other.words[0];
+            long dividend = this.wordAt(0);
+            long divisor = other.wordAt(0);
             
             if (divisor == 0) {
                 throw new ArithmeticException("Division by zero");
@@ -524,10 +682,10 @@ public static final long serialVersionUID = 1L;
             return new AutoStackingNumber(1, remainder);
         }
         
-        // Use division algorithm for multi-stack
-        AutoStackingNumber quotient = divide(other);
-        AutoStackingNumber product = quotient.multiply(other);
-        return this.subtract(product);
+        BigDecimal dividend = toBigDecimalValue(this);
+        BigDecimal divisor = toBigDecimalValue(other);
+        BigDecimal rem = dividend.remainder(divisor);
+        return fromBigDecimalValue(rem);
     }
     
     public AutoStackingNumber negate() {
@@ -535,10 +693,17 @@ public static final long serialVersionUID = 1L;
         if (isMinValue()) {
             throw new ArithmeticException("Cannot negate minimum value");
         }
+
+        if (stacks == 1) {
+            long v = wordAt(0);
+            if (v == 0L) return ZERO_1;
+            if (v == 1L) return MINUS_ONE_1;
+            if (v == -1L) return ONE_1;
+        }
         
         AutoStackingNumber result = new AutoStackingNumber(this.stacks);
         for (int i = 0; i < stacks; i++) {
-            result.words[i] = -this.words[i];
+            result.words[i] = -this.wordAt(i);
         }
         return result;
     }
@@ -564,13 +729,13 @@ public static final long serialVersionUID = 1L;
             // Check if any bits would be shifted out of existence
             if (wordShift > 0) {
                 for (int i = MAX_STACKS - wordShift; i < stacks; i++) {
-                    if (words[i] != 0) {
+                    if (wordAt(i) != 0) {
                         throw new ArithmeticException("Shift left would lose data (exceeds " + MAX_STACKS + " stacks)");
                     }
                 }
             }
             if (bitShift > 0 && stacks > 0) {
-                long highBits = words[stacks - 1] >>> (WORD_BITS - bitShift);
+                long highBits = wordAt(stacks - 1) >>> (WORD_BITS - bitShift);
                 if (highBits != 0) {
                     throw new ArithmeticException("Shift left would lose data (exceeds " + MAX_STACKS + " stacks)");
                 }
@@ -583,7 +748,7 @@ public static final long serialVersionUID = 1L;
         for (int i = 0; i < stacks; i++) {
             int newIdx = i + wordShift;
             if (newIdx < newStacks) {
-                long val = (this.words[i] & WORD_MASK) << bitShift;
+                long val = (this.wordAt(i) & WORD_MASK) << bitShift;
                 result.words[newIdx] = (val & WORD_MASK) | carry;
                 carry = val >>> WORD_BITS;
             }
@@ -609,12 +774,19 @@ public static final long serialVersionUID = 1L;
         }
         
         AutoStackingNumber result = new AutoStackingNumber(stacks - wordShift);
+
+        if (bitShift == 0) {
+            for (int i = wordShift; i < stacks; i++) {
+                result.words[i - wordShift] = this.wordAt(i);
+            }
+            return result;
+        }
         
         long carry = 0;
         for (int i = stacks - 1; i >= wordShift; i--) {
-            long val = (this.words[i] & WORD_MASK) >>> bitShift;
+            long val = (this.wordAt(i) & WORD_MASK) >>> bitShift;
             result.words[i - wordShift] = val | (carry << (WORD_BITS - bitShift));
-            carry = this.words[i] & ((1L << bitShift) - 1);
+            carry = this.wordAt(i) & ((1L << bitShift) - 1);
         }
         
         return result;
@@ -624,17 +796,24 @@ public static final long serialVersionUID = 1L;
     
     @Override
     public int compareTo(AutoStackingNumber other) {
+        if (this == other) return 0;
+        if (this.stacks == 1 && other.stacks == 1) {
+            long a = this.wordAt(0);
+            long b = other.wordAt(0);
+            return (a < b) ? -1 : ((a == b) ? 0 : 1);
+        }
+
         // Compare as signed numbers
-        long thisVal = this.words[0];
-        long otherVal = other.words[0];
+        long thisVal = this.wordAt(0);
+        long otherVal = other.wordAt(0);
         
         if (thisVal < otherVal) return -1;
         if (thisVal > otherVal) return 1;
         
         // Compare remaining words if same sign and first word equal
         for (int i = 1; i < Math.max(this.stacks, other.stacks); i++) {
-            long a = i < this.stacks ? (this.words[i] & WORD_MASK) : 0;
-            long b = i < other.stacks ? (other.words[i] & WORD_MASK) : 0;
+            long a = i < this.stacks ? (this.wordAt(i) & WORD_MASK) : 0;
+            long b = i < other.stacks ? (other.wordAt(i) & WORD_MASK) : 0;
             
             if (a < b) return -1;
             if (a > b) return 1;
@@ -644,31 +823,33 @@ public static final long serialVersionUID = 1L;
     }
     
     public boolean isZero() {
-        for (long word : words) {
-            if (word != 0) return false;
+        if (stacks == 1) return wordAt(0) == 0L;
+        for (int i = 0; i < stacks; i++) {
+            if (wordAt(i) != 0) return false;
         }
         return true;
     }
     
     public boolean isNegative() {
-        return words[0] < 0;
+        return wordAt(0) < 0;
     }
     
     public boolean isPositive() {
-        return words[0] > 0;
+        return wordAt(0) > 0;
     }
     
     // ========== CONVERSION METHODS ==========
     
     public long longValue() {
+        if (stacks == 1) return wordAt(0);
         if (stacks > 1) {
             for (int i = 1; i < stacks; i++) {
-                if (words[i] != 0) {
+                if (wordAt(i) != 0) {
                     throw new ArithmeticException("Number has fractional part");
                 }
             }
         }
-        return words[0];
+        return wordAt(0);
     }
     
     public double doubleValue() {
@@ -678,16 +859,17 @@ public static final long serialVersionUID = 1L;
         boolean negative = isNegative();
         
         // Integer part (word 0)
-        long intVal = words[0] & WORD_MASK;
+        long firstWord = wordAt(0);
+        long intVal = firstWord & WORD_MASK;
         if (negative) {
-            intVal = (-words[0]) & WORD_MASK;
+            intVal = (-firstWord) & WORD_MASK;
         }
         result = intVal;
         
         // Fractional parts - each subsequent word represents 2^(-60) of the previous
         scale = 1.0 / (1L << 60);  // 2^-60
         for (int i = 1; i < stacks; i++) {
-            long wordVal = words[i] & WORD_MASK;
+            long wordVal = wordAt(i) & WORD_MASK;
             result += wordVal * scale;
             scale /= (1L << 60);  // Divide by 2^60 for each subsequent word
         }
@@ -697,9 +879,16 @@ public static final long serialVersionUID = 1L;
     
     @Override
     public String toString() {
-        if (isZero()) {
-            return "0";
-        }
+        String cached = cachedToString;
+        if (cached != null) return cached;
+        String value = computeToString();
+        cachedToString = value;
+        return value;
+    }
+
+    private String computeToString() {
+        if (stacks == 1) return Long.toString(wordAt(0));
+        if (isZero()) return "0";
         
         StringBuilder sb = new StringBuilder();
         boolean negative = isNegative();
@@ -709,13 +898,14 @@ public static final long serialVersionUID = 1L;
         }
         
         // Integer part
-        long intPart = negative ? -words[0] : words[0];
+        long firstWord = wordAt(0);
+        long intPart = negative ? -firstWord : firstWord;
         sb.append(intPart);
         
         // Check for fractional part
         boolean hasFraction = false;
         for (int i = 1; i < stacks; i++) {
-            if ((words[i] & FRAC_MASK) != 0) {
+            if ((wordAt(i) & FRAC_MASK) != 0) {
                 hasFraction = true;
                 break;
             }
@@ -727,7 +917,7 @@ public static final long serialVersionUID = 1L;
             // Work with unsigned 60‑bit fractional words
             long[] fracWords = new long[stacks - 1];
             for (int i = 0; i < stacks - 1; i++) {
-                fracWords[i] = words[i + 1] & FRAC_MASK;
+                fracWords[i] = wordAt(i + 1) & FRAC_MASK;
             }
             
             int maxDigits = 18;
@@ -795,13 +985,13 @@ public static final long serialVersionUID = 1L;
     }
     
     public long[] getWords() {
-        return Arrays.copyOf(words, words.length);
+        return copyWordsInternal();
     }
     
     public boolean fitsInStacks(int targetStacks) {
         if (targetStacks >= stacks) return true;
         for (int i = targetStacks; i < stacks; i++) {
-            if (words[i] != 0) return false;
+            if (wordAt(i) != 0) return false;
         }
         return true;
     }
@@ -815,7 +1005,9 @@ public static final long serialVersionUID = 1L;
         }
         
         AutoStackingNumber result = new AutoStackingNumber(newStacks);
-        System.arraycopy(this.words, 0, result.words, 0, this.stacks);
+        for (int i = 0; i < this.stacks; i++) {
+            result.words[i] = this.wordAt(i);
+        }
         return result;
     }
     
@@ -829,19 +1021,21 @@ public static final long serialVersionUID = 1L;
         
         // Check if demotion would lose data
         for (int i = newStacks; i < stacks; i++) {
-            if (words[i] != 0) {
+            if (wordAt(i) != 0) {
                 throw new ArithmeticException("Cannot demote - would lose fractional data");
             }
         }
         
         AutoStackingNumber result = new AutoStackingNumber(newStacks);
-        System.arraycopy(this.words, 0, result.words, 0, newStacks);
+        for (int i = 0; i < newStacks; i++) {
+            result.words[i] = this.wordAt(i);
+        }
         return result;
     }
     
     public int getOptimalStacks() {
         for (int s = stacks; s > 1; s--) {
-            if (words[s - 1] != 0) {
+            if (wordAt(s - 1) != 0) {
                 return s;
             }
         }
@@ -851,14 +1045,22 @@ public static final long serialVersionUID = 1L;
     public AutoStackingNumber pow(int exponent) {
         if (exponent == 0) return one(this.stacks);
         if (exponent < 0) throw new IllegalArgumentException("Negative exponent not supported");
-        
+
+        if (exponent == 1) return this;
+
         AutoStackingNumber result = one(this.stacks);
-        AutoStackingNumber base = new AutoStackingNumber(this);
-        
-        for (int i = 0; i < exponent; i++) {
-            result = result.multiply(base);
+        AutoStackingNumber base = this;
+        int exp = exponent;
+        while (exp > 0) {
+            if ((exp & 1) != 0) {
+                result = result.multiply(base);
+            }
+            exp >>= 1;
+            if (exp > 0) {
+                base = base.multiply(base);
+            }
         }
-        
+
         return result;
     }
     
@@ -873,7 +1075,7 @@ public static final long serialVersionUID = 1L;
         if (this.stacks != other.stacks) return false;
         
         for (int i = 0; i < stacks; i++) {
-            if (this.words[i] != other.words[i]) return false;
+            if (this.wordAt(i) != other.wordAt(i)) return false;
         }
         return true;
     }
@@ -882,8 +1084,9 @@ public static final long serialVersionUID = 1L;
     public int hashCode() {
         int hash = stacks;
         for (int i = 0; i < stacks; i++) {
-            hash = 31 * hash + (int) (words[i] ^ (words[i] >>> 32));
+            long w = wordAt(i);
+            hash = 31 * hash + (int) (w ^ (w >>> 32));
         }
         return hash;
     }
-              }
+}
