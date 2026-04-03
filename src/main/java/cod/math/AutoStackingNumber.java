@@ -28,6 +28,7 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     private static final int WORD_BITS = 64;
     private static final long WORD_MASK = 0xFFFFFFFFFFFFFFFFL;
     private static final long FRAC_MASK = (1L << 60) - 1;  // 60 bits of ones for fractional parts
+    private static final double FRACTIONAL_PRECISION_THRESHOLD = 1e-18;
     private static final BigDecimal DECIMAL_COMPARISON_EPSILON = new BigDecimal("0.000000000000001");
     
     // Zero and One constants for each stack level
@@ -304,7 +305,7 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         long intPart = (long) value;
         double fracPart = value - intPart;
 
-        if (fracPart <= 1e-18) {
+        if (fracPart <= FRACTIONAL_PRECISION_THRESHOLD) {
             return fromLong(negative ? -intPart : intPart);
         }
 
@@ -313,7 +314,7 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
 
         int usedStacks = 1;
         double remaining = fracPart;
-        for (int i = 1; i < MAX_STACKS && remaining > 1e-18; i++) {
+        for (int i = 1; i < MAX_STACKS && remaining > FRACTIONAL_PRECISION_THRESHOLD; i++) {
             remaining *= (1L << 60);
             long word = (long) remaining;
             tmp[i] = word;

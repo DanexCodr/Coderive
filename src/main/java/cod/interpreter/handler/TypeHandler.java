@@ -272,6 +272,27 @@ public class TypeHandler {
         AutoStackingNumber num = toAutoStackingNumber(o);
         return num.doubleValue();
     }
+
+    private Long tryFastLong(Object o) {
+        if (o instanceof Integer || o instanceof Long || o instanceof Short || o instanceof Byte) {
+            return Long.valueOf(((Number) o).longValue());
+        }
+        if (o instanceof IntLiteralNode) {
+            try {
+                return Long.valueOf(((IntLiteralNode) o).value.longValue());
+            } catch (ArithmeticException ignored) {
+                return null;
+            }
+        }
+        if (o instanceof AutoStackingNumber) {
+            try {
+                return Long.valueOf(((AutoStackingNumber) o).longValue());
+            } catch (ArithmeticException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
     
     // === Arithmetic Operations ===
     
@@ -287,6 +308,18 @@ public class TypeHandler {
             a instanceof TextLiteralNode || b instanceof TextLiteralNode) {
             return String.valueOf(a) + String.valueOf(b);
         }
+
+        Long fastAObj = tryFastLong(a);
+        Long fastBObj = tryFastLong(b);
+        if (fastAObj != null && fastBObj != null) {
+            long av = fastAObj.longValue();
+            long bv = fastBObj.longValue();
+            long sum = av + bv;
+            if (((av ^ sum) & (bv ^ sum)) >= 0) {
+                return AutoStackingNumber.fromLong(sum);
+            }
+            return AutoStackingNumber.fromDouble((double) av + (double) bv);
+        }
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
         AutoStackingNumber numB = toAutoStackingNumber(b);
@@ -299,6 +332,18 @@ public class TypeHandler {
         
         if (isArray(a) || isArray(b)) {
             return applyArrayOperation(a, b, "-");
+        }
+
+        Long fastAObj = tryFastLong(a);
+        Long fastBObj = tryFastLong(b);
+        if (fastAObj != null && fastBObj != null) {
+            long av = fastAObj.longValue();
+            long bv = fastBObj.longValue();
+            long diff = av - bv;
+            if (((av ^ bv) & (av ^ diff)) >= 0) {
+                return AutoStackingNumber.fromLong(diff);
+            }
+            return AutoStackingNumber.fromDouble((double) av - (double) bv);
         }
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
@@ -326,6 +371,21 @@ public class TypeHandler {
         
         if (b instanceof String && isNumeric(a)) {
             return multiplyString(a, b);
+        }
+
+        Long fastAObj = tryFastLong(a);
+        Long fastBObj = tryFastLong(b);
+        if (fastAObj != null && fastBObj != null) {
+            long av = fastAObj.longValue();
+            long bv = fastBObj.longValue();
+            if (av == 0L || bv == 0L) {
+                return AutoStackingNumber.fromLong(0L);
+            }
+            long product = av * bv;
+            if (product / av == bv) {
+                return AutoStackingNumber.fromLong(product);
+            }
+            return AutoStackingNumber.fromDouble((double) av * (double) bv);
         }
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
@@ -559,6 +619,20 @@ public class TypeHandler {
         if (isArray(a) || isArray(b)) {
             return applyArrayOperation(a, b, "/");
         }
+
+        Long fastAObj = tryFastLong(a);
+        Long fastBObj = tryFastLong(b);
+        if (fastAObj != null && fastBObj != null) {
+            long av = fastAObj.longValue();
+            long bv = fastBObj.longValue();
+            if (bv == 0L) {
+                throw new ProgramError("Division by zero");
+            }
+            if (av % bv == 0L) {
+                return AutoStackingNumber.fromLong(av / bv);
+            }
+            return AutoStackingNumber.fromDouble((double) av / (double) bv);
+        }
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
         AutoStackingNumber numB = toAutoStackingNumber(b);
@@ -576,6 +650,17 @@ public class TypeHandler {
         
         if (a instanceof List || b instanceof List) {
             throw new ProgramError("Cannot use modulus '%' on arrays");
+        }
+
+        Long fastAObj = tryFastLong(a);
+        Long fastBObj = tryFastLong(b);
+        if (fastAObj != null && fastBObj != null) {
+            long av = fastAObj.longValue();
+            long bv = fastBObj.longValue();
+            if (bv == 0L) {
+                throw new ProgramError("Modulus by zero");
+            }
+            return AutoStackingNumber.fromLong(av % bv);
         }
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
@@ -615,6 +700,14 @@ public class TypeHandler {
             String strA = a instanceof TextLiteralNode ? ((TextLiteralNode) a).value : String.valueOf(a);
             String strB = b instanceof TextLiteralNode ? ((TextLiteralNode) b).value : String.valueOf(b);
             return strA.compareTo(strB);
+        }
+
+        Long fastAObj = tryFastLong(a);
+        Long fastBObj = tryFastLong(b);
+        if (fastAObj != null && fastBObj != null) {
+            long av = fastAObj.longValue();
+            long bv = fastBObj.longValue();
+            return av < bv ? -1 : (av == bv ? 0 : 1);
         }
         
         // Handle numbers
