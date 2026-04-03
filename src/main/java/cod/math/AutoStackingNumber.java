@@ -29,6 +29,7 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     private static final long WORD_MASK = 0xFFFFFFFFFFFFFFFFL;
     private static final long FRAC_MASK = (1L << 60) - 1;  // 60 bits of ones for fractional parts
     private static final double FRACTIONAL_PRECISION_THRESHOLD = 1e-18;
+    private static final AutoStackingNumber TEN_1 = new AutoStackingNumber(1, 10L);
     private static final BigDecimal DECIMAL_COMPARISON_EPSILON = new BigDecimal("0.000000000000001");
     
     // Zero and One constants for each stack level
@@ -135,6 +136,15 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         if (s.isEmpty()) {
             throw new NumberFormatException("Missing digits after sign");
         }
+
+        final int len = s.length();
+        int lead = 0;
+        while (lead < len - 1 && s.charAt(lead) == '0') {
+            lead++;
+        }
+        if (lead > 0) {
+            s = s.substring(lead);
+        }
         
         // Check for decimal point
         int dotIndex = s.indexOf('.');
@@ -145,13 +155,22 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             // Handle cases like ".5" or "5."
             if (intPart.isEmpty()) intPart = "0";
             if (fracPart.isEmpty()) fracPart = "0";
-            
-            // Remove leading zeros from integer part
-            intPart = intPart.replaceFirst("^0+(?!$)", "");
-            if (intPart.isEmpty()) intPart = "0";
-            
-            // Remove trailing zeros from fractional part
-            fracPart = fracPart.replaceFirst("0+$", "");
+
+            int intLead = 0;
+            while (intLead < intPart.length() - 1 && intPart.charAt(intLead) == '0') {
+                intLead++;
+            }
+            if (intLead > 0) {
+                intPart = intPart.substring(intLead);
+            }
+
+            int fracEnd = fracPart.length();
+            while (fracEnd > 0 && fracPart.charAt(fracEnd - 1) == '0') {
+                fracEnd--;
+            }
+            if (fracEnd < fracPart.length()) {
+                fracPart = fracPart.substring(0, fracEnd);
+            }
             if (fracPart.isEmpty()) {
                 // It was something like "5.0" - just return the integer part
                 AutoStackingNumber result = valueOf(intPart);
@@ -183,9 +202,9 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             
             // Create denominator: 10^len
             int fracLen = fracPart.length();
-            AutoStackingNumber denominator = new AutoStackingNumber(1, 10);
+            AutoStackingNumber denominator = TEN_1;
             for (int i = 1; i < fracLen; i++) {
-                denominator = denominator.multiply(new AutoStackingNumber(1, 10));
+                denominator = denominator.multiply(TEN_1);
             }
             
             // Divide numerator by denominator
@@ -305,7 +324,7 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
         long intPart = (long) value;
         double fracPart = value - intPart;
 
-        if (fracPart <= FRACTIONAL_PRECISION_THRESHOLD) {
+        if (Math.abs(fracPart) < FRACTIONAL_PRECISION_THRESHOLD) {
             return fromLong(negative ? -intPart : intPart);
         }
 
@@ -414,9 +433,7 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
     }
     
     public AutoStackingNumber multiply(AutoStackingNumber other) {
-        if ((this.stacks == 1 && this.words[0] == 0L) ||
-            (other.stacks == 1 && other.words[0] == 0L) ||
-            this.isZero() || other.isZero()) {
+        if (this.isZero() || other.isZero()) {
             return zero(Math.max(this.stacks, other.stacks));
         }
         if (this.stacks == 1 && this.words[0] == 1L) return other;
@@ -435,6 +452,9 @@ public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Seria
             // Check if product overflowed 64 bits
             if (a.words[0] != 0 && product / a.words[0] != b.words[0]) {
                 double approximateProduct = ((double) a.words[0]) * ((double) b.words[0]);
+                if (Double.isInfinite(approximateProduct) || Double.isNaN(approximateProduct)) {
+                    throw new ArithmeticException("Multiplication overflow");
+                }
                 return fromDouble(resultNegative ? -approximateProduct : approximateProduct);
             }
             
