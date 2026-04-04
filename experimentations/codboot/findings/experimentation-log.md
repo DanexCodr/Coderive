@@ -43,6 +43,10 @@ Implemented Level 1-3 host dependency shape:
 - Host decodes simple `out("...")` statements for parity demonstration.
 - Host supports `host <operation> ...` parity directives for Level 2/3 validation.
 - Differential script compares JS and Java host output for every parity program.
+- Runtime mode controls are available in both hosts:
+  - `--runtime-mode=legacy` (default)
+  - `--runtime-mode=auto`
+  - `--runtime-mode=native`
 - Host prints normalized output and exits with deterministic code.
 - Optional bootstrap flag confirms self-bootstrap path (`--bootstrap-self`).
 
@@ -50,7 +54,7 @@ Implemented Level 1-3 host dependency shape:
 
 - This is an isolated experimentation prototype, not yet wired to production runtime paths.
 - `core.ce` currently defines protocol/contracts and experimental entrypoint shape; it is not yet a complete parser/evaluator implementation.
-- JS and Java hosts are intentionally constrained and symmetric for boundary testing.
+- JS and Java hosts are intentionally constrained; runtime-mode flags allow gradual migration toward runtime-native execution while preserving parity fixtures.
 
 ## Next experiments suggested
 

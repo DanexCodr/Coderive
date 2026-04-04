@@ -32,6 +32,11 @@ Run the following commands from the repository root.
 node experimentations/codboot/js/CodBoot.js \
   experimentations/codboot/core/core.ce \
   experimentations/codboot/parity/programs/hello.cod
+
+# Runtime modes:
+# --runtime-mode=legacy (default): parity/demo compatibility mode
+# --runtime-mode=auto: try production runtime, fallback to legacy protocol
+# --runtime-mode=native: require production runtime, fail if unavailable
 ```
 
 Bootstrap check:
@@ -52,6 +57,11 @@ javac -source 7 -target 7 -d /tmp/codboot-java7 \
 java -cp /tmp/codboot-java7 CodBoot \
   experimentations/codboot/core/core.ce \
   experimentations/codboot/parity/programs/hello.cod
+
+# Runtime modes:
+# --runtime-mode=legacy (default): parity/demo compatibility mode
+# --runtime-mode=auto: try production runtime, fallback to legacy protocol
+# --runtime-mode=native: require production runtime, fail if unavailable
 ```
 
 Bootstrap check:

@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 const childProcess = require('child_process');
 
 function createHost() {
@@ -214,6 +215,66 @@ function decodeProgramOutputs(programSource, host) {
   return output;
 }
 
+function splitOutputLines(output) {
+  if (!output) {
+    return [];
+  }
+  return String(output).replace(/\r\n/g, '\n').split('\n').filter(function(line) {
+    return line.length > 0;
+  });
+}
+
+function shouldUseLegacyProtocol(programSource) {
+  const lines = programSource.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    if (line.length === 0) {
+      continue;
+    }
+    if (line.charAt(0) === '#' || line.indexOf('host ') === 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+let productionRunner = null;
+let productionRunnerChecked = false;
+
+function getProductionRunner() {
+  if (productionRunnerChecked) {
+    return productionRunner;
+  }
+  productionRunnerChecked = true;
+  try {
+    const codRoot = path.resolve(__dirname, '../../../docs/js/cod');
+    require(path.join(codRoot, 'lexer-ast.js'));
+    require(path.join(codRoot, 'parser.js'));
+    require(path.join(codRoot, 'interpreter.js'));
+    const replModule = require(path.join(codRoot, 'repl.js'));
+    if (replModule && replModule.CodREPLRunner && typeof replModule.CodREPLRunner.compileAndRun === 'function') {
+      productionRunner = replModule.CodREPLRunner;
+      return productionRunner;
+    }
+    if (global.CodREPLRunner && typeof global.CodREPLRunner.compileAndRun === 'function') {
+      productionRunner = global.CodREPLRunner;
+      return productionRunner;
+    }
+  } catch (err) {
+    productionRunner = null;
+  }
+  return productionRunner;
+}
+
+function runWithProductionRuntime(programSource) {
+  const runner = getProductionRunner();
+  if (!runner) {
+    return null;
+  }
+  const output = runner.compileAndRun(programSource, { reset: true });
+  return splitOutputLines(output);
+}
+
 function hasCoreEntrypoint(coreSource) {
   const lines = coreSource.split(/\r?\n/);
   for (let i = 0; i < lines.length; i += 1) {
@@ -226,12 +287,35 @@ function hasCoreEntrypoint(coreSource) {
   return false;
 }
 
-function runCore(coreSource, programPath, host) {
+function resolveRuntimeMode(argv) {
+  for (let i = 4; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg.indexOf('--runtime-mode=') === 0) {
+      const mode = arg.substring('--runtime-mode='.length);
+      if (mode === 'legacy' || mode === 'auto' || mode === 'native') {
+        return mode;
+      }
+    }
+  }
+  return 'legacy';
+}
+
+function runCore(coreSource, programPath, host, runtimeMode) {
   if (!hasCoreEntrypoint(coreSource)) {
     return { exitCode: 2, lines: ['[core] invalid core.ce format'] };
   }
   const programSource = host.readFile(programPath);
-  const userLines = decodeProgramOutputs(programSource, host);
+  let userLines = null;
+  const forceLegacy = runtimeMode === 'legacy' || shouldUseLegacyProtocol(programSource);
+  if (!forceLegacy) {
+    userLines = runWithProductionRuntime(programSource);
+    if (userLines === null && runtimeMode === 'native') {
+      return { exitCode: 2, lines: ['[core] native runtime unavailable in JS host'] };
+    }
+  }
+  if (userLines === null) {
+    userLines = decodeProgramOutputs(programSource, host);
+  }
   const lines = ['[core] running: ' + programPath, '[core] experimental evaluator active'];
   for (let i = 0; i < userLines.length; i += 1) {
     lines.push(userLines[i]);
@@ -244,12 +328,13 @@ function runCore(coreSource, programPath, host) {
 
 function main(argv, host) {
   if (argv.length < 4) {
-    host.print('Usage: node CodBoot.js <core.ce-path> <program.cod-path> [--bootstrap-self]');
+    host.print('Usage: node CodBoot.js <core.ce-path> <program.cod-path> [--bootstrap-self] [--runtime-mode=legacy|auto|native]');
     return 64;
   }
   const corePath = argv[2];
   const programPath = argv[3];
-  const bootstrapSelf = argv.length > 4 && argv[4] === '--bootstrap-self';
+  const bootstrapSelf = argv.indexOf('--bootstrap-self') >= 0;
+  const runtimeMode = resolveRuntimeMode(argv);
   const coreSource = host.readFile(corePath);
 
   if (bootstrapSelf) {
@@ -257,7 +342,7 @@ function main(argv, host) {
     return 0;
   }
 
-  const result = runCore(coreSource, programPath, host);
+  const result = runCore(coreSource, programPath, host, runtimeMode);
   for (let i = 0; i < result.lines.length; i += 1) {
     host.print(result.lines[i]);
   }

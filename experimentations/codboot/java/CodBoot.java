@@ -7,6 +7,10 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.lang.reflect.Method;
+import java.lang.reflect.Constructor;
 
 public final class CodBoot {
     private interface Host {
@@ -177,6 +181,72 @@ public final class CodBoot {
         return output;
     }
 
+    private static boolean shouldUseLegacyProtocol(String programSource) {
+        String[] lines = programSource.split("\\r?\\n");
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+            if (line.length() == 0) {
+                continue;
+            }
+            if (line.startsWith("#") || line.startsWith("host ")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static List<String> splitOutputLines(String output) {
+        List<String> result = new ArrayList<String>();
+        if (output == null || output.length() == 0) {
+            return result;
+        }
+        String[] lines = output.replace("\r\n", "\n").split("\n");
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i].length() > 0) {
+                result.add(lines[i]);
+            }
+        }
+        return result;
+    }
+
+    private static List<String> runWithProductionRuntime(String programPath) {
+        PrintStream originalOut = System.out;
+        ByteArrayOutputStream outCapture = new ByteArrayOutputStream();
+        PrintStream captureStream = null;
+        try {
+            Class<?> runnerClass = Class.forName("cod.runner.CommandRunner");
+            Constructor<?> constructor = runnerClass.getConstructor();
+            Object runner = constructor.newInstance();
+            Method runMethod = runnerClass.getMethod("run", String[].class);
+            captureStream = new PrintStream(outCapture, true, "UTF-8");
+            System.setOut(captureStream);
+            String[] args = new String[] { "--quiet", programPath };
+            runMethod.invoke(runner, new Object[] { args });
+            captureStream.flush();
+            return splitOutputLines(outCapture.toString("UTF-8"));
+        } catch (Throwable ignored) {
+            return null;
+        } finally {
+            if (captureStream != null) {
+                captureStream.close();
+            }
+            System.setOut(originalOut);
+        }
+    }
+
+    private static String resolveRuntimeMode(String[] args) {
+        for (int i = 2; i < args.length; i++) {
+            String arg = args[i];
+            if (arg != null && arg.startsWith("--runtime-mode=")) {
+                String mode = arg.substring("--runtime-mode=".length());
+                if ("legacy".equals(mode) || "auto".equals(mode) || "native".equals(mode)) {
+                    return mode;
+                }
+            }
+        }
+        return "legacy";
+    }
+
     private static String parseHostDirective(String line, Host host) throws IOException {
         if (!line.startsWith("host ")) {
             return null;
@@ -309,7 +379,7 @@ public final class CodBoot {
         return false;
     }
 
-    private static RunResult runCore(String coreSource, String programPath, Host host) throws IOException {
+    private static RunResult runCore(String coreSource, String programPath, Host host, String runtimeMode) throws IOException {
         if (!hasCoreEntrypoint(coreSource)) {
             List<String> invalid = new ArrayList<String>();
             invalid.add("[core] invalid core.ce format");
@@ -317,12 +387,24 @@ public final class CodBoot {
         }
 
         String programSource = host.readFile(programPath);
-        List<String> userLines = decodeProgramOutputs(programSource);
-        String[] programLines = programSource.split("\\r?\\n");
-        for (int i = 0; i < programLines.length; i++) {
-            String result = parseHostDirective(programLines[i].trim(), host);
-            if (result != null) {
-                userLines.add(result);
+        List<String> userLines = null;
+        boolean forceLegacy = "legacy".equals(runtimeMode) || shouldUseLegacyProtocol(programSource);
+        if (!forceLegacy) {
+            userLines = runWithProductionRuntime(programPath);
+            if (userLines == null && "native".equals(runtimeMode)) {
+                List<String> unavailable = new ArrayList<String>();
+                unavailable.add("[core] native runtime unavailable in Java host");
+                return new RunResult(2, unavailable);
+            }
+        }
+        if (userLines == null) {
+            userLines = decodeProgramOutputs(programSource);
+            String[] programLines = programSource.split("\\r?\\n");
+            for (int i = 0; i < programLines.length; i++) {
+                String result = parseHostDirective(programLines[i].trim(), host);
+                if (result != null) {
+                    userLines.add(result);
+                }
             }
         }
         List<String> lines = new ArrayList<String>();
@@ -337,12 +419,19 @@ public final class CodBoot {
 
     private static int mainImpl(String[] args, Host host) throws IOException {
         if (args.length < 2) {
-            host.print("Usage: java CodBoot <core.ce-path> <program.cod-path> [--bootstrap-self]");
+            host.print("Usage: java CodBoot <core.ce-path> <program.cod-path> [--bootstrap-self] [--runtime-mode=legacy|auto|native]");
             return 64;
         }
         String corePath = args[0];
         String programPath = args[1];
-        boolean bootstrapSelf = args.length > 2 && "--bootstrap-self".equals(args[2]);
+        boolean bootstrapSelf = false;
+        for (int i = 2; i < args.length; i++) {
+            if ("--bootstrap-self".equals(args[i])) {
+                bootstrapSelf = true;
+                break;
+            }
+        }
+        String runtimeMode = resolveRuntimeMode(args);
 
         String coreSource = host.readFile(corePath);
         if (bootstrapSelf) {
@@ -350,7 +439,7 @@ public final class CodBoot {
             return 0;
         }
 
-        RunResult result = runCore(coreSource, programPath, host);
+        RunResult result = runCore(coreSource, programPath, host, runtimeMode);
         for (int i = 0; i < result.lines.size(); i++) {
             host.print(result.lines.get(i));
         }
