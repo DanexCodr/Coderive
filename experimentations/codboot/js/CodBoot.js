@@ -3,6 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process');
+let fullJsRuntime = null;
+let cachedDefaultStdin = null;
 
 function createHost() {
   const allowedSystemCommands = { true: true, false: true };
@@ -461,11 +463,45 @@ function splitLines(text) {
 }
 
 function buildDefaultStdin() {
+  if (cachedDefaultStdin !== null) {
+    return cachedDefaultStdin;
+  }
   const lines = [];
   for (let i = 0; i < 256; i += 1) {
     lines.push('0');
   }
-  return lines.join('\n') + '\n';
+  cachedDefaultStdin = lines.join('\n') + '\n';
+  return cachedDefaultStdin;
+}
+
+function loadFullJsRuntime(repoRoot) {
+  if (fullJsRuntime) {
+    return fullJsRuntime;
+  }
+  require(path.join(repoRoot, 'docs/js/cod/lexer-ast.js'));
+  require(path.join(repoRoot, 'docs/js/cod/parser.js'));
+  require(path.join(repoRoot, 'docs/js/cod/interpreter.js'));
+  fullJsRuntime = require(path.join(repoRoot, 'docs/js/cod/repl.js'));
+  return fullJsRuntime;
+}
+
+function runNativeJsRuntime(repoRoot, programPath) {
+  try {
+    const runtime = loadFullJsRuntime(repoRoot);
+    const source = fs.readFileSync(programPath, 'utf8');
+    const output = runtime.CodREPLRunner.compileAndRun(source, { reset: true });
+    const lines = splitLines(output);
+    if (lines.length === 0) {
+      lines.push('[core] native js runtime produced no output');
+    }
+    return { ok: true, exitCode: 0, lines: lines };
+  } catch (err) {
+    return {
+      ok: false,
+      exitCode: 2,
+      lines: ['[core] native js runtime unavailable: ' + (err && err.message ? err.message : String(err))]
+    };
+  }
 }
 
 function runCommand(classDir, args, stdinText) {
@@ -588,15 +624,24 @@ function main(argv, host) {
 
   let result = runCore(coreSource, programPath, host);
   if (result.exitCode !== 0 && result.lines.length > 0 && result.lines[0].indexOf('[core] parse/eval error:') === 0) {
-    const native = runNativeRuntime(programPath, corePath);
-    if (native.ok) {
-      result = { exitCode: native.exitCode, lines: native.lines };
+    const repoRoot = path.resolve(path.dirname(corePath), '..', '..', '..');
+    const nativeJs = runNativeJsRuntime(repoRoot, programPath);
+    if (nativeJs.ok) {
+      result = { exitCode: nativeJs.exitCode, lines: nativeJs.lines };
     } else {
-      const merged = result.lines.slice();
-      for (let i = 0; i < native.lines.length; i += 1) {
-        merged.push(native.lines[i]);
+      const native = runNativeRuntime(programPath, corePath);
+      if (native.ok) {
+        result = { exitCode: native.exitCode, lines: native.lines };
+      } else {
+        const merged = result.lines.slice();
+        for (let i = 0; i < nativeJs.lines.length; i += 1) {
+          merged.push(nativeJs.lines[i]);
+        }
+        for (let i = 0; i < native.lines.length; i += 1) {
+          merged.push(native.lines[i]);
+        }
+        result = { exitCode: result.exitCode, lines: merged };
       }
-      result = { exitCode: result.exitCode, lines: merged };
     }
   }
   for (let i = 0; i < result.lines.length; i += 1) {

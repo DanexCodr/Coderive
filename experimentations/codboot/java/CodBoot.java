@@ -13,6 +13,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 public final class CodBoot {
+    private static String cachedDefaultInput;
     private interface Host {
         String readFile(String path) throws IOException;
         void writeFile(String path, String content) throws IOException;
@@ -617,11 +618,15 @@ public final class CodBoot {
     }
 
     private static String buildDefaultInput() {
+        if (cachedDefaultInput != null) {
+            return cachedDefaultInput;
+        }
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < 256; i++) {
             sb.append("0\n");
         }
-        return sb.toString();
+        cachedDefaultInput = sb.toString();
+        return cachedDefaultInput;
     }
 
     private static RunResult runCommand(String classDir, String[] args, String stdinText) throws IOException, InterruptedException {
@@ -763,7 +768,7 @@ public final class CodBoot {
 
     private static RunResult runNativeRuntime(String programPath, String corePath) {
         try {
-            File repoRoot = new File(corePath).getAbsoluteFile().getParentFile().getParentFile().getParentFile();
+            File repoRoot = new File(corePath).getCanonicalFile().getParentFile().getParentFile().getParentFile().getParentFile();
             String classDir = ensureRuntimeClasses(repoRoot.getAbsolutePath());
             RunResult result = runCommand(classDir, new String[] { programPath }, buildDefaultInput());
             if (result.exitCode != 0 && containsLine(result.lines, "Unit name 'default' doesn't match directory 'examples'")) {
