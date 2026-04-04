@@ -277,9 +277,20 @@ Parser.prototype.parseProgram = function() {
 Parser.prototype.parseStatement = function() {
   const token = this.expect('WORD');
   if (token.value === 'out') {
-    this.expect('LPAREN');
-    const text = this.expect('STRING').value;
-    this.expect('RPAREN');
+    let text = '';
+    if (this.match('LPAREN')) {
+      while (this.peek().type !== 'RPAREN' && this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
+        const next = this.advance();
+        if (next.type === 'STRING' && text.length === 0) {
+          text = next.value;
+        }
+      }
+      this.match('RPAREN');
+    } else {
+      while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
+        this.advance();
+      }
+    }
     return { type: 'OutStatement', text: text };
   }
   if (token.value === 'host') {
@@ -294,7 +305,10 @@ Parser.prototype.parseStatement = function() {
     }
     return { type: 'HostStatement', command: command, args: args };
   }
-  throw new Error('Parse error at line ' + token.line + ', column ' + token.column + ': unknown statement ' + token.value);
+  while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
+    this.advance();
+  }
+  return { type: 'IgnoredStatement' };
 };
 
 function parseAtom(text) {

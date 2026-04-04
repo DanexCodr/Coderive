@@ -354,9 +354,20 @@ public final class CodBoot {
         private Statement parseStatement() {
             Token token = expect("WORD", null);
             if ("out".equals(token.value)) {
-                expect("LPAREN", "(");
-                String text = expect("STRING", null).value;
-                expect("RPAREN", ")");
+                String text = "";
+                if (match("LPAREN", "(")) {
+                    while (!"RPAREN".equals(peek().type) && !"NEWLINE".equals(peek().type) && !"EOF".equals(peek().type)) {
+                        Token next = advance();
+                        if ("STRING".equals(next.type) && text.length() == 0) {
+                            text = next.value;
+                        }
+                    }
+                    match("RPAREN", ")");
+                } else {
+                    while (!"NEWLINE".equals(peek().type) && !"EOF".equals(peek().type)) {
+                        advance();
+                    }
+                }
                 return new Statement("OutStatement", text, null, null);
             }
             if ("host".equals(token.value)) {
@@ -371,7 +382,10 @@ public final class CodBoot {
                 }
                 return new Statement("HostStatement", null, command, args);
             }
-            throw new RuntimeException("Parse error at line " + token.line + ", column " + token.column + ": unknown statement " + token.value);
+            while (!"NEWLINE".equals(peek().type) && !"EOF".equals(peek().type)) {
+                advance();
+            }
+            return new Statement("IgnoredStatement", null, null, null);
         }
     }
 
