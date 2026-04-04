@@ -9,10 +9,12 @@ public class LambdaNode extends ExprNode {
     public List<SlotNode> returnSlots;
     public StmtNode body;
     public ExprNode expressionBody;
+    public boolean inferParameters;
     
     public LambdaNode() {
         this.parameters = new ArrayList<ParamNode>();
         this.returnSlots = new ArrayList<SlotNode>();
+        this.inferParameters = false;
     }
     
     public LambdaNode(List<ParamNode> parameters, List<SlotNode> returnSlots, StmtNode body) {
@@ -20,6 +22,7 @@ public class LambdaNode extends ExprNode {
         this.returnSlots = returnSlots != null ? returnSlots : new ArrayList<SlotNode>();
         this.body = body;
         this.expressionBody = null;
+        this.inferParameters = false;
     }
     
     @Override
