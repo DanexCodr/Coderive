@@ -521,7 +521,9 @@ function isSuccessForCodFile(result, sourcePath) {
     return true;
   }
   const joined = result.lines.join('\n');
-  if (sourcePath.indexOf('/src/main/test/IO.cod') >= 0 || sourcePath.indexOf('/src/main/test/Interactive.cod') >= 0 || sourcePath.indexOf('/src/main/test/Parity.cod') >= 0) {
+  const normalized = String(sourcePath || '').replace(/\\/g, '/');
+  const base = path.basename(normalized);
+  if (normalized.indexOf('/src/main/test/') >= 0 && (base === 'IO.cod' || base === 'Interactive.cod' || base === 'Parity.cod')) {
     return joined.indexOf('Input error: Invalid integer') >= 0;
   }
   if (joined.indexOf("No executable main() found in package") >= 0) {

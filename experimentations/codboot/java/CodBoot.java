@@ -555,7 +555,7 @@ public final class CodBoot {
         }
     }
 
-    private static String ensureRuntimeClasses() throws IOException, InterruptedException {
+    private static String ensureRuntimeClasses(String repoRoot) throws IOException, InterruptedException {
         String classDir = "/tmp/codboot-coderive-java-classes";
         File classRoot = new File(classDir);
         File commandRunnerClass = new File(classRoot, "cod/runner/CommandRunner.class");
@@ -565,7 +565,7 @@ public final class CodBoot {
         if (!classRoot.exists() && !classRoot.mkdirs()) {
             throw new IOException("unable to create class output dir");
         }
-        File javaRoot = new File("/home/runner/work/Coderive/Coderive/src/main/java");
+        File javaRoot = new File(repoRoot, "src/main/java");
         if (!javaRoot.exists() || !javaRoot.isDirectory()) {
             throw new IOException("java runtime source root not found");
         }
@@ -746,9 +746,10 @@ public final class CodBoot {
         if (result.exitCode == 0) {
             return true;
         }
-        if (sourcePath.indexOf("/src/main/test/IO.cod") >= 0 ||
-            sourcePath.indexOf("/src/main/test/Interactive.cod") >= 0 ||
-            sourcePath.indexOf("/src/main/test/Parity.cod") >= 0) {
+        String normalized = sourcePath == null ? "" : sourcePath.replace('\\', '/');
+        String baseName = new File(normalized).getName();
+        if (normalized.indexOf("/src/main/test/") >= 0 &&
+            ("IO.cod".equals(baseName) || "Interactive.cod".equals(baseName) || "Parity.cod".equals(baseName))) {
             return containsLine(result.lines, "Input error: Invalid integer");
         }
         if (containsLine(result.lines, "No executable main() found in package")) {
@@ -760,9 +761,10 @@ public final class CodBoot {
         return false;
     }
 
-    private static RunResult runNativeRuntime(String programPath) {
+    private static RunResult runNativeRuntime(String programPath, String corePath) {
         try {
-            String classDir = ensureRuntimeClasses();
+            File repoRoot = new File(corePath).getAbsoluteFile().getParentFile().getParentFile().getParentFile();
+            String classDir = ensureRuntimeClasses(repoRoot.getAbsolutePath());
             RunResult result = runCommand(classDir, new String[] { programPath }, buildDefaultInput());
             if (result.exitCode != 0 && containsLine(result.lines, "Unit name 'default' doesn't match directory 'examples'")) {
                 String relocated = relocateForDefaultUnit(programPath);
@@ -815,7 +817,7 @@ public final class CodBoot {
 
         RunResult result = runCore(coreSource, programPath, host);
         if (result.exitCode != 0 && !result.lines.isEmpty() && result.lines.get(0).startsWith("[core] parse/eval error:")) {
-            RunResult nativeResult = runNativeRuntime(programPath);
+            RunResult nativeResult = runNativeRuntime(programPath, corePath);
             if (nativeResult.exitCode == 0) {
                 result = nativeResult;
             } else {
