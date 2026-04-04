@@ -81,7 +81,7 @@ function createHost() {
       return nextRandom();
     },
     system: function(command) {
-      if (!/^[A-Za-z0-9_-]+$/.test(command || '')) {
+      if (!/^[A-Za-z0-9_]+$/.test(command || '')) {
         return 2;
       }
       try {

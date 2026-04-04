@@ -140,7 +140,7 @@ public final class CodBoot {
         }
 
         public int system(String command) {
-            if (command == null || !command.matches("^[A-Za-z0-9_-]+$")) {
+            if (command == null || !command.matches("^[A-Za-z0-9_]+$")) {
                 return 2;
             }
             try {
