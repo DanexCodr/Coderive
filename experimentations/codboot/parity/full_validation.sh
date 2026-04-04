@@ -29,30 +29,22 @@ run_js() {
   local program_path="$1"
   local input_line="$2"
   local out_file="$3"
-  set +e
   if [[ -n "$input_line" ]]; then
     printf '%s\n' "$input_line" | node "$JS_HOST" "$CORE_PATH" "$program_path" --self-host-only >"$out_file"
   else
-    node "$JS_HOST" "$CORE_PATH" "$program_path" --self-host-only >"$out_file"
+    node "$JS_HOST" "$CORE_PATH" "$program_path" --self-host-only >"$out_file" </dev/null
   fi
-  local code=$?
-  set -e
-  return "$code"
 }
 
 run_java() {
   local program_path="$1"
   local input_line="$2"
   local out_file="$3"
-  set +e
   if [[ -n "$input_line" ]]; then
     printf '%s\n' "$input_line" | java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --self-host-only >"$out_file"
   else
-    java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --self-host-only >"$out_file"
+    java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --self-host-only >"$out_file" </dev/null
   fi
-  local code=$?
-  set -e
-  return "$code"
 }
 
 run_parity_case() {
@@ -68,10 +60,12 @@ run_parity_case() {
   local java_out="$TMP_DIR/$safe_label.java.out"
   local expected_out="$TMP_DIR/$safe_label.expected.out"
 
+  set +e
   run_js "$program_path" "$input_line" "$js_out"
   local js_code=$?
   run_java "$program_path" "$input_line" "$java_out"
   local java_code=$?
+  set -e
 
   if [[ "$js_code" -ne "$java_code" ]]; then
     echo "Exit code mismatch for $label (js=$js_code java=$java_code)" >&2
@@ -174,12 +168,16 @@ for program_path in "${deterministic_programs[@]}"; do
     input_line="generated-input"
   fi
   baseline_out="$TMP_DIR/java-repeat-$name.1.out"
+  set +e
   run_java "$program_path" "$input_line" "$baseline_out"
   baseline_code=$?
+  set -e
   for i in 2 3; do
     current_out="$TMP_DIR/java-repeat-$name.$i.out"
+    set +e
     run_java "$program_path" "$input_line" "$current_out"
     current_code=$?
+    set -e
     if [[ "$current_code" -ne "$baseline_code" ]]; then
       echo "Java repeat-run exit mismatch for $name ($baseline_code vs $current_code)" >&2
       exit 1
