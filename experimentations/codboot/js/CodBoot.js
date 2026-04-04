@@ -16,13 +16,37 @@ function createHost() {
   };
 }
 
+function parseOutLiteral(line) {
+  if (line.indexOf('out("') !== 0 || line.charAt(line.length - 1) !== ')') {
+    return null;
+  }
+  let endQuote = -1;
+  for (let i = 5; i < line.length - 1; i += 1) {
+    if (line.charAt(i) === '"') {
+      let slashCount = 0;
+      for (let j = i - 1; j >= 0 && line.charAt(j) === '\\'; j -= 1) {
+        slashCount += 1;
+      }
+      if (slashCount % 2 === 0) {
+        endQuote = i;
+        break;
+      }
+    }
+  }
+  if (endQuote !== line.length - 2) {
+    return null;
+  }
+  return line.substring(5, endQuote);
+}
+
 function decodeProgramOutputs(programSource) {
   const lines = programSource.split(/\r?\n/);
   const output = [];
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i].trim();
-    if (line.indexOf('out("') === 0 && line.lastIndexOf('")') === line.length - 2) {
-      output.push(line.substring(5, line.length - 2));
+    const literal = parseOutLiteral(line);
+    if (literal !== null) {
+      output.push(literal);
     }
   }
   return output;

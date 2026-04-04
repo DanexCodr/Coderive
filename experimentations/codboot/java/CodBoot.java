@@ -15,21 +15,27 @@ public final class CodBoot {
 
     private static final class JavaHost implements Host {
         public String readFile(String path) throws IOException {
-            BufferedReader reader = new BufferedReader(
-                new InputStreamReader(new FileInputStream(path), Charset.forName("UTF-8"))
-            );
-            StringBuilder sb = new StringBuilder();
-            String line;
-            boolean first = true;
-            while ((line = reader.readLine()) != null) {
-                if (!first) {
-                    sb.append('\n');
+            BufferedReader reader = null;
+            try {
+                reader = new BufferedReader(
+                    new InputStreamReader(new FileInputStream(path), Charset.forName("UTF-8"))
+                );
+                StringBuilder sb = new StringBuilder();
+                String line;
+                boolean first = true;
+                while ((line = reader.readLine()) != null) {
+                    if (!first) {
+                        sb.append('\n');
+                    }
+                    sb.append(line);
+                    first = false;
                 }
-                sb.append(line);
-                first = false;
+                return sb.toString();
+            } finally {
+                if (reader != null) {
+                    reader.close();
+                }
             }
-            reader.close();
-            return sb.toString();
         }
 
         public void print(String text) {
@@ -56,11 +62,35 @@ public final class CodBoot {
         String[] lines = programSource.split("\\r?\\n");
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
-            if (line.startsWith("out(\"") && line.endsWith("\")")) {
-                output.add(line.substring(5, line.length() - 2));
+            String literal = parseOutLiteral(line);
+            if (literal != null) {
+                output.add(literal);
             }
         }
         return output;
+    }
+
+    private static String parseOutLiteral(String line) {
+        if (!line.startsWith("out(\"") || line.charAt(line.length() - 1) != ')') {
+            return null;
+        }
+        int endQuote = -1;
+        for (int i = 5; i < line.length() - 1; i++) {
+            if (line.charAt(i) == '"') {
+                int slashCount = 0;
+                for (int j = i - 1; j >= 0 && line.charAt(j) == '\\'; j--) {
+                    slashCount++;
+                }
+                if (slashCount % 2 == 0) {
+                    endQuote = i;
+                    break;
+                }
+            }
+        }
+        if (endQuote != line.length() - 2) {
+            return null;
+        }
+        return line.substring(5, endQuote);
     }
 
     private static RunResult runCore(String coreSource, String programPath, Host host) throws IOException {

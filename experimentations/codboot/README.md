@@ -24,37 +24,41 @@ This experiment follows `implementations/CodBoot-SelfHosting-Plan.md` and keeps 
 ### JS host
 
 ```bash
-node /home/runner/work/Coderive/Coderive/experimentations/codboot/js/CodBoot.js \
-  /home/runner/work/Coderive/Coderive/experimentations/codboot/core/core.ce \
-  /home/runner/work/Coderive/Coderive/experimentations/codboot/parity/programs/hello.cod
+cd /home/runner/work/Coderive/Coderive
+node experimentations/codboot/js/CodBoot.js \
+  experimentations/codboot/core/core.ce \
+  experimentations/codboot/parity/programs/hello.cod
 ```
 
 Bootstrap check:
 
 ```bash
-node /home/runner/work/Coderive/Coderive/experimentations/codboot/js/CodBoot.js \
-  /home/runner/work/Coderive/Coderive/experimentations/codboot/core/core.ce \
-  /home/runner/work/Coderive/Coderive/experimentations/codboot/parity/programs/hello.cod \
+cd /home/runner/work/Coderive/Coderive
+node experimentations/codboot/js/CodBoot.js \
+  experimentations/codboot/core/core.ce \
+  experimentations/codboot/parity/programs/hello.cod \
   --bootstrap-self
 ```
 
 ### Java 7 host
 
 ```bash
+cd /home/runner/work/Coderive/Coderive
 mkdir -p /tmp/codboot-java7
 javac -source 7 -target 7 -d /tmp/codboot-java7 \
-  /home/runner/work/Coderive/Coderive/experimentations/codboot/java/CodBoot.java
+  experimentations/codboot/java/CodBoot.java
 java -cp /tmp/codboot-java7 CodBoot \
-  /home/runner/work/Coderive/Coderive/experimentations/codboot/core/core.ce \
-  /home/runner/work/Coderive/Coderive/experimentations/codboot/parity/programs/hello.cod
+  experimentations/codboot/core/core.ce \
+  experimentations/codboot/parity/programs/hello.cod
 ```
 
 Bootstrap check:
 
 ```bash
+cd /home/runner/work/Coderive/Coderive
 java -cp /tmp/codboot-java7 CodBoot \
-  /home/runner/work/Coderive/Coderive/experimentations/codboot/core/core.ce \
-  /home/runner/work/Coderive/Coderive/experimentations/codboot/parity/programs/hello.cod \
+  experimentations/codboot/core/core.ce \
+  experimentations/codboot/parity/programs/hello.cod \
   --bootstrap-self
 ```
 

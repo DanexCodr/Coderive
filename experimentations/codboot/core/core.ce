@@ -11,6 +11,8 @@
 
 entrypoint := "CodBootCore::v0"
 
+# Placeholder hook: reserved for future output canonicalization to keep
+# cross-host diagnostics identical when richer evaluator output lands.
 local normalize(text: text) :: out: text {
     out := text
 }
