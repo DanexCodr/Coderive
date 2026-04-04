@@ -197,7 +197,7 @@ public final class CodBoot {
             if (line.length() == 0) {
                 continue;
             }
-            if (line.startsWith("#") || line.startsWith("host ")) {
+            if (line.startsWith("host ")) {
                 return true;
             }
         }
@@ -253,7 +253,7 @@ public final class CodBoot {
                 }
             }
         }
-        return "legacy";
+        return "auto";
     }
 
     private static String parseHostDirective(String line, Host host) throws IOException {

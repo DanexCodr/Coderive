@@ -33,11 +33,11 @@ run_one() {
   local expected_out="$TMP_DIR/$name.expected.out"
 
   if [[ -n "$input_line" ]]; then
-    printf '%s\n' "$input_line" | node "$JS_HOST" "$CORE_PATH" "$program_path" >"$js_out"
-    printf '%s\n' "$input_line" | java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" >"$java_out"
+    printf '%s\n' "$input_line" | node "$JS_HOST" "$CORE_PATH" "$program_path" --runtime-mode=legacy >"$js_out"
+    printf '%s\n' "$input_line" | java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --runtime-mode=legacy >"$java_out"
   else
-    node "$JS_HOST" "$CORE_PATH" "$program_path" >"$js_out"
-    java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" >"$java_out"
+    node "$JS_HOST" "$CORE_PATH" "$program_path" --runtime-mode=legacy >"$js_out"
+    java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --runtime-mode=legacy >"$java_out"
   fi
 
   if ! diff -u "$js_out" "$java_out"; then

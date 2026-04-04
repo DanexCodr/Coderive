@@ -34,9 +34,9 @@ node experimentations/codboot/js/CodBoot.js \
   experimentations/codboot/parity/programs/hello.cod
 
 # Runtime modes:
-# --runtime-mode=legacy (default): parity/demo compatibility mode
-# --runtime-mode=auto: try production runtime, fallback to legacy protocol
-# --runtime-mode=native: require production runtime, fail if unavailable
+# --runtime-mode=auto (default): full runtime parser/evaluator path
+# --runtime-mode=legacy: parity protocol fallback path
+# --runtime-mode=native: require runtime availability, fail otherwise
 ```
 
 Bootstrap check:
@@ -59,9 +59,9 @@ java -cp /tmp/codboot-java7 CodBoot \
   experimentations/codboot/parity/programs/hello.cod
 
 # Runtime modes:
-# --runtime-mode=legacy (default): parity/demo compatibility mode
-# --runtime-mode=auto: try production runtime, fallback to legacy protocol
-# --runtime-mode=native: require production runtime, fail if unavailable
+# --runtime-mode=auto (default): full runtime parser/evaluator path
+# --runtime-mode=legacy: parity protocol fallback path
+# --runtime-mode=native: require runtime availability, fail otherwise
 ```
 
 Bootstrap check:
@@ -107,6 +107,12 @@ experimentations/codboot/parity/compare_hosts.sh
 ```
 
 ## Contract
+
+Runtime behavior:
+- Default execution is runtime-complete (`--runtime-mode=auto`).
+- Legacy protocol mode is explicit (`--runtime-mode=legacy`) for parity fixtures only.
+- JS host attempts Java CommandRunner bridge first, then JS runtime fallback when available.
+
 
 - Host exposes staged dependencies:
   - Level 1:

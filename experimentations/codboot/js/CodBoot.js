@@ -8,6 +8,7 @@ function createHost() {
   const allowedSystemCommands = { true: true, false: true };
   let randomSeed = 123456789;
   let inputLoaded = false;
+  let rawInput = '';
   let inputLines = [];
 
   function nextRandom() {
@@ -21,11 +22,12 @@ function createHost() {
     }
     inputLoaded = true;
     if (process.stdin.isTTY) {
+      rawInput = '';
       inputLines = [];
       return;
     }
-    const input = fs.readFileSync(0, 'utf8');
-    inputLines = input.split(/\r?\n/);
+    rawInput = fs.readFileSync(0, 'utf8');
+    inputLines = rawInput.split(/\r?\n/);
   }
 
   return {
@@ -44,6 +46,10 @@ function createHost() {
         return '';
       }
       return inputLines.shift();
+    },
+    getRawInput: function() {
+      loadInput();
+      return rawInput;
     },
     add: function(a, b) {
       return a + b;
@@ -233,7 +239,7 @@ function shouldUseLegacyProtocol(programSource) {
     if (line.length === 0) {
       continue;
     }
-    if (line.charAt(0) === '#' || line.indexOf('host ') === 0) {
+    if (line.indexOf('host ') === 0) {
       return true;
     }
   }
@@ -268,13 +274,72 @@ function getProductionRunner() {
   return productionRunner;
 }
 
-function runWithProductionRuntime(programSource) {
+let javaRuntimeClassPath = null;
+let javaRuntimeChecked = false;
+
+function getJavaRuntimeClassPath() {
+  if (javaRuntimeChecked) {
+    return javaRuntimeClassPath;
+  }
+  javaRuntimeChecked = true;
+  try {
+    const repoRoot = path.resolve(__dirname, '../../..');
+    const runtimeDir = '/tmp/codboot-java-runtime-classes';
+    const runnerClass = path.join(runtimeDir, 'cod/runner/CommandRunner.class');
+    if (!fs.existsSync(runnerClass)) {
+      fs.mkdirSync(runtimeDir, { recursive: true });
+      childProcess.execFileSync(
+        'bash',
+        ['-lc', 'find "' + repoRoot + '/src/main/java" -name "*.java" | sort > /tmp/codboot-java-runtime-sources.txt && javac -source 7 -target 7 -d "' + runtimeDir + '" @/tmp/codboot-java-runtime-sources.txt'],
+        { stdio: 'ignore' }
+      );
+    }
+    if (fs.existsSync(runnerClass)) {
+      javaRuntimeClassPath = runtimeDir;
+    }
+  } catch (err) {
+    javaRuntimeClassPath = null;
+  }
+  return javaRuntimeClassPath;
+}
+
+function runWithJavaRuntime(programPath, host) {
+  const classPath = getJavaRuntimeClassPath();
+  if (!classPath) {
+    return null;
+  }
+  try {
+    const stdout = childProcess.execFileSync(
+      'java',
+      ['-cp', classPath, 'cod.runner.CommandRunner', '--quiet', programPath],
+      { encoding: 'utf8', input: host.getRawInput() }
+    );
+    return splitOutputLines(stdout);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return null;
+    }
+    const out = String(err.stdout || '');
+    const stderr = String(err.stderr || '');
+    return splitOutputLines(out + (stderr ? '\n' + stderr : ''));
+  }
+}
+
+function runWithJsRuntime(programSource) {
   const runner = getProductionRunner();
   if (!runner) {
     return null;
   }
   const output = runner.compileAndRun(programSource, { reset: true });
   return splitOutputLines(output);
+}
+
+function runWithProductionRuntime(programPath, programSource, host) {
+  const javaRuntimeLines = runWithJavaRuntime(programPath, host);
+  if (javaRuntimeLines !== null) {
+    return javaRuntimeLines;
+  }
+  return runWithJsRuntime(programSource);
 }
 
 function hasCoreEntrypoint(coreSource) {
@@ -299,7 +364,7 @@ function resolveRuntimeMode(argv) {
       }
     }
   }
-  return 'legacy';
+  return 'auto';
 }
 
 function runCore(coreSource, programPath, host, runtimeMode) {
@@ -310,7 +375,7 @@ function runCore(coreSource, programPath, host, runtimeMode) {
   let userLines = null;
   const forceLegacy = runtimeMode === 'legacy' || shouldUseLegacyProtocol(programSource);
   if (!forceLegacy) {
-    userLines = runWithProductionRuntime(programSource);
+    userLines = runWithProductionRuntime(programPath, programSource, host);
     if (userLines === null && runtimeMode === 'native') {
       return { exitCode: 2, lines: ['[core] native runtime unavailable in JS host'] };
     }
