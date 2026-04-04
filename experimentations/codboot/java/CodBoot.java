@@ -93,8 +93,20 @@ public final class CodBoot {
         return line.substring(5, endQuote);
     }
 
+    private static boolean hasCoreEntrypoint(String coreSource) {
+        String[] lines = coreSource.split("\\r?\\n");
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+            if (line.length() == 0 || line.startsWith("#")) {
+                continue;
+            }
+            return "entrypoint := \"CodBootCore::v0\"".equals(line);
+        }
+        return false;
+    }
+
     private static RunResult runCore(String coreSource, String programPath, Host host) throws IOException {
-        if (coreSource.indexOf("CodBootCore::v0") < 0) {
+        if (!hasCoreEntrypoint(coreSource)) {
             List<String> invalid = new ArrayList<String>();
             invalid.add("[core] invalid core.ce format");
             return new RunResult(2, invalid);

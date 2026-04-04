@@ -21,10 +21,11 @@ This experiment follows `implementations/CodBoot-SelfHosting-Plan.md` and keeps 
 
 ## Run
 
+Run the following commands from the repository root.
+
 ### JS host
 
 ```bash
-cd /home/runner/work/Coderive/Coderive
 node experimentations/codboot/js/CodBoot.js \
   experimentations/codboot/core/core.ce \
   experimentations/codboot/parity/programs/hello.cod
@@ -33,7 +34,6 @@ node experimentations/codboot/js/CodBoot.js \
 Bootstrap check:
 
 ```bash
-cd /home/runner/work/Coderive/Coderive
 node experimentations/codboot/js/CodBoot.js \
   experimentations/codboot/core/core.ce \
   experimentations/codboot/parity/programs/hello.cod \
@@ -43,7 +43,6 @@ node experimentations/codboot/js/CodBoot.js \
 ### Java 7 host
 
 ```bash
-cd /home/runner/work/Coderive/Coderive
 mkdir -p /tmp/codboot-java7
 javac -source 7 -target 7 -d /tmp/codboot-java7 \
   experimentations/codboot/java/CodBoot.java
@@ -55,7 +54,6 @@ java -cp /tmp/codboot-java7 CodBoot \
 Bootstrap check:
 
 ```bash
-cd /home/runner/work/Coderive/Coderive
 java -cp /tmp/codboot-java7 CodBoot \
   experimentations/codboot/core/core.ce \
   experimentations/codboot/parity/programs/hello.cod \

@@ -52,8 +52,20 @@ function decodeProgramOutputs(programSource) {
   return output;
 }
 
+function hasCoreEntrypoint(coreSource) {
+  const lines = coreSource.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    if (line.length === 0 || line.charAt(0) === '#') {
+      continue;
+    }
+    return line === 'entrypoint := "CodBootCore::v0"';
+  }
+  return false;
+}
+
 function runCore(coreSource, programPath, host) {
-  if (coreSource.indexOf('CodBootCore::v0') < 0) {
+  if (!hasCoreEntrypoint(coreSource)) {
     return { exitCode: 2, lines: ['[core] invalid core.ce format'] };
   }
   const programSource = host.readFile(programPath);

@@ -11,8 +11,9 @@
 
 entrypoint := "CodBootCore::v0"
 
-# Placeholder hook: reserved for future output canonicalization to keep
-# cross-host diagnostics identical when richer evaluator output lands.
+# Placeholder hook: reserved for future output canonicalization.
+# Planned transformations include newline normalization, whitespace trimming,
+# and escaping normalization so JS/Java hosts emit identical diagnostics.
 local normalize(text: text) :: out: text {
     out := text
 }
