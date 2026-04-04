@@ -5,6 +5,7 @@ const path = require('path');
 const childProcess = require('child_process');
 
 function createHost() {
+  const allowedSystemCommands = { true: true, false: true };
   let randomSeed = 123456789;
   let inputLoaded = false;
   let inputLines = [];
@@ -81,11 +82,12 @@ function createHost() {
       return nextRandom();
     },
     system: function(command) {
-      if (!/^[A-Za-z0-9_]+$/.test(command || '')) {
+      const cmd = String(command || '').trim();
+      if (!allowedSystemCommands[cmd]) {
         return 2;
       }
       try {
-        childProcess.execFileSync(String(command), [], { stdio: 'ignore' });
+        childProcess.execFileSync(cmd, [], { stdio: 'ignore' });
         return 0;
       } catch (err) {
         if (typeof err.status === 'number') {

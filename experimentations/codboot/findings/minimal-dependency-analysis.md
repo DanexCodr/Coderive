@@ -29,8 +29,14 @@ The staged dependency model from `implementations/CodBoot-SelfHosting-Plan.md` i
 ## Deliberately excluded
 
 - No host-level parser/evaluator dependency on external libraries.
-- No dynamic class loading, reflection, or network APIs.
+- No network APIs.
 - No build-system coupling required for the experiment (manual `javac -source 7 -target 7` works).
+
+## Runtime-mode note
+
+- In `--runtime-mode=legacy`, both hosts stay in the minimal constrained-path model.
+- In Java `--runtime-mode=auto|native`, CodBoot may use reflection to invoke `cod.runner.CommandRunner` when available on classpath.
+- This reflective path is an intentional migration bridge toward runtime-native execution and is not part of the minimal legacy contract.
 
 ## Why this boundary helps
 

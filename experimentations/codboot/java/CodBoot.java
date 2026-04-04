@@ -11,6 +11,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Constructor;
+import java.util.HashSet;
+import java.util.Set;
 
 public final class CodBoot {
     private interface Host {
@@ -33,8 +35,14 @@ public final class CodBoot {
     }
 
     private static final class JavaHost implements Host {
+        private static final Set<String> ALLOWED_SYSTEM_COMMANDS = new HashSet<String>();
         private final BufferedReader inReader;
         private final Random rng;
+
+        static {
+            ALLOWED_SYSTEM_COMMANDS.add("true");
+            ALLOWED_SYSTEM_COMMANDS.add("false");
+        }
 
         private JavaHost() {
             this.inReader = new BufferedReader(new InputStreamReader(System.in, Charset.forName("UTF-8")));
@@ -140,11 +148,12 @@ public final class CodBoot {
         }
 
         public int system(String command) {
-            if (command == null || !command.matches("^[A-Za-z0-9_]+$")) {
+            String cmd = command == null ? "" : command.trim();
+            if (!ALLOWED_SYSTEM_COMMANDS.contains(cmd)) {
                 return 2;
             }
             try {
-                ProcessBuilder builder = new ProcessBuilder(command);
+                ProcessBuilder builder = new ProcessBuilder(cmd);
                 Process process = builder.start();
                 process.waitFor();
                 return process.exitValue();
