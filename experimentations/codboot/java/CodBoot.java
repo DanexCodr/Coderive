@@ -151,7 +151,7 @@ public final class CodBoot {
 
         public int system(String command) {
             String cmd = command == null ? "" : command.trim();
-            if (!ALLOWED_SYSTEM_COMMANDS.contains(cmd)) {
+            if (!ALLOWED_SYSTEM_COMMANDS.contains(cmd) || cmd.contains("/") || cmd.contains("\\") || cmd.contains(" ")) {
                 return 2;
             }
             try {

@@ -89,11 +89,11 @@ function createHost() {
     },
     system: function(command) {
       const cmd = String(command || '').trim();
-      if (!allowedSystemCommands[cmd]) {
+      if (!allowedSystemCommands[cmd] || cmd.indexOf('/') >= 0 || cmd.indexOf('\\') >= 0 || /\s/.test(cmd)) {
         return 2;
       }
       try {
-        childProcess.execFileSync(cmd, [], { stdio: 'ignore' });
+        childProcess.execFileSync(cmd, [], { stdio: 'ignore', shell: false });
         return 0;
       } catch (err) {
         if (typeof err.status === 'number') {
@@ -304,11 +304,15 @@ function getJavaRuntimeClassPath() {
       }
       walk(path.join(repoRoot, 'src/main/java'));
       sources.sort();
-      const argFile = '/tmp/codboot-java-runtime-sources.txt';
-      fs.writeFileSync(argFile, sources.join('\n') + '\n', 'utf8');
+      const repoJavaRoot = path.join(repoRoot, 'src/main/java') + path.sep;
+      for (let i = 0; i < sources.length; i += 1) {
+        if (sources[i].indexOf(repoJavaRoot) !== 0) {
+          return null;
+        }
+      }
       childProcess.execFileSync(
         'javac',
-        ['-source', '7', '-target', '7', '-d', runtimeDir, '@' + argFile],
+        ['-source', '7', '-target', '7', '-d', runtimeDir].concat(sources),
         { stdio: 'ignore' }
       );
     }
@@ -324,6 +328,9 @@ function getJavaRuntimeClassPath() {
 function runWithJavaRuntime(programPath, host) {
   const classPath = getJavaRuntimeClassPath();
   if (!classPath) {
+    return null;
+  }
+  if (!path.isAbsolute(programPath) || programPath.indexOf('/home/runner/work/Coderive/Coderive/') !== 0 || path.extname(programPath) !== '.cod') {
     return null;
   }
   try {
