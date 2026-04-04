@@ -1,0 +1,4 @@
+out("Level3 edge parity start")
+host write-file /tmp/codboot-level3-edge.txt edge-ok
+host read-file /tmp/codboot-level3-edge.txt
+host system "rm"

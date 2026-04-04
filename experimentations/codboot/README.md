@@ -70,11 +70,15 @@ java -cp /tmp/codboot-java7 CodBoot \
   - `parity/programs/empty.cod`
   - `parity/programs/level2.cod`
   - `parity/programs/level3.cod`
+  - `parity/programs/level2_edge.cod`
+  - `parity/programs/level3_edge.cod`
 - Expected output templates:
   - `parity/expected/hello.out`
   - `parity/expected/empty.out`
   - `parity/expected/level2.out`
   - `parity/expected/level3.out`
+  - `parity/expected/level2_edge.out`
+  - `parity/expected/level3_edge.out`
 
 `<PROGRAM_PATH>` in expected files is replaced at runtime with the absolute executed program path.
 `<INPUT_LINE>` in `level3.out` is replaced with the provided stdin line.
@@ -83,6 +87,14 @@ java -cp /tmp/codboot-java7 CodBoot \
 
 - `findings/experimentation-log.md`
 - `findings/minimal-dependency-analysis.md`
+
+## Differential parity check
+
+Run a full JS-vs-Java parity comparison across all parity `.cod` programs:
+
+```bash
+experimentations/codboot/parity/compare_hosts.sh
+```
 
 ## Contract
 
