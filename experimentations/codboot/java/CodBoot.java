@@ -118,7 +118,9 @@ public final class CodBoot {
                 throw new IllegalArgumentException("division by zero");
             }
             if (isWhole(a) && isWhole(b)) {
-                return (long) (a / b);
+                long left = (long) a;
+                long right = (long) b;
+                return (double) (left / right);
             }
             return a / b;
         }

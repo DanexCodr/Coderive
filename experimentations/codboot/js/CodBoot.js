@@ -288,9 +288,27 @@ function getJavaRuntimeClassPath() {
     const runnerClass = path.join(runtimeDir, 'cod/runner/CommandRunner.class');
     if (!fs.existsSync(runnerClass)) {
       fs.mkdirSync(runtimeDir, { recursive: true });
+      const sources = [];
+      function walk(dirPath) {
+        const entries = fs.readdirSync(dirPath);
+        for (let i = 0; i < entries.length; i += 1) {
+          const entry = entries[i];
+          const fullPath = path.join(dirPath, entry);
+          const stat = fs.statSync(fullPath);
+          if (stat.isDirectory()) {
+            walk(fullPath);
+          } else if (entry.length > 5 && entry.substring(entry.length - 5) === '.java') {
+            sources.push(fullPath);
+          }
+        }
+      }
+      walk(path.join(repoRoot, 'src/main/java'));
+      sources.sort();
+      const argFile = '/tmp/codboot-java-runtime-sources.txt';
+      fs.writeFileSync(argFile, sources.join('\n') + '\n', 'utf8');
       childProcess.execFileSync(
-        'bash',
-        ['-lc', 'find "' + repoRoot + '/src/main/java" -name "*.java" | sort > /tmp/codboot-java-runtime-sources.txt && javac -source 7 -target 7 -d "' + runtimeDir + '" @/tmp/codboot-java-runtime-sources.txt'],
+        'javac',
+        ['-source', '7', '-target', '7', '-d', runtimeDir, '@' + argFile],
         { stdio: 'ignore' }
       );
     }
