@@ -1238,6 +1238,13 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
         
         List<ParamNode> params = lambda.parameters != null ? lambda.parameters : new ArrayList<ParamNode>();
+        if (lambda.inferParameters && params.isEmpty()) {
+            params = inferLambdaParamsFromPlaceholders(lambda);
+            if (params.isEmpty()) {
+                throw new ProgramError(
+                    "Inferred lambda parameters require named placeholders like $item or $left in the body");
+            }
+        }
         
         List<SlotNode> lambdaSlots =
             lambda.returnSlots != null ? lambda.returnSlots : new ArrayList<SlotNode>();
@@ -2303,68 +2310,149 @@ public Object visit(ChainedComparisonNode node) {
         }
         
         LambdaNode lambda = closure.lambda;
-        List<ParamNode> params = lambda.parameters != null ? lambda.parameters : new ArrayList<ParamNode>();
+        List<ParamNode> params = resolveLambdaParameters(lambda);
         List<Object> values = args != null ? args : Collections.<Object>emptyList();
-        
-        if (params.isEmpty()) {
-            params = inferLambdaParamsFromPlaceholders(lambda);
-            if (params.isEmpty()) {
-                throw new ProgramError(
-                    "Lambda with empty parameter list must use named placeholders "
-                        + "like $left, $right in its body, or declare parameters explicitly");
-            }
+
+        Map<String, Object> lambdaLocals =
+            bindLambdaArguments(params, values, closure, ownerMethod);
+        if (lambda.inferParameters && params.isEmpty()) {
+            bindPositionalInferredPlaceholderAliases(lambdaLocals, values);
         }
-        
+
+        if (lambda.expressionBody != null) {
+            return evaluateLambdaExpressionBody(lambda, closure, lambdaLocals);
+        }
+        return evaluateLambdaBlockBody(lambda, closure, lambdaLocals);
+    }
+
+    private List<ParamNode> resolveLambdaParameters(LambdaNode lambda) {
+        if (lambda == null) {
+            return new ArrayList<ParamNode>();
+        }
+        List<ParamNode> params =
+            lambda.parameters != null ? lambda.parameters : new ArrayList<ParamNode>();
+        if (!params.isEmpty()) {
+            return params;
+        }
+        if (!lambda.inferParameters) {
+            return params;
+        }
+
+        List<ParamNode> inferred = inferLambdaParamsFromPlaceholders(lambda);
+        return inferred;
+    }
+
+    private Map<String, Object> bindLambdaArguments(
+        List<ParamNode> params,
+        List<Object> values,
+        LambdaClosure closure,
+        String ownerMethod) {
+
         Map<String, Object> lambdaLocals = new HashMap<String, Object>(closure.capturedLocals);
         for (int i = 0; i < params.size(); i++) {
             ParamNode param = params.get(i);
             if (param == null || param.name == null) continue;
-            
-            Object boundValue = null;
-            boolean found = false;
-            
-            if (i < values.size()) {
-                boundValue = values.get(i);
-                found = true;
-            } else if (param.hasDefaultValue && param.defaultValue != null) {
-                ExecutionContext defaultCtx =
-                    new ExecutionContext(closure.objectInstance, lambdaLocals, null, null, typeSystem);
-                defaultCtx.currentClass = closure.currentClass;
-                pushContext(defaultCtx);
-                try {
-                    boundValue = visit((ASTNode) param.defaultValue);
-                    found = true;
-                } finally {
-                    popContext();
-                }
-            }
-            
-            if (!found) {
-                throw new ProgramError(
-                    "Missing value for lambda parameter '" + param.name + "' in " + ownerMethod + " callback");
-            }
-            
-            if (param.type != null && !typeSystem.validateType(param.type, boundValue)) {
-                throw new ProgramError(
-                    "Lambda parameter type mismatch for '" + param.name + "'. Expected "
-                        + param.type + ", got: " + typeSystem.getConcreteType(boundValue));
-            }
-            
+
+            Object boundValue = resolveLambdaArgumentValue(i, param, values, closure, lambdaLocals, ownerMethod);
+            validateLambdaArgumentType(param, boundValue);
             lambdaLocals.put(param.name, boundValue);
         }
-        
-        if (lambda.expressionBody != null) {
-            ExecutionContext exprCtx =
-                new ExecutionContext(closure.objectInstance, lambdaLocals, null, null, typeSystem);
-            exprCtx.currentClass = closure.currentClass;
-            pushContext(exprCtx);
-            try {
-                return dispatch(lambda.expressionBody);
-            } finally {
-                popContext();
-            }
+        return lambdaLocals;
+    }
+
+    private Object resolveLambdaArgumentValue(
+        int index,
+        ParamNode param,
+        List<Object> values,
+        LambdaClosure closure,
+        Map<String, Object> lambdaLocals,
+        String ownerMethod) {
+
+        if (index < values.size()) {
+            return values.get(index);
         }
-        
+        if (param.hasDefaultValue && param.defaultValue != null) {
+            return evaluateLambdaDefaultValue(param, closure, lambdaLocals);
+        }
+        throw new ProgramError(
+            "Missing value for lambda parameter '" + param.name + "' in " + ownerMethod + " callback");
+    }
+
+    private Object evaluateLambdaDefaultValue(
+        ParamNode param,
+        LambdaClosure closure,
+        Map<String, Object> lambdaLocals) {
+
+        ExecutionContext defaultCtx =
+            new ExecutionContext(closure.objectInstance, lambdaLocals, null, null, typeSystem);
+        defaultCtx.currentClass = closure.currentClass;
+        pushContext(defaultCtx);
+        try {
+            return visit((ASTNode) param.defaultValue);
+        } finally {
+            popContext();
+        }
+    }
+
+    private void validateLambdaArgumentType(ParamNode param, Object boundValue) {
+        if (param.type != null && !typeSystem.validateType(param.type, boundValue)) {
+            throw new ProgramError(
+                "Lambda parameter type mismatch for '" + param.name + "'. Expected "
+                    + param.type + ", got: " + typeSystem.getConcreteType(boundValue));
+        }
+    }
+
+    private Object evaluateLambdaExpressionBody(
+        LambdaNode lambda,
+        LambdaClosure closure,
+        Map<String, Object> lambdaLocals) {
+
+        ExecutionContext exprCtx =
+            new ExecutionContext(closure.objectInstance, lambdaLocals, null, null, typeSystem);
+        exprCtx.currentClass = closure.currentClass;
+        pushContext(exprCtx);
+        try {
+            return dispatch(lambda.expressionBody);
+        } finally {
+            popContext();
+        }
+    }
+
+    private void bindPositionalInferredPlaceholderAliases(
+        Map<String, Object> lambdaLocals,
+        List<Object> values) {
+
+        if (values == null || values.isEmpty()) return;
+        Object first = values.get(0);
+        putIfAbsent(lambdaLocals, "$item", first);
+        putIfAbsent(lambdaLocals, "$left", first);
+        putIfAbsent(lambdaLocals, "$acc", first);
+        putIfAbsent(lambdaLocals, "$value", first);
+
+        if (values.size() > 1) {
+            Object second = values.get(1);
+            putIfAbsent(lambdaLocals, "$index", second);
+            putIfAbsent(lambdaLocals, "$right", second);
+            putIfAbsent(lambdaLocals, "$next", second);
+        }
+        if (values.size() > 2) {
+            Object third = values.get(2);
+            putIfAbsent(lambdaLocals, "$index", third);
+            putIfAbsent(lambdaLocals, "$position", third);
+        }
+    }
+
+    private void putIfAbsent(Map<String, Object> lambdaLocals, String name, Object value) {
+        if (!lambdaLocals.containsKey(name)) {
+            lambdaLocals.put(name, value);
+        }
+    }
+
+    private Object evaluateLambdaBlockBody(
+        LambdaNode lambda,
+        LambdaClosure closure,
+        Map<String, Object> lambdaLocals) {
+
         List<SlotNode> lambdaSlots =
             lambda.returnSlots != null ? lambda.returnSlots : new ArrayList<SlotNode>();
         if (lambdaSlots.isEmpty()) {
@@ -2372,18 +2460,17 @@ public Object visit(ChainedComparisonNode node) {
                 "Lambda with explicit body requires a return contract (::). "
                     + "Use expression body syntax for implicit return values.");
         }
-        
+
         Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
         Map<String, String> slotTypes = new LinkedHashMap<String, String>();
         for (SlotNode slot : lambdaSlots) {
             slotValues.put(slot.name, null);
             slotTypes.put(slot.name, slot.type);
         }
-        
+
         ExecutionContext lambdaCtx =
             new ExecutionContext(closure.objectInstance, lambdaLocals, slotValues, slotTypes, typeSystem);
         lambdaCtx.currentClass = closure.currentClass;
-        
         pushContext(lambdaCtx);
         try {
             if (lambda.body != null) {
@@ -2394,7 +2481,7 @@ public Object visit(ChainedComparisonNode node) {
         } finally {
             popContext();
         }
-        
+
         if (lambdaSlots.size() == 1) {
             return slotValues.get(lambdaSlots.get(0).name);
         }

@@ -32,17 +32,12 @@
     }
 
     async function findFirstCodPath() {
-        // Some repository layouts place generated/curated examples in this nested path.
-        // If it does not exist, traversal falls back to the broader src/main root.
-        const preferredRoot = 'src/main/cod/src/main/src/cod';
-        const fallbackRoot = 'src/main/cod/src/main';
-        const roots = [preferredRoot, fallbackRoot];
-
-        for (let i = 0; i < roots.length; i++) {
-            const found = await findFirstCodPathInRoot(roots[i]);
-            if (found) return found;
+        const primaryRoot = 'src/main/cod/src/main';
+        const found = await findFirstCodPathInRoot(primaryRoot);
+        if (!found) {
+            throw new Error(`No .cod file found under ${primaryRoot}`);
         }
-        return null;
+        return found;
     }
 
     async function findFirstCodPathInRoot(rootPath) {

@@ -30,6 +30,7 @@ public class ExpressionParser extends BaseParser {
     private final GlobalRegistry globalRegistry;
     private Set<String> globalFunctionNames;
     private StatementParser statementParser;
+    private int bareInferredLambdaDisabledDepth = 0;
     
     public ExpressionParser(ParserContext ctx) {
         this(ctx, null, null);
@@ -61,6 +62,12 @@ public class ExpressionParser extends BaseParser {
         return attempt(new ParserAction<ExprNode>() {
             @Override
             public ExprNode parse() throws ParseError {
+                if (bareInferredLambdaDisabledDepth == 0) {
+                    ExprNode inferredLambdaExpr = tryParseBareInferredLambdaExpression();
+                    if (inferredLambdaExpr != null) {
+                        return inferredLambdaExpr;
+                    }
+                }
                 if (is(ALL, ANY)) {
                     Token nextToken = next();
                     if (is(nextToken, LPAREN)) {
@@ -406,24 +413,16 @@ public class ExpressionParser extends BaseParser {
         SlotParser slotParser = new SlotParser(this);
         
         expect(LPAREN);
-        
-        List<ParamNode> parameters = new ArrayList<ParamNode>();
-        
-        // Parse parameters if any
-        if (!is(RPAREN)) {
-            parameters.add(parseLambdaParameter());
-            
-            while (consume(COMMA)) {
-                parameters.add(parseLambdaParameter());
-            }
-        }
+        LambdaParamsParseResult lambdaParams = parseLambdaParameters();
+        List<ParamNode> parameters = lambdaParams.parameters;
         
         expect(RPAREN);
         
         // Expression-body lambda, e.g. \() $left + $right
         if (!is(DOUBLE_COLON) && !is(TILDE_ARROW) && !is(LBRACE)) {
             LambdaNode lambda = ASTFactory.createLambda(parameters, null, null, lambdaToken);
-            lambda.expressionBody = parseExpr();
+            lambda.inferParameters = lambdaParams.inferParameters;
+            lambda.expressionBody = parseExprWithoutBareInferredLambda();
             return lambda;
         }
         
@@ -500,7 +499,166 @@ public class ExpressionParser extends BaseParser {
             );
         }
         
-        return ASTFactory.createLambda(parameters, returnSlots, body, lambdaToken);
+        LambdaNode lambda = ASTFactory.createLambda(parameters, returnSlots, body, lambdaToken);
+        lambda.inferParameters = lambdaParams.inferParameters;
+        return lambda;
+    }
+
+    private LambdaParamsParseResult parseLambdaParameters() {
+        List<ParamNode> parameters = new ArrayList<ParamNode>();
+        boolean inferParameters = false;
+
+        if (!is(RPAREN)) {
+            Token current = now();
+            boolean underscoreInferMarker =
+                (is(UNDERSCORE) || (is(current, ID) && "_".equals(current.getText())))
+                    && is(next(), RPAREN);
+            if (underscoreInferMarker) {
+                consume();
+                inferParameters = true;
+            } else {
+                parameters.add(parseLambdaParameter());
+                while (consume(COMMA)) {
+                    parameters.add(parseLambdaParameter());
+                }
+            }
+        }
+
+        return new LambdaParamsParseResult(parameters, inferParameters);
+    }
+
+    private ExprNode tryParseBareInferredLambdaExpression() {
+        return attempt(new ParserAction<ExprNode>() {
+            @Override
+            public ExprNode parse() throws ParseError {
+                if (!is(DOLLAR)) return null;
+                Token lambdaToken = now();
+                ExprNode expressionBody = parsePrecedence(PREC_ASSIGNMENT);
+                if (!containsPlaceholderIdentifier(expressionBody)) {
+                    return null;
+                }
+                LambdaNode lambda = ASTFactory.createLambda(new ArrayList<ParamNode>(), null, null, lambdaToken);
+                lambda.inferParameters = true;
+                lambda.expressionBody = expressionBody;
+                return lambda;
+            }
+        });
+    }
+
+    private ExprNode parseExprWithoutBareInferredLambda() {
+        bareInferredLambdaDisabledDepth++;
+        try {
+            return parseExpr();
+        } finally {
+            bareInferredLambdaDisabledDepth--;
+        }
+    }
+
+    private boolean containsPlaceholderIdentifier(ASTNode node) {
+        if (node == null) return false;
+
+        if (node instanceof IdentifierNode) {
+            String name = ((IdentifierNode) node).name;
+            return name != null && name.startsWith("$") && name.length() > 1;
+        }
+        if (node instanceof LambdaNode) {
+            return false;
+        }
+        if (node instanceof BinaryOpNode) {
+            BinaryOpNode n = (BinaryOpNode) node;
+            return containsPlaceholderIdentifier(n.left) || containsPlaceholderIdentifier(n.right);
+        }
+        if (node instanceof UnaryNode) {
+            return containsPlaceholderIdentifier(((UnaryNode) node).operand);
+        }
+        if (node instanceof TypeCastNode) {
+            return containsPlaceholderIdentifier(((TypeCastNode) node).expression);
+        }
+        if (node instanceof MethodCallNode) {
+            MethodCallNode n = (MethodCallNode) node;
+            if (n.target != null && containsPlaceholderIdentifier(n.target)) return true;
+            if (n.arguments != null) {
+                for (ExprNode arg : n.arguments) {
+                    if (containsPlaceholderIdentifier(arg)) return true;
+                }
+            }
+            return false;
+        }
+        if (node instanceof PropertyAccessNode) {
+            PropertyAccessNode n = (PropertyAccessNode) node;
+            return containsPlaceholderIdentifier(n.left) || containsPlaceholderIdentifier(n.right);
+        }
+        if (node instanceof IndexAccessNode) {
+            IndexAccessNode n = (IndexAccessNode) node;
+            return containsPlaceholderIdentifier(n.array) || containsPlaceholderIdentifier(n.index);
+        }
+        if (node instanceof ArrayNode) {
+            ArrayNode n = (ArrayNode) node;
+            if (n.elements != null) {
+                for (ExprNode expr : n.elements) {
+                    if (containsPlaceholderIdentifier(expr)) return true;
+                }
+            }
+            return false;
+        }
+        if (node instanceof TupleNode) {
+            TupleNode n = (TupleNode) node;
+            if (n.elements != null) {
+                for (ExprNode expr : n.elements) {
+                    if (containsPlaceholderIdentifier(expr)) return true;
+                }
+            }
+            return false;
+        }
+        if (node instanceof ExprIfNode) {
+            ExprIfNode n = (ExprIfNode) node;
+            return containsPlaceholderIdentifier(n.condition)
+                || containsPlaceholderIdentifier(n.thenExpr)
+                || containsPlaceholderIdentifier(n.elseExpr);
+        }
+        if (node instanceof BooleanChainNode) {
+            BooleanChainNode n = (BooleanChainNode) node;
+            if (n.expressions != null) {
+                for (ExprNode expr : n.expressions) {
+                    if (containsPlaceholderIdentifier(expr)) return true;
+                }
+            }
+            return false;
+        }
+        if (node instanceof EqualityChainNode) {
+            EqualityChainNode n = (EqualityChainNode) node;
+            if (containsPlaceholderIdentifier(n.left)) return true;
+            if (n.chainArguments != null) {
+                for (ExprNode expr : n.chainArguments) {
+                    if (containsPlaceholderIdentifier(expr)) return true;
+                }
+            }
+            return false;
+        }
+        if (node instanceof ChainedComparisonNode) {
+            ChainedComparisonNode n = (ChainedComparisonNode) node;
+            if (n.expressions != null) {
+                for (ExprNode expr : n.expressions) {
+                    if (containsPlaceholderIdentifier(expr)) return true;
+                }
+            }
+            return false;
+        }
+        if (node instanceof ValueExprNode) {
+            Object value = ((ValueExprNode) node).getValue();
+            return value instanceof ASTNode && containsPlaceholderIdentifier((ASTNode) value);
+        }
+        return false;
+    }
+
+    private static final class LambdaParamsParseResult {
+        private final List<ParamNode> parameters;
+        private final boolean inferParameters;
+
+        private LambdaParamsParseResult(List<ParamNode> parameters, boolean inferParameters) {
+            this.parameters = parameters;
+            this.inferParameters = inferParameters;
+        }
     }
 
     private ParamNode parseLambdaParameter() {

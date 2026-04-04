@@ -381,7 +381,7 @@ public abstract class BaseParser {
       return false;
     }
     return any(is(t, INT_LIT, FLOAT_LIT, TEXT_LIT, BOOL_LIT, ID),
-         is(t, LPAREN, LBRACKET, BANG, PLUS, MINUS),
+         is(t, LPAREN, LBRACKET, BANG, PLUS, MINUS, DOLLAR),
          is(t, NONE, TRUE, FALSE, SUPER, THIS));
   }
 
