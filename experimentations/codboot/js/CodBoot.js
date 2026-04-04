@@ -1,14 +1,88 @@
 'use strict';
 
 const fs = require('fs');
+const childProcess = require('child_process');
 
 function createHost() {
+  let randomSeed = 123456789;
+  let inputLoaded = false;
+  let inputLines = [];
+
+  function nextRandom() {
+    randomSeed = (1103515245 * randomSeed + 12345) % 2147483648;
+    return randomSeed / 2147483648;
+  }
+
+  function loadInput() {
+    if (inputLoaded) {
+      return;
+    }
+    inputLoaded = true;
+    if (process.stdin.isTTY) {
+      inputLines = [];
+      return;
+    }
+    const input = fs.readFileSync(0, 'utf8');
+    inputLines = input.split(/\r?\n/);
+  }
+
   return {
     readFile: function(path) {
       return fs.readFileSync(path, 'utf8');
     },
+    writeFile: function(path, content) {
+      fs.writeFileSync(path, String(content), 'utf8');
+    },
     print: function(text) {
       process.stdout.write(String(text) + '\n');
+    },
+    input: function() {
+      loadInput();
+      if (inputLines.length === 0) {
+        return '';
+      }
+      return inputLines.shift();
+    },
+    add: function(a, b) {
+      return a + b;
+    },
+    subtract: function(a, b) {
+      return a - b;
+    },
+    multiply: function(a, b) {
+      return a * b;
+    },
+    divide: function(a, b) {
+      return a / b;
+    },
+    lessThan: function(a, b) {
+      return a < b;
+    },
+    greaterThan: function(a, b) {
+      return a > b;
+    },
+    equal: function(a, b) {
+      return a === b;
+    },
+    stringAppend: function(a, b) {
+      return String(a) + String(b);
+    },
+    now: function() {
+      return Date.now();
+    },
+    random: function() {
+      return nextRandom();
+    },
+    system: function(command) {
+      try {
+        childProcess.execSync(command, { stdio: 'ignore' });
+        return 0;
+      } catch (err) {
+        if (typeof err.status === 'number') {
+          return err.status;
+        }
+        return 1;
+      }
     },
     exit: function(code) {
       process.exit(code);
@@ -39,7 +113,69 @@ function parseOutLiteral(line) {
   return line.substring(5, endQuote);
 }
 
-function decodeProgramOutputs(programSource) {
+function parseTokenValue(token) {
+  if (typeof token === 'undefined') {
+    return '';
+  }
+  if (/^-?\d+(\.\d+)?$/.test(token)) {
+    return Number(token);
+  }
+  return token;
+}
+
+function formatNumber(value) {
+  if (Math.abs(value - Math.round(value)) < 1e-9) {
+    return String(Math.round(value));
+  }
+  return String(value);
+}
+
+function parseHostDirective(line, host) {
+  if (line.indexOf('host ') !== 0) {
+    return null;
+  }
+  const tokens = line.split(/\s+/);
+  if (tokens.length < 2) {
+    return '[host] invalid directive';
+  }
+  const command = tokens[1];
+  const args = tokens.slice(2);
+  switch (command) {
+    case 'add':
+      return formatNumber(host.add(parseTokenValue(args[0]), parseTokenValue(args[1])));
+    case 'subtract':
+      return formatNumber(host.subtract(parseTokenValue(args[0]), parseTokenValue(args[1])));
+    case 'multiply':
+      return formatNumber(host.multiply(parseTokenValue(args[0]), parseTokenValue(args[1])));
+    case 'divide':
+      return formatNumber(host.divide(parseTokenValue(args[0]), parseTokenValue(args[1])));
+    case 'less-than':
+      return String(host.lessThan(parseTokenValue(args[0]), parseTokenValue(args[1])));
+    case 'greater-than':
+      return String(host.greaterThan(parseTokenValue(args[0]), parseTokenValue(args[1])));
+    case 'equal':
+      return String(host.equal(parseTokenValue(args[0]), parseTokenValue(args[1])));
+    case 'string-append':
+      return host.stringAppend(args[0], args[1]);
+    case 'write-file':
+      host.writeFile(args[0], args[1]);
+      return '[host] write-file ok';
+    case 'read-file':
+      return host.readFile(args[0]).replace(/\r?\n$/, '');
+    case 'input':
+      return host.input();
+    case 'now':
+      return String(host.now());
+    case 'random':
+      return String(host.random());
+    case 'system':
+      return String(host.system(args[0]));
+    default:
+      return '[host] unknown directive: ' + command;
+  }
+}
+
+function decodeProgramOutputs(programSource, host) {
   const lines = programSource.split(/\r?\n/);
   const output = [];
   for (let i = 0; i < lines.length; i += 1) {
@@ -47,6 +183,11 @@ function decodeProgramOutputs(programSource) {
     const literal = parseOutLiteral(line);
     if (literal !== null) {
       output.push(literal);
+      continue;
+    }
+    const hostResult = parseHostDirective(line, host);
+    if (hostResult !== null) {
+      output.push(hostResult);
     }
   }
   return output;
@@ -69,7 +210,7 @@ function runCore(coreSource, programPath, host) {
     return { exitCode: 2, lines: ['[core] invalid core.ce format'] };
   }
   const programSource = host.readFile(programPath);
-  const userLines = decodeProgramOutputs(programSource);
+  const userLines = decodeProgramOutputs(programSource, host);
   const lines = ['[core] running: ' + programPath, '[core] experimental evaluator active'];
   for (let i = 0; i < userLines.length; i += 1) {
     lines.push(userLines[i]);

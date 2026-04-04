@@ -17,13 +17,22 @@ Create a full CodBoot experiment aligned with `implementations/` guidance while 
 
 ## Host dependency boundary
 
-Implemented Level 1 shape only:
+Implemented Level 1-3 host dependency shape:
 
-- `read-file`
-- `print`
-- `exit`
-
-No arithmetic, random, time, subprocess, or network host APIs were introduced.
+- Level 1:
+  - `read-file`
+  - `print`
+  - `exit`
+- Level 2:
+  - `add`, `subtract`, `multiply`, `divide`
+  - `less-than`, `greater-than`, `equal`
+  - `string-append`
+- Level 3:
+  - `write-file`
+  - `input`
+  - `now`
+  - `random`
+  - `system`
 
 ## Experiment behavior
 
@@ -31,6 +40,7 @@ No arithmetic, random, time, subprocess, or network host APIs were introduced.
 - Host validates core signature (`CodBootCore::v0` marker).
 - Host reads `.cod` program file.
 - Host decodes simple `out("...")` statements for parity demonstration.
+- Host supports `host <operation> ...` parity directives for Level 2/3 validation.
 - Host prints normalized output and exits with deterministic code.
 - Optional bootstrap flag confirms self-bootstrap path (`--bootstrap-self`).
 

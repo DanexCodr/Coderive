@@ -1,19 +1,42 @@
 import java.io.BufferedReader;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public final class CodBoot {
     private interface Host {
         String readFile(String path) throws IOException;
+        void writeFile(String path, String content) throws IOException;
         void print(String text);
+        String input();
+        double add(double a, double b);
+        double subtract(double a, double b);
+        double multiply(double a, double b);
+        double divide(double a, double b);
+        boolean lessThan(double a, double b);
+        boolean greaterThan(double a, double b);
+        boolean equal(String a, String b);
+        String stringAppend(String a, String b);
+        long now();
+        double random();
+        int system(String command);
         void exit(int code);
     }
 
     private static final class JavaHost implements Host {
+        private final BufferedReader inReader;
+        private final Random rng;
+
+        private JavaHost() {
+            this.inReader = new BufferedReader(new InputStreamReader(System.in, Charset.forName("UTF-8")));
+            this.rng = new Random(123456789L);
+        }
+
         public String readFile(String path) throws IOException {
             BufferedReader reader = null;
             try {
@@ -38,8 +61,82 @@ public final class CodBoot {
             }
         }
 
+        public void writeFile(String path, String content) throws IOException {
+            FileOutputStream output = null;
+            try {
+                output = new FileOutputStream(path);
+                output.write(content.getBytes("UTF-8"));
+            } finally {
+                if (output != null) {
+                    output.close();
+                }
+            }
+        }
+
         public void print(String text) {
             System.out.println(String.valueOf(text));
+        }
+
+        public String input() {
+            try {
+                String line = inReader.readLine();
+                if (line == null) {
+                    return "";
+                }
+                return line;
+            } catch (IOException ignored) {
+                return "";
+            }
+        }
+
+        public double add(double a, double b) {
+            return a + b;
+        }
+
+        public double subtract(double a, double b) {
+            return a - b;
+        }
+
+        public double multiply(double a, double b) {
+            return a * b;
+        }
+
+        public double divide(double a, double b) {
+            return a / b;
+        }
+
+        public boolean lessThan(double a, double b) {
+            return a < b;
+        }
+
+        public boolean greaterThan(double a, double b) {
+            return a > b;
+        }
+
+        public boolean equal(String a, String b) {
+            return a.equals(b);
+        }
+
+        public String stringAppend(String a, String b) {
+            return a + b;
+        }
+
+        public long now() {
+            return System.currentTimeMillis();
+        }
+
+        public double random() {
+            return rng.nextDouble();
+        }
+
+        public int system(String command) {
+            try {
+                Process process = Runtime.getRuntime().exec(command);
+                process.waitFor();
+                return process.exitValue();
+            } catch (Exception e) {
+                return 1;
+            }
         }
 
         public void exit(int code) {
@@ -68,6 +165,87 @@ public final class CodBoot {
             }
         }
         return output;
+    }
+
+    private static String parseHostDirective(String line, Host host) throws IOException {
+        if (!line.startsWith("host ")) {
+            return null;
+        }
+        String[] tokens = line.split("\\s+");
+        if (tokens.length < 2) {
+            return "[host] invalid directive";
+        }
+        String command = tokens[1];
+        if ("add".equals(command)) {
+            return formatNumber(host.add(parseNumeric(tokens, 2), parseNumeric(tokens, 3)));
+        }
+        if ("subtract".equals(command)) {
+            return formatNumber(host.subtract(parseNumeric(tokens, 2), parseNumeric(tokens, 3)));
+        }
+        if ("multiply".equals(command)) {
+            return formatNumber(host.multiply(parseNumeric(tokens, 2), parseNumeric(tokens, 3)));
+        }
+        if ("divide".equals(command)) {
+            return formatNumber(host.divide(parseNumeric(tokens, 2), parseNumeric(tokens, 3)));
+        }
+        if ("less-than".equals(command)) {
+            return String.valueOf(host.lessThan(parseNumeric(tokens, 2), parseNumeric(tokens, 3)));
+        }
+        if ("greater-than".equals(command)) {
+            return String.valueOf(host.greaterThan(parseNumeric(tokens, 2), parseNumeric(tokens, 3)));
+        }
+        if ("equal".equals(command)) {
+            return String.valueOf(host.equal(readToken(tokens, 2), readToken(tokens, 3)));
+        }
+        if ("string-append".equals(command)) {
+            return host.stringAppend(readToken(tokens, 2), readToken(tokens, 3));
+        }
+        if ("write-file".equals(command)) {
+            host.writeFile(readToken(tokens, 2), readToken(tokens, 3));
+            return "[host] write-file ok";
+        }
+        if ("read-file".equals(command)) {
+            return host.readFile(readToken(tokens, 2)).replaceFirst("\\r?\\n$", "");
+        }
+        if ("input".equals(command)) {
+            return host.input();
+        }
+        if ("now".equals(command)) {
+            return String.valueOf(host.now());
+        }
+        if ("random".equals(command)) {
+            return String.valueOf(host.random());
+        }
+        if ("system".equals(command)) {
+            return String.valueOf(host.system(readToken(tokens, 2)));
+        }
+        return "[host] unknown directive: " + command;
+    }
+
+    private static String readToken(String[] tokens, int index) {
+        if (tokens.length <= index) {
+            return "";
+        }
+        return tokens[index];
+    }
+
+    private static double parseNumeric(String[] tokens, int index) {
+        if (tokens.length <= index) {
+            return 0.0;
+        }
+        try {
+            return Double.parseDouble(tokens[index]);
+        } catch (NumberFormatException ignored) {
+            return 0.0;
+        }
+    }
+
+    private static String formatNumber(double value) {
+        long rounded = Math.round(value);
+        if (Math.abs(value - rounded) < 1e-9) {
+            return String.valueOf(rounded);
+        }
+        return String.valueOf(value);
     }
 
     private static String parseOutLiteral(String line) {
@@ -114,6 +292,13 @@ public final class CodBoot {
 
         String programSource = host.readFile(programPath);
         List<String> userLines = decodeProgramOutputs(programSource);
+        String[] programLines = programSource.split("\\r?\\n");
+        for (int i = 0; i < programLines.length; i++) {
+            String result = parseHostDirective(programLines[i].trim(), host);
+            if (result != null) {
+                userLines.add(result);
+            }
+        }
         List<String> lines = new ArrayList<String>();
         lines.add("[core] running: " + programPath);
         lines.add("[core] experimental evaluator active");

@@ -5,7 +5,10 @@ This experiment follows `implementations/CodBoot-SelfHosting-Plan.md` and keeps 
 ## Goals
 
 - Shared `core.ce` for runtime behavior.
-- Minimal host dependencies (`read-file`, `print`, `exit`) by default.
+- Minimal host dependencies with staged support:
+  - Level 1: `read-file`, `print`, `exit`
+  - Level 2: arithmetic/comparison/string helpers
+  - Level 3: optional environment helpers
 - Two constrained hosts:
   - `CodBoot.js`
   - `CodBoot.java` (Java 7 compatible)
@@ -65,11 +68,16 @@ java -cp /tmp/codboot-java7 CodBoot \
 - Programs:
   - `parity/programs/hello.cod`
   - `parity/programs/empty.cod`
+  - `parity/programs/level2.cod`
+  - `parity/programs/level3.cod`
 - Expected output templates:
   - `parity/expected/hello.out`
   - `parity/expected/empty.out`
+  - `parity/expected/level2.out`
+  - `parity/expected/level3.out`
 
 `<PROGRAM_PATH>` in expected files is replaced at runtime with the absolute executed program path.
+`<INPUT_LINE>` in `level3.out` is replaced with the provided stdin line.
 
 ## Findings
 
@@ -78,9 +86,20 @@ java -cp /tmp/codboot-java7 CodBoot \
 
 ## Contract
 
-- Host exposes only:
-  - `read-file(path)`
-  - `print(text)`
-  - `exit(code)`
+- Host exposes staged dependencies:
+  - Level 1:
+    - `read-file(path)`
+    - `print(text)`
+    - `exit(code)`
+  - Level 2:
+    - `add`, `subtract`, `multiply`, `divide`
+    - `less-than`, `greater-than`, `equal`
+    - `string-append`
+  - Level 3:
+    - `write-file(path, text)`
+    - `input()`
+    - `now()`
+    - `random()`
+    - `system(command)`
 - `core.ce` drives behavior and produces output as text.
 - Hosts do not implement language semantics beyond transport/bootstrap.
