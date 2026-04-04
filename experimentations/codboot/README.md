@@ -33,10 +33,6 @@ node experimentations/codboot/js/CodBoot.js \
   experimentations/codboot/core/core.ce \
   experimentations/codboot/parity/programs/hello.cod
 
-# Runtime modes:
-# --runtime-mode=auto (default): full runtime parser/evaluator path
-# --runtime-mode=legacy: parity protocol fallback path
-# --runtime-mode=native: require runtime availability, fail otherwise
 ```
 
 Bootstrap check:
@@ -58,10 +54,6 @@ java -cp /tmp/codboot-java7 CodBoot \
   experimentations/codboot/core/core.ce \
   experimentations/codboot/parity/programs/hello.cod
 
-# Runtime modes:
-# --runtime-mode=auto (default): full runtime parser/evaluator path
-# --runtime-mode=legacy: parity protocol fallback path
-# --runtime-mode=native: require runtime availability, fail otherwise
 ```
 
 Bootstrap check:
@@ -109,10 +101,8 @@ experimentations/codboot/parity/compare_hosts.sh
 ## Contract
 
 Runtime behavior:
-- Default execution is runtime-complete (`--runtime-mode=auto`).
-- Legacy protocol mode is explicit (`--runtime-mode=legacy`) for parity fixtures only.
-- JS host attempts Java CommandRunner bridge first, then JS runtime fallback when available.
-
+- Hosts run a built-in self-contained lexer/parser/evaluator implementation.
+- Hosts do not depend on repository runtime Java/JS files for execution semantics.
 
 - Host exposes staged dependencies:
   - Level 1:
@@ -130,4 +120,4 @@ Runtime behavior:
     - `random()`
     - `system(command)`
 - `core.ce` drives behavior and produces output as text.
-- Hosts do not implement language semantics beyond transport/bootstrap.
+- Hosts currently include pre-release language semantics for parity execution.

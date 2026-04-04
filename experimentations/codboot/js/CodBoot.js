@@ -1,14 +1,12 @@
 'use strict';
 
 const fs = require('fs');
-const path = require('path');
 const childProcess = require('child_process');
 
 function createHost() {
   const allowedSystemCommands = { true: true, false: true };
   let randomSeed = 123456789;
   let inputLoaded = false;
-  let rawInput = '';
   let inputLines = [];
 
   function nextRandom() {
@@ -22,20 +20,19 @@ function createHost() {
     }
     inputLoaded = true;
     if (process.stdin.isTTY) {
-      rawInput = '';
       inputLines = [];
       return;
     }
-    rawInput = fs.readFileSync(0, 'utf8');
+    const rawInput = fs.readFileSync(0, 'utf8');
     inputLines = rawInput.split(/\r?\n/);
   }
 
   return {
-    readFile: function(path) {
-      return fs.readFileSync(path, 'utf8');
+    readFile: function(filePath) {
+      return fs.readFileSync(filePath, 'utf8');
     },
-    writeFile: function(path, content) {
-      fs.writeFileSync(path, String(content), 'utf8');
+    writeFile: function(filePath, content) {
+      fs.writeFileSync(filePath, String(content), 'utf8');
     },
     print: function(text) {
       process.stdout.write(String(text) + '\n');
@@ -46,10 +43,6 @@ function createHost() {
         return '';
       }
       return inputLines.shift();
-    },
-    getRawInput: function() {
-      loadInput();
-      return rawInput;
     },
     add: function(a, b) {
       return a + b;
@@ -76,7 +69,7 @@ function createHost() {
       return a > b;
     },
     equal: function(a, b) {
-      return a === b;
+      return String(a) === String(b);
     },
     stringAppend: function(a, b) {
       return String(a) + String(b);
@@ -108,37 +101,198 @@ function createHost() {
   };
 }
 
-function parseOutLiteral(line) {
-  if (line.indexOf('out("') !== 0 || line.charAt(line.length - 1) !== ')') {
-    return null;
-  }
-  let endQuote = -1;
-  for (let i = 5; i < line.length - 1; i += 1) {
-    if (line.charAt(i) === '"') {
-      let slashCount = 0;
-      for (let j = i - 1; j >= 0 && line.charAt(j) === '\\'; j -= 1) {
-        slashCount += 1;
-      }
-      if (slashCount % 2 === 0) {
-        endQuote = i;
-        break;
-      }
-    }
-  }
-  if (endQuote !== line.length - 2) {
-    return null;
-  }
-  return line.substring(5, endQuote);
+function Token(type, value, line, column) {
+  this.type = type;
+  this.value = value;
+  this.line = line;
+  this.column = column;
 }
 
-function parseTokenValue(token) {
-  if (typeof token === 'undefined') {
-    return '';
+function Lexer(source) {
+  this.source = source;
+  this.index = 0;
+  this.line = 1;
+  this.column = 1;
+}
+
+Lexer.prototype.currentChar = function() {
+  return this.index < this.source.length ? this.source.charAt(this.index) : '';
+};
+
+Lexer.prototype.advance = function() {
+  const ch = this.currentChar();
+  if (ch === '\n') {
+    this.line += 1;
+    this.column = 1;
+  } else {
+    this.column += 1;
   }
-  if (/^-?\d+(\.\d+)?$/.test(token)) {
-    return Number(token);
+  this.index += 1;
+};
+
+Lexer.prototype.readString = function(line, column) {
+  let result = '';
+  this.advance();
+  while (this.index < this.source.length) {
+    const ch = this.currentChar();
+    if (ch === '"') {
+      this.advance();
+      return new Token('STRING', result, line, column);
+    }
+    if (ch === '\\') {
+      this.advance();
+      const esc = this.currentChar();
+      if (esc === 'n') {
+        result += '\n';
+      } else if (esc === 't') {
+        result += '\t';
+      } else if (esc === '"') {
+        result += '"';
+      } else if (esc === '\\') {
+        result += '\\';
+      } else {
+        result += esc;
+      }
+      this.advance();
+    } else {
+      result += ch;
+      this.advance();
+    }
   }
+  throw new Error('Unterminated string at line ' + line + ', column ' + column);
+};
+
+Lexer.prototype.readWord = function(line, column) {
+  let result = '';
+  while (this.index < this.source.length) {
+    const ch = this.currentChar();
+    if (ch === '' || ch === '\n' || ch === ' ' || ch === '\t' || ch === '\r' || ch === '(' || ch === ')' || ch === '#') {
+      break;
+    }
+    result += ch;
+    this.advance();
+  }
+  return new Token('WORD', result, line, column);
+};
+
+Lexer.prototype.tokenize = function() {
+  const tokens = [];
+  while (this.index < this.source.length) {
+    const ch = this.currentChar();
+    if (ch === ' ' || ch === '\t' || ch === '\r') {
+      this.advance();
+      continue;
+    }
+    if (ch === '\n') {
+      tokens.push(new Token('NEWLINE', '\n', this.line, this.column));
+      this.advance();
+      continue;
+    }
+    if (ch === '#') {
+      while (this.index < this.source.length && this.currentChar() !== '\n') {
+        this.advance();
+      }
+      continue;
+    }
+    if (ch === '(') {
+      tokens.push(new Token('LPAREN', '(', this.line, this.column));
+      this.advance();
+      continue;
+    }
+    if (ch === ')') {
+      tokens.push(new Token('RPAREN', ')', this.line, this.column));
+      this.advance();
+      continue;
+    }
+    if (ch === '"') {
+      tokens.push(this.readString(this.line, this.column));
+      continue;
+    }
+    tokens.push(this.readWord(this.line, this.column));
+  }
+  tokens.push(new Token('EOF', '', this.line, this.column));
+  return tokens;
+};
+
+function Parser(tokens) {
+  this.tokens = tokens;
+  this.index = 0;
+}
+
+Parser.prototype.peek = function() {
+  return this.tokens[this.index];
+};
+
+Parser.prototype.advance = function() {
+  const token = this.peek();
+  this.index += 1;
   return token;
+};
+
+Parser.prototype.match = function(type, value) {
+  const token = this.peek();
+  if (!token || token.type !== type) {
+    return false;
+  }
+  if (typeof value !== 'undefined' && token.value !== value) {
+    return false;
+  }
+  this.advance();
+  return true;
+};
+
+Parser.prototype.expect = function(type, value) {
+  const token = this.peek();
+  if (!this.match(type, value)) {
+    throw new Error('Parse error at line ' + token.line + ', column ' + token.column + ': expected ' + type + (typeof value !== 'undefined' ? ' ' + value : ''));
+  }
+  return this.tokens[this.index - 1];
+};
+
+Parser.prototype.skipNewlines = function() {
+  while (this.match('NEWLINE')) {
+    // noop
+  }
+};
+
+Parser.prototype.parseProgram = function() {
+  const statements = [];
+  this.skipNewlines();
+  while (this.peek().type !== 'EOF') {
+    statements.push(this.parseStatement());
+    this.skipNewlines();
+  }
+  return { type: 'Program', statements: statements };
+};
+
+Parser.prototype.parseStatement = function() {
+  const token = this.expect('WORD');
+  if (token.value === 'out') {
+    this.expect('LPAREN');
+    const text = this.expect('STRING').value;
+    this.expect('RPAREN');
+    return { type: 'OutStatement', text: text };
+  }
+  if (token.value === 'host') {
+    const command = this.expect('WORD').value;
+    const args = [];
+    while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
+      const next = this.peek();
+      if (next.type !== 'WORD' && next.type !== 'STRING') {
+        throw new Error('Parse error at line ' + next.line + ', column ' + next.column + ': expected host argument');
+      }
+      args.push(this.advance().value);
+    }
+    return { type: 'HostStatement', command: command, args: args };
+  }
+  throw new Error('Parse error at line ' + token.line + ', column ' + token.column + ': unknown statement ' + token.value);
+};
+
+function parseAtom(text) {
+  if (/^-?\d+(\.\d+)?$/.test(text)) {
+    return Number(text);
+  }
+  return text;
 }
 
 function formatNumber(value) {
@@ -148,47 +302,38 @@ function formatNumber(value) {
   return String(value);
 }
 
-function parseHostDirective(line, host) {
-  if (line.indexOf('host ') !== 0) {
-    return null;
-  }
-  const tokens = line.split(/\s+/);
-  if (tokens.length < 2) {
-    return '[host] invalid directive';
-  }
-  const command = tokens[1];
-  const args = tokens.slice(2);
+function evaluateHost(command, args, host) {
   switch (command) {
     case 'add':
-      return formatNumber(host.add(parseTokenValue(args[0]), parseTokenValue(args[1])));
+      return formatNumber(host.add(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
     case 'subtract':
-      return formatNumber(host.subtract(parseTokenValue(args[0]), parseTokenValue(args[1])));
+      return formatNumber(host.subtract(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
     case 'multiply':
-      return formatNumber(host.multiply(parseTokenValue(args[0]), parseTokenValue(args[1])));
+      return formatNumber(host.multiply(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
     case 'divide':
       try {
-        return formatNumber(host.divide(parseTokenValue(args[0]), parseTokenValue(args[1])));
+        return formatNumber(host.divide(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
       } catch (err) {
         return '[host] divide error: ' + err.message;
       }
     case 'less-than':
-      return String(host.lessThan(parseTokenValue(args[0]), parseTokenValue(args[1])));
+      return String(host.lessThan(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
     case 'greater-than':
-      return String(host.greaterThan(parseTokenValue(args[0]), parseTokenValue(args[1])));
+      return String(host.greaterThan(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
     case 'equal':
-      return String(host.equal(parseTokenValue(args[0]), parseTokenValue(args[1])));
+      return String(host.equal(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
     case 'string-append':
-      return host.stringAppend(args[0], args[1]);
+      return host.stringAppend(args[0] || '', args[1] || '');
     case 'write-file':
       try {
-        host.writeFile(args[0], args[1]);
+        host.writeFile(args[0] || '', args[1] || '');
         return '[host] write-file ok';
       } catch (err) {
         return '[host] write-file error: ' + err.message;
       }
     case 'read-file':
       try {
-        return host.readFile(args[0]).replace(/\r?\n$/, '');
+        return host.readFile(args[0] || '').replace(/\r?\n$/, '');
       } catch (err) {
         return '[host] read-file error: ' + err.message;
       }
@@ -199,172 +344,23 @@ function parseHostDirective(line, host) {
     case 'random':
       return String(host.random());
     case 'system':
-      return String(host.system(args[0]));
+      return String(host.system(args[0] || ''));
     default:
       return '[host] unknown directive: ' + command;
   }
 }
 
-function decodeProgramOutputs(programSource, host) {
-  const lines = programSource.split(/\r?\n/);
+function evaluateProgram(program, host) {
   const output = [];
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i].trim();
-    const literal = parseOutLiteral(line);
-    if (literal !== null) {
-      output.push(literal);
-      continue;
-    }
-    const hostResult = parseHostDirective(line, host);
-    if (hostResult !== null) {
-      output.push(hostResult);
+  for (let i = 0; i < program.statements.length; i += 1) {
+    const stmt = program.statements[i];
+    if (stmt.type === 'OutStatement') {
+      output.push(stmt.text);
+    } else if (stmt.type === 'HostStatement') {
+      output.push(evaluateHost(stmt.command, stmt.args, host));
     }
   }
   return output;
-}
-
-function splitOutputLines(output) {
-  if (!output) {
-    return [];
-  }
-  return String(output).replace(/\r\n/g, '\n').split('\n').filter(function(line) {
-    return line.length > 0;
-  });
-}
-
-function shouldUseLegacyProtocol(programSource) {
-  const lines = programSource.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i].trim();
-    if (line.length === 0) {
-      continue;
-    }
-    if (line.indexOf('host ') === 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
-let productionRunner = null;
-let productionRunnerChecked = false;
-
-function getProductionRunner() {
-  if (productionRunnerChecked) {
-    return productionRunner;
-  }
-  productionRunnerChecked = true;
-  try {
-    const codRoot = path.resolve(__dirname, '../../../docs/js/cod');
-    require(path.join(codRoot, 'lexer-ast.js'));
-    require(path.join(codRoot, 'parser.js'));
-    require(path.join(codRoot, 'interpreter.js'));
-    const replModule = require(path.join(codRoot, 'repl.js'));
-    if (replModule && replModule.CodREPLRunner && typeof replModule.CodREPLRunner.compileAndRun === 'function') {
-      productionRunner = replModule.CodREPLRunner;
-      return productionRunner;
-    }
-    if (global.CodREPLRunner && typeof global.CodREPLRunner.compileAndRun === 'function') {
-      productionRunner = global.CodREPLRunner;
-      return productionRunner;
-    }
-  } catch (err) {
-    productionRunner = null;
-  }
-  return productionRunner;
-}
-
-let javaRuntimeClassPath = null;
-let javaRuntimeChecked = false;
-
-function getJavaRuntimeClassPath() {
-  if (javaRuntimeChecked) {
-    return javaRuntimeClassPath;
-  }
-  javaRuntimeChecked = true;
-  try {
-    const repoRoot = path.resolve(__dirname, '../../..');
-    const runtimeDir = '/tmp/codboot-java-runtime-classes';
-    const runnerClass = path.join(runtimeDir, 'cod/runner/CommandRunner.class');
-    if (!fs.existsSync(runnerClass)) {
-      fs.mkdirSync(runtimeDir, { recursive: true });
-      const sources = [];
-      function walk(dirPath) {
-        const entries = fs.readdirSync(dirPath);
-        for (let i = 0; i < entries.length; i += 1) {
-          const entry = entries[i];
-          const fullPath = path.join(dirPath, entry);
-          const stat = fs.statSync(fullPath);
-          if (stat.isDirectory()) {
-            walk(fullPath);
-          } else if (entry.length > 5 && entry.substring(entry.length - 5) === '.java') {
-            sources.push(fullPath);
-          }
-        }
-      }
-      walk(path.join(repoRoot, 'src/main/java'));
-      sources.sort();
-      const repoJavaRoot = path.join(repoRoot, 'src/main/java') + path.sep;
-      for (let i = 0; i < sources.length; i += 1) {
-        if (sources[i].indexOf(repoJavaRoot) !== 0) {
-          return null;
-        }
-      }
-      childProcess.execFileSync(
-        'javac',
-        ['-source', '7', '-target', '7', '-d', runtimeDir].concat(sources),
-        { stdio: 'ignore' }
-      );
-    }
-    if (fs.existsSync(runnerClass)) {
-      javaRuntimeClassPath = runtimeDir;
-    }
-  } catch (err) {
-    javaRuntimeClassPath = null;
-  }
-  return javaRuntimeClassPath;
-}
-
-function runWithJavaRuntime(programPath, host) {
-  const classPath = getJavaRuntimeClassPath();
-  if (!classPath) {
-    return null;
-  }
-  if (!path.isAbsolute(programPath) || programPath.indexOf('/home/runner/work/Coderive/Coderive/') !== 0 || path.extname(programPath) !== '.cod') {
-    return null;
-  }
-  try {
-    const stdout = childProcess.execFileSync(
-      'java',
-      ['-cp', classPath, 'cod.runner.CommandRunner', '--quiet', programPath],
-      { encoding: 'utf8', input: host.getRawInput() }
-    );
-    return splitOutputLines(stdout);
-  } catch (err) {
-    if (err.code === 'ENOENT') {
-      return null;
-    }
-    const out = String(err.stdout || '');
-    const stderr = String(err.stderr || '');
-    return splitOutputLines(out + (stderr ? '\n' + stderr : ''));
-  }
-}
-
-function runWithJsRuntime(programSource) {
-  const runner = getProductionRunner();
-  if (!runner) {
-    return null;
-  }
-  const output = runner.compileAndRun(programSource, { reset: true });
-  return splitOutputLines(output);
-}
-
-function runWithProductionRuntime(programPath, programSource, host) {
-  const javaRuntimeLines = runWithJavaRuntime(programPath, host);
-  if (javaRuntimeLines !== null) {
-    return javaRuntimeLines;
-  }
-  return runWithJsRuntime(programSource);
 }
 
 function hasCoreEntrypoint(coreSource) {
@@ -379,35 +375,20 @@ function hasCoreEntrypoint(coreSource) {
   return false;
 }
 
-function resolveRuntimeMode(argv) {
-  for (let i = 4; i < argv.length; i += 1) {
-    const arg = argv[i];
-    if (arg.indexOf('--runtime-mode=') === 0) {
-      const mode = arg.substring('--runtime-mode='.length);
-      if (mode === 'legacy' || mode === 'auto' || mode === 'native') {
-        return mode;
-      }
-    }
-  }
-  return 'auto';
-}
-
-function runCore(coreSource, programPath, host, runtimeMode) {
+function runCore(coreSource, programPath, host) {
   if (!hasCoreEntrypoint(coreSource)) {
     return { exitCode: 2, lines: ['[core] invalid core.ce format'] };
   }
   const programSource = host.readFile(programPath);
-  let userLines = null;
-  const forceLegacy = runtimeMode === 'legacy' || shouldUseLegacyProtocol(programSource);
-  if (!forceLegacy) {
-    userLines = runWithProductionRuntime(programPath, programSource, host);
-    if (userLines === null && runtimeMode === 'native') {
-      return { exitCode: 2, lines: ['[core] native runtime unavailable in JS host'] };
-    }
+  let userLines;
+  try {
+    const tokens = new Lexer(programSource).tokenize();
+    const program = new Parser(tokens).parseProgram();
+    userLines = evaluateProgram(program, host);
+  } catch (err) {
+    return { exitCode: 2, lines: ['[core] parse/eval error: ' + err.message] };
   }
-  if (userLines === null) {
-    userLines = decodeProgramOutputs(programSource, host);
-  }
+
   const lines = ['[core] running: ' + programPath, '[core] experimental evaluator active'];
   for (let i = 0; i < userLines.length; i += 1) {
     lines.push(userLines[i]);
@@ -420,13 +401,12 @@ function runCore(coreSource, programPath, host, runtimeMode) {
 
 function main(argv, host) {
   if (argv.length < 4) {
-    host.print('Usage: node CodBoot.js <core.ce-path> <program.cod-path> [--bootstrap-self] [--runtime-mode=legacy|auto|native]');
+    host.print('Usage: node CodBoot.js <core.ce-path> <program.cod-path> [--bootstrap-self]');
     return 64;
   }
   const corePath = argv[2];
   const programPath = argv[3];
   const bootstrapSelf = argv.indexOf('--bootstrap-self') >= 0;
-  const runtimeMode = resolveRuntimeMode(argv);
   const coreSource = host.readFile(corePath);
 
   if (bootstrapSelf) {
@@ -434,7 +414,7 @@ function main(argv, host) {
     return 0;
   }
 
-  const result = runCore(coreSource, programPath, host, runtimeMode);
+  const result = runCore(coreSource, programPath, host);
   for (let i = 0; i < result.lines.length; i += 1) {
     host.print(result.lines[i]);
   }
