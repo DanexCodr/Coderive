@@ -59,7 +59,7 @@ for program_path in "$PROGRAM_DIR"/*.cod; do
   input_line=""
   case "$(basename "$program_path")" in
     level3.cod)
-      input_line="diff-input"
+      input_line="level3-test-input"
       ;;
   esac
   run_one "$program_path" "$expected_file" "$input_line"

@@ -82,7 +82,7 @@ function createHost() {
     },
     system: function(command) {
       const cmd = String(command || '').trim();
-      if (!allowedSystemCommands[cmd] || cmd.indexOf('/') >= 0 || cmd.indexOf('\\') >= 0 || /\s/.test(cmd)) {
+      if (!allowedSystemCommands[cmd] || cmd.indexOf('/') >= 0 || cmd.indexOf('\\') >= 0 || /[\s;|&$`]/.test(cmd)) {
         return 2;
       }
       try {
