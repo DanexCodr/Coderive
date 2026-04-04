@@ -807,10 +807,13 @@ public final class CodBoot {
         String corePath = args[0];
         String programPath = args[1];
         boolean bootstrapSelf = false;
+        boolean selfHostOnly = false;
         for (int i = 2; i < args.length; i++) {
             if ("--bootstrap-self".equals(args[i])) {
                 bootstrapSelf = true;
-                break;
+            }
+            if ("--self-host-only".equals(args[i])) {
+                selfHostOnly = true;
             }
         }
 
@@ -821,7 +824,7 @@ public final class CodBoot {
         }
 
         RunResult result = runCore(coreSource, programPath, host);
-        if (result.exitCode != 0 && !result.lines.isEmpty() && result.lines.get(0).startsWith("[core] parse/eval error:")) {
+        if (!selfHostOnly && result.exitCode != 0 && !result.lines.isEmpty() && result.lines.get(0).startsWith("[core] parse/eval error:")) {
             RunResult nativeResult = runNativeRuntime(programPath, corePath);
             if (nativeResult.exitCode == 0) {
                 result = nativeResult;
@@ -830,6 +833,9 @@ public final class CodBoot {
                 merged.addAll(nativeResult.lines);
                 result = new RunResult(result.exitCode, merged);
             }
+        }
+        if (selfHostOnly && result.exitCode != 0 && !result.lines.isEmpty() && result.lines.get(0).startsWith("[core] parse/eval error:")) {
+            result.lines.add("[core] self-host-only mode: native fallback disabled");
         }
         for (int i = 0; i < result.lines.size(); i++) {
             host.print(result.lines.get(i));

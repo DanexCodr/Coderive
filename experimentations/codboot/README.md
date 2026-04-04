@@ -44,6 +44,15 @@ node experimentations/codboot/js/CodBoot.js \
   --bootstrap-self
 ```
 
+Self-host-only check (disables native fallback):
+
+```bash
+node experimentations/codboot/js/CodBoot.js \
+  experimentations/codboot/core/core.ce \
+  experimentations/codboot/parity/programs/hello.cod \
+  --self-host-only
+```
+
 ### Java 7 host
 
 ```bash
@@ -63,6 +72,15 @@ java -cp /tmp/codboot-java7 CodBoot \
   experimentations/codboot/core/core.ce \
   experimentations/codboot/parity/programs/hello.cod \
   --bootstrap-self
+```
+
+Self-host-only check (disables native fallback):
+
+```bash
+java -cp /tmp/codboot-java7 CodBoot \
+  experimentations/codboot/core/core.ce \
+  experimentations/codboot/parity/programs/hello.cod \
+  --self-host-only
 ```
 
 ## Parity corpus

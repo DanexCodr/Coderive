@@ -615,6 +615,7 @@ function main(argv, host) {
   const corePath = argv[2];
   const programPath = argv[3];
   const bootstrapSelf = argv.indexOf('--bootstrap-self') >= 0;
+  const selfHostedOnly = argv.indexOf('--self-host-only') >= 0;
   const coreSource = host.readFile(corePath);
 
   if (bootstrapSelf) {
@@ -623,7 +624,7 @@ function main(argv, host) {
   }
 
   let result = runCore(coreSource, programPath, host);
-  if (result.exitCode !== 0 && result.lines.length > 0 && result.lines[0].indexOf('[core] parse/eval error:') === 0) {
+  if (!selfHostedOnly && result.exitCode !== 0 && result.lines.length > 0 && result.lines[0].indexOf('[core] parse/eval error:') === 0) {
     const repoRoot = path.resolve(path.dirname(corePath), '..', '..', '..');
     const nativeJs = runNativeJsRuntime(repoRoot, programPath);
     if (nativeJs.ok) {
@@ -643,6 +644,9 @@ function main(argv, host) {
         result = { exitCode: result.exitCode, lines: merged };
       }
     }
+  }
+  if (selfHostedOnly && result.exitCode !== 0 && result.lines.length > 0 && result.lines[0].indexOf('[core] parse/eval error:') === 0) {
+    result.lines.push('[core] self-host-only mode: native fallback disabled');
   }
   for (let i = 0; i < result.lines.length; i += 1) {
     host.print(result.lines[i]);
