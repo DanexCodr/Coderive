@@ -102,6 +102,9 @@ public final class CodBoot {
         }
 
         public double divide(double a, double b) {
+            if (b == 0.0d) {
+                throw new IllegalArgumentException("division by zero");
+            }
             return a / b;
         }
 
@@ -130,8 +133,16 @@ public final class CodBoot {
         }
 
         public int system(String command) {
+            if (command == null || !command.matches("^[a-zA-Z0-9._\\-\\/ ]+$")) {
+                return 2;
+            }
             try {
-                Process process = Runtime.getRuntime().exec(command);
+                String[] parts = command.trim().split("\\s+");
+                if (parts.length == 0 || parts[0].length() == 0) {
+                    return 2;
+                }
+                ProcessBuilder builder = new ProcessBuilder(parts);
+                Process process = builder.start();
                 process.waitFor();
                 return process.exitValue();
             } catch (Exception e) {
@@ -186,7 +197,11 @@ public final class CodBoot {
             return formatNumber(host.multiply(parseNumeric(tokens, 2), parseNumeric(tokens, 3)));
         }
         if ("divide".equals(command)) {
-            return formatNumber(host.divide(parseNumeric(tokens, 2), parseNumeric(tokens, 3)));
+            try {
+                return formatNumber(host.divide(parseNumeric(tokens, 2), parseNumeric(tokens, 3)));
+            } catch (RuntimeException e) {
+                return "[host] divide error: " + e.getMessage();
+            }
         }
         if ("less-than".equals(command)) {
             return String.valueOf(host.lessThan(parseNumeric(tokens, 2), parseNumeric(tokens, 3)));
@@ -201,11 +216,19 @@ public final class CodBoot {
             return host.stringAppend(readToken(tokens, 2), readToken(tokens, 3));
         }
         if ("write-file".equals(command)) {
-            host.writeFile(readToken(tokens, 2), readToken(tokens, 3));
-            return "[host] write-file ok";
+            try {
+                host.writeFile(readToken(tokens, 2), readToken(tokens, 3));
+                return "[host] write-file ok";
+            } catch (IOException e) {
+                return "[host] write-file error: " + e.getMessage();
+            }
         }
         if ("read-file".equals(command)) {
-            return host.readFile(readToken(tokens, 2)).replaceFirst("\\r?\\n$", "");
+            try {
+                return host.readFile(readToken(tokens, 2)).replaceFirst("\\r?\\n$", "");
+            } catch (IOException e) {
+                return "[host] read-file error: " + e.getMessage();
+            }
         }
         if ("input".equals(command)) {
             return host.input();

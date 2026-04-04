@@ -53,6 +53,9 @@ function createHost() {
       return a * b;
     },
     divide: function(a, b) {
+      if (b === 0) {
+        throw new Error('division by zero');
+      }
       return a / b;
     },
     lessThan: function(a, b) {
@@ -74,8 +77,15 @@ function createHost() {
       return nextRandom();
     },
     system: function(command) {
+      if (!/^[a-zA-Z0-9._\\-\\/ ]+$/.test(command || '')) {
+        return 2;
+      }
       try {
-        childProcess.execSync(command, { stdio: 'ignore' });
+        const parts = String(command).trim().split(/\s+/).filter(Boolean);
+        if (parts.length === 0) {
+          return 2;
+        }
+        childProcess.execFileSync(parts[0], parts.slice(1), { stdio: 'ignore' });
         return 0;
       } catch (err) {
         if (typeof err.status === 'number') {
@@ -148,7 +158,11 @@ function parseHostDirective(line, host) {
     case 'multiply':
       return formatNumber(host.multiply(parseTokenValue(args[0]), parseTokenValue(args[1])));
     case 'divide':
-      return formatNumber(host.divide(parseTokenValue(args[0]), parseTokenValue(args[1])));
+      try {
+        return formatNumber(host.divide(parseTokenValue(args[0]), parseTokenValue(args[1])));
+      } catch (err) {
+        return '[host] divide error: ' + err.message;
+      }
     case 'less-than':
       return String(host.lessThan(parseTokenValue(args[0]), parseTokenValue(args[1])));
     case 'greater-than':
@@ -158,10 +172,18 @@ function parseHostDirective(line, host) {
     case 'string-append':
       return host.stringAppend(args[0], args[1]);
     case 'write-file':
-      host.writeFile(args[0], args[1]);
-      return '[host] write-file ok';
+      try {
+        host.writeFile(args[0], args[1]);
+        return '[host] write-file ok';
+      } catch (err) {
+        return '[host] write-file error: ' + err.message;
+      }
     case 'read-file':
-      return host.readFile(args[0]).replace(/\r?\n$/, '');
+      try {
+        return host.readFile(args[0]).replace(/\r?\n$/, '');
+      } catch (err) {
+        return '[host] read-file error: ' + err.message;
+      }
     case 'input':
       return host.input();
     case 'now':

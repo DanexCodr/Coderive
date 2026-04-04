@@ -12,7 +12,7 @@ The staged dependency model from `implementations/CodBoot-SelfHosting-Plan.md` i
 - stdin read for `input`.
 - `Date.now` for `now`.
 - deterministic LCG for `random`.
-- `child_process.execSync` for `system`.
+- `child_process.execFileSync` for `system`.
 - `process.exit` for `exit`.
 
 ## APIs used by Java 7 host
@@ -23,7 +23,7 @@ The staged dependency model from `implementations/CodBoot-SelfHosting-Plan.md` i
 - `BufferedReader(System.in)` for `input`.
 - `System.currentTimeMillis` for `now`.
 - `java.util.Random` seeded deterministically for `random`.
-- `Runtime.getRuntime().exec` for `system`.
+- `ProcessBuilder` for `system`.
 - `System.exit` for `exit`.
 
 ## Deliberately excluded
