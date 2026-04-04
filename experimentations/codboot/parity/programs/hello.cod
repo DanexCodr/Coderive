@@ -1,0 +1,2 @@
+out("Hello from CodBoot parity corpus")
+out("JS and Java should match this output")

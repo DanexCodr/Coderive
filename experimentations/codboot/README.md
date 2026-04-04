@@ -29,6 +29,15 @@ node /home/runner/work/Coderive/Coderive/experimentations/codboot/js/CodBoot.js 
   /home/runner/work/Coderive/Coderive/experimentations/codboot/parity/programs/hello.cod
 ```
 
+Bootstrap check:
+
+```bash
+node /home/runner/work/Coderive/Coderive/experimentations/codboot/js/CodBoot.js \
+  /home/runner/work/Coderive/Coderive/experimentations/codboot/core/core.ce \
+  /home/runner/work/Coderive/Coderive/experimentations/codboot/parity/programs/hello.cod \
+  --bootstrap-self
+```
+
 ### Java 7 host
 
 ```bash
@@ -39,6 +48,31 @@ java -cp /tmp/codboot-java7 CodBoot \
   /home/runner/work/Coderive/Coderive/experimentations/codboot/core/core.ce \
   /home/runner/work/Coderive/Coderive/experimentations/codboot/parity/programs/hello.cod
 ```
+
+Bootstrap check:
+
+```bash
+java -cp /tmp/codboot-java7 CodBoot \
+  /home/runner/work/Coderive/Coderive/experimentations/codboot/core/core.ce \
+  /home/runner/work/Coderive/Coderive/experimentations/codboot/parity/programs/hello.cod \
+  --bootstrap-self
+```
+
+## Parity corpus
+
+- Programs:
+  - `parity/programs/hello.cod`
+  - `parity/programs/empty.cod`
+- Expected output templates:
+  - `parity/expected/hello.out`
+  - `parity/expected/empty.out`
+
+`<PROGRAM_PATH>` in expected files is replaced at runtime with the absolute executed program path.
+
+## Findings
+
+- `findings/experimentation-log.md`
+- `findings/minimal-dependency-analysis.md`
 
 ## Contract
 
