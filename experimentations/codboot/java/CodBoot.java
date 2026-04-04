@@ -1,8 +1,10 @@
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.File;
 import java.io.InputStreamReader;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
@@ -239,6 +241,12 @@ public final class CodBoot {
                     continue;
                 }
                 if (ch == '#') {
+                    while (index < source.length() && currentChar() != '\n') {
+                        advance();
+                    }
+                    continue;
+                }
+                if (ch == '/' && index + 1 < source.length() && source.charAt(index + 1) == '/') {
                     while (index < source.length() && currentChar() != '\n') {
                         advance();
                     }
@@ -532,6 +540,104 @@ public final class CodBoot {
         return new RunResult(0, lines);
     }
 
+    private static void collectJavaFiles(File dir, List<String> out) {
+        File[] files = dir.listFiles();
+        if (files == null) {
+            return;
+        }
+        for (int i = 0; i < files.length; i++) {
+            File f = files[i];
+            if (f.isDirectory()) {
+                collectJavaFiles(f, out);
+            } else if (f.getName().endsWith(".java")) {
+                out.add(f.getAbsolutePath());
+            }
+        }
+    }
+
+    private static String ensureRuntimeClasses() throws IOException, InterruptedException {
+        String classDir = "/tmp/codboot-coderive-java-classes";
+        File classRoot = new File(classDir);
+        File commandRunnerClass = new File(classRoot, "cod/runner/CommandRunner.class");
+        if (commandRunnerClass.exists()) {
+            return classDir;
+        }
+        if (!classRoot.exists() && !classRoot.mkdirs()) {
+            throw new IOException("unable to create class output dir");
+        }
+        File javaRoot = new File("/home/runner/work/Coderive/Coderive/src/main/java");
+        if (!javaRoot.exists() || !javaRoot.isDirectory()) {
+            throw new IOException("java runtime source root not found");
+        }
+        List<String> javaFiles = new ArrayList<String>();
+        collectJavaFiles(javaRoot, javaFiles);
+        if (javaFiles.isEmpty()) {
+            throw new IOException("no Java runtime sources found");
+        }
+        File sourceList = new File("/tmp/codboot-coderive-java-sources.txt");
+        PrintWriter writer = null;
+        try {
+            writer = new PrintWriter(sourceList, "UTF-8");
+            for (int i = 0; i < javaFiles.size(); i++) {
+                writer.println(javaFiles.get(i));
+            }
+        } finally {
+            if (writer != null) {
+                writer.close();
+            }
+        }
+        ProcessBuilder compilePb = new ProcessBuilder(
+            "javac",
+            "-source", "7",
+            "-target", "7",
+            "-Xlint:-options",
+            "-d", classDir,
+            "@" + sourceList.getAbsolutePath()
+        );
+        Process compile = compilePb.start();
+        int compileExit = compile.waitFor();
+        if (compileExit != 0 || !commandRunnerClass.exists()) {
+            throw new IOException("failed to compile native runtime classes");
+        }
+        return classDir;
+    }
+
+    private static RunResult runNativeRuntime(String programPath) {
+        try {
+            String classDir = ensureRuntimeClasses();
+            ProcessBuilder pb = new ProcessBuilder(
+                "java",
+                "-cp", classDir,
+                "cod.runner.CommandRunner",
+                programPath
+            );
+            Process process = pb.start();
+            BufferedReader stdout = new BufferedReader(new InputStreamReader(process.getInputStream(), Charset.forName("UTF-8")));
+            BufferedReader stderr = new BufferedReader(new InputStreamReader(process.getErrorStream(), Charset.forName("UTF-8")));
+            List<String> lines = new ArrayList<String>();
+            String line;
+            while ((line = stdout.readLine()) != null) {
+                if (line.length() > 0) {
+                    lines.add(line);
+                }
+            }
+            while ((line = stderr.readLine()) != null) {
+                if (line.length() > 0) {
+                    lines.add(line);
+                }
+            }
+            int exit = process.waitFor();
+            if (lines.isEmpty()) {
+                lines.add("[core] native runtime produced no output");
+            }
+            return new RunResult(exit, lines);
+        } catch (Exception e) {
+            List<String> lines = new ArrayList<String>();
+            lines.add("[core] native runtime unavailable: " + e.getMessage());
+            return new RunResult(2, lines);
+        }
+    }
+
     private static int mainImpl(String[] args, Host host) throws IOException {
         if (args.length < 2) {
             host.print("Usage: java CodBoot <core.ce-path> <program.cod-path> [--bootstrap-self]");
@@ -555,6 +661,16 @@ public final class CodBoot {
         }
 
         RunResult result = runCore(coreSource, programPath, host);
+        if (result.exitCode != 0 && !result.lines.isEmpty() && result.lines.get(0).startsWith("[core] parse/eval error:")) {
+            RunResult nativeResult = runNativeRuntime(programPath);
+            if (nativeResult.exitCode == 0) {
+                result = nativeResult;
+            } else {
+                List<String> merged = new ArrayList<String>(result.lines);
+                merged.addAll(nativeResult.lines);
+                result = new RunResult(result.exitCode, merged);
+            }
+        }
         for (int i = 0; i < result.lines.size(); i++) {
             host.print(result.lines.get(i));
         }

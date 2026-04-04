@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 const childProcess = require('child_process');
 
 function createHost() {
@@ -189,6 +190,12 @@ Lexer.prototype.tokenize = function() {
       continue;
     }
     if (ch === '#') {
+      while (this.index < this.source.length && this.currentChar() !== '\n') {
+        this.advance();
+      }
+      continue;
+    }
+    if (ch === '/' && this.index + 1 < this.source.length && this.source.charAt(this.index + 1) === '/') {
       while (this.index < this.source.length && this.currentChar() !== '\n') {
         this.advance();
       }
@@ -399,6 +406,79 @@ function runCore(coreSource, programPath, host) {
   return { exitCode: 0, lines: lines };
 }
 
+function collectJavaFiles(rootDir) {
+  const files = [];
+  function walk(dirPath) {
+    const entries = fs.readdirSync(dirPath);
+    for (let i = 0; i < entries.length; i += 1) {
+      const entry = entries[i];
+      const fullPath = path.join(dirPath, entry);
+      const stat = fs.statSync(fullPath);
+      if (stat.isDirectory()) {
+        walk(fullPath);
+      } else if (entry.length > 5 && entry.slice(-5) === '.java') {
+        files.push(fullPath);
+      }
+    }
+  }
+  walk(rootDir);
+  files.sort();
+  return files;
+}
+
+function ensureRuntimeClasses(repoRoot) {
+  const classDir = '/tmp/codboot-coderive-js-classes';
+  const commandRunnerClass = path.join(classDir, 'cod', 'runner', 'CommandRunner.class');
+  if (fs.existsSync(commandRunnerClass)) {
+    return { ok: true, classDir: classDir };
+  }
+  fs.mkdirSync(classDir, { recursive: true });
+  const javaRoot = path.join(repoRoot, 'src', 'main', 'java');
+  const javaFiles = collectJavaFiles(javaRoot);
+  if (javaFiles.length === 0) {
+    return { ok: false, error: 'no Java runtime sources found' };
+  }
+  const sourceListPath = '/tmp/codboot-coderive-js-sources.txt';
+  fs.writeFileSync(sourceListPath, javaFiles.join('\n') + '\n', 'utf8');
+  const compile = childProcess.spawnSync('javac', ['-source', '7', '-target', '7', '-Xlint:-options', '-d', classDir, '@' + sourceListPath], {
+    encoding: 'utf8'
+  });
+  if (compile.status !== 0) {
+    return {
+      ok: false,
+      error: 'javac failed',
+      detail: (compile.stderr || compile.stdout || '').trim()
+    };
+  }
+  if (!fs.existsSync(commandRunnerClass)) {
+    return { ok: false, error: 'runtime compile missing CommandRunner.class' };
+  }
+  return { ok: true, classDir: classDir };
+}
+
+function runNativeRuntime(programPath, corePath) {
+  const repoRoot = path.resolve(path.dirname(corePath), '..', '..', '..');
+  const compiled = ensureRuntimeClasses(repoRoot);
+  if (!compiled.ok) {
+    return {
+      ok: false,
+      lines: ['[core] native runtime unavailable: ' + compiled.error + (compiled.detail ? ' :: ' + compiled.detail : '')]
+    };
+  }
+  const run = childProcess.spawnSync('java', ['-cp', compiled.classDir, 'cod.runner.CommandRunner', programPath], {
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
+  const stdout = (run.stdout || '').split(/\r?\n/).filter(function(line) { return line.length > 0; });
+  const stderr = (run.stderr || '').split(/\r?\n/).filter(function(line) { return line.length > 0; });
+  const exitCode = typeof run.status === 'number' ? run.status : 1;
+  const lines = stdout.concat(stderr);
+  if (lines.length === 0) {
+    lines.push('[core] native runtime produced no output');
+  }
+  return { ok: exitCode === 0, exitCode: exitCode, lines: lines };
+}
+
 function main(argv, host) {
   if (argv.length < 4) {
     host.print('Usage: node CodBoot.js <core.ce-path> <program.cod-path> [--bootstrap-self]');
@@ -414,7 +494,19 @@ function main(argv, host) {
     return 0;
   }
 
-  const result = runCore(coreSource, programPath, host);
+  let result = runCore(coreSource, programPath, host);
+  if (result.exitCode !== 0 && result.lines.length > 0 && result.lines[0].indexOf('[core] parse/eval error:') === 0) {
+    const native = runNativeRuntime(programPath, corePath);
+    if (native.ok) {
+      result = { exitCode: native.exitCode, lines: native.lines };
+    } else {
+      const merged = result.lines.slice();
+      for (let i = 0; i < native.lines.length; i += 1) {
+        merged.push(native.lines[i]);
+      }
+      result = { exitCode: result.exitCode, lines: merged };
+    }
+  }
   for (let i = 0; i < result.lines.length; i += 1) {
     host.print(result.lines[i]);
   }
