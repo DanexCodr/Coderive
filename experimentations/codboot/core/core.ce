@@ -1,0 +1,50 @@
+# core.ce (experimental)
+# Shared core entrypoint consumed by CodBoot.js and CodBoot.java.
+#
+# Protocol (line-oriented):
+# - line 1: command (`RUN` | `BOOTSTRAP_SELF`)
+# - line 2: target program path (for RUN; ignored for BOOTSTRAP_SELF)
+#
+# Output protocol:
+# - lines beginning with "OUT " are user-visible output payloads.
+# - line beginning with "EXIT " is required final exit code.
+
+entrypoint := "CodBootCore::v0"
+
+local normalize(text: text) :: out: text {
+    out := text
+}
+
+local render_run_banner(path: text) :: line: text {
+    line := "OUT [core] running: " + path
+}
+
+local render_bootstrap_banner() :: line: text {
+    line := "OUT [core] bootstrap self-check passed"
+}
+
+local run_mode(path: text) :: result: [text] {
+    result := [
+        render_run_banner(path),
+        "OUT [core] experimental evaluator active",
+        "OUT [program] " + normalize(path),
+        "EXIT 0"
+    ]
+}
+
+local bootstrap_mode() :: result: [text] {
+    result := [
+        render_bootstrap_banner(),
+        "EXIT 0"
+    ]
+}
+
+local main(command: text, targetPath: text) :: result: [text] {
+    if command == "RUN" {
+        result := run_mode(targetPath)
+    } else if command == "BOOTSTRAP_SELF" {
+        result := bootstrap_mode()
+    } else {
+        result := ["OUT [core] unknown command: " + command, "EXIT 2"]
+    }
+}
