@@ -611,17 +611,13 @@ public final class CodBoot {
                 "cod.runner.CommandRunner",
                 programPath
             );
+            pb.redirectErrorStream(true);
             Process process = pb.start();
+            process.getOutputStream().close();
             BufferedReader stdout = new BufferedReader(new InputStreamReader(process.getInputStream(), Charset.forName("UTF-8")));
-            BufferedReader stderr = new BufferedReader(new InputStreamReader(process.getErrorStream(), Charset.forName("UTF-8")));
             List<String> lines = new ArrayList<String>();
             String line;
             while ((line = stdout.readLine()) != null) {
-                if (line.length() > 0) {
-                    lines.add(line);
-                }
-            }
-            while ((line = stderr.readLine()) != null) {
                 if (line.length() > 0) {
                     lines.add(line);
                 }
