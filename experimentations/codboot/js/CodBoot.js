@@ -56,6 +56,9 @@ function createHost() {
       if (b === 0) {
         throw new Error('division by zero');
       }
+      if (Number.isInteger(a) && Number.isInteger(b)) {
+        return Math.trunc(a / b);
+      }
       return a / b;
     },
     lessThan: function(a, b) {
@@ -77,15 +80,11 @@ function createHost() {
       return nextRandom();
     },
     system: function(command) {
-      if (!/^[a-zA-Z0-9._\\-\\/ ]+$/.test(command || '')) {
+      if (!/^[A-Za-z0-9_-]+$/.test(command || '')) {
         return 2;
       }
       try {
-        const parts = String(command).trim().split(/\s+/).filter(Boolean);
-        if (parts.length === 0) {
-          return 2;
-        }
-        childProcess.execFileSync(parts[0], parts.slice(1), { stdio: 'ignore' });
+        childProcess.execFileSync(String(command), [], { stdio: 'ignore' });
         return 0;
       } catch (err) {
         if (typeof err.status === 'number') {

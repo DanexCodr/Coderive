@@ -105,6 +105,9 @@ public final class CodBoot {
             if (b == 0.0d) {
                 throw new IllegalArgumentException("division by zero");
             }
+            if (isWhole(a) && isWhole(b)) {
+                return (long) (a / b);
+            }
             return a / b;
         }
 
@@ -133,15 +136,11 @@ public final class CodBoot {
         }
 
         public int system(String command) {
-            if (command == null || !command.matches("^[a-zA-Z0-9._\\-\\/ ]+$")) {
+            if (command == null || !command.matches("^[A-Za-z0-9_-]+$")) {
                 return 2;
             }
             try {
-                String[] parts = command.trim().split("\\s+");
-                if (parts.length == 0 || parts[0].length() == 0) {
-                    return 2;
-                }
-                ProcessBuilder builder = new ProcessBuilder(parts);
+                ProcessBuilder builder = new ProcessBuilder(command);
                 Process process = builder.start();
                 process.waitFor();
                 return process.exitValue();
@@ -269,6 +268,10 @@ public final class CodBoot {
             return String.valueOf(rounded);
         }
         return String.valueOf(value);
+    }
+
+    private static boolean isWhole(double value) {
+        return Math.abs(value - Math.rint(value)) < 1e-9;
     }
 
     private static String parseOutLiteral(String line) {
