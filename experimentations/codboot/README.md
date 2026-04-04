@@ -116,6 +116,24 @@ Run a full JS-vs-Java parity comparison across all parity `.cod` programs:
 experimentations/codboot/parity/compare_hosts.sh
 ```
 
+## Full functionality validation (100% checklist-oriented)
+
+Run comprehensive validation beyond the baseline parity corpus:
+
+```bash
+experimentations/codboot/parity/full_validation.sh
+```
+
+This validates:
+- strict self-host-only parity for existing parity corpus
+- negative/error-path parity (`parity/negative/*.cod`)
+- generated mixed-behavior coverage
+- differential sweep across all repository `.cod` files
+- Java repeat-run determinism/consistency checks
+
+Capability tracking checklist:
+- `experimentations/codboot/parity/capability-checklist.txt`
+
 ## Contract
 
 Runtime behavior:
