@@ -12,6 +12,7 @@ JAVA_HOST="$ROOT_DIR/experimentations/codboot/java/CodBoot.java"
 JAVA_OUT="${CODBOOT_JAVA_OUT_DIR:-$(mktemp -d)}"
 TMP_DIR="${CODBOOT_TMP_DIR:-$(mktemp -d)}"
 GENERATED_DIR="$TMP_DIR/generated"
+GENERATED_IO_PATH="$TMP_DIR/codboot-generated.txt"
 
 mkdir -p "$JAVA_OUT" "$TMP_DIR" "$GENERATED_DIR"
 javac -Xlint:-options -source 7 -target 7 -d "$JAVA_OUT" "$JAVA_HOST"
@@ -130,8 +131,8 @@ host unknown-op
 EOF
 cat > "$GENERATED_DIR/generated_io.cod" <<EOF
 out("Generated io start")
-host write-file $TMP_DIR/codboot-generated.txt generated-ok
-host read-file $TMP_DIR/codboot-generated.txt
+host write-file $GENERATED_IO_PATH generated-ok
+host read-file $GENERATED_IO_PATH
 host input
 host system true
 EOF
