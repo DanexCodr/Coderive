@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const childProcess = require('child_process');
+// This constant is needed before core semantics are parsed; fallback prefix must match core message format.
 const CORE_PARSE_EVAL_ERROR_PREFIX = '[core] parse/eval error: ';
 
 function containsUnsafeShellChar(value) {

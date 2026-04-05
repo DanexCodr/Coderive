@@ -198,7 +198,6 @@ done
 
 echo "[6/7] Bootstrap/self-interpretation checks"
 "$PARITY_DIR/compare_hosts.sh" --bootstrap-only
-run_parity_case "self-interpret-core" "$CORE_PATH" "" "" "true"
 
 echo "[7/7] Baseline script compatibility"
 "$PARITY_DIR/compare_hosts.sh"

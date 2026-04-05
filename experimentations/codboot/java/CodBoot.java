@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public final class CodBoot {
+    // This constant is needed before core semantics are parsed; fallback prefix must match core message format.
     private static final String CORE_PARSE_EVAL_ERROR_PREFIX = "[core] parse/eval error: ";
 
     private interface Host {
