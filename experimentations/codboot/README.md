@@ -44,7 +44,7 @@ node experimentations/codboot/js/CodBoot.js \
   --bootstrap-self
 ```
 
-Self-host-only check (disables native fallback):
+Self-host-only check (strict mode; host fallback paths removed):
 
 ```bash
 node experimentations/codboot/js/CodBoot.js \
@@ -74,7 +74,7 @@ java -cp /tmp/codboot-java7 CodBoot \
   --bootstrap-self
 ```
 
-Self-host-only check (disables native fallback):
+Self-host-only check (strict mode; host fallback paths removed):
 
 ```bash
 java -cp /tmp/codboot-java7 CodBoot \

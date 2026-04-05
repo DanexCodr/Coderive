@@ -638,29 +638,8 @@ function main(argv, host) {
   }
 
   let result = runCore(coreSource, programPath, host);
-  if (!selfHostedOnly && result.exitCode !== 0 && result.lines.length > 0 && result.lines[0].indexOf('[core] parse/eval error:') === 0) {
-    const repoRoot = path.resolve(path.dirname(corePath), '..', '..', '..');
-    const nativeJs = runNativeJsRuntime(repoRoot, programPath);
-    if (nativeJs.ok) {
-      result = { exitCode: nativeJs.exitCode, lines: nativeJs.lines };
-    } else {
-      const native = runNativeRuntime(programPath, corePath);
-      if (native.ok) {
-        result = { exitCode: native.exitCode, lines: native.lines };
-      } else {
-        const merged = result.lines.slice();
-        for (let i = 0; i < nativeJs.lines.length; i += 1) {
-          merged.push(nativeJs.lines[i]);
-        }
-        for (let i = 0; i < native.lines.length; i += 1) {
-          merged.push(native.lines[i]);
-        }
-        result = { exitCode: result.exitCode, lines: merged };
-      }
-    }
-  }
   if (selfHostedOnly && result.exitCode !== 0 && result.lines.length > 0 && result.lines[0].indexOf('[core] parse/eval error:') === 0) {
-    result.lines.push('[core] self-host-only mode: native fallback disabled');
+    result.lines.push('[core] self-host-only mode: no host fallback paths available');
   }
   for (let i = 0; i < result.lines.length; i += 1) {
     host.print(result.lines[i]);

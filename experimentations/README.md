@@ -10,11 +10,12 @@ This directory contains isolated, non-production experiments for Coderive.
 
 **CodBoot is not fully self-hosting yet.**
 
-- Current status: **~65% of final self-hosting goal**
+- Current status: **~70% of final self-hosting goal**
 - Why not 100% yet:
   - `core.ce` is still a protocol-level experimental core and does **not** yet implement the full language pipeline (full lexer/parser/evaluator semantics) that production Java Coderive supports.
-  - JS/Java hosts still carry substantial language/runtime logic; they are not yet reduced to minimal boundary adapters for all normal execution paths.
+  - JS/Java hosts still carry substantial language/runtime logic; they are not yet reduced to minimal boundary adapters for full-language execution.
   - The anti-criteria in `implementations/CodBoot-SelfHosting-Plan.md` still apply (language semantics remain host-heavy instead of fully core-owned).
+  - Although fallback paths were removed from CodBoot hosts, this alone does not make the shared `core.ce` language-complete.
 
 In short: parity and stability checks are strong for the current experimental scope, but that scope is still narrower than full production runtime completeness.
 
@@ -43,7 +44,7 @@ Primary remaining milestones:
 1. Move full language implementation (lexer/parser/evaluator + semantic forms) into shared `core.ce`.
 2. Keep host responsibilities to boundary-only concerns (I/O/process/platform APIs).
 3. Ensure identical behavior across JS and Java using the same core-owned semantics.
-4. Remove/disable host semantic fallback paths from primary runtime execution.
+4. Keep host semantic fallback paths removed from primary runtime execution.
 5. Prove bootstrap/self-interpretation and run complete parity + negative + determinism gates at full language scope.
 
 ## Boundaries

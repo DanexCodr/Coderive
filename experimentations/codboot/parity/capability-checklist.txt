@@ -45,7 +45,7 @@ Level 3 host directives
 Failure/diagnostic paths
 ------------------------
 - [x] Invalid/unterminated string parse error parity.
-- [x] Self-host-only fallback-disabled diagnostic parity.
+- [x] Self-host-only strict-mode diagnostic parity.
 - [x] Negative corpus enforces non-zero exits.
 
 Corpus coverage

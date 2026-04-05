@@ -838,18 +838,8 @@ public final class CodBoot {
         }
 
         RunResult result = runCore(coreSource, programPath, host);
-        if (!selfHostOnly && result.exitCode != 0 && !result.lines.isEmpty() && result.lines.get(0).startsWith("[core] parse/eval error:")) {
-            RunResult nativeResult = runNativeRuntime(programPath, corePath);
-            if (nativeResult.exitCode == 0) {
-                result = nativeResult;
-            } else {
-                List<String> merged = new ArrayList<String>(result.lines);
-                merged.addAll(nativeResult.lines);
-                result = new RunResult(result.exitCode, merged);
-            }
-        }
         if (selfHostOnly && result.exitCode != 0 && !result.lines.isEmpty() && result.lines.get(0).startsWith("[core] parse/eval error:")) {
-            result.lines.add("[core] self-host-only mode: native fallback disabled");
+            result.lines.add("[core] self-host-only mode: no host fallback paths available");
         }
         for (int i = 0; i < result.lines.size(); i++) {
             host.print(result.lines.get(i));
