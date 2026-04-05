@@ -96,7 +96,7 @@ run_parity_case() {
   fi
 }
 
-echo "[1/6] Baseline parity corpus (strict self-host-only)"
+echo "[1/7] Baseline parity corpus (strict self-host-only)"
 for program_path in "$PROGRAM_DIR"/*.cod; do
   name="$(basename "$program_path" .cod)"
   expected_file="$EXPECTED_DIR/$name.out"
@@ -109,13 +109,13 @@ for program_path in "$PROGRAM_DIR"/*.cod; do
   run_parity_case "parity-$name" "$program_path" "$input_line" "$expected_file"
 done
 
-echo "[2/6] Negative corpus (error parity)"
+echo "[2/7] Negative corpus (error parity)"
 for program_path in "$NEGATIVE_DIR"/*.cod; do
   name="$(basename "$program_path" .cod)"
   run_parity_case "negative-$name" "$program_path" "" "" "true"
 done
 
-echo "[3/6] Generated corpus (expanded behavior coverage)"
+echo "[3/7] Generated corpus (expanded behavior coverage)"
 cat > "$GENERATED_DIR/generated_simple.cod" <<'EOF'
 out("Generated simple start")
 host add 41 1
@@ -145,13 +145,13 @@ for program_path in "$GENERATED_DIR"/*.cod; do
   run_parity_case "generated-$name" "$program_path" "$input_line"
 done
 
-echo "[4/6] Full repository .cod differential sweep"
+echo "[4/7] Full repository .cod differential sweep"
 find "$ROOT_DIR" -path "$ROOT_DIR/.git" -prune -o -name '*.cod' -print | sort >"$TMP_DIR/all-cod-files.txt"
 while IFS= read -r program_path; do
   run_parity_case "full-sweep-$(basename "$program_path")" "$program_path" ""
 done <"$TMP_DIR/all-cod-files.txt"
 
-echo "[5/6] Java-only repeat-run consistency checks"
+echo "[5/7] Java-only repeat-run consistency checks"
 deterministic_programs=(
   "$PROGRAM_DIR/hello.cod"
   "$PROGRAM_DIR/empty.cod"
@@ -196,7 +196,18 @@ for program_path in "${deterministic_programs[@]}"; do
   done
 done
 
-echo "[6/6] Baseline script compatibility"
+echo "[6/7] Bootstrap/self-interpretation checks"
+js_bootstrap_out="$TMP_DIR/bootstrap.js.out"
+java_bootstrap_out="$TMP_DIR/bootstrap.java.out"
+node "$JS_HOST" "$CORE_PATH" "$PROGRAM_DIR/hello.cod" --bootstrap-self >"$js_bootstrap_out"
+java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$PROGRAM_DIR/hello.cod" --bootstrap-self >"$java_bootstrap_out"
+if ! diff -u "$js_bootstrap_out" "$java_bootstrap_out"; then
+  echo "Bootstrap output mismatch between JS and Java hosts" >&2
+  exit 1
+fi
+run_parity_case "self-interpret-core" "$CORE_PATH" "" "" "true"
+
+echo "[7/7] Baseline script compatibility"
 "$PARITY_DIR/compare_hosts.sh"
 
 echo "CodBoot full validation passed:"

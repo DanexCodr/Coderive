@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 public final class CodBoot {
     private interface Host {
@@ -310,10 +312,12 @@ public final class CodBoot {
 
     private static final class Parser {
         private final List<Token> tokens;
+        private final CoreSemantics semantics;
         private int index;
 
-        private Parser(List<Token> tokens) {
+        private Parser(List<Token> tokens, CoreSemantics semantics) {
             this.tokens = tokens;
+            this.semantics = semantics;
             this.index = 0;
         }
 
@@ -365,7 +369,7 @@ public final class CodBoot {
 
         private Statement parseStatement() {
             Token token = expect("WORD", null);
-            if ("out".equals(token.value)) {
+            if (semantics.keywordOut.equals(token.value)) {
                 String text = "";
                 if (match("LPAREN", "(")) {
                     while (!"RPAREN".equals(peek().type) && !"NEWLINE".equals(peek().type) && !"EOF".equals(peek().type)) {
@@ -382,7 +386,7 @@ public final class CodBoot {
                 }
                 return new Statement("OutStatement", text, null, null);
             }
-            if ("host".equals(token.value)) {
+            if (semantics.keywordHost.equals(token.value)) {
                 String command = expect("WORD", null).value;
                 List<String> args = new ArrayList<String>();
                 while (!"NEWLINE".equals(peek().type) && !"EOF".equals(peek().type)) {
@@ -411,6 +415,97 @@ public final class CodBoot {
         }
     }
 
+    private static final class CoreSemantics {
+        private final String keywordOut;
+        private final String keywordHost;
+        private final String invalidCoreFormat;
+        private final String runningPrefix;
+        private final String experimentalEvaluatorActive;
+        private final String bootstrapSelfCheckPassed;
+        private final String parseEvalErrorPrefix;
+        private final String noOutStatementsDetected;
+        private final String selfHostOnlyNoFallback;
+        private final String unknownDirectivePrefix;
+        private final String divideErrorPrefix;
+        private final String writeFileOk;
+        private final String writeFileErrorPrefix;
+        private final String readFileErrorPrefix;
+        private final String cmdAdd;
+        private final String cmdSubtract;
+        private final String cmdMultiply;
+        private final String cmdDivide;
+        private final String cmdLessThan;
+        private final String cmdGreaterThan;
+        private final String cmdEqual;
+        private final String cmdStringAppend;
+        private final String cmdWriteFile;
+        private final String cmdReadFile;
+        private final String cmdInput;
+        private final String cmdNow;
+        private final String cmdRandom;
+        private final String cmdSystem;
+
+        private CoreSemantics(
+            String keywordOut,
+            String keywordHost,
+            String invalidCoreFormat,
+            String runningPrefix,
+            String experimentalEvaluatorActive,
+            String bootstrapSelfCheckPassed,
+            String parseEvalErrorPrefix,
+            String noOutStatementsDetected,
+            String selfHostOnlyNoFallback,
+            String unknownDirectivePrefix,
+            String divideErrorPrefix,
+            String writeFileOk,
+            String writeFileErrorPrefix,
+            String readFileErrorPrefix,
+            String cmdAdd,
+            String cmdSubtract,
+            String cmdMultiply,
+            String cmdDivide,
+            String cmdLessThan,
+            String cmdGreaterThan,
+            String cmdEqual,
+            String cmdStringAppend,
+            String cmdWriteFile,
+            String cmdReadFile,
+            String cmdInput,
+            String cmdNow,
+            String cmdRandom,
+            String cmdSystem
+        ) {
+            this.keywordOut = keywordOut;
+            this.keywordHost = keywordHost;
+            this.invalidCoreFormat = invalidCoreFormat;
+            this.runningPrefix = runningPrefix;
+            this.experimentalEvaluatorActive = experimentalEvaluatorActive;
+            this.bootstrapSelfCheckPassed = bootstrapSelfCheckPassed;
+            this.parseEvalErrorPrefix = parseEvalErrorPrefix;
+            this.noOutStatementsDetected = noOutStatementsDetected;
+            this.selfHostOnlyNoFallback = selfHostOnlyNoFallback;
+            this.unknownDirectivePrefix = unknownDirectivePrefix;
+            this.divideErrorPrefix = divideErrorPrefix;
+            this.writeFileOk = writeFileOk;
+            this.writeFileErrorPrefix = writeFileErrorPrefix;
+            this.readFileErrorPrefix = readFileErrorPrefix;
+            this.cmdAdd = cmdAdd;
+            this.cmdSubtract = cmdSubtract;
+            this.cmdMultiply = cmdMultiply;
+            this.cmdDivide = cmdDivide;
+            this.cmdLessThan = cmdLessThan;
+            this.cmdGreaterThan = cmdGreaterThan;
+            this.cmdEqual = cmdEqual;
+            this.cmdStringAppend = cmdStringAppend;
+            this.cmdWriteFile = cmdWriteFile;
+            this.cmdReadFile = cmdReadFile;
+            this.cmdInput = cmdInput;
+            this.cmdNow = cmdNow;
+            this.cmdRandom = cmdRandom;
+            this.cmdSystem = cmdSystem;
+        }
+    }
+
     private static boolean hasCoreEntrypoint(String coreSource) {
         String[] lines = coreSource.split("\\r?\\n");
         for (int i = 0; i < lines.length; i++) {
@@ -421,6 +516,94 @@ public final class CodBoot {
             return "entrypoint := \"CodBootCore::v0\"".equals(line);
         }
         return false;
+    }
+
+    private static String extractSemanticsJson(String coreSource) {
+        Pattern pattern = Pattern.compile("semantics_json\\s*:=\\s*\"\"\"\\s*([\\s\\S]*?)\\s*\"\"\"");
+        Matcher matcher = pattern.matcher(coreSource);
+        if (!matcher.find()) {
+            return "";
+        }
+        return matcher.group(1);
+    }
+
+    private static String unescapeJsonString(String value) {
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (ch == '\\' && i + 1 < value.length()) {
+                char esc = value.charAt(i + 1);
+                if (esc == 'n') {
+                    out.append('\n');
+                } else if (esc == 't') {
+                    out.append('\t');
+                } else if (esc == 'r') {
+                    out.append('\r');
+                } else if (esc == '"') {
+                    out.append('"');
+                } else if (esc == '\\') {
+                    out.append('\\');
+                } else if (esc == '/') {
+                    out.append('/');
+                } else if (esc == 'b') {
+                    out.append('\b');
+                } else if (esc == 'f') {
+                    out.append('\f');
+                } else {
+                    out.append(esc);
+                }
+                i += 1;
+            } else {
+                out.append(ch);
+            }
+        }
+        return out.toString();
+    }
+
+    private static String requireJsonStringValue(String json, String key) {
+        Pattern pattern = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"((?:\\\\.|[^\\\\\"])*)\"");
+        Matcher matcher = pattern.matcher(json);
+        if (!matcher.find()) {
+            throw new RuntimeException("missing semantics key: " + key);
+        }
+        return unescapeJsonString(matcher.group(1));
+    }
+
+    private static CoreSemantics parseCoreSemantics(String coreSource) {
+        String json = extractSemanticsJson(coreSource);
+        if (json.length() == 0) {
+            throw new RuntimeException("missing semantics_json block");
+        }
+        return new CoreSemantics(
+            requireJsonStringValue(json, "out"),
+            requireJsonStringValue(json, "host"),
+            requireJsonStringValue(json, "invalidCoreFormat"),
+            requireJsonStringValue(json, "runningPrefix"),
+            requireJsonStringValue(json, "experimentalEvaluatorActive"),
+            requireJsonStringValue(json, "bootstrapSelfCheckPassed"),
+            requireJsonStringValue(json, "parseEvalErrorPrefix"),
+            requireJsonStringValue(json, "noOutStatementsDetected"),
+            requireJsonStringValue(json, "selfHostOnlyNoFallback"),
+            requireJsonStringValue(json, "unknownDirectivePrefix"),
+            requireJsonStringValue(json, "divideErrorPrefix"),
+            requireJsonStringValue(json, "writeFileOk"),
+            requireJsonStringValue(json, "writeFileErrorPrefix"),
+            requireJsonStringValue(json, "readFileErrorPrefix"),
+            requireJsonStringValue(json, "add"),
+            requireJsonStringValue(json, "subtract"),
+            requireJsonStringValue(json, "multiply"),
+            requireJsonStringValue(json, "divide"),
+            requireJsonStringValue(json, "lessThan"),
+            requireJsonStringValue(json, "greaterThan"),
+            requireJsonStringValue(json, "equal"),
+            requireJsonStringValue(json, "stringAppend"),
+            requireJsonStringValue(json, "writeFile"),
+            requireJsonStringValue(json, "readFile"),
+            requireJsonStringValue(json, "input"),
+            requireJsonStringValue(json, "now"),
+            requireJsonStringValue(json, "random"),
+            requireJsonStringValue(json, "system")
+        );
     }
 
     private static Object parseAtom(String token) {
@@ -466,82 +649,82 @@ public final class CodBoot {
         return Math.abs(value - Math.rint(value)) < 1e-9;
     }
 
-    private static String evaluateHost(String command, List<String> args, Host host) {
-        if ("add".equals(command)) {
+    private static String evaluateHost(String command, List<String> args, Host host, CoreSemantics semantics) {
+        if (semantics.cmdAdd.equals(command)) {
             return formatNumber(host.add(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))));
         }
-        if ("subtract".equals(command)) {
+        if (semantics.cmdSubtract.equals(command)) {
             return formatNumber(host.subtract(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))));
         }
-        if ("multiply".equals(command)) {
+        if (semantics.cmdMultiply.equals(command)) {
             return formatNumber(host.multiply(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))));
         }
-        if ("divide".equals(command)) {
+        if (semantics.cmdDivide.equals(command)) {
             try {
                 return formatNumber(host.divide(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))));
             } catch (RuntimeException e) {
-                return "[host] divide error: " + e.getMessage();
+                return semantics.divideErrorPrefix + e.getMessage();
             }
         }
-        if ("less-than".equals(command)) {
+        if (semantics.cmdLessThan.equals(command)) {
             return String.valueOf(host.lessThan(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))));
         }
-        if ("greater-than".equals(command)) {
+        if (semantics.cmdGreaterThan.equals(command)) {
             return String.valueOf(host.greaterThan(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))));
         }
-        if ("equal".equals(command)) {
+        if (semantics.cmdEqual.equals(command)) {
             return String.valueOf(host.equal(String.valueOf(parseAtom(readToken(args, 0))), String.valueOf(parseAtom(readToken(args, 1)))));
         }
-        if ("string-append".equals(command)) {
+        if (semantics.cmdStringAppend.equals(command)) {
             return host.stringAppend(readToken(args, 0), readToken(args, 1));
         }
-        if ("write-file".equals(command)) {
+        if (semantics.cmdWriteFile.equals(command)) {
             try {
                 host.writeFile(readToken(args, 0), readToken(args, 1));
-                return "[host] write-file ok";
+                return semantics.writeFileOk;
             } catch (IOException e) {
-                return "[host] write-file error: " + e.getMessage();
+                return semantics.writeFileErrorPrefix + e.getMessage();
             }
         }
-        if ("read-file".equals(command)) {
+        if (semantics.cmdReadFile.equals(command)) {
             try {
                 return host.readFile(readToken(args, 0)).replaceFirst("\\r?\\n$", "");
             } catch (IOException e) {
-                return "[host] read-file error: " + e.getMessage();
+                return semantics.readFileErrorPrefix + e.getMessage();
             }
         }
-        if ("input".equals(command)) {
+        if (semantics.cmdInput.equals(command)) {
             return host.input();
         }
-        if ("now".equals(command)) {
+        if (semantics.cmdNow.equals(command)) {
             return String.valueOf(host.now());
         }
-        if ("random".equals(command)) {
+        if (semantics.cmdRandom.equals(command)) {
             return String.valueOf(host.random());
         }
-        if ("system".equals(command)) {
+        if (semantics.cmdSystem.equals(command)) {
             return String.valueOf(host.system(readToken(args, 0)));
         }
-        return "[host] unknown directive: " + command;
+        return semantics.unknownDirectivePrefix + command;
     }
 
-    private static List<String> evaluateProgram(Program program, Host host) {
+    private static List<String> evaluateProgram(Program program, Host host, CoreSemantics semantics) {
         List<String> output = new ArrayList<String>();
         for (int i = 0; i < program.statements.size(); i++) {
             Statement stmt = program.statements.get(i);
             if ("OutStatement".equals(stmt.type)) {
                 output.add(stmt.text);
             } else if ("HostStatement".equals(stmt.type)) {
-                output.add(evaluateHost(stmt.command, stmt.args, host));
+                output.add(evaluateHost(stmt.command, stmt.args, host, semantics));
             }
         }
         return output;
     }
 
-    private static RunResult runCore(String coreSource, String programPath, Host host) throws IOException {
+    private static RunResult runCore(String coreSource, String programPath, Host host, CoreSemantics semantics) throws IOException {
         if (!hasCoreEntrypoint(coreSource)) {
             List<String> invalid = new ArrayList<String>();
-            invalid.add("[core] invalid core.ce format");
+            invalid.add(semantics.invalidCoreFormat);
             return new RunResult(2, invalid);
         }
 
@@ -549,28 +732,28 @@ public final class CodBoot {
         List<String> userLines;
         try {
             List<Token> tokens = new Lexer(programSource).tokenize();
-            Program program = new Parser(tokens).parseProgram();
-            userLines = evaluateProgram(program, host);
+            Program program = new Parser(tokens, semantics).parseProgram();
+            userLines = evaluateProgram(program, host, semantics);
         } catch (RuntimeException e) {
             List<String> parseError = new ArrayList<String>();
-            parseError.add("[core] parse/eval error: " + e.getMessage());
+            parseError.add(semantics.parseEvalErrorPrefix + e.getMessage());
             return new RunResult(2, parseError);
         }
 
         List<String> lines = new ArrayList<String>();
-        lines.add("[core] running: " + programPath);
-        lines.add("[core] experimental evaluator active");
+        lines.add(semantics.runningPrefix + programPath);
+        lines.add(semantics.experimentalEvaluatorActive);
         lines.addAll(userLines);
         if (userLines.isEmpty()) {
-            lines.add("[core] no out(\"...\") statements detected");
+            lines.add(semantics.noOutStatementsDetected);
         }
         return new RunResult(0, lines);
     }
 
-    private static boolean isParseEvalError(RunResult result) {
+    private static boolean isParseEvalError(RunResult result, CoreSemantics semantics) {
         return result.exitCode != 0
             && !result.lines.isEmpty()
-            && result.lines.get(0).startsWith("[core] parse/eval error:");
+            && result.lines.get(0).startsWith(semantics.parseEvalErrorPrefix);
     }
 
     private static int mainImpl(String[] args, Host host) throws IOException {
@@ -593,14 +776,21 @@ public final class CodBoot {
         }
 
         String coreSource = host.readFile(corePath);
+        CoreSemantics semantics;
+        try {
+            semantics = parseCoreSemantics(coreSource);
+        } catch (RuntimeException e) {
+            host.print("[core] parse/eval error: " + e.getMessage());
+            return 2;
+        }
         if (bootstrapSelf) {
-            host.print("[core] bootstrap self-check passed");
+            host.print(semantics.bootstrapSelfCheckPassed);
             return 0;
         }
 
-        RunResult result = runCore(coreSource, programPath, host);
-        if (selfHostOnly && isParseEvalError(result)) {
-            result.lines.add("[core] self-host-only mode: no host fallback paths available");
+        RunResult result = runCore(coreSource, programPath, host, semantics);
+        if (selfHostOnly && isParseEvalError(result, semantics)) {
+            result.lines.add(semantics.selfHostOnlyNoFallback);
         }
         for (int i = 0; i < result.lines.size(); i++) {
             host.print(result.lines.get(i));

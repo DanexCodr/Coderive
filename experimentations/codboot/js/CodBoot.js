@@ -235,8 +235,9 @@ Lexer.prototype.tokenize = function() {
   return tokens;
 };
 
-function Parser(tokens) {
+function Parser(tokens, semantics) {
   this.tokens = tokens;
+  this.semantics = semantics;
   this.index = 0;
 }
 
@@ -288,7 +289,7 @@ Parser.prototype.parseProgram = function() {
 
 Parser.prototype.parseStatement = function() {
   const token = this.expect('WORD');
-  if (token.value === 'out') {
+  if (token.value === this.semantics.keywords.out) {
     let text = '';
     if (this.match('LPAREN')) {
       while (this.peek().type !== 'RPAREN' && this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
@@ -305,7 +306,7 @@ Parser.prototype.parseStatement = function() {
     }
     return { type: 'OutStatement', text: text };
   }
-  if (token.value === 'host') {
+  if (token.value === this.semantics.keywords.host) {
     const command = this.expect('WORD').value;
     const args = [];
     while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
@@ -337,65 +338,80 @@ function formatNumber(value) {
   return String(value);
 }
 
-function evaluateHost(command, args, host) {
+function evaluateHost(command, args, host, semantics) {
+  const cmds = semantics.hostCommands;
+  const messages = semantics.messages;
   switch (command) {
-    case 'add':
+    case cmds.add:
       return formatNumber(host.add(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case 'subtract':
+    case cmds.subtract:
       return formatNumber(host.subtract(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case 'multiply':
+    case cmds.multiply:
       return formatNumber(host.multiply(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case 'divide':
+    case cmds.divide:
       try {
         return formatNumber(host.divide(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
       } catch (err) {
-        return '[host] divide error: ' + err.message;
+        return messages.divideErrorPrefix + err.message;
       }
-    case 'less-than':
+    case cmds.lessThan:
       return String(host.lessThan(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case 'greater-than':
+    case cmds.greaterThan:
       return String(host.greaterThan(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case 'equal':
+    case cmds.equal:
       return String(host.equal(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case 'string-append':
+    case cmds.stringAppend:
       return host.stringAppend(args[0] || '', args[1] || '');
-    case 'write-file':
+    case cmds.writeFile:
       try {
         host.writeFile(args[0] || '', args[1] || '');
-        return '[host] write-file ok';
+        return messages.writeFileOk;
       } catch (err) {
-        return '[host] write-file error: ' + err.message;
+        return messages.writeFileErrorPrefix + err.message;
       }
-    case 'read-file':
+    case cmds.readFile:
       try {
         return host.readFile(args[0] || '').replace(/\r?\n$/, '');
       } catch (err) {
-        return '[host] read-file error: ' + err.message;
+        return messages.readFileErrorPrefix + err.message;
       }
-    case 'input':
+    case cmds.input:
       return host.input();
-    case 'now':
+    case cmds.now:
       return String(host.now());
-    case 'random':
+    case cmds.random:
       return String(host.random());
-    case 'system':
+    case cmds.system:
       return String(host.system(args[0] || ''));
     default:
-      return '[host] unknown directive: ' + command;
+      return messages.unknownDirectivePrefix + command;
   }
 }
 
-function evaluateProgram(program, host) {
+function evaluateProgram(program, host, semantics) {
   const output = [];
   for (let i = 0; i < program.statements.length; i += 1) {
     const stmt = program.statements[i];
     if (stmt.type === 'OutStatement') {
       output.push(stmt.text);
     } else if (stmt.type === 'HostStatement') {
-      output.push(evaluateHost(stmt.command, stmt.args, host));
+      output.push(evaluateHost(stmt.command, stmt.args, host, semantics));
     }
   }
   return output;
+}
+
+function extractSemanticsJson(coreSource) {
+  const match = coreSource.match(/semantics_json\s*:=\s*"""\s*([\s\S]*?)\s*"""/);
+  return match ? match[1] : '';
+}
+
+function parseCoreSemantics(coreSource) {
+  const jsonText = extractSemanticsJson(coreSource);
+  if (!jsonText) {
+    throw new Error('missing semantics_json block');
+  }
+  return JSON.parse(jsonText);
 }
 
 function hasCoreEntrypoint(coreSource) {
@@ -410,34 +426,37 @@ function hasCoreEntrypoint(coreSource) {
   return false;
 }
 
-function runCore(coreSource, programPath, host) {
+function runCore(coreSource, programPath, host, semantics) {
   if (!hasCoreEntrypoint(coreSource)) {
-    return { exitCode: 2, lines: ['[core] invalid core.ce format'] };
+    return { exitCode: 2, lines: [semantics.messages.invalidCoreFormat] };
   }
   const programSource = host.readFile(programPath);
   let userLines;
   try {
     const tokens = new Lexer(programSource).tokenize();
-    const program = new Parser(tokens).parseProgram();
-    userLines = evaluateProgram(program, host);
+    const program = new Parser(tokens, semantics).parseProgram();
+    userLines = evaluateProgram(program, host, semantics);
   } catch (err) {
-    return { exitCode: 2, lines: ['[core] parse/eval error: ' + err.message] };
+    return { exitCode: 2, lines: [semantics.messages.parseEvalErrorPrefix + err.message] };
   }
 
-  const lines = ['[core] running: ' + programPath, '[core] experimental evaluator active'];
+  const lines = [
+    semantics.messages.runningPrefix + programPath,
+    semantics.messages.experimentalEvaluatorActive
+  ];
   for (let i = 0; i < userLines.length; i += 1) {
     lines.push(userLines[i]);
   }
   if (userLines.length === 0) {
-    lines.push('[core] no out("...") statements detected');
+    lines.push(semantics.messages.noOutStatementsDetected);
   }
   return { exitCode: 0, lines: lines };
 }
 
-function isParseEvalError(result) {
+function isParseEvalError(result, semantics) {
   return result.exitCode !== 0 &&
     result.lines.length > 0 &&
-    result.lines[0].indexOf('[core] parse/eval error:') === 0;
+    result.lines[0].indexOf(semantics.messages.parseEvalErrorPrefix) === 0;
 }
 
 function main(argv, host) {
@@ -450,15 +469,22 @@ function main(argv, host) {
   const bootstrapSelf = argv.indexOf('--bootstrap-self') >= 0;
   const selfHostedOnly = argv.indexOf('--self-host-only') >= 0;
   const coreSource = host.readFile(corePath);
+  let semantics;
+  try {
+    semantics = parseCoreSemantics(coreSource);
+  } catch (err) {
+    host.print('[core] parse/eval error: ' + err.message);
+    return 2;
+  }
 
   if (bootstrapSelf) {
-    host.print('[core] bootstrap self-check passed');
+    host.print(semantics.messages.bootstrapSelfCheckPassed);
     return 0;
   }
 
-  let result = runCore(coreSource, programPath, host);
-  if (selfHostedOnly && isParseEvalError(result)) {
-    result.lines.push('[core] self-host-only mode: no host fallback paths available');
+  let result = runCore(coreSource, programPath, host, semantics);
+  if (selfHostedOnly && isParseEvalError(result, semantics)) {
+    result.lines.push(semantics.messages.selfHostOnlyNoFallback);
   }
   for (let i = 0; i < result.lines.length; i += 1) {
     host.print(result.lines[i]);
