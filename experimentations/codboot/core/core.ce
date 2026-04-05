@@ -26,7 +26,7 @@ semantics_json := """
     "experimentalEvaluatorActive": "[core] experimental evaluator active",
     "bootstrapSelfCheckPassed": "[core] bootstrap self-check passed",
     "parseEvalErrorPrefix": "[core] parse/eval error: ",
-    "noOutStatementsDetected": "[core] no out(\\\"...\\\") statements detected",
+    "noOutStatementsDetected": "[core] no out(\"...\") statements detected",
     "selfHostOnlyNoFallback": "[core] self-host-only mode: no host fallback paths available",
     "unknownDirectivePrefix": "[host] unknown directive: ",
     "divideErrorPrefix": "[host] divide error: ",
