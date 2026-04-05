@@ -121,6 +121,7 @@ public final class CodBoot {
 
         public int system(String command) {
             String cmd = command == null ? "" : command.trim();
+            // Defense-in-depth: explicitly block path separators even with strict allowlist + metachar filtering.
             if (!ALLOWED_SYSTEM_COMMANDS.contains(cmd) || cmd.contains("/") || cmd.contains("\\") || containsUnsafeShellChar(cmd)) {
                 return 2;
             }

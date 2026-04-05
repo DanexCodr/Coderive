@@ -96,6 +96,7 @@ function createHost() {
     },
     system: function(command) {
       const cmd = String(command || '').trim();
+      // Defense-in-depth: explicitly block path separators even with strict allowlist + metachar filtering.
       if (!allowedSystemCommands[cmd] || cmd.indexOf('/') >= 0 || cmd.indexOf('\\') >= 0 || containsUnsafeShellChar(cmd)) {
         return 2;
       }
