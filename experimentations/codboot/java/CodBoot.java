@@ -812,6 +812,12 @@ public final class CodBoot {
         }
     }
 
+    private static boolean isParseEvalError(RunResult result) {
+        return result.exitCode != 0
+            && !result.lines.isEmpty()
+            && result.lines.get(0).startsWith("[core] parse/eval error:");
+    }
+
     private static int mainImpl(String[] args, Host host) throws IOException {
         if (args.length < 2) {
             host.print("Usage: java CodBoot <core.ce-path> <program.cod-path> [--bootstrap-self]");
@@ -838,7 +844,7 @@ public final class CodBoot {
         }
 
         RunResult result = runCore(coreSource, programPath, host);
-        if (selfHostOnly && result.exitCode != 0 && !result.lines.isEmpty() && result.lines.get(0).startsWith("[core] parse/eval error:")) {
+        if (selfHostOnly && isParseEvalError(result)) {
             result.lines.add("[core] self-host-only mode: no host fallback paths available");
         }
         for (int i = 0; i < result.lines.size(); i++) {

@@ -621,6 +621,12 @@ function runNativeRuntime(programPath, corePath) {
   return { ok: isSuccessForCodFile(result, programPath), exitCode: isSuccessForCodFile(result, programPath) ? 0 : result.exitCode, lines: result.lines };
 }
 
+function isParseEvalError(result) {
+  return result.exitCode !== 0 &&
+    result.lines.length > 0 &&
+    result.lines[0].indexOf('[core] parse/eval error:') === 0;
+}
+
 function main(argv, host) {
   if (argv.length < 4) {
     host.print('Usage: node CodBoot.js <core.ce-path> <program.cod-path> [--bootstrap-self]');
@@ -638,7 +644,7 @@ function main(argv, host) {
   }
 
   let result = runCore(coreSource, programPath, host);
-  if (selfHostedOnly && result.exitCode !== 0 && result.lines.length > 0 && result.lines[0].indexOf('[core] parse/eval error:') === 0) {
+  if (selfHostedOnly && isParseEvalError(result)) {
     result.lines.push('[core] self-host-only mode: no host fallback paths available');
   }
   for (let i = 0; i < result.lines.length; i += 1) {
