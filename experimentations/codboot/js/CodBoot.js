@@ -17,6 +17,10 @@ function containsUnsafeShellChar(value) {
   return false;
 }
 
+function containsPathSeparator(value) {
+  return value.indexOf('/') >= 0 || value.indexOf('\\') >= 0;
+}
+
 function createHost() {
   const allowedSystemCommands = { true: true, false: true };
   let randomSeed = 123456789;
@@ -97,7 +101,7 @@ function createHost() {
     system: function(command) {
       const cmd = String(command || '').trim();
       // Defense-in-depth: explicitly block path separators even with strict allowlist + metachar filtering.
-      if (!allowedSystemCommands[cmd] || cmd.indexOf('/') >= 0 || cmd.indexOf('\\') >= 0 || containsUnsafeShellChar(cmd)) {
+      if (!allowedSystemCommands[cmd] || containsPathSeparator(cmd) || containsUnsafeShellChar(cmd)) {
         return 2;
       }
       try {

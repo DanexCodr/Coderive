@@ -122,7 +122,7 @@ public final class CodBoot {
         public int system(String command) {
             String cmd = command == null ? "" : command.trim();
             // Defense-in-depth: explicitly block path separators even with strict allowlist + metachar filtering.
-            if (!ALLOWED_SYSTEM_COMMANDS.contains(cmd) || cmd.contains("/") || cmd.contains("\\") || containsUnsafeShellChar(cmd)) {
+            if (!ALLOWED_SYSTEM_COMMANDS.contains(cmd) || containsPathSeparator(cmd) || containsUnsafeShellChar(cmd)) {
                 return 2;
             }
             try {
@@ -147,6 +147,10 @@ public final class CodBoot {
                 }
             }
             return false;
+        }
+
+        private boolean containsPathSeparator(String cmd) {
+            return cmd.indexOf('/') >= 0 || cmd.indexOf('\\') >= 0;
         }
     }
 
