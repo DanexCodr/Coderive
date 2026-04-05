@@ -197,14 +197,7 @@ for program_path in "${deterministic_programs[@]}"; do
 done
 
 echo "[6/7] Bootstrap/self-interpretation checks"
-js_bootstrap_out="$TMP_DIR/bootstrap.js.out"
-java_bootstrap_out="$TMP_DIR/bootstrap.java.out"
-node "$JS_HOST" "$CORE_PATH" "$PROGRAM_DIR/hello.cod" --bootstrap-self >"$js_bootstrap_out"
-java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$PROGRAM_DIR/hello.cod" --bootstrap-self >"$java_bootstrap_out"
-if ! diff -u "$js_bootstrap_out" "$java_bootstrap_out"; then
-  echo "Bootstrap output mismatch between JS and Java hosts" >&2
-  exit 1
-fi
+"$PARITY_DIR/compare_hosts.sh" --bootstrap-only
 run_parity_case "self-interpret-core" "$CORE_PATH" "" "" "true"
 
 echo "[7/7] Baseline script compatibility"

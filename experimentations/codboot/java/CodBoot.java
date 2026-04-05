@@ -13,6 +13,8 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public final class CodBoot {
+    private static final String CORE_PARSE_EVAL_ERROR_PREFIX = "[core] parse/eval error: ";
+
     private interface Host {
         String readFile(String path) throws IOException;
         void writeFile(String path, String content) throws IOException;
@@ -780,7 +782,7 @@ public final class CodBoot {
         try {
             semantics = parseCoreSemantics(coreSource);
         } catch (RuntimeException e) {
-            host.print("[core] parse/eval error: " + e.getMessage());
+            host.print(CORE_PARSE_EVAL_ERROR_PREFIX + e.getMessage());
             return 2;
         }
         if (bootstrapSelf) {

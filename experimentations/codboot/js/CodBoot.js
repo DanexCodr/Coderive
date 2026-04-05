@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const childProcess = require('child_process');
+const CORE_PARSE_EVAL_ERROR_PREFIX = '[core] parse/eval error: ';
 
 function containsUnsafeShellChar(value) {
   for (let i = 0; i < value.length; i += 1) {
@@ -473,7 +474,7 @@ function main(argv, host) {
   try {
     semantics = parseCoreSemantics(coreSource);
   } catch (err) {
-    host.print('[core] parse/eval error: ' + err.message);
+    host.print(CORE_PARSE_EVAL_ERROR_PREFIX + err.message);
     return 2;
   }
 

@@ -67,6 +67,12 @@ run_bootstrap_self_check() {
   fi
 }
 
+if [[ "${1:-}" == "--bootstrap-only" ]]; then
+  run_bootstrap_self_check
+  echo "CodBoot bootstrap self-check parity passed."
+  exit 0
+fi
+
 for program_path in "$PROGRAM_DIR"/*.cod; do
   expected_file="$EXPECTED_DIR/$(basename "${program_path%.cod}").out"
   input_line=""
