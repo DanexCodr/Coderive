@@ -11,7 +11,7 @@ JAVA_OUT="/tmp/codboot-java7"
 TMP_DIR="/tmp/codboot-parity-diff"
 
 mkdir -p "$JAVA_OUT" "$TMP_DIR"
-javac -source 7 -target 7 -d "$JAVA_OUT" "$JAVA_HOST"
+javac -Xlint:-options -source 7 -target 7 -d "$JAVA_OUT" "$JAVA_HOST"
 
 normalize_expected() {
   local expected_file="$1"

@@ -14,7 +14,7 @@ TMP_DIR="/tmp/codboot-full-validation"
 GENERATED_DIR="$TMP_DIR/generated"
 
 mkdir -p "$JAVA_OUT" "$TMP_DIR" "$GENERATED_DIR"
-javac -source 7 -target 7 -d "$JAVA_OUT" "$JAVA_HOST"
+javac -Xlint:-options -source 7 -target 7 -d "$JAVA_OUT" "$JAVA_HOST"
 
 normalize_expected() {
   local expected_file="$1"
@@ -55,7 +55,7 @@ run_parity_case() {
   local require_nonzero="${5:-false}"
 
   local safe_label
-  safe_label="$(echo "$label" | tr '/ ' '__')"
+  safe_label="$(printf '%s' "$label" | sed 's/[^A-Za-z0-9._-]/_/g')"
   local js_out="$TMP_DIR/$safe_label.js.out"
   local java_out="$TMP_DIR/$safe_label.java.out"
   local expected_out="$TMP_DIR/$safe_label.expected.out"
