@@ -1,0 +1,9 @@
+out("Level2 parity start")
+host add 7 5
+host subtract 10 3
+host multiply 6 4
+host divide 8 2
+host less-than 3 9
+host greater-than 12 5
+host equal cod cod
+host string-append hello world

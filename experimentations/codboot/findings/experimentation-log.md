@@ -14,16 +14,26 @@ Create a full CodBoot experiment aligned with `implementations/` guidance while 
 - Parity corpus:
   - `experimentations/codboot/parity/programs/*.cod`
   - `experimentations/codboot/parity/expected/*.out`
+  - `experimentations/codboot/parity/compare_hosts.sh`
 
 ## Host dependency boundary
 
-Implemented Level 1 shape only:
+Implemented Level 1-3 host dependency shape:
 
-- `read-file`
-- `print`
-- `exit`
-
-No arithmetic, random, time, subprocess, or network host APIs were introduced.
+- Level 1:
+  - `read-file`
+  - `print`
+  - `exit`
+- Level 2:
+  - `add`, `subtract`, `multiply`, `divide`
+  - `less-than`, `greater-than`, `equal`
+  - `string-append`
+- Level 3:
+  - `write-file`
+  - `input`
+  - `now`
+  - `random`
+  - `system`
 
 ## Experiment behavior
 
@@ -31,6 +41,8 @@ No arithmetic, random, time, subprocess, or network host APIs were introduced.
 - Host validates core signature (`CodBootCore::v0` marker).
 - Host reads `.cod` program file.
 - Host decodes simple `out("...")` statements for parity demonstration.
+- Host supports `host <operation> ...` parity directives for Level 2/3 validation.
+- Differential script compares JS and Java host output for every parity program.
 - Host prints normalized output and exits with deterministic code.
 - Optional bootstrap flag confirms self-bootstrap path (`--bootstrap-self`).
 
@@ -38,11 +50,11 @@ No arithmetic, random, time, subprocess, or network host APIs were introduced.
 
 - This is an isolated experimentation prototype, not yet wired to production runtime paths.
 - `core.ce` currently defines protocol/contracts and experimental entrypoint shape; it is not yet a complete parser/evaluator implementation.
-- JS and Java hosts are intentionally constrained and symmetric for boundary testing.
+- JS and Java hosts now run a built-in self-contained lexer/parser/evaluator path with no repository runtime Java/JS dependency.
 
 ## Next experiments suggested
 
 1. Move protocol parsing/dispatch into executable `core.ce` semantics.
-2. Expand parity corpus to include negative/error behavior and structured diagnostics.
-3. Add differential runner script in `experimentations/` to auto-compare JS/Java outputs.
+2. Expand parity corpus to include additional protocol/error-path diagnostics once `core.ce` owns more semantics.
+3. Keep differential runner as required gate for every parity corpus change.
 4. Replace simple `out("...")` extraction with core-driven parse/eval once core execution path is available.

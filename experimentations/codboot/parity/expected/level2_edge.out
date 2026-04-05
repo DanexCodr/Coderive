@@ -1,0 +1,6 @@
+[core] running: <PROGRAM_PATH>
+[core] experimental evaluator active
+Level2 edge parity start
+[host] divide error: division by zero
+-3
+[host] unknown directive: unknown-op

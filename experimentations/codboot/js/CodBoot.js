@@ -1,14 +1,114 @@
 'use strict';
 
 const fs = require('fs');
+const childProcess = require('child_process');
+
+function containsUnsafeShellChar(value) {
+  for (let i = 0; i < value.length; i += 1) {
+    const ch = value.charAt(i);
+    if (ch <= ' ' || ch === ';' || ch === '|' || ch === '&' || ch === '$' || ch === '`') {
+      return true;
+    }
+  }
+  return false;
+}
+
+function containsPathSeparator(value) {
+  return value.indexOf('/') >= 0 || value.indexOf('\\') >= 0;
+}
 
 function createHost() {
+  const allowedSystemCommands = { true: true, false: true };
+  let randomSeed = 123456789;
+  let inputLoaded = false;
+  let inputLines = [];
+
+  function nextRandom() {
+    randomSeed = (1103515245 * randomSeed + 12345) % 2147483648;
+    return randomSeed / 2147483648;
+  }
+
+  function loadInput() {
+    if (inputLoaded) {
+      return;
+    }
+    inputLoaded = true;
+    if (process.stdin.isTTY) {
+      inputLines = [];
+      return;
+    }
+    const rawInput = fs.readFileSync(0, 'utf8');
+    inputLines = rawInput.split(/\r?\n/);
+  }
+
   return {
-    readFile: function(path) {
-      return fs.readFileSync(path, 'utf8');
+    readFile: function(filePath) {
+      return fs.readFileSync(filePath, 'utf8');
+    },
+    writeFile: function(filePath, content) {
+      fs.writeFileSync(filePath, String(content), 'utf8');
     },
     print: function(text) {
       process.stdout.write(String(text) + '\n');
+    },
+    input: function() {
+      loadInput();
+      if (inputLines.length === 0) {
+        return '';
+      }
+      return inputLines.shift();
+    },
+    add: function(a, b) {
+      return a + b;
+    },
+    subtract: function(a, b) {
+      return a - b;
+    },
+    multiply: function(a, b) {
+      return a * b;
+    },
+    divide: function(a, b) {
+      if (b === 0) {
+        throw new Error('division by zero');
+      }
+      if (Number.isInteger(a) && Number.isInteger(b)) {
+        return Math.trunc(a / b);
+      }
+      return a / b;
+    },
+    lessThan: function(a, b) {
+      return a < b;
+    },
+    greaterThan: function(a, b) {
+      return a > b;
+    },
+    equal: function(a, b) {
+      return String(a) === String(b);
+    },
+    stringAppend: function(a, b) {
+      return String(a) + String(b);
+    },
+    now: function() {
+      return Date.now();
+    },
+    random: function() {
+      return nextRandom();
+    },
+    system: function(command) {
+      const cmd = String(command || '').trim();
+      // Defense-in-depth: explicitly block path separators even with strict allowlist + metachar filtering.
+      if (!allowedSystemCommands[cmd] || containsPathSeparator(cmd) || containsUnsafeShellChar(cmd)) {
+        return 2;
+      }
+      try {
+        childProcess.execFileSync(cmd, [], { stdio: 'ignore', shell: false });
+        return 0;
+      } catch (err) {
+        if (typeof err.status === 'number') {
+          return err.status;
+        }
+        return 1;
+      }
     },
     exit: function(code) {
       process.exit(code);
@@ -16,37 +116,283 @@ function createHost() {
   };
 }
 
-function parseOutLiteral(line) {
-  if (line.indexOf('out("') !== 0 || line.charAt(line.length - 1) !== ')') {
-    return null;
-  }
-  let endQuote = -1;
-  for (let i = 5; i < line.length - 1; i += 1) {
-    if (line.charAt(i) === '"') {
-      let slashCount = 0;
-      for (let j = i - 1; j >= 0 && line.charAt(j) === '\\'; j -= 1) {
-        slashCount += 1;
-      }
-      if (slashCount % 2 === 0) {
-        endQuote = i;
-        break;
-      }
-    }
-  }
-  if (endQuote !== line.length - 2) {
-    return null;
-  }
-  return line.substring(5, endQuote);
+function Token(type, value, line, column) {
+  this.type = type;
+  this.value = value;
+  this.line = line;
+  this.column = column;
 }
 
-function decodeProgramOutputs(programSource) {
-  const lines = programSource.split(/\r?\n/);
+function Lexer(source) {
+  this.source = source;
+  this.index = 0;
+  this.line = 1;
+  this.column = 1;
+}
+
+Lexer.prototype.currentChar = function() {
+  return this.index < this.source.length ? this.source.charAt(this.index) : '';
+};
+
+Lexer.prototype.advance = function() {
+  const ch = this.currentChar();
+  if (ch === '\n') {
+    this.line += 1;
+    this.column = 1;
+  } else {
+    this.column += 1;
+  }
+  this.index += 1;
+};
+
+Lexer.prototype.readString = function(line, column) {
+  let result = '';
+  this.advance();
+  while (this.index < this.source.length) {
+    const ch = this.currentChar();
+    if (ch === '"') {
+      this.advance();
+      return new Token('STRING', result, line, column);
+    }
+    if (ch === '\\') {
+      this.advance();
+      const esc = this.currentChar();
+      if (esc === 'n') {
+        result += '\n';
+      } else if (esc === 't') {
+        result += '\t';
+      } else if (esc === '"') {
+        result += '"';
+      } else if (esc === '\\') {
+        result += '\\';
+      } else {
+        result += esc;
+      }
+      this.advance();
+    } else {
+      result += ch;
+      this.advance();
+    }
+  }
+  throw new Error('Unterminated string at line ' + line + ', column ' + column);
+};
+
+Lexer.prototype.readWord = function(line, column) {
+  let result = '';
+  while (this.index < this.source.length) {
+    const ch = this.currentChar();
+    if (ch === '' || ch === '\n' || ch === ' ' || ch === '\t' || ch === '\r' || ch === '(' || ch === ')' || ch === '#') {
+      break;
+    }
+    result += ch;
+    this.advance();
+  }
+  return new Token('WORD', result, line, column);
+};
+
+Lexer.prototype.tokenize = function() {
+  const tokens = [];
+  while (this.index < this.source.length) {
+    const ch = this.currentChar();
+    if (ch === ' ' || ch === '\t' || ch === '\r') {
+      this.advance();
+      continue;
+    }
+    if (ch === '\n') {
+      tokens.push(new Token('NEWLINE', '\n', this.line, this.column));
+      this.advance();
+      continue;
+    }
+    if (ch === '#') {
+      while (this.index < this.source.length && this.currentChar() !== '\n') {
+        this.advance();
+      }
+      continue;
+    }
+    if (ch === '/' && this.index + 1 < this.source.length && this.source.charAt(this.index + 1) === '/') {
+      while (this.index < this.source.length && this.currentChar() !== '\n') {
+        this.advance();
+      }
+      continue;
+    }
+    if (ch === '(') {
+      tokens.push(new Token('LPAREN', '(', this.line, this.column));
+      this.advance();
+      continue;
+    }
+    if (ch === ')') {
+      tokens.push(new Token('RPAREN', ')', this.line, this.column));
+      this.advance();
+      continue;
+    }
+    if (ch === '"') {
+      tokens.push(this.readString(this.line, this.column));
+      continue;
+    }
+    tokens.push(this.readWord(this.line, this.column));
+  }
+  tokens.push(new Token('EOF', '', this.line, this.column));
+  return tokens;
+};
+
+function Parser(tokens) {
+  this.tokens = tokens;
+  this.index = 0;
+}
+
+Parser.prototype.peek = function() {
+  return this.tokens[this.index];
+};
+
+Parser.prototype.advance = function() {
+  const token = this.peek();
+  this.index += 1;
+  return token;
+};
+
+Parser.prototype.match = function(type, value) {
+  const token = this.peek();
+  if (!token || token.type !== type) {
+    return false;
+  }
+  if (typeof value !== 'undefined' && token.value !== value) {
+    return false;
+  }
+  this.advance();
+  return true;
+};
+
+Parser.prototype.expect = function(type, value) {
+  const token = this.peek();
+  if (!this.match(type, value)) {
+    throw new Error('Parse error at line ' + token.line + ', column ' + token.column + ': expected ' + type + (typeof value !== 'undefined' ? ' ' + value : ''));
+  }
+  return this.tokens[this.index - 1];
+};
+
+Parser.prototype.skipNewlines = function() {
+  while (this.match('NEWLINE')) {
+    // noop
+  }
+};
+
+Parser.prototype.parseProgram = function() {
+  const statements = [];
+  this.skipNewlines();
+  while (this.peek().type !== 'EOF') {
+    statements.push(this.parseStatement());
+    this.skipNewlines();
+  }
+  return { type: 'Program', statements: statements };
+};
+
+Parser.prototype.parseStatement = function() {
+  const token = this.expect('WORD');
+  if (token.value === 'out') {
+    let text = '';
+    if (this.match('LPAREN')) {
+      while (this.peek().type !== 'RPAREN' && this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
+        const next = this.advance();
+        if (next.type === 'STRING' && text.length === 0) {
+          text = next.value;
+        }
+      }
+      this.match('RPAREN');
+    } else {
+      while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
+        this.advance();
+      }
+    }
+    return { type: 'OutStatement', text: text };
+  }
+  if (token.value === 'host') {
+    const command = this.expect('WORD').value;
+    const args = [];
+    while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
+      const next = this.peek();
+      if (next.type !== 'WORD' && next.type !== 'STRING') {
+        throw new Error('Parse error at line ' + next.line + ', column ' + next.column + ': expected host argument');
+      }
+      args.push(this.advance().value);
+    }
+    return { type: 'HostStatement', command: command, args: args };
+  }
+  while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
+    this.advance();
+  }
+  return { type: 'IgnoredStatement' };
+};
+
+function parseAtom(text) {
+  if (/^-?\d+(\.\d+)?$/.test(text)) {
+    return Number(text);
+  }
+  return text;
+}
+
+function formatNumber(value) {
+  if (Math.abs(value - Math.round(value)) < 1e-9) {
+    return String(Math.round(value));
+  }
+  return String(value);
+}
+
+function evaluateHost(command, args, host) {
+  switch (command) {
+    case 'add':
+      return formatNumber(host.add(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
+    case 'subtract':
+      return formatNumber(host.subtract(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
+    case 'multiply':
+      return formatNumber(host.multiply(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
+    case 'divide':
+      try {
+        return formatNumber(host.divide(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
+      } catch (err) {
+        return '[host] divide error: ' + err.message;
+      }
+    case 'less-than':
+      return String(host.lessThan(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
+    case 'greater-than':
+      return String(host.greaterThan(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
+    case 'equal':
+      return String(host.equal(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
+    case 'string-append':
+      return host.stringAppend(args[0] || '', args[1] || '');
+    case 'write-file':
+      try {
+        host.writeFile(args[0] || '', args[1] || '');
+        return '[host] write-file ok';
+      } catch (err) {
+        return '[host] write-file error: ' + err.message;
+      }
+    case 'read-file':
+      try {
+        return host.readFile(args[0] || '').replace(/\r?\n$/, '');
+      } catch (err) {
+        return '[host] read-file error: ' + err.message;
+      }
+    case 'input':
+      return host.input();
+    case 'now':
+      return String(host.now());
+    case 'random':
+      return String(host.random());
+    case 'system':
+      return String(host.system(args[0] || ''));
+    default:
+      return '[host] unknown directive: ' + command;
+  }
+}
+
+function evaluateProgram(program, host) {
   const output = [];
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i].trim();
-    const literal = parseOutLiteral(line);
-    if (literal !== null) {
-      output.push(literal);
+  for (let i = 0; i < program.statements.length; i += 1) {
+    const stmt = program.statements[i];
+    if (stmt.type === 'OutStatement') {
+      output.push(stmt.text);
+    } else if (stmt.type === 'HostStatement') {
+      output.push(evaluateHost(stmt.command, stmt.args, host));
     }
   }
   return output;
@@ -69,7 +415,15 @@ function runCore(coreSource, programPath, host) {
     return { exitCode: 2, lines: ['[core] invalid core.ce format'] };
   }
   const programSource = host.readFile(programPath);
-  const userLines = decodeProgramOutputs(programSource);
+  let userLines;
+  try {
+    const tokens = new Lexer(programSource).tokenize();
+    const program = new Parser(tokens).parseProgram();
+    userLines = evaluateProgram(program, host);
+  } catch (err) {
+    return { exitCode: 2, lines: ['[core] parse/eval error: ' + err.message] };
+  }
+
   const lines = ['[core] running: ' + programPath, '[core] experimental evaluator active'];
   for (let i = 0; i < userLines.length; i += 1) {
     lines.push(userLines[i]);
@@ -80,6 +434,12 @@ function runCore(coreSource, programPath, host) {
   return { exitCode: 0, lines: lines };
 }
 
+function isParseEvalError(result) {
+  return result.exitCode !== 0 &&
+    result.lines.length > 0 &&
+    result.lines[0].indexOf('[core] parse/eval error:') === 0;
+}
+
 function main(argv, host) {
   if (argv.length < 4) {
     host.print('Usage: node CodBoot.js <core.ce-path> <program.cod-path> [--bootstrap-self]');
@@ -87,7 +447,8 @@ function main(argv, host) {
   }
   const corePath = argv[2];
   const programPath = argv[3];
-  const bootstrapSelf = argv.length > 4 && argv[4] === '--bootstrap-self';
+  const bootstrapSelf = argv.indexOf('--bootstrap-self') >= 0;
+  const selfHostedOnly = argv.indexOf('--self-host-only') >= 0;
   const coreSource = host.readFile(corePath);
 
   if (bootstrapSelf) {
@@ -95,7 +456,10 @@ function main(argv, host) {
     return 0;
   }
 
-  const result = runCore(coreSource, programPath, host);
+  let result = runCore(coreSource, programPath, host);
+  if (selfHostedOnly && isParseEvalError(result)) {
+    result.lines.push('[core] self-host-only mode: no host fallback paths available');
+  }
   for (let i = 0; i < result.lines.length; i += 1) {
     host.print(result.lines[i]);
   }
