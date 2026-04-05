@@ -7,6 +7,16 @@ const childProcess = require('child_process');
 let fullJsRuntime = null;
 let cachedDefaultStdin = null;
 
+function containsUnsafeShellChar(value) {
+  for (let i = 0; i < value.length; i += 1) {
+    const ch = value.charAt(i);
+    if (ch <= ' ' || ch === ';' || ch === '|' || ch === '&' || ch === '$' || ch === '`') {
+      return true;
+    }
+  }
+  return false;
+}
+
 function createHost() {
   const allowedSystemCommands = { true: true, false: true };
   let randomSeed = 123456789;
@@ -86,7 +96,7 @@ function createHost() {
     },
     system: function(command) {
       const cmd = String(command || '').trim();
-      if (!allowedSystemCommands[cmd] || cmd.indexOf('/') >= 0 || cmd.indexOf('\\') >= 0 || /[\s;|&$`]/.test(cmd)) {
+      if (!allowedSystemCommands[cmd] || cmd.indexOf('/') >= 0 || cmd.indexOf('\\') >= 0 || containsUnsafeShellChar(cmd)) {
         return 2;
       }
       try {

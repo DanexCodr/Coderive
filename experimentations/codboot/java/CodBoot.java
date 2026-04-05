@@ -121,7 +121,7 @@ public final class CodBoot {
 
         public int system(String command) {
             String cmd = command == null ? "" : command.trim();
-            if (!ALLOWED_SYSTEM_COMMANDS.contains(cmd) || cmd.matches(".*[\\s;|&$`].*") || cmd.contains("/") || cmd.contains("\\")) {
+            if (!ALLOWED_SYSTEM_COMMANDS.contains(cmd) || cmd.contains("/") || cmd.contains("\\") || containsUnsafeShellChar(cmd)) {
                 return 2;
             }
             try {
@@ -136,6 +136,16 @@ public final class CodBoot {
 
         public void exit(int code) {
             System.exit(code);
+        }
+
+        private boolean containsUnsafeShellChar(String cmd) {
+            for (int i = 0; i < cmd.length(); i++) {
+                char ch = cmd.charAt(i);
+                if (Character.isWhitespace(ch) || ch == ';' || ch == '|' || ch == '&' || ch == '$' || ch == '`') {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
