@@ -9,8 +9,8 @@ EXPECTED_DIR="$PARITY_DIR/expected"
 NEGATIVE_DIR="$PARITY_DIR/negative"
 JS_HOST="$ROOT_DIR/experimentations/codboot/js/CodBoot.js"
 JAVA_HOST="$ROOT_DIR/experimentations/codboot/java/CodBoot.java"
-JAVA_OUT="${CODBOOT_JAVA_OUT_DIR:-$(mktemp -d /tmp/codboot-java7-full.XXXXXX)}"
-TMP_DIR="${CODBOOT_TMP_DIR:-$(mktemp -d /tmp/codboot-full-validation.XXXXXX)}"
+JAVA_OUT="${CODBOOT_JAVA_OUT_DIR:-$(mktemp -d)}"
+TMP_DIR="${CODBOOT_TMP_DIR:-$(mktemp -d)}"
 GENERATED_DIR="$TMP_DIR/generated"
 
 mkdir -p "$JAVA_OUT" "$TMP_DIR" "$GENERATED_DIR"
@@ -124,10 +124,10 @@ host equal left right
 host greater-than 100 99
 host unknown-op
 EOF
-cat > "$GENERATED_DIR/generated_io.cod" <<'EOF'
+cat > "$GENERATED_DIR/generated_io.cod" <<EOF
 out("Generated io start")
-host write-file /tmp/codboot-generated.txt generated-ok
-host read-file /tmp/codboot-generated.txt
+host write-file $TMP_DIR/codboot-generated.txt generated-ok
+host read-file $TMP_DIR/codboot-generated.txt
 host input
 host system true
 EOF

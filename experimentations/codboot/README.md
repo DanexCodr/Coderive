@@ -56,10 +56,10 @@ node experimentations/codboot/js/CodBoot.js \
 ### Java 7 host
 
 ```bash
-mkdir -p /tmp/codboot-java7
-javac -source 7 -target 7 -d /tmp/codboot-java7 \
+JAVA_OUT="$(mktemp -d)"
+javac -source 7 -target 7 -d "$JAVA_OUT" \
   experimentations/codboot/java/CodBoot.java
-java -cp /tmp/codboot-java7 CodBoot \
+java -cp "$JAVA_OUT" CodBoot \
   experimentations/codboot/core/core.ce \
   experimentations/codboot/parity/programs/hello.cod
 
@@ -68,7 +68,7 @@ java -cp /tmp/codboot-java7 CodBoot \
 Bootstrap check:
 
 ```bash
-java -cp /tmp/codboot-java7 CodBoot \
+java -cp "$JAVA_OUT" CodBoot \
   experimentations/codboot/core/core.ce \
   experimentations/codboot/parity/programs/hello.cod \
   --bootstrap-self
@@ -77,7 +77,7 @@ java -cp /tmp/codboot-java7 CodBoot \
 Self-host-only check (strict mode; host fallback paths removed):
 
 ```bash
-java -cp /tmp/codboot-java7 CodBoot \
+java -cp "$JAVA_OUT" CodBoot \
   experimentations/codboot/core/core.ce \
   experimentations/codboot/parity/programs/hello.cod \
   --self-host-only

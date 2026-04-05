@@ -14,6 +14,7 @@ import java.util.Set;
 
 public final class CodBoot {
     private static String cachedDefaultInput;
+    private static final String TMP_DIR = System.getProperty("java.io.tmpdir");
     private interface Host {
         String readFile(String path) throws IOException;
         void writeFile(String path, String content) throws IOException;
@@ -571,7 +572,7 @@ public final class CodBoot {
     }
 
     private static String ensureRuntimeClasses(String repoRoot) throws IOException, InterruptedException {
-        String classDir = "/tmp/codboot-coderive-java-classes";
+        String classDir = new File(TMP_DIR, "codboot-coderive-java-classes").getAbsolutePath();
         File classRoot = new File(classDir);
         File commandRunnerClass = new File(classRoot, "cod/runner/CommandRunner.class");
         if (commandRunnerClass.exists()) {
@@ -589,7 +590,7 @@ public final class CodBoot {
         if (javaFiles.isEmpty()) {
             throw new IOException("no Java runtime sources found");
         }
-        File sourceList = new File("/tmp/codboot-coderive-java-sources.txt");
+        File sourceList = new File(TMP_DIR, "codboot-coderive-java-sources.txt");
         PrintWriter writer = null;
         try {
             writer = new PrintWriter(sourceList, "UTF-8");
@@ -675,7 +676,7 @@ public final class CodBoot {
     }
 
     private static String relocateForDefaultUnit(String sourcePath) throws IOException {
-        File targetDir = new File("/tmp/codboot-reloc/default");
+        File targetDir = new File(new File(new File(TMP_DIR), "codboot-reloc"), "default");
         if (!targetDir.exists() && !targetDir.mkdirs()) {
             throw new IOException("unable to create relocation dir");
         }
@@ -743,7 +744,7 @@ public final class CodBoot {
         }
         String body = text.substring(start, i - 1).trim();
         String wrapped = "unit default\n\nWrapper {\nshare main() {\n" + body + "\n}\n}\n";
-        File targetDir = new File("/tmp/codboot-reloc/default");
+        File targetDir = new File(new File(new File(TMP_DIR), "codboot-reloc"), "default");
         if (!targetDir.exists() && !targetDir.mkdirs()) {
             throw new IOException("unable to create wrapped example dir");
         }

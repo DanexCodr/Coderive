@@ -1,5 +1,5 @@
 out("Level3 parity start")
-host write-file /tmp/codboot-level3.txt level3-ok
-host read-file /tmp/codboot-level3.txt
+host write-file codboot-level3.txt level3-ok
+host read-file codboot-level3.txt
 host input
 host system true

@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const childProcess = require('child_process');
 let fullJsRuntime = null;
 let cachedDefaultStdin = null;
@@ -443,7 +444,7 @@ function collectJavaFiles(rootDir) {
 }
 
 function ensureRuntimeClasses(repoRoot) {
-  const classDir = '/tmp/codboot-coderive-js-classes';
+  const classDir = path.join(os.tmpdir(), 'codboot-coderive-js-classes');
   const commandRunnerClass = path.join(classDir, 'cod', 'runner', 'CommandRunner.class');
   if (fs.existsSync(commandRunnerClass)) {
     return { ok: true, classDir: classDir };
@@ -454,7 +455,7 @@ function ensureRuntimeClasses(repoRoot) {
   if (javaFiles.length === 0) {
     return { ok: false, error: 'no Java runtime sources found' };
   }
-  const sourceListPath = '/tmp/codboot-coderive-js-sources.txt';
+  const sourceListPath = path.join(os.tmpdir(), 'codboot-coderive-js-sources.txt');
   fs.writeFileSync(sourceListPath, javaFiles.join('\n') + '\n', 'utf8');
   const compile = childProcess.spawnSync('javac', ['-source', '7', '-target', '7', '-Xlint:-options', '-d', classDir, '@' + sourceListPath], {
     encoding: 'utf8'
@@ -530,7 +531,7 @@ function runCommand(classDir, args, stdinText) {
 }
 
 function relocateForDefaultUnit(programPath) {
-  const tempRoot = '/tmp/codboot-reloc/default';
+  const tempRoot = path.join(os.tmpdir(), 'codboot-reloc', 'default');
   fs.mkdirSync(tempRoot, { recursive: true });
   const targetPath = path.join(tempRoot, path.basename(programPath));
   fs.copyFileSync(programPath, targetPath);
@@ -560,7 +561,7 @@ function buildWrappedExample(programPath) {
   }
   const body = source.slice(marker.lastIndex, i - 1).replace(/^\s+|\s+$/g, '');
   const wrapped = 'unit default\n\nWrapper {\nshare main() {\n' + body + '\n}\n}\n';
-  const target = path.join('/tmp/codboot-reloc/default', 'wrapped-' + path.basename(programPath));
+  const target = path.join(os.tmpdir(), 'codboot-reloc', 'default', 'wrapped-' + path.basename(programPath));
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, wrapped, 'utf8');
   return target;

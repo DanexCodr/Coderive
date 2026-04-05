@@ -52,7 +52,7 @@ Corpus coverage
 ---------------
 - [x] Existing parity corpus (`parity/programs/*.cod`) with expected output checks.
 - [x] Negative corpus (`parity/negative/*.cod`) with strict failure expectations.
-- [x] Generated corpus (`/tmp/codboot-full-validation/generated/*.cod`) for mixed behavior classes.
+- [x] Generated corpus (`$TMP_DIR/generated/*.cod`) for mixed behavior classes.
 - [x] Differential sweep across all repository `.cod` files.
 
 Java-only stability
