@@ -29,10 +29,11 @@ run_js() {
   local program_path="$1"
   local input_line="$2"
   local out_file="$3"
+  local run_dir="$4"
   if [[ -n "$input_line" ]]; then
-    printf '%s\n' "$input_line" | node "$JS_HOST" "$CORE_PATH" "$program_path" --self-host-only >"$out_file"
+    (cd "$run_dir" && printf '%s\n' "$input_line" | node "$JS_HOST" "$CORE_PATH" "$program_path" --self-host-only >"$out_file")
   else
-    node "$JS_HOST" "$CORE_PATH" "$program_path" --self-host-only >"$out_file" </dev/null
+    (cd "$run_dir" && node "$JS_HOST" "$CORE_PATH" "$program_path" --self-host-only >"$out_file" </dev/null)
   fi
 }
 
@@ -40,10 +41,11 @@ run_java() {
   local program_path="$1"
   local input_line="$2"
   local out_file="$3"
+  local run_dir="$4"
   if [[ -n "$input_line" ]]; then
-    printf '%s\n' "$input_line" | java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --self-host-only >"$out_file"
+    (cd "$run_dir" && printf '%s\n' "$input_line" | java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --self-host-only >"$out_file")
   else
-    java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --self-host-only >"$out_file" </dev/null
+    (cd "$run_dir" && java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --self-host-only >"$out_file" </dev/null)
   fi
 }
 
@@ -59,11 +61,13 @@ run_parity_case() {
   local js_out="$TMP_DIR/$safe_label.js.out"
   local java_out="$TMP_DIR/$safe_label.java.out"
   local expected_out="$TMP_DIR/$safe_label.expected.out"
+  local run_dir="$TMP_DIR/run-$safe_label"
+  mkdir -p "$run_dir"
 
   set +e
-  run_js "$program_path" "$input_line" "$js_out"
+  run_js "$program_path" "$input_line" "$js_out" "$run_dir"
   local js_code=$?
-  run_java "$program_path" "$input_line" "$java_out"
+  run_java "$program_path" "$input_line" "$java_out" "$run_dir"
   local java_code=$?
   set -e
 
@@ -168,14 +172,16 @@ for program_path in "${deterministic_programs[@]}"; do
     input_line="generated-input"
   fi
   baseline_out="$TMP_DIR/java-repeat-$name.1.out"
+  repeat_run_dir="$TMP_DIR/java-repeat-$name"
+  mkdir -p "$repeat_run_dir"
   set +e
-  run_java "$program_path" "$input_line" "$baseline_out"
+  run_java "$program_path" "$input_line" "$baseline_out" "$repeat_run_dir"
   baseline_code=$?
   set -e
   for i in 2 3; do
     current_out="$TMP_DIR/java-repeat-$name.$i.out"
     set +e
-    run_java "$program_path" "$input_line" "$current_out"
+    run_java "$program_path" "$input_line" "$current_out" "$repeat_run_dir"
     current_code=$?
     set -e
     if [[ "$current_code" -ne "$baseline_code" ]]; then
