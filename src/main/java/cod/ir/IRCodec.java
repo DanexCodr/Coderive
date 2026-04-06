@@ -223,7 +223,7 @@ final class IRCodec {
         }
 
         if (!Base.class.isAssignableFrom(rawClass)) {
-            throw new IOException("IR class is not an Base: " + className);
+            throw new IOException("IR class is not a Base: " + className);
         }
 
         @SuppressWarnings("unchecked")
