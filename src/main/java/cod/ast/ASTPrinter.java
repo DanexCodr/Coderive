@@ -19,7 +19,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(ProgramNode node) {
+    public Void visit(Program node) {
         println("\nPROGRAM");
         println("|   ");
         if (node.unit != null) visit(node.unit);
@@ -27,7 +27,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(UnitNode node) {
+    public Void visit(Unit node) {
         println("|   UNIT: " + node.name);
         
         if (node.imports != null) visit(node.imports);
@@ -37,13 +37,13 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(UseNode node) {
+    public Void visit(Use node) {
             println("|   USE imports: " + (node.imports.isEmpty() ? "[]" : node.imports));
         return null;
     }
     
     @Override
-    public Void visit(TypeNode node) {
+    public Void visit(Type node) {
         println("|   CLASS TYPE: " + node.name + " extends: " + node.extendName + " visibility: " + node.visibility + "\n|   |   ");
         indent++;
         visitAll(node.fields);
@@ -55,7 +55,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(FieldNode node) {
+    public Void visit(Field node) {
         println("FIELD: " + node.type + " " + node.name + " visibility: " + node.visibility);
         if (node.value != null) {
             println("|   value:");
@@ -67,9 +67,9 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(MethodNode node) {
+    public Void visit(Method node) {
         print("|   METHOD: " + node.methodName + " slots: ");
-        for (SlotNode s : node.returnSlots) System.out.print(s.name + " ");
+        for (Slot s : node.returnSlots) System.out.print(s.name + " ");
         System.out.println(" visibility: " + node.visibility);
         visitAll(node.parameters);
         visitAll(node.body);
@@ -77,13 +77,13 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(ParamNode node) {
+    public Void visit(Param node) {
         println("|   PARAM: " + node.type + " " + node.name);
         return null;
     }
     
     @Override
-    public Void visit(ConstructorNode node) {
+    public Void visit(Constructor node) {
         println("CONSTRUCTOR PARAMS: " + node.parameters.size());
         indent++;
         visitAll(node.parameters);
@@ -93,7 +93,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(BlockNode node) {
+    public Void visit(Block node) {
         println("BLOCK:");
         indent++;
         visitAll(node.statements);
@@ -102,7 +102,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(AssignmentNode node) {
+    public Void visit(Assignment node) {
         println("ASSIGNMENT:");
         println("|   target:");
         indent += 2;
@@ -116,7 +116,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(VarNode node) {
+    public Void visit(Var node) {
         print("VAR: " + node.name);
         if (node.explicitType != null) {
             System.out.print(" (type: " + node.explicitType + ")");
@@ -133,7 +133,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(StmtIfNode node) {
+    public Void visit(StmtIf node) {
         println("|   |   IF condition:");
         indent ++;
         if (node.condition != null) visit(node.condition);
@@ -152,7 +152,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(ForNode node) {
+    public Void visit(For node) {
         println("FOR iterator: " + node.iterator);
         indent += 2;
         if (node.range != null) visit(node.range);
@@ -165,7 +165,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(RangeNode node) {
+    public Void visit(Range node) {
         println("|   step:");
         indent += 2;
         if (node.step != null) visit(node.step);
@@ -183,13 +183,13 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(ExitNode node) {
+    public Void visit(Exit node) {
         println("EXIT");
         return null;
     }
     
     @Override
-    public Void visit(ReturnSlotAssignmentNode node) {
+    public Void visit(ReturnSlotAssignment node) {
         println("RETURN SLOT ASSIGNMENT:");
         println("|   VARIABLES: " + node.variableNames);
         println("|   METHOD CALL:");
@@ -200,13 +200,13 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(SlotDeclarationNode node) {
+    public Void visit(SlotDeclaration node) {
         println("SLOT DECLARATION: " + node.slotNames);
         return null;
     }
     
     @Override
-    public Void visit(SlotAssignmentNode node) {
+    public Void visit(SlotAssignment node) {
         println("SLOT ASSIGNMENT:");
         println("|   slot: " + (node.slotName != null ? node.slotName : "(implicit)"));
         println("|   value:");
@@ -217,11 +217,11 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(MultipleSlotAssignmentNode node) {
+    public Void visit(MultipleSlotAssignment node) {
         println("MULTIPLE SLOT ASSIGNMENT:");
         indent++;
         for (int i = 0; i < node.assignments.size(); i++) {
-            SlotAssignmentNode assign = node.assignments.get(i);
+            SlotAssignment assign = node.assignments.get(i);
             println("ASSIGNMENT " + i + ":");
             println("|   slot: " + (assign.slotName != null ? assign.slotName : "(positional)"));
             println("|   value:");
@@ -234,8 +234,8 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(ExprNode node) {
-        // This should never be called directly now since ExprNode is abstract
+    public Void visit(Expr node) {
+        // This should never be called directly now since Expr is abstract
         println("EXPR (abstract)");
         return null;
     }
@@ -243,25 +243,25 @@ public class ASTPrinter extends ASTVisitor<Void> {
     // === New visit methods for specific expression types ===
     
     @Override
-    public Void visit(IdentifierNode node) {
+    public Void visit(Identifier node) {
         println("IDENTIFIER: " + node.name);
         return null;
     }
     
     @Override
-    public Void visit(IntLiteralNode node) {
+    public Void visit(IntLiteral node) {
         println("INT LITERAL: " + node.value);
         return null;
     }
     
     @Override
-    public Void visit(FloatLiteralNode node) {
+    public Void visit(FloatLiteral node) {
         println("FLOAT LITERAL: " + node.value.toString());
         return null;
     }
     
     @Override
-    public Void visit(TextLiteralNode node) {
+    public Void visit(TextLiteral node) {
         if (node.isInterpolated) {
             println("INTERPOLATED TEXT: \"" + node.value + "\"");
         } else {
@@ -271,19 +271,19 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(BoolLiteralNode node) {
+    public Void visit(BoolLiteral node) {
         println("BOOL LITERAL: " + node.value);
         return null;
     }
     
     @Override
-    public Void visit(NoneLiteralNode node) {
+    public Void visit(NoneLiteral node) {
         println("NONE LITERAL");
         return null;
     }
     
     @Override
-    public Void visit(ThisNode node) {
+    public Void visit(This node) {
         if (node.className != null) {
             println("THIS: " + node.className + ".this");
         } else {
@@ -293,13 +293,13 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(SuperNode node) {
+    public Void visit(Super node) {
         println("SUPER");
         return null;
     }
     
     @Override
-    public Void visit(BinaryOpNode node) {
+    public Void visit(BinaryOp node) {
         println("|   BINARY operation: " + node.op);
         println("|   left:");
         indent += 2;
@@ -313,7 +313,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(UnaryNode node) {
+    public Void visit(Unary node) {
         println("UNARY: " + node.op);
         indent++;
         if (node.operand != null) visit(node.operand);
@@ -322,7 +322,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(TypeCastNode node) {
+    public Void visit(TypeCast node) {
         println("TYPECAST: " + node.targetType);
         println("|   expression:");
         indent += 2;
@@ -332,7 +332,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(MethodCallNode node) {
+    public Void visit(MethodCall node) {
         print("IDENTIFIER/CALL: " + (node.qualifiedName != null ? node.qualifiedName : node.name));
         
         // Display slot names if present
@@ -351,7 +351,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
         if (node.arguments != null && !node.arguments.isEmpty()) {
             println("|   ARGUMENTS:");
             indent += 2;
-            for (ExprNode arg : node.arguments) {
+            for (Expr arg : node.arguments) {
                 visit(arg);
             }
             indent -= 2;
@@ -363,7 +363,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(ArrayNode node) {
+    public Void visit(Array node) {
         println("ARRAY literal with " + node.elements.size() + " elements:");
         indent++;
         for (int i = 0; i < node.elements.size(); i++) {
@@ -377,7 +377,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(IndexAccessNode node) {
+    public Void visit(IndexAccess node) {
         println("INDEX access");
         println("|   ARRAY:");
         indent += 2;
@@ -391,7 +391,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(RangeIndexNode node) {
+    public Void visit(RangeIndex node) {
         println("RANGE INDEX");
         if (node.step != null) {
             println("|   step:");
@@ -411,7 +411,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(MultiRangeIndexNode node) {
+    public Void visit(MultiRangeIndex node) {
         println("MULTI-RANGE INDEX with " + node.ranges.size() + " ranges:");
         indent++;
         for (int i = 0; i < node.ranges.size(); i++) {
@@ -425,7 +425,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(EqualityChainNode node) {
+    public Void visit(EqualityChain node) {
         println("EQUALITY chain: " + (node.isAllChain ? ALL : ANY) + " " + node.operator);
         println("|   LEFT:");
         indent += 2;
@@ -433,7 +433,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
         indent -= 2;
         println("|   CHAIN arguments:");
         indent += 2;
-        for (ExprNode arg : node.chainArguments) {
+        for (Expr arg : node.chainArguments) {
             visit(arg);
         }
         indent -= 2;
@@ -441,10 +441,10 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(BooleanChainNode node) {
+    public Void visit(BooleanChain node) {
         println("BOOLEAN chain: " + (node.isAll ? ALL : ANY));
         indent++;
-        for (ExprNode expr : node.expressions) {
+        for (Expr expr : node.expressions) {
             visit(expr);
         }
         indent--;
@@ -452,13 +452,13 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(SlotNode node) {
+    public Void visit(Slot node) {
         println("SLOT: " + node.name + " (type: " + node.type + ")");
         return null;
     }
     
     @Override
-    public Void visit(LambdaNode node) {
+    public Void visit(Lambda node) {
         print("LAMBDA with parameters: ");
         if (node.parameters != null && !node.parameters.isEmpty()) {
             for (int i = 0; i < node.parameters.size(); i++) {
@@ -471,7 +471,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
     @Override
-    public Void visit(PropertyAccessNode node) {
+    public Void visit(PropertyAccess node) {
         println("PROPERTY ACCESS (left HAS right)");
         println("|   left:");
         indent += 2;
@@ -485,7 +485,7 @@ public class ASTPrinter extends ASTVisitor<Void> {
     }
     
 @Override
-public Void visit(ChainedComparisonNode node) {
+public Void visit(ChainedComparison node) {
     println("CHAINED COMPARISON:");
     indent++;
     for (int i = 0; i < node.expressions.size(); i++) {
@@ -501,7 +501,7 @@ public Void visit(ChainedComparisonNode node) {
     return null;
 }
     
-    public static void print(ASTNode node) {
+    public static void print(Base node) {
         ASTPrinter printer = new ASTPrinter();
         printer.visit(node);
     }

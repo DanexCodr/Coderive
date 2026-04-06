@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class NaturalArray {
 
-    private final RangeNode baseRange;
+    private final Range baseRange;
     private final Evaluator evaluator;
     private ExecutionContext context;
     private Map<Long, Object> cache;
@@ -223,7 +223,7 @@ public class NaturalArray {
 
     // ========== CONSTRUCTORS ==========
 
-    public NaturalArray(RangeNode range, Evaluator evaluator, ExecutionContext context) {
+    public NaturalArray(Range range, Evaluator evaluator, ExecutionContext context) {
         if (range == null) {
             throw new InternalError("NaturalArray constructed with null range");
         }
@@ -331,7 +331,7 @@ public class NaturalArray {
     }
 
     // Constructor with target type for conversion
-    public NaturalArray(RangeNode range, Evaluator evaluator, ExecutionContext context, String targetType) {
+    public NaturalArray(Range range, Evaluator evaluator, ExecutionContext context, String targetType) {
         this(range, evaluator, context);
         // arrayId already set by main constructor
         
@@ -857,17 +857,17 @@ public class NaturalArray {
             return value.toString();
         }
         if (value instanceof Boolean) return String.valueOf(value);
-        if (value instanceof IntLiteralNode) {
-            return ((IntLiteralNode) value).value.toString();
+        if (value instanceof IntLiteral) {
+            return ((IntLiteral) value).value.toString();
         }
-        if (value instanceof FloatLiteralNode) {
-            return ((FloatLiteralNode) value).value.toString();
+        if (value instanceof FloatLiteral) {
+            return ((FloatLiteral) value).value.toString();
         }
-        if (value instanceof BoolLiteralNode) {
-            return String.valueOf(((BoolLiteralNode) value).value);
+        if (value instanceof BoolLiteral) {
+            return String.valueOf(((BoolLiteral) value).value);
         }
-        if (value instanceof TextLiteralNode) {
-            return ((TextLiteralNode) value).value;
+        if (value instanceof TextLiteral) {
+            return ((TextLiteral) value).value;
         }
         return String.valueOf(value);
     }

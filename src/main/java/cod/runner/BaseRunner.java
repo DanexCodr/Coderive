@@ -64,7 +64,7 @@ public abstract class BaseRunner {
         System.err.println();
     }
     
-    public ProgramNode parse(String filename, Interpreter interpreter) throws Exception {
+    public Program parse(String filename, Interpreter interpreter) throws Exception {
         DebugSystem.debug(LOG_TAG, "Loading source file: " + filename);
         
         // Use Java 7 Files API to read entire file
@@ -84,7 +84,7 @@ public abstract class BaseRunner {
         DebugSystem.debug(PARSER, "Parsing...");
         
         MainParser parser = new MainParser(tokens, interpreter);
-        ProgramNode ast = parser.parseProgram();
+        Program ast = parser.parseProgram();
         
         DebugSystem.debug(PARSER, "Parsing completed successfully");
        
@@ -159,7 +159,7 @@ public abstract class BaseRunner {
      * @param ast the parsed program AST
      * @param interpreter the interpreter instance
      */
-    protected void generateIndexes(ProgramNode ast, Interpreter interpreter) {
+    protected void generateIndexes(Program ast, Interpreter interpreter) {
         if (ast == null || ast.unit == null) {
             DebugSystem.debug("INDEX", "No program or unit, skipping index generation");
             return;

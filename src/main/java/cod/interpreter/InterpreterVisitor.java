@@ -29,9 +29,9 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     class PatternResult {
         public final PatternType type;
         public final Object pattern;
-        public final ExprNode targetArray;
+        public final Expr targetArray;
         
-        public PatternResult(PatternType type, Object pattern, ExprNode targetArray) {
+        public PatternResult(PatternType type, Object pattern, Expr targetArray) {
             if (type == null) {
                 throw new InternalError("PatternResult constructed with null type");
             }
@@ -42,7 +42,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     private static class LinearRecurrencePattern {
-        public final ExprNode targetArray;
+        public final Expr targetArray;
         public final int order;
         public final AutoStackingNumber[] coefficientsByLag;
         public final AutoStackingNumber constantTerm;
@@ -51,7 +51,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         public final AutoStackingNumber[] seedValues;
 
         LinearRecurrencePattern(
-            ExprNode targetArray,
+            Expr targetArray,
             int order,
             AutoStackingNumber[] coefficientsByLag,
             AutoStackingNumber constantTerm,
@@ -102,7 +102,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     
     // Implement Evaluator interface
     @Override
-    public Object evaluate(ExprNode node, ExecutionContext ctx) {
+    public Object evaluate(Expr node, ExecutionContext ctx) {
         if (node == null) {
             throw new InternalError("evaluate called with null node");
         }
@@ -119,7 +119,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     @Override
-    public Object evaluate(StmtNode node, ExecutionContext ctx) {
+    public Object evaluate(Stmt node, ExecutionContext ctx) {
         if (node == null) {
             throw new InternalError("evaluate called with null node");
         }
@@ -175,33 +175,33 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     private Object createNoneValue() {
-        return new NoneLiteralNode();
+        return new NoneLiteral();
     }
 
     @Override
-    public Object visit(ProgramNode n) {
+    public Object visit(Program n) {
         return defaultVisit(n);
     }
 
     @Override
-    public Object visit(UnitNode n) {
+    public Object visit(Unit n) {
         return defaultVisit(n);
     }
 
     @Override
-    public Object visit(UseNode n) {
+    public Object visit(Use n) {
         return defaultVisit(n);
     }
 
     @Override
-    public Object visit(TypeNode n) {
+    public Object visit(Type n) {
         return defaultVisit(n);
     }
 
     @Override
-    public Object visit(FieldNode n) {
+    public Object visit(Field n) {
         if (n == null) {
-            throw new InternalError("visit(FieldNode) called with null node");
+            throw new InternalError("visit(Field) called with null node");
         }
         
         ExecutionContext ctx = getCurrentContext();
@@ -221,24 +221,24 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     @Override
-    public Object visit(MethodNode n) {
+    public Object visit(Method n) {
         return defaultVisit(n);
     }
 
     @Override
-    public Object visit(ParamNode n) {
+    public Object visit(Param n) {
         return defaultVisit(n);
     }
 
     @Override
-    public Object visit(ConstructorNode n) {
+    public Object visit(Constructor n) {
         return defaultVisit(n);
     }
 
     @Override
-    public Object visit(ConstructorCallNode node) {
+    public Object visit(ConstructorCall node) {
         if (node == null) {
-            throw new InternalError("visit(ConstructorCallNode) called with null node");
+            throw new InternalError("visit(ConstructorCall) called with null node");
         }
         
         try {
@@ -251,26 +251,26 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     @Override
-    public Object visit(PolicyNode n) {
+    public Object visit(Policy n) {
         return defaultVisit(n);
     }
 
     @Override
-    public Object visit(PolicyMethodNode n) {
+    public Object visit(PolicyMethod n) {
         return defaultVisit(n);
     }
 
     @Override
-    public Object visit(BlockNode node) {
+    public Object visit(Block node) {
         if (node == null) {
-            throw new InternalError("visit(BlockNode) called with null node");
+            throw new InternalError("visit(Block) called with null node");
         }
         
         ExecutionContext ctx = getCurrentContext();
         ctx.pushScope();
         
         try {
-            for (StmtNode stmt : node.statements) {
+            for (Stmt stmt : node.statements) {
                 dispatch(stmt);
             }
         } catch (ProgramError e) {
@@ -285,9 +285,9 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     @Override
-    public Object visit(AssignmentNode node) {
+    public Object visit(Assignment node) {
         if (node == null) {
-            throw new InternalError("visit(AssignmentNode) called with null node");
+            throw new InternalError("visit(Assignment) called with null node");
         }
         
         try {
@@ -300,9 +300,9 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     @Override
-    public Object visit(VarNode node) {
+    public Object visit(Var node) {
         if (node == null) {
-            throw new InternalError("visit(VarNode) called with null node");
+            throw new InternalError("visit(Var) called with null node");
         }
         
         try {
@@ -321,7 +321,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 // If expected is [text] but actual is not text, create a converting wrapper
                 if (expectedElementType.equals("text") && !actualElementType.equals("text")) {
                     // Create a new NaturalArray with conversion enabled
-                    RangeNode range = getRangeFromArray(arr);
+                    Range range = getRangeFromArray(arr);
                     if (range != null) {
                         val = new NaturalArray(range, this, ctx, node.explicitType);
                     }
@@ -341,8 +341,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                             val = TypeHandler.Value.createTypeValue(typeStr);
                             ctx.setVariable(node.name, val);
                         }
-                    } else if (val instanceof TextLiteralNode) {
-                        String typeStr = ((TextLiteralNode) val).value;
+                    } else if (val instanceof TextLiteral) {
+                        String typeStr = ((TextLiteral) val).value;
                         if (typeSystem.isTypeLiteral(typeStr)) {
                             val = TypeHandler.Value.createTypeValue(typeStr);
                             ctx.setVariable(node.name, val);
@@ -379,21 +379,21 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
     }
 
-    // Helper method to extract RangeNode from NaturalArray
-    private RangeNode getRangeFromArray(NaturalArray arr) {
+    // Helper method to extract Range from NaturalArray
+    private Range getRangeFromArray(NaturalArray arr) {
         try {
             java.lang.reflect.Field rangeField = NaturalArray.class.getDeclaredField("baseRange");
             rangeField.setAccessible(true);
-            return (RangeNode) rangeField.get(arr);
+            return (Range) rangeField.get(arr);
         } catch (Exception e) {
             return null;
         }
     }
 
     @Override
-    public Object visit(StmtIfNode node) {
+    public Object visit(StmtIf node) {
         if (node == null) {
-            throw new InternalError("visit(StmtIfNode) called with null node");
+            throw new InternalError("visit(StmtIf) called with null node");
         }
         
         try {
@@ -406,8 +406,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             
             try {
                 ctx.pushScope();
-                List<StmtNode> statements = test ? node.thenBlock.statements : node.elseBlock.statements;
-                for (StmtNode s : statements) {
+                List<Stmt> statements = test ? node.thenBlock.statements : node.elseBlock.statements;
+                for (Stmt s : statements) {
                     dispatch(s);
                     if (!ctx.slotsInCurrentPath.isEmpty()
                         && interpreter.shouldReturnEarly(ctx.getSlotValues(), ctx.slotsInCurrentPath)) break;
@@ -431,9 +431,9 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
     
     @Override
-    public Object visit(ExprIfNode node) {
+    public Object visit(ExprIf node) {
         if (node == null) {
-            throw new InternalError("visit(ExprIfNode) called with null node");
+            throw new InternalError("visit(ExprIf) called with null node");
         }
         
         try {
@@ -452,9 +452,9 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
 
     // ========== UPDATED FOR NODE WITH SIMPLE LOOP DECISION ==========
     @Override
-    public Object visit(ForNode node) {
+    public Object visit(For node) {
         if (node == null) {
-            throw new InternalError("visit(ForNode) called with null node");
+            throw new InternalError("visit(For) called with null node");
         }
         
         ExecutionContext ctx = getCurrentContext();
@@ -542,7 +542,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     /**
      * Quick estimate of loop size (doesn't need to be perfect)
      */
-    private long estimateLoopSize(ForNode node, ExecutionContext ctx) {
+    private long estimateLoopSize(For node, ExecutionContext ctx) {
         try {
             if (node.range != null) {
                 // Range loop: we can calculate exactly
@@ -599,12 +599,12 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     /**
      * Quick side effect detection (simple version)
      */
-    private boolean hasSideEffects(BlockNode body) {
+    private boolean hasSideEffects(Block body) {
         if (body == null || body.statements == null) return false;
         
-        for (StmtNode stmt : body.statements) {
-            if (stmt instanceof MethodCallNode) {
-                MethodCallNode call = (MethodCallNode) stmt;
+        for (Stmt stmt : body.statements) {
+            if (stmt instanceof MethodCall) {
+                MethodCall call = (MethodCall) stmt;
                 // out(), outs(), in() are side effects
                 if ("out".equals(call.name) || "outs".equals(call.name) || "in".equals(call.name)) {
                     return true;
@@ -614,22 +614,22 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             }
             
             // Check nested blocks
-            if (stmt instanceof StmtIfNode) {
-                StmtIfNode ifStmt = (StmtIfNode) stmt;
+            if (stmt instanceof StmtIf) {
+                StmtIf ifStmt = (StmtIf) stmt;
                 if (hasSideEffects(ifStmt.thenBlock) || hasSideEffects(ifStmt.elseBlock)) {
                     return true;
                 }
             }
             
             // Nested loops definitely have side effects (complex)
-            if (stmt instanceof ForNode) {
+            if (stmt instanceof For) {
                 return true;
             }
             
             // Assignments to properties could be side effects
-            if (stmt instanceof AssignmentNode) {
-                AssignmentNode assign = (AssignmentNode) stmt;
-                if (assign.left instanceof PropertyAccessNode) {
+            if (stmt instanceof Assignment) {
+                Assignment assign = (Assignment) stmt;
+                if (assign.left instanceof PropertyAccess) {
                     return true;
                 }
             }
@@ -641,7 +641,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     /**
      * Try optimized execution, return null if not possible
      */
-    private Object tryOptimizedExecution(ForNode node, int loopId) {
+    private Object tryOptimizedExecution(For node, int loopId) {
         // Try output-aware pattern first
         OutputAwarePattern.OutputPattern outputPattern = 
             OutputAwarePattern.extract(node, node.iterator);
@@ -699,9 +699,9 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         
         // Try conditional patterns
         List<PatternResult> allPatterns = new ArrayList<PatternResult>();
-        for (StmtNode stmt : node.body.statements) {
-            if (stmt instanceof StmtIfNode) {
-                StmtIfNode ifStmt = (StmtIfNode) stmt;
+        for (Stmt stmt : node.body.statements) {
+            if (stmt instanceof StmtIf) {
+                StmtIf ifStmt = (StmtIf) stmt;
                 List<ConditionalPattern> patterns = extractConditionalPatterns(ifStmt, node.iterator);
                 for (ConditionalPattern pattern : patterns) {
                     if (pattern != null && pattern.isOptimizable()) {
@@ -724,26 +724,26 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         return null;
     }
 
-    private LinearRecurrencePattern extractLinearRecurrencePattern(ForNode node) {
+    private LinearRecurrencePattern extractLinearRecurrencePattern(For node) {
         if (node == null || node.body == null || node.body.statements == null) {
             return null;
         }
         if (node.body.statements.size() != 1) {
             return null;
         }
-        if (!(node.body.statements.get(0) instanceof AssignmentNode)) {
+        if (!(node.body.statements.get(0) instanceof Assignment)) {
             return null;
         }
-        AssignmentNode assign = (AssignmentNode) node.body.statements.get(0);
-        if (!(assign.left instanceof IndexAccessNode)) {
+        Assignment assign = (Assignment) node.body.statements.get(0);
+        if (!(assign.left instanceof IndexAccess)) {
             return null;
         }
-        IndexAccessNode leftAccess = (IndexAccessNode) assign.left;
-        if (!(leftAccess.array instanceof IdentifierNode) || !(leftAccess.index instanceof IdentifierNode)) {
+        IndexAccess leftAccess = (IndexAccess) assign.left;
+        if (!(leftAccess.array instanceof Identifier) || !(leftAccess.index instanceof Identifier)) {
             return null;
         }
         String iter = node.iterator;
-        IdentifierNode idx = (IdentifierNode) leftAccess.index;
+        Identifier idx = (Identifier) leftAccess.index;
         if (!iter.equals(idx.name)) {
             return null;
         }
@@ -757,7 +757,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
 
         Set<String> deps = new HashSet<String>();
         collectIndexedArrayRefs(assign.right, iter, deps);
-        String targetName = ((IdentifierNode) leftAccess.array).name;
+        String targetName = ((Identifier) leftAccess.array).name;
         if (!deps.contains(targetName)) {
             return null;
         }
@@ -831,7 +831,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     private boolean collectLinearTerms(
-        ExprNode expr,
+        Expr expr,
         String targetArrayName,
         String iterator,
         AutoStackingNumber[] coeffByLag,
@@ -840,8 +840,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     ) {
         if (expr == null) return false;
 
-        if (expr instanceof BinaryOpNode) {
-            BinaryOpNode bin = (BinaryOpNode) expr;
+        if (expr instanceof BinaryOp) {
+            BinaryOp bin = (BinaryOp) expr;
             if ("+".equals(bin.op)) {
                 return collectLinearTerms(bin.left, targetArrayName, iterator, coeffByLag, constant, sign) &&
                        collectLinearTerms(bin.right, targetArrayName, iterator, coeffByLag, constant, sign);
@@ -887,15 +887,15 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         TermRef(int lag) { this.lag = lag; }
     }
 
-    private TermRef extractIndexedTargetTerm(ExprNode expr, String targetArrayName, String iterator) {
-        if (!(expr instanceof IndexAccessNode)) {
+    private TermRef extractIndexedTargetTerm(Expr expr, String targetArrayName, String iterator) {
+        if (!(expr instanceof IndexAccess)) {
             return null;
         }
-        IndexAccessNode access = (IndexAccessNode) expr;
-        if (!(access.array instanceof IdentifierNode)) {
+        IndexAccess access = (IndexAccess) expr;
+        if (!(access.array instanceof Identifier)) {
             return null;
         }
-        String arrayName = ((IdentifierNode) access.array).name;
+        String arrayName = ((Identifier) access.array).name;
         if (!targetArrayName.equals(arrayName)) {
             return null;
         }
@@ -906,11 +906,11 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         return new TermRef(lag);
     }
 
-    private int extractLag(ExprNode indexExpr, String iterator) {
-        if (indexExpr instanceof BinaryOpNode) {
-            BinaryOpNode bin = (BinaryOpNode) indexExpr;
-            if ("-".equals(bin.op) && bin.left instanceof IdentifierNode &&
-                iterator.equals(((IdentifierNode) bin.left).name)) {
+    private int extractLag(Expr indexExpr, String iterator) {
+        if (indexExpr instanceof BinaryOp) {
+            BinaryOp bin = (BinaryOp) indexExpr;
+            if ("-".equals(bin.op) && bin.left instanceof Identifier &&
+                iterator.equals(((Identifier) bin.left).name)) {
                 AutoStackingNumber n = toNumericLiteral(bin.right);
                 if (n == null) return -1;
                 long lag = n.longValue();
@@ -921,15 +921,15 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         return -1;
     }
 
-    private AutoStackingNumber toNumericLiteral(ExprNode expr) {
-        if (expr instanceof IntLiteralNode) {
-            return ((IntLiteralNode) expr).value;
+    private AutoStackingNumber toNumericLiteral(Expr expr) {
+        if (expr instanceof IntLiteral) {
+            return ((IntLiteral) expr).value;
         }
-        if (expr instanceof FloatLiteralNode) {
-            return ((FloatLiteralNode) expr).value;
+        if (expr instanceof FloatLiteral) {
+            return ((FloatLiteral) expr).value;
         }
-        if (expr instanceof UnaryNode) {
-            UnaryNode unary = (UnaryNode) expr;
+        if (expr instanceof Unary) {
+            Unary unary = (Unary) expr;
             if ("-".equals(unary.op)) {
                 AutoStackingNumber inner = toNumericLiteral(unary.operand);
                 if (inner == null) return null;
@@ -942,7 +942,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         return null;
     }
 
-    private long[] resolveLoopBounds(ForNode node) {
+    private long[] resolveLoopBounds(For node) {
         if (node == null) return null;
         if (node.range != null) {
             Object startObj = dispatch(node.range.start);
@@ -969,41 +969,41 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         return null;
     }
 
-    private List<PatternResult> extractMultiArraySequencePatterns(ForNode node) {
+    private List<PatternResult> extractMultiArraySequencePatterns(For node) {
         List<PatternResult> results = new ArrayList<PatternResult>();
         if (node == null || node.body == null || node.body.statements == null) {
             return results;
         }
 
-        List<StmtNode> statements = node.body.statements;
+        List<Stmt> statements = node.body.statements;
         if (statements.size() < 2) {
             return results;
         }
 
         List<String> orderedTargets = new ArrayList<String>();
-        List<AssignmentNode> orderedAssignments = new ArrayList<AssignmentNode>();
+        List<Assignment> orderedAssignments = new ArrayList<Assignment>();
 
-        for (StmtNode stmt : statements) {
-            if (!(stmt instanceof AssignmentNode)) {
+        for (Stmt stmt : statements) {
+            if (!(stmt instanceof Assignment)) {
                 return new ArrayList<PatternResult>();
             }
 
-            AssignmentNode assign = (AssignmentNode) stmt;
-            if (assign.isDeclaration || !(assign.left instanceof IndexAccessNode)) {
+            Assignment assign = (Assignment) stmt;
+            if (assign.isDeclaration || !(assign.left instanceof IndexAccess)) {
                 return new ArrayList<PatternResult>();
             }
 
-            IndexAccessNode indexAccess = (IndexAccessNode) assign.left;
-            if (!(indexAccess.array instanceof IdentifierNode) || !(indexAccess.index instanceof IdentifierNode)) {
+            IndexAccess indexAccess = (IndexAccess) assign.left;
+            if (!(indexAccess.array instanceof Identifier) || !(indexAccess.index instanceof Identifier)) {
                 return new ArrayList<PatternResult>();
             }
 
-            IdentifierNode index = (IdentifierNode) indexAccess.index;
+            Identifier index = (Identifier) indexAccess.index;
             if (!node.iterator.equals(index.name)) {
                 return new ArrayList<PatternResult>();
             }
 
-            String targetName = ((IdentifierNode) indexAccess.array).name;
+            String targetName = ((Identifier) indexAccess.array).name;
             if (orderedTargets.contains(targetName)) {
                 return new ArrayList<PatternResult>();
             }
@@ -1013,9 +1013,9 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
 
         for (int i = 0; i < orderedAssignments.size(); i++) {
-            AssignmentNode assign = orderedAssignments.get(i);
-            IndexAccessNode indexAccess = (IndexAccessNode) assign.left;
-            IdentifierNode targetArray = (IdentifierNode) indexAccess.array;
+            Assignment assign = orderedAssignments.get(i);
+            IndexAccess indexAccess = (IndexAccess) assign.left;
+            Identifier targetArray = (Identifier) indexAccess.array;
 
             Set<String> refs = new HashSet<String>();
             collectIndexedArrayRefs(assign.right, node.iterator, refs);
@@ -1036,17 +1036,17 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         return results;
     }
 
-    private void collectIndexedArrayRefs(ExprNode expr, String iterator, Set<String> refs) {
+    private void collectIndexedArrayRefs(Expr expr, String iterator, Set<String> refs) {
         if (expr == null || refs == null) {
             return;
         }
 
-        if (expr instanceof IndexAccessNode) {
-            IndexAccessNode access = (IndexAccessNode) expr;
-            if (access.array instanceof IdentifierNode && access.index instanceof IdentifierNode) {
-                IdentifierNode idx = (IdentifierNode) access.index;
+        if (expr instanceof IndexAccess) {
+            IndexAccess access = (IndexAccess) expr;
+            if (access.array instanceof Identifier && access.index instanceof Identifier) {
+                Identifier idx = (Identifier) access.index;
                 if (iterator.equals(idx.name)) {
-                    refs.add(((IdentifierNode) access.array).name);
+                    refs.add(((Identifier) access.array).name);
                 }
             }
             collectIndexedArrayRefs(access.array, iterator, refs);
@@ -1054,54 +1054,54 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             return;
         }
 
-        if (expr instanceof BinaryOpNode) {
-            BinaryOpNode bin = (BinaryOpNode) expr;
+        if (expr instanceof BinaryOp) {
+            BinaryOp bin = (BinaryOp) expr;
             collectIndexedArrayRefs(bin.left, iterator, refs);
             collectIndexedArrayRefs(bin.right, iterator, refs);
             return;
         }
 
-        if (expr instanceof UnaryNode) {
-            collectIndexedArrayRefs(((UnaryNode) expr).operand, iterator, refs);
+        if (expr instanceof Unary) {
+            collectIndexedArrayRefs(((Unary) expr).operand, iterator, refs);
             return;
         }
 
-        if (expr instanceof MethodCallNode) {
-            MethodCallNode call = (MethodCallNode) expr;
+        if (expr instanceof MethodCall) {
+            MethodCall call = (MethodCall) expr;
             if (call.arguments != null) {
-                for (ExprNode arg : call.arguments) {
+                for (Expr arg : call.arguments) {
                     collectIndexedArrayRefs(arg, iterator, refs);
                 }
             }
             return;
         }
 
-        if (expr instanceof TypeCastNode) {
-            collectIndexedArrayRefs(((TypeCastNode) expr).expression, iterator, refs);
+        if (expr instanceof TypeCast) {
+            collectIndexedArrayRefs(((TypeCast) expr).expression, iterator, refs);
             return;
         }
 
-        if (expr instanceof PropertyAccessNode) {
-            PropertyAccessNode prop = (PropertyAccessNode) expr;
+        if (expr instanceof PropertyAccess) {
+            PropertyAccess prop = (PropertyAccess) expr;
             collectIndexedArrayRefs(prop.left, iterator, refs);
             collectIndexedArrayRefs(prop.right, iterator, refs);
             return;
         }
 
-        if (expr instanceof TupleNode) {
-            TupleNode tuple = (TupleNode) expr;
+        if (expr instanceof Tuple) {
+            Tuple tuple = (Tuple) expr;
             if (tuple.elements != null) {
-                for (ExprNode elem : tuple.elements) {
+                for (Expr elem : tuple.elements) {
                     collectIndexedArrayRefs(elem, iterator, refs);
                 }
             }
             return;
         }
 
-        if (expr instanceof ArrayNode) {
-            ArrayNode array = (ArrayNode) expr;
+        if (expr instanceof Array) {
+            Array array = (Array) expr;
             if (array.elements != null) {
-                for (ExprNode elem : array.elements) {
+                for (Expr elem : array.elements) {
                     collectIndexedArrayRefs(elem, iterator, refs);
                 }
             }
@@ -1109,34 +1109,34 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     @Override
-    public Object visit(SkipNode node) {
+    public Object visit(Skip node) {
         throw new SkipIterationException();
     }
 
     @Override
-    public Object visit(BreakNode node) {
+    public Object visit(Break node) {
         throw new BreakLoopException();
     }
 
     @Override
-    public Object visit(RangeNode n) {
+    public Object visit(Range n) {
         return defaultVisit(n);
     }
 
     @Override
-    public Object visit(ExitNode node) {
+    public Object visit(Exit node) {
         throw new EarlyExitException();
     }
 
     @Override
-    public Object visit(TupleNode node) {
+    public Object visit(Tuple node) {
         if (node == null) {
-            throw new InternalError("visit(TupleNode) called with null node");
+            throw new InternalError("visit(Tuple) called with null node");
         }
         
         try {
             List<Object> tuple = new ArrayList<Object>();
-            for (ExprNode elem : node.elements) {
+            for (Expr elem : node.elements) {
                 tuple.add(dispatch(elem));
             }
             return Collections.unmodifiableList(tuple);
@@ -1149,9 +1149,9 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
 
     @SuppressWarnings("unchecked")
     @Override
-    public Object visit(ReturnSlotAssignmentNode node) {
+    public Object visit(ReturnSlotAssignment node) {
         if (node == null) {
-            throw new InternalError("visit(ReturnSlotAssignmentNode) called with null node");
+            throw new InternalError("visit(ReturnSlotAssignment) called with null node");
         }
         
         ExecutionContext ctx = getCurrentContext();
@@ -1173,7 +1173,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
 
             if (res instanceof Map) {
                 Map<String, Object> map = (Map<String, Object>) res;
-                MethodNode method = null;
+                Method method = null;
                 if (ctx.objectInstance != null && ctx.objectInstance.type != null) {
                     method =
                         interpreter
@@ -1228,16 +1228,16 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     private Object evaluateLambdaAssignment(
-        ReturnSlotAssignmentNode node,
+        ReturnSlotAssignment node,
         ExecutionContext parentCtx,
         Map<String, Object> allLocals) {
         
-        LambdaNode lambda = node.lambda;
+        Lambda lambda = node.lambda;
         if (lambda == null) {
             throw new ProgramError("Lambda assignment missing lambda expression");
         }
         
-        List<ParamNode> params = lambda.parameters != null ? lambda.parameters : new ArrayList<ParamNode>();
+        List<Param> params = lambda.parameters != null ? lambda.parameters : new ArrayList<Param>();
         if (lambda.inferParameters && params.isEmpty()) {
             params = inferLambdaParamsFromPlaceholders(lambda);
             if (params.isEmpty()) {
@@ -1246,8 +1246,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             }
         }
         
-        List<SlotNode> lambdaSlots =
-            lambda.returnSlots != null ? lambda.returnSlots : new ArrayList<SlotNode>();
+        List<Slot> lambdaSlots =
+            lambda.returnSlots != null ? lambda.returnSlots : new ArrayList<Slot>();
         if (lambdaSlots.isEmpty()) {
             throw new ProgramError(
                 "Lambda assignment requires a return contract (::) to map values to variables");
@@ -1262,13 +1262,13 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
         Map<String, String> slotTypes = new LinkedHashMap<String, String>();
         
-        for (SlotNode slot : lambdaSlots) {
+        for (Slot slot : lambdaSlots) {
             slotValues.put(slot.name, null);
             slotTypes.put(slot.name, slot.type);
         }
         
         Map<String, Object> lambdaLocals = new HashMap<String, Object>(allLocals);
-        for (ParamNode param : params) {
+        for (Param param : params) {
             if (param == null || param.name == null) continue;
             
             Object boundValue = null;
@@ -1287,7 +1287,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 );
                 pushContext(defaultCtx);
                 try {
-                    boundValue = visit((ASTNode) param.defaultValue);
+                    boundValue = visit((Base) param.defaultValue);
                     found = true;
                 } finally {
                     popContext();
@@ -1316,7 +1316,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         pushContext(lambdaCtx);
         try {
             if (lambda.body != null) {
-                visit((ASTNode) lambda.body);
+                visit((Base) lambda.body);
             }
         } catch (EarlyExitException e) {
             // normal lambda early exit
@@ -1340,9 +1340,9 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     @Override
-    public Object visit(SlotAssignmentNode node) {
+    public Object visit(SlotAssignment node) {
         if (node == null) {
-            throw new InternalError("visit(SlotAssignmentNode) called with null node");
+            throw new InternalError("visit(SlotAssignment) called with null node");
         }
         
         try {
@@ -1355,14 +1355,14 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     @Override
-    public Object visit(SlotDeclarationNode n) {
+    public Object visit(SlotDeclaration n) {
         return defaultVisit(n);
     }
 
     @Override
-    public Object visit(MultipleSlotAssignmentNode node) {
+    public Object visit(MultipleSlotAssignment node) {
         if (node == null) {
-            throw new InternalError("visit(MultipleSlotAssignmentNode) called with null node");
+            throw new InternalError("visit(MultipleSlotAssignment) called with null node");
         }
         
         try {
@@ -1375,9 +1375,9 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     @Override
-    public Object visit(IdentifierNode node) {
+    public Object visit(Identifier node) {
         if (node == null) {
-            throw new InternalError("visit(IdentifierNode) called with null node");
+            throw new InternalError("visit(Identifier) called with null node");
         }
         
         ExecutionContext ctx = getCurrentContext();
@@ -1400,7 +1400,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             }
         }
 
-        FieldNode importedField = interpreter.getImportResolver().findField(name);
+        Field importedField = interpreter.getImportResolver().findField(name);
         if (importedField != null) {
             if (importedField.value != null) {
                 return dispatch(importedField.value);
@@ -1412,25 +1412,25 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     @Override
-    public Object visit(IntLiteralNode node) {
+    public Object visit(IntLiteral node) {
         if (node == null) {
-            throw new InternalError("visit(IntLiteralNode) called with null node");
+            throw new InternalError("visit(IntLiteral) called with null node");
         }
         return node.value;
     }
 
     @Override
-    public Object visit(FloatLiteralNode node) {
+    public Object visit(FloatLiteral node) {
         if (node == null) {
-            throw new InternalError("visit(FloatLiteralNode) called with null node");
+            throw new InternalError("visit(FloatLiteral) called with null node");
         }
         return node.value;
     }
 
 @Override
-public Object visit(TextLiteralNode node) {
+public Object visit(TextLiteral node) {
     if (node == null) {
-        throw new InternalError("visit(TextLiteralNode) called with null node");
+        throw new InternalError("visit(TextLiteral) called with null node");
     }
     
     String text = node.value;
@@ -1443,22 +1443,22 @@ public Object visit(TextLiteralNode node) {
 }
 
     @Override
-    public Object visit(BoolLiteralNode node) {
+    public Object visit(BoolLiteral node) {
         if (node == null) {
-            throw new InternalError("visit(BoolLiteralNode) called with null node");
+            throw new InternalError("visit(BoolLiteral) called with null node");
         }
         return node.value;
     }
 
     @Override
-    public Object visit(NoneLiteralNode node) {
+    public Object visit(NoneLiteral node) {
         return null;
     }
 
     @Override
-    public Object visit(ThisNode node) {
+    public Object visit(This node) {
         if (node == null) {
-            throw new InternalError("visit(ThisNode) called with null node");
+            throw new InternalError("visit(This) called with null node");
         }
         
         ExecutionContext ctx = getCurrentContext();
@@ -1482,9 +1482,9 @@ public Object visit(TextLiteralNode node) {
     }
 
     @Override
-    public Object visit(SuperNode node) {
+    public Object visit(Super node) {
         if (node == null) {
-            throw new InternalError("visit(SuperNode) called with null node");
+            throw new InternalError("visit(Super) called with null node");
         }
         
         ExecutionContext ctx = getCurrentContext();
@@ -1501,18 +1501,18 @@ public Object visit(TextLiteralNode node) {
     }
     
     @Override
-    public Object visit(PropertyAccessNode node) {
+    public Object visit(PropertyAccess node) {
         if (node == null) {
-            throw new InternalError("visit(PropertyAccessNode) called with null node");
+            throw new InternalError("visit(PropertyAccess) called with null node");
         }
         
         ExecutionContext ctx = getCurrentContext();
         
         try {
-            if (node.left instanceof IdentifierNode && node.right instanceof IdentifierNode) {
-                String leftName = ((IdentifierNode) node.left).name;
-                String rightName = ((IdentifierNode) node.right).name;
-                FieldNode importedField = interpreter.getImportResolver().findField(leftName + "." + rightName);
+            if (node.left instanceof Identifier && node.right instanceof Identifier) {
+                String leftName = ((Identifier) node.left).name;
+                String rightName = ((Identifier) node.right).name;
+                Field importedField = interpreter.getImportResolver().findField(leftName + "." + rightName);
                 if (importedField != null) {
                     if (importedField.value != null) {
                         return dispatch(importedField.value);
@@ -1524,8 +1524,8 @@ public Object visit(TextLiteralNode node) {
             Object leftObj = dispatch(node.left);
             leftObj = typeSystem.unwrap(leftObj);
             
-            if (node.right instanceof IdentifierNode) {
-                IdentifierNode right = (IdentifierNode) node.right;
+            if (node.right instanceof Identifier) {
+                Identifier right = (Identifier) node.right;
                 String propertyName = right.name;
                 
                 if (literalRegistry.hasProperty(leftObj, propertyName)) {
@@ -1533,13 +1533,13 @@ public Object visit(TextLiteralNode node) {
                 }
             }
             
-            if (node.right instanceof MethodCallNode) {
-                MethodCallNode literalMethod = (MethodCallNode) node.right;
+            if (node.right instanceof MethodCall) {
+                MethodCall literalMethod = (MethodCall) node.right;
                 String methodName = literalMethod.name;
                 if (literalRegistry.hasMethod(leftObj, methodName)) {
                     List<Object> evaluatedArgs = new ArrayList<Object>();
                     if (literalMethod.arguments != null) {
-                        for (ExprNode arg : literalMethod.arguments) {
+                        for (Expr arg : literalMethod.arguments) {
                             Object argValue = dispatch(arg);
                             evaluatedArgs.add(typeSystem.unwrap(argValue));
                         }
@@ -1555,19 +1555,19 @@ public Object visit(TextLiteralNode node) {
                 }
             }
             
-            if (node.left instanceof SuperNode) {
+            if (node.left instanceof Super) {
                 return handleSuperPropertyAccess(node, ctx);
             }
             
-            if (node.left instanceof ThisNode) {
+            if (node.left instanceof This) {
                 return handleThisPropertyAccess(node, ctx);
             }
             
             if (leftObj instanceof ObjectInstance) {
                 ObjectInstance instance = (ObjectInstance) leftObj;
                 
-                if (node.right instanceof IdentifierNode) {
-                    IdentifierNode right = (IdentifierNode) node.right;
+                if (node.right instanceof Identifier) {
+                    Identifier right = (Identifier) node.right;
                     String fieldName = right.name;
                     
                     Object fieldValue = interpreter.getConstructorResolver()
@@ -1589,7 +1589,7 @@ public Object visit(TextLiteralNode node) {
         }
     }
 
-    private Object handleSuperPropertyAccess(PropertyAccessNode node, ExecutionContext ctx) {
+    private Object handleSuperPropertyAccess(PropertyAccess node, ExecutionContext ctx) {
         if (ctx.objectInstance == null || ctx.objectInstance.type == null) {
             throw new ProgramError("Cannot access 'super' outside of object context");
         }
@@ -1599,15 +1599,15 @@ public Object visit(TextLiteralNode node) {
         }
         
         try {
-            TypeNode parentType = interpreter.getConstructorResolver()
+            Type parentType = interpreter.getConstructorResolver()
                 .findParentType(ctx.objectInstance.type, ctx);
             
             if (parentType == null) {
                 throw new ProgramError("Parent class not found");
             }
             
-            if (node.right instanceof IdentifierNode) {
-                IdentifierNode right = (IdentifierNode) node.right;
+            if (node.right instanceof Identifier) {
+                Identifier right = (Identifier) node.right;
                 String fieldName = right.name;
                 
                 Object fieldValue = interpreter.getConstructorResolver()
@@ -1628,14 +1628,14 @@ public Object visit(TextLiteralNode node) {
         }
     }
 
-    private Object handleThisPropertyAccess(PropertyAccessNode node, ExecutionContext ctx) {
+    private Object handleThisPropertyAccess(PropertyAccess node, ExecutionContext ctx) {
         if (ctx.objectInstance == null || ctx.objectInstance.type == null) {
             throw new ProgramError("Cannot access 'this' outside of object context");
         }
         
         try {
-            if (node.left instanceof ThisNode) {
-                ThisNode left = (ThisNode) node.left;
+            if (node.left instanceof This) {
+                This left = (This) node.left;
                 if (left.className != null && 
                     !left.className.equals(ctx.objectInstance.type.name)) {
                     throw new ProgramError(
@@ -1645,8 +1645,8 @@ public Object visit(TextLiteralNode node) {
                 }
             }
             
-            if (node.right instanceof IdentifierNode) {
-                IdentifierNode right = (IdentifierNode) node.right;
+            if (node.right instanceof Identifier) {
+                Identifier right = (Identifier) node.right;
                 String fieldName = right.name;
                 
                 Object fieldValue = interpreter.getConstructorResolver()
@@ -1668,9 +1668,9 @@ public Object visit(TextLiteralNode node) {
     }
 
     @Override
-    public Object visit(BinaryOpNode node) {
+    public Object visit(BinaryOp node) {
         if (node == null) {
-            throw new InternalError("visit(BinaryOpNode) called with null node");
+            throw new InternalError("visit(BinaryOp) called with null node");
         }
         
         try {
@@ -1683,9 +1683,9 @@ public Object visit(TextLiteralNode node) {
     }
 
     @Override
-    public Object visit(UnaryNode node) {
+    public Object visit(Unary node) {
         if (node == null) {
-            throw new InternalError("visit(UnaryNode) called with null node");
+            throw new InternalError("visit(Unary) called with null node");
         }
         
         try {
@@ -1698,9 +1698,9 @@ public Object visit(TextLiteralNode node) {
     }
 
     @Override
-    public Object visit(TypeCastNode node) {
+    public Object visit(TypeCast node) {
         if (node == null) {
-            throw new InternalError("visit(TypeCastNode) called with null node");
+            throw new InternalError("visit(TypeCast) called with null node");
         }
         
         try {
@@ -1714,9 +1714,9 @@ public Object visit(TextLiteralNode node) {
 
     @SuppressWarnings("unchecked")
     @Override
-    public Object visit(MethodCallNode node) {
+    public Object visit(MethodCall node) {
     if (node == null) {
-        throw new InternalError("visit(MethodCallNode) called with null node");
+        throw new InternalError("visit(MethodCall) called with null node");
     }
     
         try {
@@ -1735,7 +1735,7 @@ public Object visit(TextLiteralNode node) {
                     receiverValue = typeSystem.unwrap(receiverValue);
                     if (literalRegistry.hasMethod(receiverValue, methodName)) {
                         List<Object> evaluatedArgs = new ArrayList<Object>();
-                        for (ExprNode arg : node.arguments) {
+                        for (Expr arg : node.arguments) {
                             Object argValue = dispatch(arg);
                             evaluatedArgs.add(typeSystem.unwrap(argValue));
                         }
@@ -1746,7 +1746,7 @@ public Object visit(TextLiteralNode node) {
             
             // Evaluate all arguments first
             List<Object> evaluatedArgs = new ArrayList<Object>();
-            for (ExprNode arg : node.arguments) {
+            for (Expr arg : node.arguments) {
                 Object argValue = dispatch(arg);
                 evaluatedArgs.add(typeSystem.unwrap(argValue));
             }
@@ -1763,7 +1763,7 @@ public Object visit(TextLiteralNode node) {
         // ========== END GLOBAL CHECK ==========
         
         // Try to find method in current class hierarchy
-        MethodNode method = null;
+        Method method = null;
         if (ctx.currentClass != null) {
             method = interpreter
                 .getConstructorResolver()
@@ -1814,11 +1814,11 @@ public Object visit(TextLiteralNode node) {
 
         // Handle builtin methods
         if (method.isBuiltin) {
-            MethodCallNode evaluatedCall = new MethodCallNode();
+            MethodCall evaluatedCall = new MethodCall();
             evaluatedCall.name = node.name;
-            evaluatedCall.arguments = new ArrayList<ExprNode>();
+            evaluatedCall.arguments = new ArrayList<Expr>();
             for (Object val : evaluatedArgs) {
-                evaluatedCall.arguments.add(new ValueExprNode(val));
+                evaluatedCall.arguments.add(new ValueExpr(val));
             }
             evaluatedCall.slotNames = node.slotNames;
             evaluatedCall.qualifiedName = node.qualifiedName;
@@ -1837,7 +1837,7 @@ public Object visit(TextLiteralNode node) {
         int paramCount = method.parameters != null ? method.parameters.size() : 0;
 
         for (int i = 0; i < paramCount; i++) {
-            ParamNode param = method.parameters.get(i);
+            Param param = method.parameters.get(i);
             Object argValue = null;
 
             if (i < argCount) {
@@ -1895,7 +1895,7 @@ public Object visit(TextLiteralNode node) {
         Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
         Map<String, String> slotTypes = new LinkedHashMap<String, String>();
         if (method.returnSlots != null) {
-            for (SlotNode s : method.returnSlots) {
+            for (Slot s : method.returnSlots) {
                 slotValues.put(s.name, null);
                 slotTypes.put(s.name, s.type);
             }
@@ -1917,7 +1917,7 @@ public Object visit(TextLiteralNode node) {
         methodCtx.objectInstance = ctx.objectInstance;
         
         if (method.associatedClass != null) {
-            TypeNode classType = findTypeByName(method.associatedClass);
+            Type classType = findTypeByName(method.associatedClass);
             if (classType != null) {
                 methodCtx.currentClass = classType;
             }
@@ -1925,7 +1925,7 @@ public Object visit(TextLiteralNode node) {
         
         if (ctx.objectInstance != null && ctx.objectInstance.type != null && 
             methodCtx.currentClass == null) {
-            TypeNode classType = findTypeByName(ctx.objectInstance.type.name);
+            Type classType = findTypeByName(ctx.objectInstance.type.name);
             if (classType != null) {
                 methodCtx.currentClass = classType;
             }
@@ -1938,7 +1938,7 @@ public Object visit(TextLiteralNode node) {
 
         try {
             if (method.body != null) {
-                for (StmtNode stmt : method.body) {
+                for (Stmt stmt : method.body) {
                     visit(stmt);
                     
                     if (calledMethodHasSlots && 
@@ -2001,10 +2001,10 @@ public Object visit(TextLiteralNode node) {
     }
 }
 
-    private TypeNode findTypeByName(String className) {
-        ProgramNode currentProgram = interpreter.getCurrentProgram();
+    private Type findTypeByName(String className) {
+        Program currentProgram = interpreter.getCurrentProgram();
         if (currentProgram != null && currentProgram.unit != null && currentProgram.unit.types != null) {
-            for (TypeNode t : currentProgram.unit.types) {
+            for (Type t : currentProgram.unit.types) {
                 if (t.name.equals(className)) {
                     return t;
                 }
@@ -2014,18 +2014,18 @@ public Object visit(TextLiteralNode node) {
     }
 
     @Override
-    public Object visit(ArrayNode node) {
+    public Object visit(Array node) {
         if (node == null) {
-            throw new InternalError("visit(ArrayNode) called with null node");
+            throw new InternalError("visit(Array) called with null node");
         }
         
         try {
             if (node.elements.size() == 1) {
-                ExprNode onlyElement = node.elements.get(0);
-                if (onlyElement instanceof RangeNode) {
-                    RangeNode range = (RangeNode) onlyElement;
+                Expr onlyElement = node.elements.get(0);
+                if (onlyElement instanceof Range) {
+                    Range range = (Range) onlyElement;
                     
-                    // Just create the array - type checking happens in VarNode
+                    // Just create the array - type checking happens in Var
                     return new NaturalArray(range, this, getCurrentContext());
                 }
             }
@@ -2036,9 +2036,9 @@ public Object visit(TextLiteralNode node) {
 
             // Regular array literal handling
             List<Object> result = new ArrayList<Object>();
-            for (ExprNode element : node.elements) {
-                if (element instanceof RangeNode) {
-                    result.add(new NaturalArray((RangeNode) element, this, getCurrentContext()));
+            for (Expr element : node.elements) {
+                if (element instanceof Range) {
+                    result.add(new NaturalArray((Range) element, this, getCurrentContext()));
                 } else {
                     Object evaluated = dispatch(element);
                     
@@ -2051,8 +2051,8 @@ public Object visit(TextLiteralNode node) {
                     
                     if (evaluated instanceof String && typeSystem.isTypeLiteral((String) evaluated)) {
                         evaluated = TypeHandler.Value.createTypeValue((String) evaluated);
-                    } else if (evaluated instanceof TextLiteralNode) {
-                        String str = ((TextLiteralNode) evaluated).value;
+                    } else if (evaluated instanceof TextLiteral) {
+                        String str = ((TextLiteral) evaluated).value;
                         if (typeSystem.isTypeLiteral(str)) {
                             evaluated = TypeHandler.Value.createTypeValue(str);
                         }
@@ -2069,18 +2069,18 @@ public Object visit(TextLiteralNode node) {
         }
     }
     
-    private boolean allElementsAreRanges(List<ExprNode> elements) {
+    private boolean allElementsAreRanges(List<Expr> elements) {
         if (elements == null || elements.isEmpty()) return false;
-        for (ExprNode element : elements) {
-            if (!(element instanceof RangeNode)) {
+        for (Expr element : elements) {
+            if (!(element instanceof Range)) {
                 return false;
             }
         }
         return true;
     }
     
-    private Object buildDimensionArray(List<ExprNode> ranges, int dimension) {
-        RangeNode currentRange = (RangeNode) ranges.get(dimension);
+    private Object buildDimensionArray(List<Expr> ranges, int dimension) {
+        Range currentRange = (Range) ranges.get(dimension);
         NaturalArray currentNatural = new NaturalArray(currentRange, this, getCurrentContext());
         if (dimension == ranges.size() - 1) {
             return currentNatural;
@@ -2100,9 +2100,9 @@ public Object visit(TextLiteralNode node) {
 
     @SuppressWarnings("unchecked")
     @Override
-    public Object visit(IndexAccessNode node) {
+    public Object visit(IndexAccess node) {
         if (node == null) {
-            throw new InternalError("visit(IndexAccessNode) called with null node");
+            throw new InternalError("visit(IndexAccess) called with null node");
         }
         
         try {
@@ -2187,9 +2187,9 @@ public Object visit(TextLiteralNode node) {
     }
 
     @Override
-    public Object visit(RangeIndexNode node) {
+    public Object visit(RangeIndex node) {
         if (node == null) {
-            throw new InternalError("visit(RangeIndexNode) called with null node");
+            throw new InternalError("visit(RangeIndex) called with null node");
         }
         
         try {
@@ -2206,14 +2206,14 @@ public Object visit(TextLiteralNode node) {
     }
 
     @Override
-    public Object visit(MultiRangeIndexNode node) {
+    public Object visit(MultiRangeIndex node) {
         if (node == null) {
-            throw new InternalError("visit(MultiRangeIndexNode) called with null node");
+            throw new InternalError("visit(MultiRangeIndex) called with null node");
         }
         
         try {
             List<RangeSpec> ranges = new ArrayList<RangeSpec>();
-            for (RangeIndexNode rangeNode : node.ranges) {
+            for (RangeIndex rangeNode : node.ranges) {
                 ranges.add((RangeSpec) visit(rangeNode));
             }
             return new MultiRangeSpec(ranges);
@@ -2225,9 +2225,9 @@ public Object visit(TextLiteralNode node) {
     }
 
     @Override
-    public Object visit(EqualityChainNode node) {
+    public Object visit(EqualityChain node) {
         if (node == null) {
-            throw new InternalError("visit(EqualityChainNode) called with null node");
+            throw new InternalError("visit(EqualityChain) called with null node");
         }
         
         try {
@@ -2240,9 +2240,9 @@ public Object visit(TextLiteralNode node) {
     }
     
 @Override
-public Object visit(ChainedComparisonNode node) {
+public Object visit(ChainedComparison node) {
     if (node == null) {
-        throw new InternalError("visit(ChainedComparisonNode) called with null node");
+        throw new InternalError("visit(ChainedComparison) called with null node");
     }
     
     try {
@@ -2255,9 +2255,9 @@ public Object visit(ChainedComparisonNode node) {
 }
 
     @Override
-    public Object visit(BooleanChainNode node) {
+    public Object visit(BooleanChain node) {
         if (node == null) {
-            throw new InternalError("visit(BooleanChainNode) called with null node");
+            throw new InternalError("visit(BooleanChain) called with null node");
         }
         
         try {
@@ -2270,14 +2270,14 @@ public Object visit(ChainedComparisonNode node) {
     }
 
     @Override
-    public Object visit(SlotNode n) {
+    public Object visit(Slot n) {
         return defaultVisit(n);
     }
 
     @Override
-    public Object visit(LambdaNode node) {
+    public Object visit(Lambda node) {
         if (node == null) {
-            throw new InternalError("visit(LambdaNode) called with null node");
+            throw new InternalError("visit(Lambda) called with null node");
         }
         
         ExecutionContext ctx = getCurrentContext();
@@ -2302,15 +2302,15 @@ public Object visit(ChainedComparisonNode node) {
         LambdaClosure closure;
         if (callback instanceof LambdaClosure) {
             closure = (LambdaClosure) callback;
-        } else if (callback instanceof LambdaNode) {
-            closure = new LambdaClosure((LambdaNode) callback, parentCtx.locals(), parentCtx.objectInstance, parentCtx.currentClass);
+        } else if (callback instanceof Lambda) {
+            closure = new LambdaClosure((Lambda) callback, parentCtx.locals(), parentCtx.objectInstance, parentCtx.currentClass);
         } else {
             String actualType = callback == null ? "null" : callback.getClass().getSimpleName();
             throw new ProgramError(ownerMethod + " expects a lambda callback, got: " + actualType);
         }
         
-        LambdaNode lambda = closure.lambda;
-        List<ParamNode> params = resolveLambdaParameters(lambda);
+        Lambda lambda = closure.lambda;
+        List<Param> params = resolveLambdaParameters(lambda);
         List<Object> values = args != null ? args : Collections.<Object>emptyList();
 
         Map<String, Object> lambdaLocals =
@@ -2325,12 +2325,12 @@ public Object visit(ChainedComparisonNode node) {
         return evaluateLambdaBlockBody(lambda, closure, lambdaLocals);
     }
 
-    private List<ParamNode> resolveLambdaParameters(LambdaNode lambda) {
+    private List<Param> resolveLambdaParameters(Lambda lambda) {
         if (lambda == null) {
-            return new ArrayList<ParamNode>();
+            return new ArrayList<Param>();
         }
-        List<ParamNode> params =
-            lambda.parameters != null ? lambda.parameters : new ArrayList<ParamNode>();
+        List<Param> params =
+            lambda.parameters != null ? lambda.parameters : new ArrayList<Param>();
         if (!params.isEmpty()) {
             return params;
         }
@@ -2338,19 +2338,19 @@ public Object visit(ChainedComparisonNode node) {
             return params;
         }
 
-        List<ParamNode> inferred = inferLambdaParamsFromPlaceholders(lambda);
+        List<Param> inferred = inferLambdaParamsFromPlaceholders(lambda);
         return inferred;
     }
 
     private Map<String, Object> bindLambdaArguments(
-        List<ParamNode> params,
+        List<Param> params,
         List<Object> values,
         LambdaClosure closure,
         String ownerMethod) {
 
         Map<String, Object> lambdaLocals = new HashMap<String, Object>(closure.capturedLocals);
         for (int i = 0; i < params.size(); i++) {
-            ParamNode param = params.get(i);
+            Param param = params.get(i);
             if (param == null || param.name == null) continue;
 
             Object boundValue = resolveLambdaArgumentValue(i, param, values, closure, lambdaLocals, ownerMethod);
@@ -2362,7 +2362,7 @@ public Object visit(ChainedComparisonNode node) {
 
     private Object resolveLambdaArgumentValue(
         int index,
-        ParamNode param,
+        Param param,
         List<Object> values,
         LambdaClosure closure,
         Map<String, Object> lambdaLocals,
@@ -2379,7 +2379,7 @@ public Object visit(ChainedComparisonNode node) {
     }
 
     private Object evaluateLambdaDefaultValue(
-        ParamNode param,
+        Param param,
         LambdaClosure closure,
         Map<String, Object> lambdaLocals) {
 
@@ -2388,13 +2388,13 @@ public Object visit(ChainedComparisonNode node) {
         defaultCtx.currentClass = closure.currentClass;
         pushContext(defaultCtx);
         try {
-            return visit((ASTNode) param.defaultValue);
+            return visit((Base) param.defaultValue);
         } finally {
             popContext();
         }
     }
 
-    private void validateLambdaArgumentType(ParamNode param, Object boundValue) {
+    private void validateLambdaArgumentType(Param param, Object boundValue) {
         if (param.type != null && !typeSystem.validateType(param.type, boundValue)) {
             throw new ProgramError(
                 "Lambda parameter type mismatch for '" + param.name + "'. Expected "
@@ -2403,7 +2403,7 @@ public Object visit(ChainedComparisonNode node) {
     }
 
     private Object evaluateLambdaExpressionBody(
-        LambdaNode lambda,
+        Lambda lambda,
         LambdaClosure closure,
         Map<String, Object> lambdaLocals) {
 
@@ -2449,12 +2449,12 @@ public Object visit(ChainedComparisonNode node) {
     }
 
     private Object evaluateLambdaBlockBody(
-        LambdaNode lambda,
+        Lambda lambda,
         LambdaClosure closure,
         Map<String, Object> lambdaLocals) {
 
-        List<SlotNode> lambdaSlots =
-            lambda.returnSlots != null ? lambda.returnSlots : new ArrayList<SlotNode>();
+        List<Slot> lambdaSlots =
+            lambda.returnSlots != null ? lambda.returnSlots : new ArrayList<Slot>();
         if (lambdaSlots.isEmpty()) {
             throw new ProgramError(
                 "Lambda with explicit body requires a return contract (::). "
@@ -2463,7 +2463,7 @@ public Object visit(ChainedComparisonNode node) {
 
         Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
         Map<String, String> slotTypes = new LinkedHashMap<String, String>();
-        for (SlotNode slot : lambdaSlots) {
+        for (Slot slot : lambdaSlots) {
             slotValues.put(slot.name, null);
             slotTypes.put(slot.name, slot.type);
         }
@@ -2474,7 +2474,7 @@ public Object visit(ChainedComparisonNode node) {
         pushContext(lambdaCtx);
         try {
             if (lambda.body != null) {
-                visit((ASTNode) lambda.body);
+                visit((Base) lambda.body);
             }
         } catch (EarlyExitException e) {
             // normal lambda early exit
@@ -2488,9 +2488,9 @@ public Object visit(ChainedComparisonNode node) {
         return slotValues;
     }
     
-    private List<ParamNode> inferLambdaParamsFromPlaceholders(LambdaNode lambda) {
+    private List<Param> inferLambdaParamsFromPlaceholders(Lambda lambda) {
         if (lambda == null) {
-            return new ArrayList<ParamNode>();
+            return new ArrayList<Param>();
         }
         LinkedHashSet<String> names = new LinkedHashSet<String>();
         
@@ -2500,9 +2500,9 @@ public Object visit(ChainedComparisonNode node) {
             collectPlaceholderNames(lambda.body, names);
         }
         
-        List<ParamNode> params = new ArrayList<ParamNode>();
+        List<Param> params = new ArrayList<Param>();
         for (String name : names) {
-            ParamNode param = new ParamNode();
+            Param param = new Param();
             param.name = name;
             param.type = null;
             param.typeInferred = true;
@@ -2512,35 +2512,35 @@ public Object visit(ChainedComparisonNode node) {
         return params;
     }
     
-    private void collectPlaceholderNames(ASTNode node, LinkedHashSet<String> names) {
+    private void collectPlaceholderNames(Base node, LinkedHashSet<String> names) {
         if (node == null) return;
         
-        if (node instanceof IdentifierNode) {
-            String name = ((IdentifierNode) node).name;
+        if (node instanceof Identifier) {
+            String name = ((Identifier) node).name;
             if (name != null && name.startsWith("$") && name.length() > 1) {
                 names.add(name);
             }
             return;
         }
         
-        if (node instanceof BinaryOpNode) {
-            BinaryOpNode n = (BinaryOpNode) node;
+        if (node instanceof BinaryOp) {
+            BinaryOp n = (BinaryOp) node;
             collectPlaceholderNames(n.left, names);
             collectPlaceholderNames(n.right, names);
             return;
         }
-        if (node instanceof UnaryNode) {
-            collectPlaceholderNames(((UnaryNode) node).operand, names);
+        if (node instanceof Unary) {
+            collectPlaceholderNames(((Unary) node).operand, names);
             return;
         }
-        if (node instanceof TypeCastNode) {
-            collectPlaceholderNames(((TypeCastNode) node).expression, names);
+        if (node instanceof TypeCast) {
+            collectPlaceholderNames(((TypeCast) node).expression, names);
             return;
         }
-        if (node instanceof MethodCallNode) {
-            MethodCallNode n = (MethodCallNode) node;
+        if (node instanceof MethodCall) {
+            MethodCall n = (MethodCall) node;
             if (n.arguments != null) {
-                for (ExprNode arg : n.arguments) {
+                for (Expr arg : n.arguments) {
                     collectPlaceholderNames(arg, names);
                 }
             }
@@ -2549,117 +2549,117 @@ public Object visit(ChainedComparisonNode node) {
             }
             return;
         }
-        if (node instanceof PropertyAccessNode) {
-            PropertyAccessNode n = (PropertyAccessNode) node;
+        if (node instanceof PropertyAccess) {
+            PropertyAccess n = (PropertyAccess) node;
             collectPlaceholderNames(n.left, names);
             collectPlaceholderNames(n.right, names);
             return;
         }
-        if (node instanceof IndexAccessNode) {
-            IndexAccessNode n = (IndexAccessNode) node;
+        if (node instanceof IndexAccess) {
+            IndexAccess n = (IndexAccess) node;
             collectPlaceholderNames(n.array, names);
             collectPlaceholderNames(n.index, names);
             return;
         }
-        if (node instanceof ArrayNode) {
-            ArrayNode n = (ArrayNode) node;
+        if (node instanceof Array) {
+            Array n = (Array) node;
             if (n.elements != null) {
-                for (ExprNode elem : n.elements) {
+                for (Expr elem : n.elements) {
                     collectPlaceholderNames(elem, names);
                 }
             }
             return;
         }
-        if (node instanceof TupleNode) {
-            TupleNode n = (TupleNode) node;
+        if (node instanceof Tuple) {
+            Tuple n = (Tuple) node;
             if (n.elements != null) {
-                for (ExprNode elem : n.elements) {
+                for (Expr elem : n.elements) {
                     collectPlaceholderNames(elem, names);
                 }
             }
             return;
         }
-        if (node instanceof ExprIfNode) {
-            ExprIfNode n = (ExprIfNode) node;
+        if (node instanceof ExprIf) {
+            ExprIf n = (ExprIf) node;
             collectPlaceholderNames(n.condition, names);
             collectPlaceholderNames(n.thenExpr, names);
             collectPlaceholderNames(n.elseExpr, names);
             return;
         }
-        if (node instanceof BooleanChainNode) {
-            BooleanChainNode n = (BooleanChainNode) node;
+        if (node instanceof BooleanChain) {
+            BooleanChain n = (BooleanChain) node;
             if (n.expressions != null) {
-                for (ExprNode expr : n.expressions) {
+                for (Expr expr : n.expressions) {
                     collectPlaceholderNames(expr, names);
                 }
             }
             return;
         }
-        if (node instanceof EqualityChainNode) {
-            EqualityChainNode n = (EqualityChainNode) node;
+        if (node instanceof EqualityChain) {
+            EqualityChain n = (EqualityChain) node;
             collectPlaceholderNames(n.left, names);
             if (n.chainArguments != null) {
-                for (ExprNode expr : n.chainArguments) {
+                for (Expr expr : n.chainArguments) {
                     collectPlaceholderNames(expr, names);
                 }
             }
             return;
         }
-        if (node instanceof ChainedComparisonNode) {
-            ChainedComparisonNode n = (ChainedComparisonNode) node;
+        if (node instanceof ChainedComparison) {
+            ChainedComparison n = (ChainedComparison) node;
             if (n.expressions != null) {
-                for (ExprNode expr : n.expressions) {
+                for (Expr expr : n.expressions) {
                     collectPlaceholderNames(expr, names);
                 }
             }
             return;
         }
-        if (node instanceof ValueExprNode) {
-            Object value = ((ValueExprNode) node).getValue();
-            if (value instanceof ASTNode) {
-                collectPlaceholderNames((ASTNode) value, names);
+        if (node instanceof ValueExpr) {
+            Object value = ((ValueExpr) node).getValue();
+            if (value instanceof Base) {
+                collectPlaceholderNames((Base) value, names);
             }
             return;
         }
-        if (node instanceof LambdaNode) {
+        if (node instanceof Lambda) {
             // Nested lambdas infer their own placeholders independently.
             return;
         }
         
-        if (node instanceof BlockNode) {
-            BlockNode n = (BlockNode) node;
+        if (node instanceof Block) {
+            Block n = (Block) node;
             if (n.statements != null) {
-                for (StmtNode stmt : n.statements) {
+                for (Stmt stmt : n.statements) {
                     collectPlaceholderNames(stmt, names);
                 }
             }
             return;
         }
-        if (node instanceof SlotAssignmentNode) {
-            collectPlaceholderNames(((SlotAssignmentNode) node).value, names);
+        if (node instanceof SlotAssignment) {
+            collectPlaceholderNames(((SlotAssignment) node).value, names);
             return;
         }
-        if (node instanceof MultipleSlotAssignmentNode) {
-            MultipleSlotAssignmentNode n = (MultipleSlotAssignmentNode) node;
+        if (node instanceof MultipleSlotAssignment) {
+            MultipleSlotAssignment n = (MultipleSlotAssignment) node;
             if (n.assignments != null) {
-                for (SlotAssignmentNode asg : n.assignments) {
+                for (SlotAssignment asg : n.assignments) {
                     collectPlaceholderNames(asg, names);
                 }
             }
             return;
         }
-        if (node instanceof AssignmentNode) {
-            AssignmentNode n = (AssignmentNode) node;
+        if (node instanceof Assignment) {
+            Assignment n = (Assignment) node;
             collectPlaceholderNames(n.left, names);
             collectPlaceholderNames(n.right, names);
             return;
         }
-        if (node instanceof VarNode) {
-            collectPlaceholderNames(((VarNode) node).value, names);
+        if (node instanceof Var) {
+            collectPlaceholderNames(((Var) node).value, names);
             return;
         }
-        if (node instanceof ReturnSlotAssignmentNode) {
-            ReturnSlotAssignmentNode n = (ReturnSlotAssignmentNode) node;
+        if (node instanceof ReturnSlotAssignment) {
+            ReturnSlotAssignment n = (ReturnSlotAssignment) node;
             collectPlaceholderNames(n.methodCall, names);
             collectPlaceholderNames(n.lambda, names);
             return;
@@ -2667,7 +2667,7 @@ public Object visit(ChainedComparisonNode node) {
     }
 
     @SuppressWarnings("unchecked")
-    private Object handleSuperMethodCall(MethodCallNode node) {
+    private Object handleSuperMethodCall(MethodCall node) {
         ExecutionContext ctx = getCurrentContext();
         
         if (ctx.objectInstance == null || ctx.objectInstance.type == null) {
@@ -2680,13 +2680,13 @@ public Object visit(ChainedComparisonNode node) {
         
         try {
             ConstructorResolver resolver = interpreter.getConstructorResolver();
-            TypeNode parentType = resolver.findParentType(ctx.objectInstance.type, ctx);
+            Type parentType = resolver.findParentType(ctx.objectInstance.type, ctx);
             
             if (parentType == null) {
                 throw new ProgramError("Parent class not found for 'super." + node.name + "'");
             }
             
-            MethodNode method = resolver.findMethodInHierarchy(parentType, node.name, ctx);
+            Method method = resolver.findMethodInHierarchy(parentType, node.name, ctx);
             
             if (method == null) {
                 throw new ProgramError("Method '" + node.name + "' not found in parent class");
@@ -2887,7 +2887,7 @@ public Object visit(ChainedComparisonNode node) {
         return index;
     }
 
-    private Object applyPatterns(ForNode node, List<PatternResult> patterns) {
+    private Object applyPatterns(For node, List<PatternResult> patterns) {
         if (node == null) {
             throw new InternalError("applyPatterns called with null node");
         }
@@ -2997,8 +2997,8 @@ public Object visit(ChainedComparisonNode node) {
         }
         
         try {
-            List<ExprNode> conditions = new ArrayList<ExprNode>();
-            List<List<StmtNode>> branchStatements = new ArrayList<List<StmtNode>>();
+            List<Expr> conditions = new ArrayList<Expr>();
+            List<List<Stmt>> branchStatements = new ArrayList<List<Stmt>>();
             
             for (ConditionalPattern.Branch branch : pattern.branches) {
                 conditions.add(branch.condition);
@@ -3088,7 +3088,7 @@ public Object visit(ChainedComparisonNode node) {
         }
     }
 
-    private Object executeForLoopNormally(ForNode node) {
+    private Object executeForLoopNormally(For node) {
         ExecutionContext ctx = getCurrentContext();
         String iter = node.iterator;
 
@@ -3110,7 +3110,7 @@ public Object visit(ChainedComparisonNode node) {
 
     @SuppressWarnings("unchecked")
     private Object executeArrayLoop(
-        ExecutionContext ctx, ForNode node, String iter, Object arrayObj) {
+        ExecutionContext ctx, For node, String iter, Object arrayObj) {
         try {
             if (arrayObj instanceof NaturalArray) {
                 NaturalArray natural = (NaturalArray) arrayObj;
@@ -3146,17 +3146,17 @@ public Object visit(ChainedComparisonNode node) {
         }
     }
 
-    private Object executeRangeLoop(ExecutionContext ctx, ForNode node, String iter) {
+    private Object executeRangeLoop(ExecutionContext ctx, For node, String iter) {
         try {
             Object startObj = dispatch(node.range.start);
             Object endObj = dispatch(node.range.end);
             startObj = typeSystem.unwrap(startObj);
             endObj = typeSystem.unwrap(endObj);
 
-            if (node.range.step != null && node.range.step instanceof BinaryOpNode) {
-                BinaryOpNode binOp = (BinaryOpNode) node.range.step;
-                if (binOp.left instanceof IdentifierNode
-                    && ((IdentifierNode) binOp.left).name.equals(iter)
+            if (node.range.step != null && node.range.step instanceof BinaryOp) {
+                BinaryOp binOp = (BinaryOp) node.range.step;
+                if (binOp.left instanceof Identifier
+                    && ((Identifier) binOp.left).name.equals(iter)
                     && (binOp.op.equals("*") || binOp.op.equals("/"))) {
                     Object rightObj = dispatch(binOp.right);
                     rightObj = typeSystem.unwrap(rightObj);
@@ -3189,7 +3189,7 @@ public Object visit(ChainedComparisonNode node) {
     }
 
     private Object executeAdditiveLoop(
-        ExecutionContext ctx, ForNode node, Object startObj, Object endObj, AutoStackingNumber step) {
+        ExecutionContext ctx, For node, Object startObj, Object endObj, AutoStackingNumber step) {
         try {
             AutoStackingNumber start = typeSystem.toAutoStackingNumber(startObj);
             AutoStackingNumber end = typeSystem.toAutoStackingNumber(endObj);
@@ -3214,7 +3214,7 @@ public Object visit(ChainedComparisonNode node) {
 
     private Object executeMultiplicativeLoop(
         ExecutionContext ctx,
-        ForNode node,
+        For node,
         Object startObj,
         Object endObj,
         AutoStackingNumber factor,
@@ -3245,7 +3245,7 @@ public Object visit(ChainedComparisonNode node) {
     }
 
     private void executeIteration(
-        ExecutionContext ctx, ForNode node, AutoStackingNumber current, Object startObj) {
+        ExecutionContext ctx, For node, AutoStackingNumber current, Object startObj) {
         try {
             String iter = node.iterator;
             Object currentValue = convertToAppropriateType(current, startObj);
@@ -3266,9 +3266,9 @@ public Object visit(ChainedComparisonNode node) {
         }
     }
 
-    private void executeLoopBody(ExecutionContext ctx, ForNode node) {
+    private void executeLoopBody(ExecutionContext ctx, For node) {
         try {
-            for (StmtNode s : node.body.statements) {
+            for (Stmt s : node.body.statements) {
                 try {
                     dispatch(s);
                 } catch (SkipIterationException e) {
@@ -3289,7 +3289,7 @@ public Object visit(ChainedComparisonNode node) {
         }
     }
     
-    private Object executeOutputAwareLoop(ForNode node, OutputAwarePattern.OutputPattern pattern) {
+    private Object executeOutputAwareLoop(For node, OutputAwarePattern.OutputPattern pattern) {
         ExecutionContext ctx = getCurrentContext();
         
         try {
@@ -3308,11 +3308,11 @@ public Object visit(ChainedComparisonNode node) {
         }
     }
 
-    private NaturalArray createArrayFromOutputPattern(ForNode node, Object computation, ExecutionContext ctx) {
+    private NaturalArray createArrayFromOutputPattern(For node, Object computation, ExecutionContext ctx) {
         if (computation instanceof SequencePattern.Pattern) {
             SequencePattern.Pattern seqPattern = (SequencePattern.Pattern) computation;
             
-            RangeNode range = node.range;
+            Range range = node.range;
             if (range == null && node.arraySource != null) {
                 Object sourceObj = dispatch(node.arraySource);
                 sourceObj = typeSystem.unwrap(sourceObj);
@@ -3321,8 +3321,8 @@ public Object visit(ChainedComparisonNode node) {
                     NaturalArray sourceArr = (NaturalArray) sourceObj;
                     long size = sourceArr.size();
                     
-                    ExprNode start = ASTFactory.createIntLiteral(0, null);
-                    ExprNode end = ASTFactory.createIntLiteral((int)(size - 1), null);
+                    Expr start = ASTFactory.createIntLiteral(0, null);
+                    Expr end = ASTFactory.createIntLiteral((int)(size - 1), null);
                     range = ASTFactory.createRange(null, start, end, null, null);
                 }
             }
@@ -3355,7 +3355,7 @@ public Object visit(ChainedComparisonNode node) {
         } else if (computation instanceof ConditionalPattern) {
             ConditionalPattern condPattern = (ConditionalPattern) computation;
             
-            RangeNode range = node.range;
+            Range range = node.range;
             if (range == null && node.arraySource != null) {
                 Object sourceObj = dispatch(node.arraySource);
                 sourceObj = typeSystem.unwrap(sourceObj);
@@ -3364,8 +3364,8 @@ public Object visit(ChainedComparisonNode node) {
                     NaturalArray sourceArr = (NaturalArray) sourceObj;
                     long size = sourceArr.size();
                     
-                    ExprNode start = ASTFactory.createIntLiteral(0, null);
-                    ExprNode end = ASTFactory.createIntLiteral((int)(size - 1), null);
+                    Expr start = ASTFactory.createIntLiteral(0, null);
+                    Expr end = ASTFactory.createIntLiteral((int)(size - 1), null);
                     range = ASTFactory.createRange(null, start, end, null, null);
                 }
             }
@@ -3376,8 +3376,8 @@ public Object visit(ChainedComparisonNode node) {
             
             NaturalArray arr = new NaturalArray(range, this, ctx);
             
-            List<ExprNode> conditions = new ArrayList<ExprNode>();
-            List<List<StmtNode>> branchStatements = new ArrayList<List<StmtNode>>();
+            List<Expr> conditions = new ArrayList<Expr>();
+            List<List<Stmt>> branchStatements = new ArrayList<List<Stmt>>();
             
             for (ConditionalPattern.Branch branch : condPattern.branches) {
                 conditions.add(branch.condition);
@@ -3398,8 +3398,8 @@ public Object visit(ChainedComparisonNode node) {
         throw new ProgramError("Unknown computation pattern type");
     }
 
-    private void executeOutputRangeLoop(ExecutionContext ctx, ForNode node, 
-                                       NaturalArray arr, List<MethodCallNode> outputCalls) {
+    private void executeOutputRangeLoop(ExecutionContext ctx, For node, 
+                                       NaturalArray arr, List<MethodCall> outputCalls) {
         try {
             Object startObj = dispatch(node.range.start);
             Object endObj = dispatch(node.range.end);
@@ -3417,15 +3417,15 @@ public Object visit(ChainedComparisonNode node) {
                 
                 ctx.setVariable(node.iterator, value);
                 
-                for (MethodCallNode outputCall : outputCalls) {
-                    MethodCallNode evalCall = new MethodCallNode();
+                for (MethodCall outputCall : outputCalls) {
+                    MethodCall evalCall = new MethodCall();
                     evalCall.name = outputCall.name;
-                    evalCall.arguments = new ArrayList<ExprNode>();
+                    evalCall.arguments = new ArrayList<Expr>();
                     
-                    for (ExprNode arg : outputCall.arguments) {
-                        if (arg instanceof IdentifierNode && 
-                            "_".equals(((IdentifierNode) arg).name)) {
-                            evalCall.arguments.add(new ValueExprNode(value));
+                    for (Expr arg : outputCall.arguments) {
+                        if (arg instanceof Identifier && 
+                            "_".equals(((Identifier) arg).name)) {
+                            evalCall.arguments.add(new ValueExpr(value));
                         } else {
                             evalCall.arguments.add(arg);
                         }
@@ -3441,8 +3441,8 @@ public Object visit(ChainedComparisonNode node) {
         }
     }
 
-    private void executeOutputArrayLoop(ExecutionContext ctx, ForNode node,
-                                       NaturalArray arr, List<MethodCallNode> outputCalls) {
+    private void executeOutputArrayLoop(ExecutionContext ctx, For node,
+                                       NaturalArray arr, List<MethodCall> outputCalls) {
         try {
             Object sourceObj = dispatch(node.arraySource);
             sourceObj = typeSystem.unwrap(sourceObj);
@@ -3464,15 +3464,15 @@ public Object visit(ChainedComparisonNode node) {
                 
                 ctx.setVariable(node.iterator, value);
                 
-                for (MethodCallNode outputCall : outputCalls) {
-                    MethodCallNode evalCall = new MethodCallNode();
+                for (MethodCall outputCall : outputCalls) {
+                    MethodCall evalCall = new MethodCall();
                     evalCall.name = outputCall.name;
-                    evalCall.arguments = new ArrayList<ExprNode>();
+                    evalCall.arguments = new ArrayList<Expr>();
                     
-                    for (ExprNode arg : outputCall.arguments) {
-                        if (arg instanceof IdentifierNode && 
-                            "_".equals(((IdentifierNode) arg).name)) {
-                            evalCall.arguments.add(new ValueExprNode(value));
+                    for (Expr arg : outputCall.arguments) {
+                        if (arg instanceof Identifier && 
+                            "_".equals(((Identifier) arg).name)) {
+                            evalCall.arguments.add(new ValueExpr(value));
                         } else {
                             evalCall.arguments.add(arg);
                         }
@@ -3488,7 +3488,7 @@ public Object visit(ChainedComparisonNode node) {
         }
     }
 
-    private long calculateRangeStep(RangeNode range) {
+    private long calculateRangeStep(Range range) {
         if (range == null) {
             return 1L;
         }
@@ -3534,7 +3534,7 @@ public Object visit(ChainedComparisonNode node) {
 
     private Object convertToAppropriateType(AutoStackingNumber value, Object original) {
         if ((original instanceof Integer || original instanceof Long || 
-             original instanceof IntLiteralNode) && value.fitsInStacks(1)) {
+             original instanceof IntLiteral) && value.fitsInStacks(1)) {
             try {
                 return (int) value.longValue();
             } catch (ArithmeticException e) {
@@ -3544,7 +3544,7 @@ public Object visit(ChainedComparisonNode node) {
         return value;
     }
 
-    private List<ConditionalPattern> extractConditionalPatterns(StmtIfNode ifStmt, String iterator) {
+    private List<ConditionalPattern> extractConditionalPatterns(StmtIf ifStmt, String iterator) {
         try {
             return ConditionalPattern.extractAll(ifStmt, iterator);
         } catch (Exception e) {

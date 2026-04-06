@@ -1,21 +1,21 @@
 package cod.interpreter.context;
 
-import cod.ast.nodes.LambdaNode;
-import cod.ast.nodes.TypeNode;
+import cod.ast.nodes.Lambda;
+import cod.ast.nodes.Type;
 import java.util.HashMap;
 import java.util.Map;
 
 public class LambdaClosure {
-    public final LambdaNode lambda;
+    public final Lambda lambda;
     public final Map<String, Object> capturedLocals;
     public final ObjectInstance objectInstance;
-    public final TypeNode currentClass;
+    public final Type currentClass;
     
     public LambdaClosure(
-        LambdaNode lambda,
+        Lambda lambda,
         Map<String, Object> capturedLocals,
         ObjectInstance objectInstance,
-        TypeNode currentClass) {
+        Type currentClass) {
         
         this.lambda = lambda;
         this.capturedLocals =

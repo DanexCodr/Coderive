@@ -1,6 +1,6 @@
 package cod.interpreter.context;
 
-import cod.ast.nodes.TypeNode;
+import cod.ast.nodes.Type;
 import cod.error.InternalError;
 import cod.interpreter.handler.TypeHandler;
 import java.util.*;
@@ -8,7 +8,7 @@ import java.util.*;
 public class ExecutionContext {
     
     public ObjectInstance objectInstance;
-    public TypeNode currentClass;
+    public Type currentClass;
     
     // Locals with scope stacking
     private List<Map<String, Object>> localsStack;

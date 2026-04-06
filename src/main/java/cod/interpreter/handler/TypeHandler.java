@@ -108,7 +108,7 @@ public class TypeHandler {
     // Helper to check if value is none
     public boolean isNoneValue(Object obj) {
         if (obj == null) return true;
-        if (obj instanceof NoneLiteralNode) return true;
+        if (obj instanceof NoneLiteral) return true;
         if (obj instanceof String && "none".equals(obj)) return true;
         if (obj instanceof Value) {
             Value tv = (Value) obj;
@@ -121,7 +121,7 @@ public class TypeHandler {
         if (obj instanceof Value) {
             return ((Value) obj).value;
         }
-        if (obj instanceof NoneLiteralNode) {
+        if (obj instanceof NoneLiteral) {
             return null;
         }
         return obj;
@@ -132,20 +132,20 @@ public class TypeHandler {
     public boolean isTruthy(Object value) {
         if (value == null) return false;
         
-        if (value instanceof BoolLiteralNode) {
-            return ((BoolLiteralNode) value).value;
+        if (value instanceof BoolLiteral) {
+            return ((BoolLiteral) value).value;
         }
         
-        if (value instanceof IntLiteralNode) {
-            return !((IntLiteralNode) value).value.isZero();
+        if (value instanceof IntLiteral) {
+            return !((IntLiteral) value).value.isZero();
         }
         
-        if (value instanceof FloatLiteralNode) {
-            return !((FloatLiteralNode) value).value.isZero();
+        if (value instanceof FloatLiteral) {
+            return !((FloatLiteral) value).value.isZero();
         }
         
-        if (value instanceof TextLiteralNode) {
-            String str = ((TextLiteralNode) value).value;
+        if (value instanceof TextLiteral) {
+            String str = ((TextLiteral) value).value;
             return !str.isEmpty() && !str.equalsIgnoreCase("false");
         }
         
@@ -189,7 +189,7 @@ public class TypeHandler {
     
     public Object processTypeLiteral(String typeLiteral) {
         if (typeLiteral.equals("none")) {
-            return new NoneLiteralNode();
+            return new NoneLiteral();
         }
         return Value.createTypeValue(typeLiteral);
     }
@@ -225,11 +225,11 @@ public class TypeHandler {
         if (o instanceof AutoStackingNumber) {
             return (AutoStackingNumber) o;
         }
-        if (o instanceof IntLiteralNode) {
-            return ((IntLiteralNode) o).value;
+        if (o instanceof IntLiteral) {
+            return ((IntLiteral) o).value;
         }
-        if (o instanceof FloatLiteralNode) {
-            return ((FloatLiteralNode) o).value;
+        if (o instanceof FloatLiteral) {
+            return ((FloatLiteral) o).value;
         }
         if (o instanceof Integer || o instanceof Long) {
             return AutoStackingNumber.fromLong(((Number) o).longValue());
@@ -240,8 +240,8 @@ public class TypeHandler {
         if (o instanceof Boolean) {
             return ((Boolean) o) ? ONE : ZERO;
         }
-        if (o instanceof BoolLiteralNode) {
-            return ((BoolLiteralNode) o).value ? ONE : ZERO;
+        if (o instanceof BoolLiteral) {
+            return ((BoolLiteral) o).value ? ONE : ZERO;
         }
         if (o instanceof String) {
             String s = (String) o;
@@ -251,8 +251,8 @@ public class TypeHandler {
                 throw new ProgramError("Cannot convert string '" + s + "' to number");
             }
         }
-        if (o instanceof TextLiteralNode) {
-            String s = ((TextLiteralNode) o).value;
+        if (o instanceof TextLiteral) {
+            String s = ((TextLiteral) o).value;
             try {
                 return AutoStackingNumber.valueOf(s);
             } catch (NumberFormatException e) {
@@ -281,9 +281,9 @@ public class TypeHandler {
             out[index] = ((Number) o).longValue();
             return true;
         }
-        if (o instanceof IntLiteralNode) {
+        if (o instanceof IntLiteral) {
             try {
-                out[index] = ((IntLiteralNode) o).value.longValue();
+                out[index] = ((IntLiteral) o).value.longValue();
                 return true;
             } catch (ArithmeticException ignored) {
                 return false;
@@ -326,7 +326,7 @@ public class TypeHandler {
     private Object addScalars(Object a, Object b) {
         
         if (a instanceof String || b instanceof String ||
-            a instanceof TextLiteralNode || b instanceof TextLiteralNode) {
+            a instanceof TextLiteral || b instanceof TextLiteral) {
             return String.valueOf(a) + String.valueOf(b);
         }
 
@@ -387,8 +387,8 @@ public class TypeHandler {
     private Object multiplyScalars(Object a, Object b) {
         
         // Handle string multiplication (repetition)
-        if ((a instanceof TextLiteralNode && isNumeric(b)) || 
-            (b instanceof TextLiteralNode && isNumeric(a))) {
+        if ((a instanceof TextLiteral && isNumeric(b)) || 
+            (b instanceof TextLiteral && isNumeric(a))) {
             return multiplyString(a, b);
         }
         
@@ -439,8 +439,8 @@ public class TypeHandler {
     
     private boolean isNumeric(Object obj) {
         return obj instanceof AutoStackingNumber ||
-               obj instanceof IntLiteralNode ||
-               obj instanceof FloatLiteralNode ||
+               obj instanceof IntLiteral ||
+               obj instanceof FloatLiteral ||
                obj instanceof Integer || obj instanceof Long || 
                obj instanceof Float || obj instanceof Double;
     }
@@ -720,11 +720,11 @@ public class TypeHandler {
         String str = null;
         int repeat = 0;
         
-        if (a instanceof TextLiteralNode && isNumeric(b)) {
-            str = ((TextLiteralNode) a).value;
+        if (a instanceof TextLiteral && isNumeric(b)) {
+            str = ((TextLiteral) a).value;
             repeat = (int) toAutoStackingNumber(b).longValue();
-        } else if (b instanceof TextLiteralNode && isNumeric(a)) {
-            str = ((TextLiteralNode) b).value;
+        } else if (b instanceof TextLiteral && isNumeric(a)) {
+            str = ((TextLiteral) b).value;
             repeat = (int) toAutoStackingNumber(a).longValue();
         } else if (a instanceof String && isNumeric(b)) {
             str = (String) a;
@@ -858,10 +858,10 @@ public class TypeHandler {
         if (bIsNone) return 1;
         
         // Handle strings
-        if (a instanceof TextLiteralNode || b instanceof TextLiteralNode ||
+        if (a instanceof TextLiteral || b instanceof TextLiteral ||
             a instanceof String || b instanceof String) {
-            String strA = a instanceof TextLiteralNode ? ((TextLiteralNode) a).value : String.valueOf(a);
-            String strB = b instanceof TextLiteralNode ? ((TextLiteralNode) b).value : String.valueOf(b);
+            String strA = a instanceof TextLiteral ? ((TextLiteral) a).value : String.valueOf(a);
+            String strB = b instanceof TextLiteral ? ((TextLiteral) b).value : String.valueOf(b);
             return strA.compareTo(strB);
         }
 
@@ -898,8 +898,8 @@ public class TypeHandler {
                     return Value.createTypeValue(str);
                 }
             }
-            if (value instanceof TextLiteralNode) {
-                String str = ((TextLiteralNode) value).value;
+            if (value instanceof TextLiteral) {
+                String str = ((TextLiteral) value).value;
                 if (isValidTypeSignature(str)) {
                     return Value.createTypeValue(str);
                 }
@@ -908,11 +908,11 @@ public class TypeHandler {
         }
         
         if (targetType.equals("none")) {
-            return new NoneLiteralNode();
+            return new NoneLiteral();
         }
         
-        if (value instanceof FloatLiteralNode) {
-            AutoStackingNumber num = ((FloatLiteralNode) value).value;
+        if (value instanceof FloatLiteral) {
+            AutoStackingNumber num = ((FloatLiteral) value).value;
             if (targetType.equals(INT.toString())) {
                 try {
                     return num.longValue();
@@ -926,15 +926,15 @@ public class TypeHandler {
             }
         }
         
-        if (value instanceof IntLiteralNode) {
-            AutoStackingNumber num = ((IntLiteralNode) value).value;
+        if (value instanceof IntLiteral) {
+            AutoStackingNumber num = ((IntLiteral) value).value;
             if (targetType.equals(INT.toString())) return num.longValue();
             if (targetType.equals(FLOAT.toString())) return num;
             if (targetType.equals(TEXT.toString())) return num.toString();
         }
         
-        if (value instanceof BoolLiteralNode) {
-            boolean val = ((BoolLiteralNode) value).value;
+        if (value instanceof BoolLiteral) {
+            boolean val = ((BoolLiteral) value).value;
             if (targetType.equals(BOOL.toString())) return val;
             if (targetType.equals(INT.toString())) return val ? 1 : 0;
             if (targetType.equals(FLOAT.toString())) return val ? ONE : ZERO;
@@ -948,8 +948,8 @@ public class TypeHandler {
             if (targetType.equals(TEXT.toString())) return num.toString();
         }
         
-        if (value instanceof TextLiteralNode) {
-            String str = ((TextLiteralNode) value).value;
+        if (value instanceof TextLiteral) {
+            String str = ((TextLiteral) value).value;
             if (targetType.equals(TEXT.toString())) return str;
             if (targetType.equals(INT.toString())) {
                 try {
@@ -993,7 +993,7 @@ public class TypeHandler {
         
         if (targetType.equals(BOOL.toString())) {
             if (value instanceof Boolean) return value;
-            if (value instanceof BoolLiteralNode) return ((BoolLiteralNode) value).value;
+            if (value instanceof BoolLiteral) return ((BoolLiteral) value).value;
             if (value instanceof AutoStackingNumber) {
                 return !((AutoStackingNumber) value).isZero();
             }
@@ -1007,8 +1007,8 @@ public class TypeHandler {
                     throw new ProgramError("Cannot convert string '" + value + "' to boolean");
                 }
             }
-            if (value instanceof TextLiteralNode) {
-                String strVal = ((TextLiteralNode) value).value.toLowerCase().trim();
+            if (value instanceof TextLiteral) {
+                String strVal = ((TextLiteral) value).value.toLowerCase().trim();
                 if (strVal.equals("true")) return true;
                 if (strVal.equals("false")) return false;
                 try {
@@ -1037,7 +1037,7 @@ public class TypeHandler {
     }
     
     if (value == null) return "none";
-    if (value instanceof NoneLiteralNode) return "none";
+    if (value instanceof NoneLiteral) return "none";
     
     if (value instanceof NaturalArray) {
         NaturalArray arr = (NaturalArray) value;
@@ -1048,10 +1048,10 @@ public class TypeHandler {
         return arr.getElementType();
     }
     
-    if (value instanceof IntLiteralNode) return INT.toString();
-    if (value instanceof FloatLiteralNode) return FLOAT.toString();
-    if (value instanceof TextLiteralNode) return TEXT.toString();
-    if (value instanceof BoolLiteralNode) return BOOL.toString();
+    if (value instanceof IntLiteral) return INT.toString();
+    if (value instanceof FloatLiteral) return FLOAT.toString();
+    if (value instanceof TextLiteral) return TEXT.toString();
+    if (value instanceof BoolLiteral) return BOOL.toString();
     
     if (value instanceof AutoStackingNumber) {
         AutoStackingNumber num = (AutoStackingNumber) value;
@@ -1107,20 +1107,20 @@ public class TypeHandler {
             return numA.compareTo(numB) == 0;
         }
         
-        if (a instanceof IntLiteralNode && b instanceof IntLiteralNode) {
-            return ((IntLiteralNode) a).value.compareTo(((IntLiteralNode) b).value) == 0;
+        if (a instanceof IntLiteral && b instanceof IntLiteral) {
+            return ((IntLiteral) a).value.compareTo(((IntLiteral) b).value) == 0;
         }
         
-        if (a instanceof FloatLiteralNode && b instanceof FloatLiteralNode) {
-            return ((FloatLiteralNode) a).value.compareTo(((FloatLiteralNode) b).value) == 0;
+        if (a instanceof FloatLiteral && b instanceof FloatLiteral) {
+            return ((FloatLiteral) a).value.compareTo(((FloatLiteral) b).value) == 0;
         }
         
-        if (a instanceof TextLiteralNode && b instanceof TextLiteralNode) {
-            return ((TextLiteralNode) a).value.equals(((TextLiteralNode) b).value);
+        if (a instanceof TextLiteral && b instanceof TextLiteral) {
+            return ((TextLiteral) a).value.equals(((TextLiteral) b).value);
         }
         
-        if (a instanceof BoolLiteralNode && b instanceof BoolLiteralNode) {
-            return ((BoolLiteralNode) a).value == ((BoolLiteralNode) b).value;
+        if (a instanceof BoolLiteral && b instanceof BoolLiteral) {
+            return ((BoolLiteral) a).value == ((BoolLiteral) b).value;
         }
         
         return a.equals(b);
@@ -1194,8 +1194,8 @@ public class TypeHandler {
                 String str = (String) rawValue;
                 return isValidTypeSignature(str);
             }
-            if (rawValue instanceof TextLiteralNode) {
-                String str = ((TextLiteralNode) rawValue).value;
+            if (rawValue instanceof TextLiteral) {
+                String str = ((TextLiteral) rawValue).value;
                 return isValidTypeSignature(str);
             }
             return false;
@@ -1288,21 +1288,21 @@ public class TypeHandler {
         }
         
         if (type.equals(INT.toString())) {
-            return rawValue instanceof IntLiteralNode ||
+            return rawValue instanceof IntLiteral ||
                    rawValue instanceof Integer || 
                    rawValue instanceof Long ||
                    (rawValue instanceof AutoStackingNumber && 
                     ((AutoStackingNumber) rawValue).fitsInStacks(1));
         } else if (type.equals(TEXT.toString())) {
-            return rawValue instanceof TextLiteralNode ||
+            return rawValue instanceof TextLiteral ||
                    rawValue instanceof String;
         } else if (type.equals(FLOAT.toString())) {
-            return rawValue instanceof FloatLiteralNode ||
+            return rawValue instanceof FloatLiteral ||
                    rawValue instanceof Float || 
                    rawValue instanceof Double || 
                    rawValue instanceof AutoStackingNumber;
         } else if (type.equals(BOOL.toString())) {
-            return rawValue instanceof BoolLiteralNode ||
+            return rawValue instanceof BoolLiteral ||
                    rawValue instanceof Boolean;
         } else if (type.equals("none")) {
             return isNoneValue(rawValue);

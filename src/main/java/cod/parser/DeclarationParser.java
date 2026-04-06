@@ -20,8 +20,8 @@ public class DeclarationParser extends BaseParser {
   private final ImportResolver importResolver;
   private final SlotParser slotParser;
 
-  private TypeNode currentParsingClass = null;
-  private Map<String, PolicyNode> availablePolicies = new HashMap<String, PolicyNode>();
+  private Type currentParsingClass = null;
+  private Map<String, Policy> availablePolicies = new HashMap<String, Policy>();
 
   public DeclarationParser(
       ParserContext ctx, StatementParser statementParser, ImportResolver importResolver) {
@@ -40,15 +40,15 @@ public class DeclarationParser extends BaseParser {
     return statementParser;
   }
 
-  private void setCurrentParsingClass(TypeNode type) {
+  private void setCurrentParsingClass(Type type) {
     currentParsingClass = type;
   }
 
-  private TypeNode getCurrentParsingClass() {
+  private Type getCurrentParsingClass() {
     return currentParsingClass;
   }
 
-  private PolicyNode findPolicy(String policyName) {
+  private Policy findPolicy(String policyName) {
     if (availablePolicies.containsKey(policyName)) {
       return availablePolicies.get(policyName);
     }
@@ -67,9 +67,9 @@ public class DeclarationParser extends BaseParser {
     return null;
   }
 
-  private TypeNode findClassByName(String className, ProgramNode currentProgram) {
+  private Type findClassByName(String className, Program currentProgram) {
     if (!nil(currentProgram, currentProgram.unit, currentProgram.unit.types)) {
-      for (TypeNode type : currentProgram.unit.types) {
+      for (Type type : currentProgram.unit.types) {
         if (type.name.equals(className)) {
           return type;
         }
@@ -83,12 +83,12 @@ public class DeclarationParser extends BaseParser {
     return null;
   }
 
-  private List<PolicyMethodNode> getAllPolicyMethods(PolicyNode policy) {
+  private List<PolicyMethod> getAllPolicyMethods(Policy policy) {
     if (nil(policy)) {
-      return new ArrayList<PolicyMethodNode>();
+      return new ArrayList<PolicyMethod>();
     }
 
-    List<PolicyMethodNode> allMethods = new ArrayList<PolicyMethodNode>();
+    List<PolicyMethod> allMethods = new ArrayList<PolicyMethod>();
     Set<String> visitedPolicies = new HashSet<String>();
 
     collectPolicyMethodsViaComposition(policy, allMethods, visitedPolicies);
@@ -97,7 +97,7 @@ public class DeclarationParser extends BaseParser {
   }
 
   private void collectPolicyMethodsViaComposition(
-      PolicyNode policy, List<PolicyMethodNode> allMethods, Set<String> visited) {
+      Policy policy, List<PolicyMethod> allMethods, Set<String> visited) {
     if (nil(policy) || visited.contains(policy.name)) {
       return;
     }
@@ -106,7 +106,7 @@ public class DeclarationParser extends BaseParser {
 
     if (!nil(policy.composedPolicies)) {
       for (String composedName : policy.composedPolicies) {
-        PolicyNode composed = findPolicy(composedName);
+        Policy composed = findPolicy(composedName);
         if (!nil(composed)) {
           collectPolicyMethodsViaComposition(composed, allMethods, visited);
         }
@@ -118,7 +118,7 @@ public class DeclarationParser extends BaseParser {
     }
   }
 
-  private List<String> getAllAffectingPolicies(TypeNode currentClass, ProgramNode currentProgram) {
+  private List<String> getAllAffectingPolicies(Type currentClass, Program currentProgram) {
     List<String> allPolicies = new ArrayList<String>();
     if (nil(currentClass)) {
       return allPolicies;
@@ -131,7 +131,7 @@ public class DeclarationParser extends BaseParser {
   }
 
   private void collectAffectingPoliciesRecursive(
-      TypeNode type, List<String> allPolicies, Set<String> visited, ProgramNode currentProgram) {
+      Type type, List<String> allPolicies, Set<String> visited, Program currentProgram) {
     if (nil(type) || visited.contains(type.name)) {
       return;
     }
@@ -139,7 +139,7 @@ public class DeclarationParser extends BaseParser {
     visited.add(type.name);
 
     if (!nil(type.extendName)) {
-      TypeNode parent = findClassByName(type.extendName, currentProgram);
+      Type parent = findClassByName(type.extendName, currentProgram);
       if (!nil(parent)) {
         collectAffectingPoliciesRecursive(parent, allPolicies, visited, currentProgram);
       }
@@ -154,7 +154,7 @@ public class DeclarationParser extends BaseParser {
     }
   }
 
-  private List<String> getAncestorPolicies(TypeNode currentClass, ProgramNode currentProgram) {
+  private List<String> getAncestorPolicies(Type currentClass, Program currentProgram) {
     List<String> ancestorPolicies = new ArrayList<String>();
     if (nil(currentClass, currentClass.extendName)) {
       return ancestorPolicies;
@@ -171,20 +171,20 @@ public class DeclarationParser extends BaseParser {
     return allAffecting;
   }
 
-  private String getRequiringAncestorWithPolicy(String methodName, TypeNode currentClass, 
-                                               ProgramNode currentProgram) {
+  private String getRequiringAncestorWithPolicy(String methodName, Type currentClass, 
+                                               Program currentProgram) {
     if (nil(currentClass, currentClass.extendName)) {
       return null;
     }
 
-    TypeNode current = findClassByName(currentClass.extendName, currentProgram);
+    Type current = findClassByName(currentClass.extendName, currentProgram);
     while (!nil(current)) {
       if (!nil(current.implementedPolicies)) {
         for (String policyName : current.implementedPolicies) {
-          PolicyNode policy = findPolicy(policyName);
+          Policy policy = findPolicy(policyName);
           if (!nil(policy)) {
-            List<PolicyMethodNode> allRequiredMethods = getAllPolicyMethods(policy);
-            for (PolicyMethodNode policyMethod : allRequiredMethods) {
+            List<PolicyMethod> allRequiredMethods = getAllPolicyMethods(policy);
+            for (PolicyMethod policyMethod : allRequiredMethods) {
               if (policyMethod.methodName.equals(methodName)) {
                 return current.name + " (implements policy '" + policyName + "')";
               }
@@ -204,14 +204,14 @@ public class DeclarationParser extends BaseParser {
   }
 
   private boolean isMethodRequiredFromAncestorPolicy(
-      String methodName, TypeNode currentClass, ProgramNode currentProgram) {
+      String methodName, Type currentClass, Program currentProgram) {
     List<String> ancestorPolicies = getAncestorPolicies(currentClass, currentProgram);
 
     for (String policyName : ancestorPolicies) {
-      PolicyNode policy = findPolicy(policyName);
+      Policy policy = findPolicy(policyName);
       if (!nil(policy)) {
-        List<PolicyMethodNode> allRequiredMethods = getAllPolicyMethods(policy);
-        for (PolicyMethodNode policyMethod : allRequiredMethods) {
+        List<PolicyMethod> allRequiredMethods = getAllPolicyMethods(policy);
+        for (PolicyMethod policyMethod : allRequiredMethods) {
           if (policyMethod.methodName.equals(methodName)) {
             return true;
           }
@@ -223,15 +223,15 @@ public class DeclarationParser extends BaseParser {
   }
 
   private Set<String> getAllMethodsRequiredByAncestors(
-      TypeNode currentClass, ProgramNode currentProgram) {
+      Type currentClass, Program currentProgram) {
     Set<String> requiredMethods = new HashSet<String>();
     List<String> ancestorPolicies = getAncestorPolicies(currentClass, currentProgram);
 
     for (String policyName : ancestorPolicies) {
-      PolicyNode policy = findPolicy(policyName);
+      Policy policy = findPolicy(policyName);
       if (!nil(policy)) {
-        List<PolicyMethodNode> allRequiredMethods = getAllPolicyMethods(policy);
-        for (PolicyMethodNode method : allRequiredMethods) {
+        List<PolicyMethod> allRequiredMethods = getAllPolicyMethods(policy);
+        for (PolicyMethod method : allRequiredMethods) {
           requiredMethods.add(method.methodName);
         }
       }
@@ -240,7 +240,7 @@ public class DeclarationParser extends BaseParser {
     return requiredMethods;
   }
 
-  private void validatePolicyComposition(PolicyNode policy) {
+  private void validatePolicyComposition(Policy policy) {
     if (nil(policy, policy.composedPolicies) || policy.composedPolicies.isEmpty()) {
       return;
     }
@@ -265,7 +265,7 @@ public class DeclarationParser extends BaseParser {
 
     visited.add(composedName);
 
-    PolicyNode composed = findPolicy(composedName);
+    Policy composed = findPolicy(composedName);
     if (!nil(composed) && !nil(composed.composedPolicies)) {
       for (String nestedComposed : composed.composedPolicies) {
         checkForCompositionCycle(currentPolicy, nestedComposed, visited);
@@ -304,8 +304,8 @@ public class DeclarationParser extends BaseParser {
     return false;
   }
 
-  private void validatePolicyMethod(MethodNode method, ProgramNode currentProgram) {
-    TypeNode currentClass = getCurrentParsingClass();
+  private void validatePolicyMethod(Method method, Program currentProgram) {
+    Type currentClass = getCurrentParsingClass();
 
     if (nil(currentClass)) {
       throw error(
@@ -314,14 +314,14 @@ public class DeclarationParser extends BaseParser {
 
     boolean isRequiredByOwnPolicy = false;
     String requiringPolicy = null;
-    PolicyMethodNode requiredSignature = null;
+    PolicyMethod requiredSignature = null;
 
     if (!nil(currentClass.implementedPolicies)) {
       for (String policyName : currentClass.implementedPolicies) {
-        PolicyNode policy = findPolicy(policyName);
+        Policy policy = findPolicy(policyName);
         if (!nil(policy)) {
-          List<PolicyMethodNode> allRequiredMethods = getAllPolicyMethods(policy);
-          for (PolicyMethodNode policyMethod : allRequiredMethods) {
+          List<PolicyMethod> allRequiredMethods = getAllPolicyMethods(policy);
+          for (PolicyMethod policyMethod : allRequiredMethods) {
             if (policyMethod.methodName.equals(method.methodName)) {
               isRequiredByOwnPolicy = true;
               requiringPolicy = policyName;
@@ -345,13 +345,13 @@ public class DeclarationParser extends BaseParser {
 
         if (!nil(requiringAncestor)) {
           String ancestorName = requiringAncestor.split(" ")[0];
-          TypeNode ancestor = findClassByName(ancestorName, currentProgram);
+          Type ancestor = findClassByName(ancestorName, currentProgram);
           if (!nil(ancestor) && !nil(ancestor.implementedPolicies)) {
             for (String policyName : ancestor.implementedPolicies) {
-              PolicyNode policy = findPolicy(policyName);
+              Policy policy = findPolicy(policyName);
               if (!nil(policy)) {
-                List<PolicyMethodNode> allRequiredMethods = getAllPolicyMethods(policy);
-                for (PolicyMethodNode policyMethod : allRequiredMethods) {
+                List<PolicyMethod> allRequiredMethods = getAllPolicyMethods(policy);
+                for (PolicyMethod policyMethod : allRequiredMethods) {
                   if (policyMethod.methodName.equals(method.methodName)) {
                     requiredSignature = policyMethod;
                     requiringPolicy = policyName;
@@ -393,8 +393,8 @@ public class DeclarationParser extends BaseParser {
       }
 
       for (int i = 0; i < method.parameters.size(); i++) {
-        ParamNode implParam = method.parameters.get(i);
-        ParamNode policyParam = requiredSignature.parameters.get(i);
+        Param implParam = method.parameters.get(i);
+        Param policyParam = requiredSignature.parameters.get(i);
 
         if (!areTypesCompatible(implParam.type, policyParam.type)) {
           String errorSource =
@@ -437,8 +437,8 @@ public class DeclarationParser extends BaseParser {
                   + method.returnSlots.size());
         } else {
           for (int i = 0; i < method.returnSlots.size(); i++) {
-            SlotNode implSlot = method.returnSlots.get(i);
-            SlotNode policySlot = requiredSignature.returnSlots.get(i);
+            Slot implSlot = method.returnSlots.get(i);
+            Slot policySlot = requiredSignature.returnSlots.get(i);
 
             if (!areTypesCompatible(implSlot.type, policySlot.type)) {
               String errorSource =
@@ -464,7 +464,7 @@ public class DeclarationParser extends BaseParser {
     }
   }
 
-  public void validateClassViralPolicies(TypeNode type, ProgramNode currentProgram) {
+  public void validateClassViralPolicies(Type type, Program currentProgram) {
     if (nil(type, type.extendName)) {
       return;
     }
@@ -475,7 +475,7 @@ public class DeclarationParser extends BaseParser {
       boolean implementsMethod = false;
 
       if (!nil(type.methods)) {
-        for (MethodNode method : type.methods) {
+        for (Method method : type.methods) {
           if (method.methodName.equals(methodName) && method.isPolicyMethod) {
             implementsMethod = true;
             break;
@@ -534,16 +534,16 @@ public class DeclarationParser extends BaseParser {
     }
   }
 
-  public void validateAllPolicyMethods(TypeNode type, ProgramNode currentProgram) {
+  public void validateAllPolicyMethods(Type type, Program currentProgram) {
     if (nil(type, type.methods)) {
       return;
     }
 
-    TypeNode savedClass = getCurrentParsingClass();
+    Type savedClass = getCurrentParsingClass();
     setCurrentParsingClass(type);
 
     try {
-      for (MethodNode method : type.methods) {
+      for (Method method : type.methods) {
         if (method.isPolicyMethod) {
           validatePolicyMethod(method, currentProgram);
         }
@@ -586,7 +586,7 @@ public class DeclarationParser extends BaseParser {
         });
   }
 
-  public ConstructorNode parseConstructor() {
+  public Constructor parseConstructor() {
     Token startToken = now();
     Token thisToken = null;
 
@@ -601,7 +601,7 @@ public class DeclarationParser extends BaseParser {
           "Constructor must be named 'this', found: " + current.getText(), startToken);
     }
 
-    ConstructorNode constructor = ASTFactory.createConstructor(null, null, thisToken);
+    Constructor constructor = ASTFactory.createConstructor(null, null, thisToken);
 
     expect(LPAREN);
     if (!is(RPAREN)) {
@@ -656,12 +656,12 @@ public class DeclarationParser extends BaseParser {
         });
   }
 
-  private MethodCallNode parseSuperConstructorCall() {
+  private MethodCall parseSuperConstructorCall() {
     Token superToken = now();
     expect(SUPER);
 
     String zuper = SUPER.toString();
-    MethodCallNode superCall = ASTFactory.createMethodCall(zuper, zuper, superToken);
+    MethodCall superCall = ASTFactory.createMethodCall(zuper, zuper, superToken);
     superCall.isSuperCall = true;
     expect(LPAREN);
 
@@ -697,11 +697,11 @@ public class DeclarationParser extends BaseParser {
         });
   }
 
-  private void parseNamedArgumentList(List<ExprNode> args, List<String> argNames) {
+  private void parseNamedArgumentList(List<Expr> args, List<String> argNames) {
     do {
       String argName = expect(ID).getText();
       expect(COLON);
-      ExprNode value = statementParser.expressionParser.parseExpr();
+      Expr value = statementParser.expressionParser.parseExpr();
 
       args.add(value);
       argNames.add(argName);
@@ -713,7 +713,7 @@ public class DeclarationParser extends BaseParser {
     } while (!is(RPAREN));
   }
 
-  public TypeNode parseType() {
+  public Type parseType() {
     Keyword visibility = null;
     Token visibilityToken = null;
 
@@ -776,7 +776,7 @@ public class DeclarationParser extends BaseParser {
         }
     }
 
-    TypeNode type = ASTFactory.createType(typeName, visibility, extendName, typeNameToken);
+    Type type = ASTFactory.createType(typeName, visibility, extendName, typeNameToken);
     type.implementedPolicies = implementedPolicies;
     type.policyTokens = policyTokens;
     type.extendToken = extendToken;
@@ -789,10 +789,10 @@ public class DeclarationParser extends BaseParser {
         if (isFieldDeclaration()) {
             type.fields.add(parseField());
         } else if (isConstructorDeclaration()) {
-            ConstructorNode constructor = parseConstructor();
+            Constructor constructor = parseConstructor();
             type.constructors.add(constructor);
         } else if (isMethodDeclaration()) {
-            MethodNode method = parseMethod();
+            Method method = parseMethod();
             method.associatedClass = type.name;
             type.methods.add(method);
         } else {
@@ -806,7 +806,7 @@ public class DeclarationParser extends BaseParser {
     return type;
 }
 
-  public PolicyNode parsePolicy() {
+  public Policy parsePolicy() {
     Keyword visibility = null;
     Token visibilityToken = null;
     if (is(SHARE, LOCAL)) {
@@ -842,7 +842,7 @@ public class DeclarationParser extends BaseParser {
       }
     }
 
-    PolicyNode policy = ASTFactory.createPolicy(policyName, visibility, nameToken);
+    Policy policy = ASTFactory.createPolicy(policyName, visibility, nameToken);
     policy.composedPolicies = composedPolicies;
 
     if (!is(LBRACE)) {
@@ -852,7 +852,7 @@ public class DeclarationParser extends BaseParser {
 
     while (!is(RBRACE)) {
       if (isPolicyMethodDeclarationStart()) {
-        PolicyMethodNode method = parsePolicyMethod();
+        PolicyMethod method = parsePolicyMethod();
         policy.methods.add(method);
       } else if (!is(RBRACE)) {
         Token current = now();
@@ -871,7 +871,7 @@ public class DeclarationParser extends BaseParser {
     return policy;
   }
 
-  public PolicyMethodNode parsePolicyMethod() {
+  public PolicyMethod parsePolicyMethod() {
     Token methodNameToken = now();
     String methodName;
 
@@ -889,7 +889,7 @@ public class DeclarationParser extends BaseParser {
           methodNameToken);
     }
 
-    PolicyMethodNode method = ASTFactory.createPolicyMethod(methodName, methodNameToken);
+    PolicyMethod method = ASTFactory.createPolicyMethod(methodName, methodNameToken);
     if (!is(LPAREN)) {
       throw error("Expected '(' after method name");
     }
@@ -967,20 +967,20 @@ public class DeclarationParser extends BaseParser {
   }
 
   // Recursive method to check for slot assignments in nested blocks
-  private boolean hasSlotAssignmentsInBody(StmtNode stmt) {
-    if (stmt instanceof SlotAssignmentNode || stmt instanceof MultipleSlotAssignmentNode) {
+  private boolean hasSlotAssignmentsInBody(Stmt stmt) {
+    if (stmt instanceof SlotAssignment || stmt instanceof MultipleSlotAssignment) {
       return true;
     }
-    if (stmt instanceof BlockNode) {
-      BlockNode block = (BlockNode) stmt;
-      for (StmtNode child : block.statements) {
+    if (stmt instanceof Block) {
+      Block block = (Block) stmt;
+      for (Stmt child : block.statements) {
         if (hasSlotAssignmentsInBody(child)) {
           return true;
         }
       }
     }
-    if (stmt instanceof StmtIfNode) {
-      StmtIfNode ifNode = (StmtIfNode) stmt;
+    if (stmt instanceof StmtIf) {
+      StmtIf ifNode = (StmtIf) stmt;
       if (hasSlotAssignmentsInBody(ifNode.thenBlock)) {
         return true;
       }
@@ -988,8 +988,8 @@ public class DeclarationParser extends BaseParser {
         return true;
       }
     }
-    if (stmt instanceof ForNode) {
-      ForNode forNode = (ForNode) stmt;
+    if (stmt instanceof For) {
+      For forNode = (For) stmt;
       if (hasSlotAssignmentsInBody(forNode.body)) {
         return true;
       }
@@ -999,7 +999,7 @@ public class DeclarationParser extends BaseParser {
 
   // ========== DEAD CODE VALIDATION FOR ~> ==========
   
-  private void validateNoStatementsAfterReturn(BlockNode block, String methodName, Token startToken) {
+  private void validateNoStatementsAfterReturn(Block block, String methodName, Token startToken) {
     if (block == null || block.statements == null) {
       return;
     }
@@ -1008,9 +1008,9 @@ public class DeclarationParser extends BaseParser {
     int returnIndex = -1;
     
     for (int i = 0; i < block.statements.size(); i++) {
-      StmtNode stmt = block.statements.get(i);
+      Stmt stmt = block.statements.get(i);
       
-      if (stmt instanceof SlotAssignmentNode || stmt instanceof MultipleSlotAssignmentNode) {
+      if (stmt instanceof SlotAssignment || stmt instanceof MultipleSlotAssignment) {
         if (foundReturn) {
           // Multiple ~> statements in same block
           throw error(
@@ -1026,7 +1026,7 @@ public class DeclarationParser extends BaseParser {
     
     // If we found a ~> statement, check if there's anything after it
     if (foundReturn && returnIndex < block.statements.size() - 1) {
-      StmtNode deadCodeStmt = block.statements.get(returnIndex + 1);
+      Stmt deadCodeStmt = block.statements.get(returnIndex + 1);
       Token deadCodeToken = deadCodeStmt.getSourceSpan() != null ? 
                             deadCodeStmt.getSourceSpan().getErrorToken() : startToken;
       
@@ -1038,24 +1038,24 @@ public class DeclarationParser extends BaseParser {
     }
     
     // Recursively validate nested blocks
-    for (StmtNode stmt : block.statements) {
-      if (stmt instanceof BlockNode) {
-        validateNoStatementsAfterReturn((BlockNode) stmt, methodName, startToken);
-      } else if (stmt instanceof StmtIfNode) {
-        StmtIfNode ifNode = (StmtIfNode) stmt;
+    for (Stmt stmt : block.statements) {
+      if (stmt instanceof Block) {
+        validateNoStatementsAfterReturn((Block) stmt, methodName, startToken);
+      } else if (stmt instanceof StmtIf) {
+        StmtIf ifNode = (StmtIf) stmt;
         validateNoStatementsAfterReturn(ifNode.thenBlock, methodName, startToken);
         if (ifNode.elseBlock != null) {
           validateNoStatementsAfterReturn(ifNode.elseBlock, methodName, startToken);
         }
-      } else if (stmt instanceof ForNode) {
-        ForNode forNode = (ForNode) stmt;
+      } else if (stmt instanceof For) {
+        For forNode = (For) stmt;
         validateNoStatementsAfterReturn(forNode.body, methodName, startToken);
       }
     }
   }
   // ========== END DEAD CODE VALIDATION ==========
 
-  public MethodNode parseMethod() {
+  public Method parseMethod() {
     Token startToken = now();
 
     boolean isBuiltin = false;
@@ -1067,7 +1067,7 @@ public class DeclarationParser extends BaseParser {
         expect(POLICY);
         isPolicyMethod = true;
 
-        TypeNode currentClass = getCurrentParsingClass();
+        Type currentClass = getCurrentParsingClass();
         if (!nil(currentClass)) {
             visibility = currentClass.visibility;
         } else {
@@ -1109,7 +1109,7 @@ public class DeclarationParser extends BaseParser {
 
     NamingValidator.validateMethodName(methodName, startToken);
 
-    MethodNode method = ASTFactory.createMethod(methodName, visibility, null, nameToken);
+    Method method = ASTFactory.createMethod(methodName, visibility, null, nameToken);
     method.isBuiltin = isBuiltin;
     method.isPolicyMethod = isPolicyMethod;
 
@@ -1144,7 +1144,7 @@ public class DeclarationParser extends BaseParser {
     if (isSlotDeclaration()) {
         method.returnSlots = slotParser.parseSlotContract();
     } else {
-        method.returnSlots = new ArrayList<SlotNode>();
+        method.returnSlots = new ArrayList<Slot>();
     }
 
     if (isBuiltin) {
@@ -1178,12 +1178,12 @@ public class DeclarationParser extends BaseParser {
         Token tildeArrowToken = now();
         expect(TILDE_ARROW);
 
-        List<SlotAssignmentNode> slotAssignments = slotParser.parseSlotAssignments();
+        List<SlotAssignment> slotAssignments = slotParser.parseSlotAssignments();
 
         if (slotAssignments.size() == 1) {
             method.body.add(slotAssignments.get(0));
         } else {
-            MultipleSlotAssignmentNode multiAssign =
+            MultipleSlotAssignment multiAssign =
                 ASTFactory.createMultipleSlotAsmt(slotAssignments, tildeArrowToken);
             method.body.add(multiAssign);
         }
@@ -1197,13 +1197,13 @@ public class DeclarationParser extends BaseParser {
         
  // Validate dead code after ~> if method has return contract
 if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
-    validateNoStatementsAfterReturn(new BlockNode(method.body), methodName, startToken);
+    validateNoStatementsAfterReturn(new Block(method.body), methodName, startToken);
 }
         
         // Validate that if there's a return contract, the body has ~> assignments
         if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
             boolean hasSlotAssignments = false;
-            for (StmtNode stmt : method.body) {
+            for (Stmt stmt : method.body) {
                 if (hasSlotAssignmentsInBody(stmt)) {
                     hasSlotAssignments = true;
                     break;
@@ -1237,11 +1237,11 @@ if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
     return method;
 }
 
-  public List<SlotNode> parseSlotContractList() {
+  public List<Slot> parseSlotContractList() {
     return slotParser.parseSlotContract();
   }
 
-  public FieldNode parseField() {
+  public Field parseField() {
     Token startToken = now();
 
     Keyword visibility = null;
@@ -1274,7 +1274,7 @@ if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
       NamingValidator.validateVariableName(fieldName, startToken);
     }
 
-    FieldNode field = ASTFactory.createField(fieldName, fieldType, fieldNameToken);
+    Field field = ASTFactory.createField(fieldName, fieldType, fieldNameToken);
     if (visibility != null) {
        field.visibility = visibility;
     }
@@ -1286,14 +1286,14 @@ if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
     return field;
   }
 
-  public ParamNode parseParameter() {
+  public Param parseParameter() {
     Token startToken = now();
     String name = expect(ID).getText();
 
     if (is(DOUBLE_COLON_ASSIGN)) {
       expect(DOUBLE_COLON_ASSIGN);
 
-      ExprNode defaultValue = statementParser.expressionParser.parsePrimaryExpr();
+      Expr defaultValue = statementParser.expressionParser.parsePrimaryExpr();
 
       if (!isSimpleLiteral(defaultValue)) {
         throw error(
@@ -1316,7 +1316,7 @@ if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
 
       NamingValidator.validateParameterName(name, startToken);
 
-      ParamNode param = ASTFactory.createParam(name, inferredType, defaultValue, true, startToken);
+      Param param = ASTFactory.createParam(name, inferredType, defaultValue, true, startToken);
       param.hasDefaultValue = true;
       return param;
     }
@@ -1324,59 +1324,59 @@ if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
     expect(COLON);
     String type = parseTypeReference();
 
-    ExprNode defaultValue = null;
+    Expr defaultValue = null;
     if (consume(ASSIGN)) {
       defaultValue = statementParser.expressionParser.parseExpr();
     }
 
     NamingValidator.validateParameterName(name, startToken);
-    ParamNode param = ASTFactory.createParam(name, type, defaultValue, false, startToken);
+    Param param = ASTFactory.createParam(name, type, defaultValue, false, startToken);
     if (defaultValue != null) {
       param.hasDefaultValue = true;
     }
     return param;
   }
 
-  private boolean isSimpleLiteral(ExprNode expr) {
+  private boolean isSimpleLiteral(Expr expr) {
     if (expr == null) return false;
     
-    if (expr instanceof IntLiteralNode ||
-        expr instanceof FloatLiteralNode ||
-        expr instanceof BoolLiteralNode ||
-        expr instanceof NoneLiteralNode) {
+    if (expr instanceof IntLiteral ||
+        expr instanceof FloatLiteral ||
+        expr instanceof BoolLiteral ||
+        expr instanceof NoneLiteral) {
       return true;
     }
     
-    if (expr instanceof TextLiteralNode) {
+    if (expr instanceof TextLiteral) {
       return true;
     }
 
-    if (expr instanceof ArrayNode) {
-      ArrayNode arr = (ArrayNode) expr;
+    if (expr instanceof Array) {
+      Array arr = (Array) expr;
 
-      if (arr.elements.size() == 1 && arr.elements.get(0) instanceof RangeNode) {
-        RangeNode range = (RangeNode) arr.elements.get(0);
+      if (arr.elements.size() == 1 && arr.elements.get(0) instanceof Range) {
+        Range range = (Range) arr.elements.get(0);
         return isSimpleLiteral(range.start)
             && isSimpleLiteral(range.end)
             && (nil(range.step) || isSimpleLiteral(range.step));
       }
 
-      for (ExprNode elem : arr.elements) {
+      for (Expr elem : arr.elements) {
         if (!isSimpleLiteral(elem)) return false;
       }
       return true;
     }
 
-    if (expr instanceof RangeNode) {
-      RangeNode range = (RangeNode) expr;
+    if (expr instanceof Range) {
+      Range range = (Range) expr;
       return isSimpleLiteral(range.start)
           && isSimpleLiteral(range.end)
           && (nil(range.step) || isSimpleLiteral(range.step));
     }
 
-    if (expr instanceof TupleNode) {
-      TupleNode tuple = (TupleNode) expr;
-      for (ExprNode elem : tuple.elements) {
+    if (expr instanceof Tuple) {
+      Tuple tuple = (Tuple) expr;
+      for (Expr elem : tuple.elements) {
         if (!isSimpleLiteral(elem)) return false;
       }
       return true;
@@ -1385,20 +1385,20 @@ if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
     return false;
   }
 
-  private String inferTypeFromLiteral(ExprNode expr) {
+  private String inferTypeFromLiteral(Expr expr) {
     if (nil(expr)) return null;
 
-    if (expr instanceof IntLiteralNode) return INT.toString();
-    if (expr instanceof FloatLiteralNode) return FLOAT.toString();
-    if (expr instanceof BoolLiteralNode) return BOOL.toString();
-    if (expr instanceof TextLiteralNode) return TEXT.toString();
-    if (expr instanceof NoneLiteralNode) return null;
+    if (expr instanceof IntLiteral) return INT.toString();
+    if (expr instanceof FloatLiteral) return FLOAT.toString();
+    if (expr instanceof BoolLiteral) return BOOL.toString();
+    if (expr instanceof TextLiteral) return TEXT.toString();
+    if (expr instanceof NoneLiteral) return null;
 
-    if (expr instanceof ArrayNode) {
-      ArrayNode arr = (ArrayNode) expr;
+    if (expr instanceof Array) {
+      Array arr = (Array) expr;
       if (arr.elements.isEmpty()) return null;
 
-      if (arr.elements.size() == 1 && arr.elements.get(0) instanceof RangeNode) {
+      if (arr.elements.size() == 1 && arr.elements.get(0) instanceof Range) {
         return "[]";
       }
 
@@ -1409,12 +1409,12 @@ if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
       return null;
     }
 
-    if (expr instanceof RangeNode) {
+    if (expr instanceof Range) {
       return "[]";
     }
 
-    if (expr instanceof TupleNode) {
-      TupleNode tuple = (TupleNode) expr;
+    if (expr instanceof Tuple) {
+      Tuple tuple = (Tuple) expr;
       if (tuple.elements.isEmpty()) return null;
 
       StringBuilder sb = new StringBuilder("(");

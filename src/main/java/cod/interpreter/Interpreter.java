@@ -29,7 +29,7 @@ public class Interpreter {
   private TypeHandler typeSystem;
   private InterpreterVisitor visitor;
   private ConstructorResolver constructorResolver;
-  private ProgramNode currentProgram;
+  private Program currentProgram;
   private BuiltinRegistry builtinRegistry;
   private GlobalRegistry globalRegistry;
   private LiteralRegistry literalRegistry;
@@ -124,12 +124,12 @@ public class Interpreter {
     return true;
   }
   
-  public ProgramNode getCurrentProgram() {
+  public Program getCurrentProgram() {
     return currentProgram;
   }
 
   public Object evalReplStatement(
-      StmtNode stmt,
+      Stmt stmt,
       ObjectInstance obj,
       Map<String, Object> locals,
       Map<String, Object> slotValues) {
@@ -146,7 +146,7 @@ public class Interpreter {
     visitor.pushContext(ctx);
     
     try {
-        Object result = visitor.visit((ASTNode) stmt);
+        Object result = visitor.visit((Base) stmt);
         
         // Sync changes back to original locals map!
         // The ExecutionContext may have modified its internal copy,
@@ -164,7 +164,7 @@ public class Interpreter {
     }
   }
 
-  public void run(ProgramNode program) {
+  public void run(Program program) {
     if (program == null) {
       throw new InternalError("run called with null program");
     }
@@ -207,7 +207,7 @@ public class Interpreter {
     }
   }
   
-public void runType(TypeNode typeNode) {
+public void runType(Type typeNode) {
     if (typeNode == null) {
         throw new InternalError("runType called with null typeNode");
     }
@@ -216,8 +216,8 @@ public void runType(TypeNode typeNode) {
     DebugSystem.info("INTERPRETER", "Starting type execution for: " + typeNode.name);
     
     // Find main method
-    MethodNode mainMethod = null;
-    for (MethodNode method : typeNode.methods) {
+    Method mainMethod = null;
+    for (Method method : typeNode.methods) {
         if ("main".equals(method.methodName) && method.parameters.isEmpty()) {
             mainMethod = method;
             break;
@@ -235,7 +235,7 @@ public void runType(TypeNode typeNode) {
     visitor.pushContext(ctx);
     
     try {
-        for (StmtNode stmt : mainMethod.body) {
+        for (Stmt stmt : mainMethod.body) {
             visitor.visit(stmt);
         }
     } catch (ProgramError e) {
@@ -255,10 +255,10 @@ public void run(Object entryPoint) {
         throw new InternalError("run called with null entryPoint");
     }
     
-    if (entryPoint instanceof ProgramNode) {
-        run((ProgramNode) entryPoint);
-    } else if (entryPoint instanceof TypeNode) {
-        runType((TypeNode) entryPoint);
+    if (entryPoint instanceof Program) {
+        run((Program) entryPoint);
+    } else if (entryPoint instanceof Type) {
+        runType((Type) entryPoint);
     } else {
         throw new ProgramError("Invalid entry point type: " + entryPoint.getClass().getName());
     }
@@ -285,9 +285,9 @@ public void run(Object entryPoint) {
     
     // Check all loaded imports for broadcasts in this package
     if (importResolver != null) {
-        Map<String, ProgramNode> loadedPrograms = importResolver.getLoadedPrograms();
-        for (Map.Entry<String, ProgramNode> entry : loadedPrograms.entrySet()) {
-            ProgramNode program = entry.getValue();
+        Map<String, Program> loadedPrograms = importResolver.getLoadedPrograms();
+        for (Map.Entry<String, Program> entry : loadedPrograms.entrySet()) {
+            Program program = entry.getValue();
             if (program != null && program.unit != null && 
                 program.unit.name != null && program.unit.name.equals(packageName) &&
                 program.unit.mainClassName != null && !program.unit.mainClassName.isEmpty()) {
@@ -468,12 +468,12 @@ public void run(Object entryPoint) {
   
   // ========== END UPDATED BROADCAST DETECTION ==========
 
-  private void runModule(ProgramNode program) {
+  private void runModule(Program program) {
     if (program == null || program.unit == null) {
         throw new InternalError("runModule called with null program or unit");
     }
     
-    UnitNode unit = program.unit;
+    Unit unit = program.unit;
     initializeImportResolver(unit);
     
     DebugSystem.debug("BROADCAST", "=== STARTING MODULE EXECUTION ===");
@@ -511,11 +511,11 @@ public void run(Object entryPoint) {
     
     boolean mainExecuted = false;
     
-    TypeNode localMainClass = null;
-    MethodNode localMainMethod = null;
+    Type localMainClass = null;
+    Method localMainMethod = null;
     
-    for (TypeNode type : unit.types) {
-        for (MethodNode method : type.methods) {
+    for (Type type : unit.types) {
+        for (Method method : type.methods) {
             if ("main".equals(method.methodName) && 
                 method.parameters.isEmpty()) {
                 localMainClass = type;
@@ -539,8 +539,8 @@ public void run(Object entryPoint) {
         
         try {
             if (localMainMethod.body != null) {
-                for (StmtNode stmt : localMainMethod.body) {
-                    visitor.visit((ASTNode) stmt);
+                for (Stmt stmt : localMainMethod.body) {
+                    visitor.visit((Base) stmt);
                 }
             }
             DebugSystem.methodExit("main", null);
@@ -561,8 +561,8 @@ public void run(Object entryPoint) {
             (useImportedBroadcast ? "imported" : "local") + 
             " broadcasted main class: " + mainClassNameToUse);
         
-        TypeNode broadcastedClass = null;
-        MethodNode broadcastedMainMethod = null;
+        Type broadcastedClass = null;
+        Method broadcastedMainMethod = null;
         
         if (useImportedBroadcast) {
             DebugSystem.debug("BROADCAST", "Searching for imported class: " + mainClassNameToUse);
@@ -586,9 +586,9 @@ public void run(Object entryPoint) {
             
             if (broadcastedClass == null) {
                 DebugSystem.debug("BROADCAST", "Searching all loaded imports for class: " + mainClassNameToUse);
-                for (ProgramNode importedProgram : importResolver.getLoadedPrograms().values()) {
+                for (Program importedProgram : importResolver.getLoadedPrograms().values()) {
                     if (importedProgram.unit != null && importedProgram.unit.types != null) {
-                        for (TypeNode type : importedProgram.unit.types) {
+                        for (Type type : importedProgram.unit.types) {
                             if (type.name.equals(mainClassNameToUse)) {
                                 broadcastedClass = type;
                                 DebugSystem.debug("BROADCAST", "Found in import: " + importedProgram.unit.name);
@@ -605,7 +605,7 @@ public void run(Object entryPoint) {
                 broadcastedMainMethod = constructorResolver.findMethodInHierarchy(broadcastedClass, "main", searchCtx);
             }
         } else {
-            for (TypeNode type : unit.types) {
+            for (Type type : unit.types) {
                 if (type.name.equals(mainClassNameToUse)) {
                     broadcastedClass = type;
                     ExecutionContext searchCtx = new ExecutionContext(null, new HashMap<String, Object>(), null, null, typeSystem);
@@ -627,8 +627,8 @@ public void run(Object entryPoint) {
             
             try {
                 if (broadcastedMainMethod.body != null) {
-                    for (StmtNode stmt : broadcastedMainMethod.body) {
-                        visitor.visit((ASTNode) stmt);
+                    for (Stmt stmt : broadcastedMainMethod.body) {
+                        visitor.visit((Base) stmt);
                     }
                 }
                 DebugSystem.methodExit("main", null);
@@ -743,7 +743,7 @@ public void run(Object entryPoint) {
     DebugSystem.debug("BROADCAST", "=== BROADCAST SCAN COMPLETE ===");
   }
 
-  private void loadFileIntoSameUnit(File file, String unitName, ProgramNode currentProgram) {
+  private void loadFileIntoSameUnit(File file, String unitName, Program currentProgram) {
     if (file == null) {
       throw new InternalError("loadFileIntoSameUnit called with null file");
     }
@@ -768,12 +768,12 @@ public void run(Object entryPoint) {
       MainLexer lexer = new MainLexer(content.toString());
       List<Token> tokens = lexer.tokenize();
       MainParser parser = new MainParser(tokens, this);
-      ProgramNode otherProgram = parser.parseProgram();
+      Program otherProgram = parser.parseProgram();
       
       if (otherProgram.unit != null && otherProgram.unit.types != null) {
-        for (TypeNode type : otherProgram.unit.types) {
+        for (Type type : otherProgram.unit.types) {
           boolean exists = false;
-          for (TypeNode existingType : currentProgram.unit.types) {
+          for (Type existingType : currentProgram.unit.types) {
             if (existingType.name.equals(type.name)) {
               exists = true;
               break;
@@ -794,12 +794,12 @@ public void run(Object entryPoint) {
     }
   }
 
-  private void runScript(ProgramNode program) {
+  private void runScript(Program program) {
     if (program == null || program.unit == null) {
         throw new InternalError("runScript called with null program or unit");
     }
     
-    UnitNode unit = program.unit;
+    Unit unit = program.unit;
     initializeImportResolver(unit);
 
     ObjectInstance obj = new ObjectInstance(null);
@@ -811,11 +811,11 @@ public void run(Object entryPoint) {
     visitor.pushContext(ctx);
     
     try {
-        for (TypeNode type : unit.types) {
+        for (Type type : unit.types) {
             if (type.name != null && type.name.equals("__Script__")) {
                 if (type.statements != null) {
-                    for (StmtNode stmt : type.statements) {
-                        Object result = visitor.visit((ASTNode) stmt);
+                    for (Stmt stmt : type.statements) {
+                        Object result = visitor.visit((Base) stmt);
                         DebugSystem.debug("INTERPRETER", "Executed script statement: " + stmt.getClass().getSimpleName());
                         if (result != null) {
                             DebugSystem.debug("INTERPRETER", "  Result: " + result);
@@ -836,22 +836,22 @@ public void run(Object entryPoint) {
     DebugSystem.methodExit("script", "completed");
   }
 
-  private void runStaticModule(ProgramNode program) {
+  private void runStaticModule(Program program) {
     if (program == null || program.unit == null) {
         throw new InternalError("runStaticModule called with null program or unit");
     }
     
-    UnitNode unit = program.unit;
+    Unit unit = program.unit;
     initializeImportResolver(unit);
 
-    MethodNode mainMethod = null;
-    TypeNode containerType = null;
+    Method mainMethod = null;
+    Type containerType = null;
 
-    for (TypeNode type : unit.types) {
+    for (Type type : unit.types) {
         if (type.name != null && type.name.equals("__StaticModule__")) {
             containerType = type;
             if (type.methods != null) {
-                for (MethodNode node : type.methods) {
+                for (Method node : type.methods) {
                     if ("main".equals(node.methodName)
                         && (node.parameters == null || node.parameters.isEmpty())) {
                         mainMethod = node;
@@ -864,9 +864,9 @@ public void run(Object entryPoint) {
     }
 
     if (mainMethod == null) {
-        for (TypeNode type : unit.types) {
+        for (Type type : unit.types) {
             if (type.methods != null) {
-                for (MethodNode node : type.methods) {
+                for (Method node : type.methods) {
                     if ("main".equals(node.methodName)
                         && (node.parameters == null || node.parameters.isEmpty())) {
                         mainMethod = node;
@@ -893,8 +893,8 @@ public void run(Object entryPoint) {
     
     try {
         if (mainMethod.body != null) {
-            for (StmtNode stmt : mainMethod.body) {
-                visitor.visit((ASTNode) stmt);
+            for (Stmt stmt : mainMethod.body) {
+                visitor.visit((Base) stmt);
             }
         }
         DebugSystem.methodExit("main", null);
@@ -907,13 +907,13 @@ public void run(Object entryPoint) {
     }
   }
 
-  private void initializeImportResolver(UnitNode unit) {
+  private void initializeImportResolver(Unit unit) {
     if (unit == null) {
       throw new InternalError("initializeImportResolver called with null unit");
     }
     
     if (unit.resolvedImports != null && !unit.resolvedImports.isEmpty()) {
-      for (Map.Entry<String, ProgramNode> entry : unit.resolvedImports.entrySet()) {
+      for (Map.Entry<String, Program> entry : unit.resolvedImports.entrySet()) {
         importResolver.preloadImport(entry.getKey(), entry.getValue());
       }
     }
@@ -924,7 +924,7 @@ public void run(Object entryPoint) {
     }
   }
 
-  public Object evalMethod(MethodNode node, ObjectInstance obj, Map<String, Object> locals) {
+  public Object evalMethod(Method node, ObjectInstance obj, Map<String, Object> locals) {
     if (node == null) {
       throw new InternalError("evalMethod called with null node");
     }
@@ -936,7 +936,7 @@ public void run(Object entryPoint) {
     Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
     Map<String, String> slotTypes = new LinkedHashMap<String, String>();
     if (node.returnSlots != null) {
-      for (SlotNode s : node.returnSlots) {
+      for (Slot s : node.returnSlots) {
         slotValues.put(s.name, null);
         slotTypes.put(s.name, s.type);
       }
@@ -946,14 +946,14 @@ public void run(Object entryPoint) {
     ctx.objectInstance = obj;
     
     if (obj != null && obj.type != null) {
-      TypeNode currentClass = findTypeByName(obj.type.name);
+      Type currentClass = findTypeByName(obj.type.name);
       if (currentClass != null) {
         ctx.currentClass = currentClass;
       }
     }
     
     if (node.associatedClass != null && ctx.currentClass == null) {
-      TypeNode associatedClass = findTypeByName(node.associatedClass);
+      Type associatedClass = findTypeByName(node.associatedClass);
       if (associatedClass != null) {
         ctx.currentClass = associatedClass;
       }
@@ -965,8 +965,8 @@ public void run(Object entryPoint) {
 
     try {
       if (node.body != null) {
-        for (StmtNode stmt : node.body) {
-          result = visitor.visit((ASTNode) stmt);
+        for (Stmt stmt : node.body) {
+          result = visitor.visit((Base) stmt);
           if (hasSlots && shouldReturnEarly(slotValues, ctx.slotsInCurrentPath)) {
             break;
           }
@@ -988,7 +988,7 @@ public void run(Object entryPoint) {
 
   @SuppressWarnings("unchecked")
   public Object evalMethodCall(
-      MethodCallNode call, ObjectInstance obj, Map<String, Object> locals, MethodNode methodParam) {
+      MethodCall call, ObjectInstance obj, Map<String, Object> locals, Method methodParam) {
     
     if (call == null) {
         throw new InternalError("evalMethodCall called with null call");
@@ -1001,7 +1001,7 @@ public void run(Object entryPoint) {
         return globalRegistry.executeGlobal(call.name, (List<Object>)(List<?>)call.arguments);
     }
     
-    MethodNode method = methodParam;
+    Method method = methodParam;
     
     if (method == null) {
         if (obj != null && obj.type != null) {
@@ -1039,18 +1039,18 @@ public void run(Object entryPoint) {
     int paramCount = method.parameters != null ? method.parameters.size() : 0;
 
     for (int i = 0; i < paramCount; i++) {
-        ParamNode param = method.parameters.get(i);
+        Param param = method.parameters.get(i);
         Object argValue = null;
 
         if (i < argCount) {
-            ExprNode argExpr = call.arguments.get(i);
+            Expr argExpr = call.arguments.get(i);
 
-            if (argExpr instanceof IdentifierNode && "_".equals(((IdentifierNode) argExpr).name)) {
+            if (argExpr instanceof Identifier && "_".equals(((Identifier) argExpr).name)) {
                 if (param.hasDefaultValue) {
                     ExecutionContext defaultCtx = new ExecutionContext(obj, locals, null, null, typeSystem);
                     visitor.pushContext(defaultCtx);
                     try {
-                        argValue = visitor.visit((ASTNode) param.defaultValue);
+                        argValue = visitor.visit((Base) param.defaultValue);
                     } finally {
                         visitor.popContext();
                     }
@@ -1067,7 +1067,7 @@ public void run(Object entryPoint) {
                 ExecutionContext argCtx = new ExecutionContext(obj, locals, null, null, typeSystem);
                 visitor.pushContext(argCtx);
                 try {
-                    argValue = visitor.visit((ASTNode) argExpr);
+                    argValue = visitor.visit((Base) argExpr);
                 } finally {
                     visitor.popContext();
                     if (savedCtx != null) {
@@ -1080,7 +1080,7 @@ public void run(Object entryPoint) {
                 ExecutionContext defaultCtx = new ExecutionContext(obj, locals, null, null, typeSystem);
                 visitor.pushContext(defaultCtx);
                 try {
-                    argValue = visitor.visit((ASTNode) param.defaultValue);
+                    argValue = visitor.visit((Base) param.defaultValue);
                 } finally {
                     visitor.popContext();
                 }
@@ -1127,7 +1127,7 @@ public void run(Object entryPoint) {
     Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
     Map<String, String> slotTypes = new LinkedHashMap<String, String>();
     if (method.returnSlots != null) {
-        for (SlotNode s : method.returnSlots) {
+        for (Slot s : method.returnSlots) {
             slotValues.put(s.name, null);
             slotTypes.put(s.name, s.type);
         }
@@ -1142,14 +1142,14 @@ public void run(Object entryPoint) {
     ctx.objectInstance = obj;
     
     if (method.associatedClass != null) {
-        TypeNode classType = findTypeByName(method.associatedClass);
+        Type classType = findTypeByName(method.associatedClass);
         if (classType != null) {
             ctx.currentClass = classType;
         }
     }
     
     if (obj != null && obj.type != null && ctx.currentClass == null) {
-        TypeNode classType = findTypeByName(obj.type.name);
+        Type classType = findTypeByName(obj.type.name);
         if (classType != null) {
             ctx.currentClass = classType;
         }
@@ -1161,8 +1161,8 @@ public void run(Object entryPoint) {
 
     try {
         if (method.body != null) {
-            for (StmtNode stmt : method.body) {
-                visitor.visit((ASTNode) stmt);
+            for (Stmt stmt : method.body) {
+                visitor.visit((Base) stmt);
                 
                 if (calledMethodHasSlots && shouldReturnEarly(slotValues, ctx.slotsInCurrentPath)) {
                     break;
@@ -1192,7 +1192,7 @@ public void run(Object entryPoint) {
   }
 
   @SuppressWarnings("unchecked")
-  public Object handleBuiltinMethod(MethodNode node, MethodCallNode call) {
+  public Object handleBuiltinMethod(Method node, MethodCall call) {
     if (node == null) {
       throw new InternalError("handleBuiltinMethod called with null node");
     }
@@ -1202,13 +1202,13 @@ public void run(Object entryPoint) {
     return builtinRegistry.executeBuiltin(node.methodName, (List<Object>)call);
   }
 
-  private MethodNode resolveImportedMethod(String qualifiedMethodName) {
+  private Method resolveImportedMethod(String qualifiedMethodName) {
     if (qualifiedMethodName == null || qualifiedMethodName.isEmpty()) {
       throw new InternalError("resolveImportedMethod called with null/empty name");
     }
     
     try {
-      MethodNode node = importResolver.findMethod(qualifiedMethodName);
+      Method node = importResolver.findMethod(qualifiedMethodName);
       
       if (node != null) {
         return node;
@@ -1220,7 +1220,7 @@ public void run(Object entryPoint) {
           String className = parts[0];
           String methodName = parts[1];
           
-          TypeNode type = importResolver.findType(className);
+          Type type = importResolver.findType(className);
           if (type != null) {
             ExecutionContext searchCtx = new ExecutionContext(null, new HashMap<String, Object>(), null, null, typeSystem);
             return constructorResolver.findMethodInHierarchy(type, methodName, searchCtx);
@@ -1237,14 +1237,14 @@ public void run(Object entryPoint) {
     }
   }
 
-  private TypeNode findTypeByName(String className) {
+  private Type findTypeByName(String className) {
     if (className == null || className.isEmpty()) {
       throw new InternalError("findTypeByName called with null/empty className");
     }
     
-    ProgramNode currentProgram = getCurrentProgram();
+    Program currentProgram = getCurrentProgram();
     if (currentProgram != null && currentProgram.unit != null && currentProgram.unit.types != null) {
-      for (TypeNode t : currentProgram.unit.types) {
+      for (Type t : currentProgram.unit.types) {
         if (t.name.equals(className)) {
           return t;
         }
@@ -1252,7 +1252,7 @@ public void run(Object entryPoint) {
     }
     
     try {
-      TypeNode type = importResolver.findType(className);
+      Type type = importResolver.findType(className);
       return type;
     } catch (ProgramError e) {
       DebugSystem.debug("INTERPRETER", "Type not found in imports (may be local): " + className);

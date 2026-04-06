@@ -13,15 +13,15 @@ public class OutputAwarePattern {
     
     public static class OutputPattern {
         public final Object computation;      // SequencePattern or ConditionalPattern
-        public final List<MethodCallNode> outputCalls;  // The out() calls
+        public final List<MethodCall> outputCalls;  // The out() calls
         public final boolean isOptimizable;
         
         // NEW: Batched output storage
         private List<OutputBatch> batches = new ArrayList<>();
         
-        public OutputPattern(Object computation, List<MethodCallNode> outputCalls) {
+        public OutputPattern(Object computation, List<MethodCall> outputCalls) {
             this.computation = computation;
-            this.outputCalls = outputCalls != null ? outputCalls : new ArrayList<MethodCallNode>();
+            this.outputCalls = outputCalls != null ? outputCalls : new ArrayList<MethodCall>();
             this.isOptimizable = computation != null && !this.outputCalls.isEmpty();
             
             // NEW: Auto-batch outputs if optimizable
@@ -34,11 +34,11 @@ public class OutputAwarePattern {
         private void batchOutputs() {
             if (outputCalls.isEmpty()) return;
             
-            List<MethodCallNode> outCalls = new ArrayList<>();
-            List<MethodCallNode> outsCalls = new ArrayList<>();
+            List<MethodCall> outCalls = new ArrayList<>();
+            List<MethodCall> outsCalls = new ArrayList<>();
             
             // Separate by type
-            for (MethodCallNode call : outputCalls) {
+            for (MethodCall call : outputCalls) {
                 if ("out".equals(call.name)) {
                     outCalls.add(call);
                 } else if ("outs".equals(call.name)) {
@@ -74,12 +74,12 @@ public class OutputAwarePattern {
     // NEW: Represents a batched output operation
     public static class OutputBatch {
         public final String type;  // "out" or "outs"
-        public final List<MethodCallNode> calls;
+        public final List<MethodCall> calls;
         
-        public OutputBatch(String type, MethodCallNode... calls) {
+        public OutputBatch(String type, MethodCall... calls) {
             this.type = type;
             this.calls = new ArrayList<>();
-            for (MethodCallNode call : calls) {
+            for (MethodCall call : calls) {
                 this.calls.add(call);
             }
         }
@@ -90,9 +90,9 @@ public class OutputAwarePattern {
         }
         
         // NEW: Get all arguments flattened
-        public List<ExprNode> getAllArguments() {
-            List<ExprNode> allArgs = new ArrayList<>();
-            for (MethodCallNode call : calls) {
+        public List<Expr> getAllArguments() {
+            List<Expr> allArgs = new ArrayList<>();
+            for (MethodCall call : calls) {
                 allArgs.addAll(call.arguments);
             }
             return allArgs;
@@ -102,18 +102,18 @@ public class OutputAwarePattern {
     /**
      * Extract computation and output from a for loop body
      */
-    public static OutputPattern extract(ForNode node, String iterator) {
+    public static OutputPattern extract(For node, String iterator) {
         if (node == null || node.body == null || node.body.statements == null) {
             return new OutputPattern(null, null);
         }
         
-        List<StmtNode> computationStmts = new ArrayList<StmtNode>();
-        List<MethodCallNode> outputCalls = new ArrayList<MethodCallNode>();
+        List<Stmt> computationStmts = new ArrayList<Stmt>();
+        List<MethodCall> outputCalls = new ArrayList<MethodCall>();
         
         // Separate computation from output
-        for (StmtNode stmt : node.body.statements) {
+        for (Stmt stmt : node.body.statements) {
             if (isOutputCall(stmt)) {
-                outputCalls.add((MethodCallNode) stmt);
+                outputCalls.add((MethodCall) stmt);
             } else {
                 computationStmts.add(stmt);
             }
@@ -149,12 +149,12 @@ public class OutputAwarePattern {
     /**
      * Check if a statement is an output call (out() or outs())
      */
-    private static boolean isOutputCall(StmtNode stmt) {
-        if (!(stmt instanceof MethodCallNode)) {
+    private static boolean isOutputCall(Stmt stmt) {
+        if (!(stmt instanceof MethodCall)) {
             return false;
         }
         
-        MethodCallNode call = (MethodCallNode) stmt;
+        MethodCall call = (MethodCall) stmt;
         return "out".equals(call.name) || "outs".equals(call.name);
     }
     
@@ -162,19 +162,19 @@ public class OutputAwarePattern {
      * Extract conditional pattern from a list of statements
      */
     private static ConditionalPattern extractConditionalPatternFromList(
-            List<StmtNode> stmts, String iterator) {
+            List<Stmt> stmts, String iterator) {
         
         if (stmts == null || stmts.isEmpty()) {
             return null;
         }
         
         // Find the first if-statement
-        StmtIfNode firstIf = null;
+        StmtIf firstIf = null;
         int ifIndex = -1;
         
         for (int i = 0; i < stmts.size(); i++) {
-            if (stmts.get(i) instanceof StmtIfNode) {
-                firstIf = (StmtIfNode) stmts.get(i);
+            if (stmts.get(i) instanceof StmtIf) {
+                firstIf = (StmtIf) stmts.get(i);
                 ifIndex = i;
                 break;
             }
@@ -198,13 +198,13 @@ public class OutputAwarePattern {
     /**
      * Check if a statement is a variable declaration
      */
-    private static boolean isVariableDeclaration(StmtNode stmt) {
-        if (stmt instanceof VarNode) {
+    private static boolean isVariableDeclaration(Stmt stmt) {
+        if (stmt instanceof Var) {
             return true;
         }
         
-        if (stmt instanceof AssignmentNode) {
-            AssignmentNode assign = (AssignmentNode) stmt;
+        if (stmt instanceof Assignment) {
+            Assignment assign = (Assignment) stmt;
             return assign.isDeclaration;
         }
         

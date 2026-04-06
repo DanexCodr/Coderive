@@ -53,13 +53,13 @@ public class LiteralRegistry {
      * Register all built-in literal handlers
      */
     private void registerBuiltInHandlers() {
-        // Define .size property for RangeNode and NaturalArray
+        // Define .size property for Range and NaturalArray
         define("size", 
             new PropertyHandler() {
                 @Override
                 public Object handle(Object literal, ExecutionContext ctx) {
-                    if (literal instanceof RangeNode) {
-                        return handleRangeSize((RangeNode) literal, ctx);
+                    if (literal instanceof Range) {
+                        return handleRangeSize((Range) literal, ctx);
                     } else if (literal instanceof NaturalArray) {
                         return handleArraySize((NaturalArray) literal);
                     }
@@ -67,7 +67,7 @@ public class LiteralRegistry {
                     throw new ProgramError("Unsupported type for .size");
                 }
             },
-            RangeNode.class, NaturalArray.class
+            Range.class, NaturalArray.class
         );
 
         define("length",
@@ -252,7 +252,7 @@ public class LiteralRegistry {
         
         // Future definitions:
         // define("isEmpty", isEmptyHandler, String.class, List.class, NaturalArray.class);
-        // define("toUpperCase", toUpperHandler, String.class, TextLiteralNode.class);
+        // define("toUpperCase", toUpperHandler, String.class, TextLiteral.class);
     }
     
     /**
@@ -380,9 +380,9 @@ public class LiteralRegistry {
     }
     
     /**
-     * Handle .size for RangeNode
+     * Handle .size for Range
      */
-    private Object handleRangeSize(RangeNode range, ExecutionContext ctx) {
+    private Object handleRangeSize(Range range, ExecutionContext ctx) {
         try {
             Object start = evaluator.evaluate(range.start, ctx);
             Object end = evaluator.evaluate(range.end, ctx);
@@ -433,7 +433,7 @@ public class LiteralRegistry {
     private String asText(Object value) {
         if (value == null) return "none";
         if (value instanceof String) return (String) value;
-        if (value instanceof TextLiteralNode) return ((TextLiteralNode) value).value;
+        if (value instanceof TextLiteral) return ((TextLiteral) value).value;
         return String.valueOf(value);
     }
 
@@ -774,11 +774,11 @@ public class LiteralRegistry {
         }
         if (unwrapped instanceof List) return !((List<?>) unwrapped).isEmpty();
         if (unwrapped instanceof NaturalArray) return ((NaturalArray) unwrapped).size() > 0;
-        if (unwrapped instanceof BoolLiteralNode) return ((BoolLiteralNode) unwrapped).value;
-        if (unwrapped instanceof IntLiteralNode) return !((IntLiteralNode) unwrapped).value.isZero();
-        if (unwrapped instanceof FloatLiteralNode) return !((FloatLiteralNode) unwrapped).value.isZero();
-        if (unwrapped instanceof TextLiteralNode) {
-            String str = ((TextLiteralNode) unwrapped).value;
+        if (unwrapped instanceof BoolLiteral) return ((BoolLiteral) unwrapped).value;
+        if (unwrapped instanceof IntLiteral) return !((IntLiteral) unwrapped).value.isZero();
+        if (unwrapped instanceof FloatLiteral) return !((FloatLiteral) unwrapped).value.isZero();
+        if (unwrapped instanceof TextLiteral) {
+            String str = ((TextLiteral) unwrapped).value;
             return !str.isEmpty() && !"false".equalsIgnoreCase(str);
         }
         return true;
@@ -798,11 +798,11 @@ public class LiteralRegistry {
         if (obj instanceof Long) {
             return (Long) obj;
         }
-        if (obj instanceof IntLiteralNode) {
-            return ((IntLiteralNode) obj).value.longValue();
+        if (obj instanceof IntLiteral) {
+            return ((IntLiteral) obj).value.longValue();
         }
-        if (obj instanceof FloatLiteralNode) {
-            return ((FloatLiteralNode) obj).value.longValue();
+        if (obj instanceof FloatLiteral) {
+            return ((FloatLiteral) obj).value.longValue();
         }
         if (obj instanceof Number) {
             return ((Number) obj).longValue();

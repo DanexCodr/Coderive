@@ -150,8 +150,8 @@ final class IRCodec {
             return;
         }
 
-        if (value instanceof ASTNode) {
-            writeNode(out, (ASTNode) value, depth + 1);
+        if (value instanceof Base) {
+            writeNode(out, (Base) value, depth + 1);
             return;
         }
 
@@ -190,7 +190,7 @@ final class IRCodec {
         }
     }
 
-    private static void writeNode(DataOutput out, ASTNode node, int depth) throws IOException {
+    private static void writeNode(DataOutput out, Base node, int depth) throws IOException {
         out.writeByte(TAG_NODE);
         writeString(out, node.getClass().getName());
         List<Field> fields = getSerializableFields(node.getClass());
@@ -209,7 +209,7 @@ final class IRCodec {
         }
     }
 
-    private static ASTNode readNode(DataInput in, int depth) throws IOException {
+    private static Base readNode(DataInput in, int depth) throws IOException {
         String className = readString(in);
         if (!className.startsWith(NODE_PACKAGE_PREFIX)) {
             throw new IOException("Invalid IR node class: " + className);
@@ -222,12 +222,12 @@ final class IRCodec {
             throw new IOException("Unknown IR node class: " + className, e);
         }
 
-        if (!ASTNode.class.isAssignableFrom(rawClass)) {
-            throw new IOException("IR class is not an ASTNode: " + className);
+        if (!Base.class.isAssignableFrom(rawClass)) {
+            throw new IOException("IR class is not an Base: " + className);
         }
 
         @SuppressWarnings("unchecked")
-        Class<? extends ASTNode> nodeClass = (Class<? extends ASTNode>) rawClass;
+        Class<? extends Base> nodeClass = (Class<? extends Base>) rawClass;
 
         int fieldCount = in.readInt();
         if (fieldCount < 0 || fieldCount > MAX_FIELDS) {
@@ -241,62 +241,62 @@ final class IRCodec {
             values.put(fieldName, value);
         }
 
-        ASTNode node = instantiateNode(nodeClass, values);
+        Base node = instantiateNode(nodeClass, values);
         applyRemainingFields(node, values);
         return node;
     }
 
-    private static ASTNode instantiateNode(Class<? extends ASTNode> nodeClass, Map<String, Object> values)
+    private static Base instantiateNode(Class<? extends Base> nodeClass, Map<String, Object> values)
             throws IOException {
-        if (nodeClass == IdentifierNode.class) {
-            return new IdentifierNode((String) values.get("name"));
+        if (nodeClass == Identifier.class) {
+            return new Identifier((String) values.get("name"));
         }
-        if (nodeClass == TextLiteralNode.class) {
+        if (nodeClass == TextLiteral.class) {
             String value = (String) values.get("value");
             Boolean interpolated = (Boolean) values.get("isInterpolated");
-            return new TextLiteralNode(value, interpolated != null && interpolated.booleanValue());
+            return new TextLiteral(value, interpolated != null && interpolated.booleanValue());
         }
-        if (nodeClass == BoolLiteralNode.class) {
+        if (nodeClass == BoolLiteral.class) {
             Boolean value = (Boolean) values.get("value");
-            return new BoolLiteralNode(value != null && value.booleanValue());
+            return new BoolLiteral(value != null && value.booleanValue());
         }
-        if (nodeClass == IntLiteralNode.class) {
+        if (nodeClass == IntLiteral.class) {
             AutoStackingNumber value = (AutoStackingNumber) values.get("value");
-            return new IntLiteralNode(value);
+            return new IntLiteral(value);
         }
-        if (nodeClass == FloatLiteralNode.class) {
+        if (nodeClass == FloatLiteral.class) {
             AutoStackingNumber value = (AutoStackingNumber) values.get("value");
-            return new FloatLiteralNode(value);
+            return new FloatLiteral(value);
         }
-        if (nodeClass == RangeIndexNode.class) {
-            return new RangeIndexNode(
-                    (ExprNode) values.get("step"),
-                    (ExprNode) values.get("start"),
-                    (ExprNode) values.get("end")
+        if (nodeClass == RangeIndex.class) {
+            return new RangeIndex(
+                    (Expr) values.get("step"),
+                    (Expr) values.get("start"),
+                    (Expr) values.get("end")
             );
         }
-        if (nodeClass == MultiRangeIndexNode.class) {
+        if (nodeClass == MultiRangeIndex.class) {
             @SuppressWarnings("unchecked")
-            List<RangeIndexNode> ranges = (List<RangeIndexNode>) values.get("ranges");
-            return new MultiRangeIndexNode(ranges);
+            List<RangeIndex> ranges = (List<RangeIndex>) values.get("ranges");
+            return new MultiRangeIndex(ranges);
         }
-        if (nodeClass == ChainedComparisonNode.class) {
+        if (nodeClass == ChainedComparison.class) {
             @SuppressWarnings("unchecked")
-            List<ExprNode> expressions = (List<ExprNode>) values.get("expressions");
+            List<Expr> expressions = (List<Expr>) values.get("expressions");
             @SuppressWarnings("unchecked")
             List<String> operators = (List<String>) values.get("operators");
-            return new ChainedComparisonNode(expressions, operators);
+            return new ChainedComparison(expressions, operators);
         }
-        if (nodeClass == ValueExprNode.class) {
-            return new ValueExprNode(values.get("value"));
+        if (nodeClass == ValueExpr.class) {
+            return new ValueExpr(values.get("value"));
         }
-        if (nodeClass == ThisNode.class) {
+        if (nodeClass == This.class) {
             String className = (String) values.get("className");
-            return className == null ? new ThisNode() : new ThisNode(className);
+            return className == null ? new This() : new This(className);
         }
 
         try {
-            Constructor<? extends ASTNode> ctor = nodeClass.getDeclaredConstructor();
+            Constructor<? extends Base> ctor = nodeClass.getDeclaredConstructor();
             ctor.setAccessible(true);
             return ctor.newInstance();
         } catch (Exception e) {
@@ -304,7 +304,7 @@ final class IRCodec {
         }
     }
 
-    private static void applyRemainingFields(ASTNode node, Map<String, Object> values) throws IOException {
+    private static void applyRemainingFields(Base node, Map<String, Object> values) throws IOException {
         List<Field> fields = getSerializableFields(node.getClass());
         for (Field field : fields) {
             if (Modifier.isFinal(field.getModifiers())) {

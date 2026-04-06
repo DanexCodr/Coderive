@@ -12,8 +12,8 @@ public class PolicyResolver {
     private final ImportResolver importResolver;
     
     // Cache for flattened policy methods (includes composed policies)
-    private Map<String, List<PolicyMethodNode>> flattenedPolicyCache = 
-        new HashMap<String, List<PolicyMethodNode>>();
+    private Map<String, List<PolicyMethod>> flattenedPolicyCache = 
+        new HashMap<String, List<PolicyMethod>>();
     
     // Cache for policy inheritance chains
     private Map<String, List<String>> policyCompositionCache = 
@@ -38,9 +38,9 @@ public class PolicyResolver {
      * Get all methods required by a policy (including composed policies)
      * Now O(1) after first lookup
      */
-    public List<PolicyMethodNode> getFlattenedPolicyMethods(PolicyNode policy) {
+    public List<PolicyMethod> getFlattenedPolicyMethods(Policy policy) {
         if (policy == null) {
-            return new ArrayList<PolicyMethodNode>();
+            return new ArrayList<PolicyMethod>();
         }
         
         String policyKey = policy.name;
@@ -52,7 +52,7 @@ public class PolicyResolver {
         }
         
         // Build flattened list
-        List<PolicyMethodNode> allMethods = new ArrayList<PolicyMethodNode>();
+        List<PolicyMethod> allMethods = new ArrayList<PolicyMethod>();
         Set<String> visited = new HashSet<String>();
         
         collectPolicyMethodsRecursive(policy, allMethods, visited);
@@ -69,7 +69,7 @@ public class PolicyResolver {
     /**
      * Get complete policy composition chain (including nested compositions)
      */
-    public List<String> getPolicyCompositionChain(PolicyNode policy) {
+    public List<String> getPolicyCompositionChain(Policy policy) {
         if (policy == null) {
             return new ArrayList<String>();
         }
@@ -99,7 +99,7 @@ public class PolicyResolver {
     /**
      * Get all policies implemented by a class (including inherited)
      */
-    public Set<String> getClassPolicies(TypeNode classType, ExecutionContext ctx) {
+    public Set<String> getClassPolicies(Type classType, ExecutionContext ctx) {
         if (classType == null) {
             return new HashSet<String>();
         }
@@ -121,7 +121,7 @@ public class PolicyResolver {
         
         // Add inherited policies from parent classes
         if (classType.extendName != null) {
-            TypeNode parent = findParentType(classType, ctx);
+            Type parent = findParentType(classType, ctx);
             if (parent != null) {
                 allPolicies.addAll(getClassPolicies(parent, ctx));
             }
@@ -140,7 +140,7 @@ public class PolicyResolver {
      * Validate that a class implements all required policy methods
      * Results cached for O(1) subsequent checks
      */
-    public boolean validateClassPolicies(TypeNode classType, ExecutionContext ctx) {
+    public boolean validateClassPolicies(Type classType, ExecutionContext ctx) {
         if (classType == null) {
             return true;
         }
@@ -160,7 +160,7 @@ public class PolicyResolver {
         // Build set of implemented policy methods (for O(1) lookup)
         Set<String> implementedPolicyMethods = new HashSet<String>();
         if (classType.methods != null) {
-            for (MethodNode method : classType.methods) {
+            for (Method method : classType.methods) {
                 if (method.isPolicyMethod) {
                     implementedPolicyMethods.add(method.methodName);
                 }
@@ -169,16 +169,16 @@ public class PolicyResolver {
         
         // Check each required policy
         for (String policyName : requiredPolicies) {
-            PolicyNode policy = findPolicy(policyName, ctx);
+            Policy policy = findPolicy(policyName, ctx);
             if (policy == null) {
                 DebugSystem.debug("POLICY_CACHE", "Policy not found: " + policyName);
                 policyValidationCache.put(cacheKey, false);
                 return false;
             }
             
-            List<PolicyMethodNode> requiredMethods = getFlattenedPolicyMethods(policy);
+            List<PolicyMethod> requiredMethods = getFlattenedPolicyMethods(policy);
             
-            for (PolicyMethodNode requiredMethod : requiredMethods) {
+            for (PolicyMethod requiredMethod : requiredMethods) {
                 if (!implementedPolicyMethods.contains(requiredMethod.methodName)) {
                     DebugSystem.debug("POLICY_CACHE", "Missing method: " + requiredMethod.methodName);
                     policyValidationCache.put(cacheKey, false);
@@ -195,10 +195,10 @@ public class PolicyResolver {
     /**
      * Find a policy by name (uses ImportResolver with its own cache)
      */
-    private PolicyNode findPolicy(String policyName, ExecutionContext ctx) {
+    private Policy findPolicy(String policyName, ExecutionContext ctx) {
         if (importResolver != null) {
             try {
-                PolicyNode policy = importResolver.findPolicy(policyName);
+                Policy policy = importResolver.findPolicy(policyName);
                 if (policy != null) {
                     return policy;
                 }
@@ -220,7 +220,7 @@ public class PolicyResolver {
     /**
      * Find parent type in inheritance hierarchy
      */
-    private TypeNode findParentType(TypeNode childType, ExecutionContext ctx) {
+    private Type findParentType(Type childType, ExecutionContext ctx) {
         if (childType.extendName == null) {
             return null;
         }
@@ -239,8 +239,8 @@ public class PolicyResolver {
     /**
      * Recursively collect all methods from a policy and its compositions
      */
-    private void collectPolicyMethodsRecursive(PolicyNode policy, 
-                                              List<PolicyMethodNode> allMethods,
+    private void collectPolicyMethodsRecursive(Policy policy, 
+                                              List<PolicyMethod> allMethods,
                                               Set<String> visited) {
         if (policy == null || visited.contains(policy.name)) {
             return;
@@ -251,7 +251,7 @@ public class PolicyResolver {
         // First collect from composed policies (to maintain order)
         if (policy.composedPolicies != null) {
             for (String composedName : policy.composedPolicies) {
-                PolicyNode composed = findPolicy(composedName, null);
+                Policy composed = findPolicy(composedName, null);
                 if (composed != null) {
                     collectPolicyMethodsRecursive(composed, allMethods, visited);
                 }
@@ -267,7 +267,7 @@ public class PolicyResolver {
     /**
      * Recursively collect all policy names in composition chain
      */
-    private void collectPolicyCompositionRecursive(PolicyNode policy,
+    private void collectPolicyCompositionRecursive(Policy policy,
                                                   List<String> chain,
                                                   Set<String> visited) {
         if (policy == null || visited.contains(policy.name)) {
@@ -279,7 +279,7 @@ public class PolicyResolver {
         
         if (policy.composedPolicies != null) {
             for (String composedName : policy.composedPolicies) {
-                PolicyNode composed = findPolicy(composedName, null);
+                Policy composed = findPolicy(composedName, null);
                 if (composed != null) {
                     collectPolicyCompositionRecursive(composed, chain, visited);
                 }

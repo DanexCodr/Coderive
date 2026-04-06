@@ -47,7 +47,7 @@ public class PrinterRunner extends BaseRunner {
         Interpreter dummyInterpreter = new Interpreter();
         dummyInterpreter.setFilePath(config.inputFilename);
         
-        ProgramNode ast = parse(config.inputFilename, dummyInterpreter);
+        Program ast = parse(config.inputFilename, dummyInterpreter);
         if (ast == null) {
             DebugSystem.error(NAME + LOG_TAG, "Parsing failed, AST is null");
             throw new RuntimeException("Parsing failed, AST is null.");
@@ -72,7 +72,7 @@ public class PrinterRunner extends BaseRunner {
         }
     }
     
-    private void printOriginalAST(ProgramNode ast) {
+    private void printOriginalAST(Program ast) {
         out("\n=== ABSTRACT SYNTAX TREE ===");
         out("This is the AST as parsed from source code.");
         out("========================================\n");

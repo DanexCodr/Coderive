@@ -6,112 +6,112 @@ import java.util.List;
 public interface VisitorImpl<T> {
 
   // Program structure
-  T visit(ProgramNode n);
+  T visit(Program n);
 
-  T visit(UnitNode n);
+  T visit(Unit n);
 
-  T visit(UseNode n);
+  T visit(Use n);
 
   // Type declarations
-  T visit(TypeNode n);
+  T visit(Type n);
 
-  T visit(FieldNode n);
+  T visit(Field n);
 
-  T visit(MethodNode n);
+  T visit(Method n);
 
-  T visit(ParamNode n);
+  T visit(Param n);
 
-  T visit(ConstructorNode n);
+  T visit(Constructor n);
 
-  T visit(ConstructorCallNode n);
+  T visit(ConstructorCall n);
 
   // Policy declarations
-  T visit(PolicyNode n);
+  T visit(Policy n);
 
-  T visit(PolicyMethodNode n);
+  T visit(PolicyMethod n);
 
   // Statements
-  T visit(BlockNode n);
+  T visit(Block n);
 
-  T visit(AssignmentNode n);
+  T visit(Assignment n);
 
-  T visit(VarNode n);
+  T visit(Var n);
 
-  T visit(StmtIfNode n);
+  T visit(StmtIf n);
 
-  T visit(ExprIfNode n);
+  T visit(ExprIf n);
 
-  T visit(ForNode n);
+  T visit(For n);
 
-  T visit(SkipNode n);
+  T visit(Skip n);
 
-  T visit(BreakNode n);
+  T visit(Break n);
 
-  T visit(RangeNode n);
+  T visit(Range n);
 
-  T visit(ExitNode n);
+  T visit(Exit n);
 
-  T visit(TupleNode n);
+  T visit(Tuple n);
 
-  T visit(ReturnSlotAssignmentNode n);
+  T visit(ReturnSlotAssignment n);
 
-  T visit(SlotDeclarationNode n);
+  T visit(SlotDeclaration n);
 
-  T visit(SlotAssignmentNode n);
+  T visit(SlotAssignment n);
 
-  T visit(MultipleSlotAssignmentNode n);
+  T visit(MultipleSlotAssignment n);
 
   // Expressions
-  T visit(ExprNode n);
+  T visit(Expr n);
 
-  T visit(BinaryOpNode n);
+  T visit(BinaryOp n);
 
-  T visit(UnaryNode n);
+  T visit(Unary n);
 
-  T visit(TypeCastNode n);
+  T visit(TypeCast n);
 
-  T visit(MethodCallNode n);
+  T visit(MethodCall n);
 
-  T visit(ArrayNode n);
+  T visit(Array n);
 
-  T visit(IndexAccessNode n);
+  T visit(IndexAccess n);
 
-  T visit(RangeIndexNode n);
+  T visit(RangeIndex n);
 
-  T visit(MultiRangeIndexNode n);
+  T visit(MultiRangeIndex n);
 
-  T visit(EqualityChainNode n);
+  T visit(EqualityChain n);
 
-  T visit(BooleanChainNode n);
+  T visit(BooleanChain n);
 
-  T visit(SlotNode n);
+  T visit(Slot n);
 
-  T visit(LambdaNode n);
+  T visit(Lambda n);
 
-  T visit(IdentifierNode n);
+  T visit(Identifier n);
 
-  T visit(IntLiteralNode n);
+  T visit(IntLiteral n);
 
-  T visit(FloatLiteralNode n);
+  T visit(FloatLiteral n);
 
-  T visit(TextLiteralNode n);
+  T visit(TextLiteral n);
 
-  T visit(BoolLiteralNode n);
+  T visit(BoolLiteral n);
 
-  T visit(NoneLiteralNode n);
+  T visit(NoneLiteral n);
 
-  T visit(ThisNode n);
+  T visit(This n);
 
-  T visit(SuperNode n);
+  T visit(Super n);
 
-  T visit(ChainedComparisonNode n);
+  T visit(ChainedComparison n);
 
-  T visit(PropertyAccessNode n);
+  T visit(PropertyAccess n);
 
-  T visit(ASTNode n);
+  T visit(Base n);
 
   // Utility methods for visiting lists
-  List<T> visitList(List<? extends ASTNode> n);
+  List<T> visitList(List<? extends Base> n);
 
-  void visitAll(List<? extends ASTNode> n);
+  void visitAll(List<? extends Base> n);
 }

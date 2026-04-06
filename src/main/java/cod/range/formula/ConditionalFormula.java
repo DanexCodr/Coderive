@@ -11,20 +11,20 @@ public class ConditionalFormula {
     public final long start;
     public final long end;
     public final String indexVar;
-    public final List<ExprNode> conditions;
-    public final List<List<StmtNode>> branchStatements;
-    public final List<StmtNode> elseStatements;
+    public final List<Expr> conditions;
+    public final List<List<Stmt>> branchStatements;
+    public final List<Stmt> elseStatements;
     
     public ConditionalFormula(long start, long end, String indexVar,
-                             List<ExprNode> conditions,
-                             List<List<StmtNode>> branchStatements,
-                             List<StmtNode> elseStatements) {
+                             List<Expr> conditions,
+                             List<List<Stmt>> branchStatements,
+                             List<Stmt> elseStatements) {
         this.start = start;
         this.end = end;
         this.indexVar = indexVar;
-        this.conditions = conditions != null ? conditions : new ArrayList<ExprNode>();
-        this.branchStatements = branchStatements != null ? branchStatements : new ArrayList<List<StmtNode>>();
-        this.elseStatements = elseStatements != null ? elseStatements : new ArrayList<StmtNode>();
+        this.conditions = conditions != null ? conditions : new ArrayList<Expr>();
+        this.branchStatements = branchStatements != null ? branchStatements : new ArrayList<List<Stmt>>();
+        this.elseStatements = elseStatements != null ? elseStatements : new ArrayList<Stmt>();
     }
     
     public boolean contains(long index) {
@@ -56,7 +56,7 @@ public class ConditionalFormula {
     }
     
     private Object executeStatementSequence(
-            List<StmtNode> statements, Evaluator evaluator, ExecutionContext ctx) {
+            List<Stmt> statements, Evaluator evaluator, ExecutionContext ctx) {
         
         Object lastResult = null;
         
@@ -64,7 +64,7 @@ public class ConditionalFormula {
         ctx.pushScope();
         
         try {
-            for (StmtNode stmt : statements) {
+            for (Stmt stmt : statements) {
                 lastResult = evaluator.evaluate(stmt, ctx);
             }
         } finally {

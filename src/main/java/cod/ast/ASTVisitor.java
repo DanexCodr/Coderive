@@ -6,279 +6,279 @@ import java.util.List;
 
 public abstract class ASTVisitor<T> implements VisitorImpl<T> {
 
-  protected T defaultVisit(ASTNode n) {
+  protected T defaultVisit(Base n) {
     return null;
   }
 
   @Override
-  public T visit(ProgramNode n) {
+  public T visit(Program n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(UnitNode n) {
+  public T visit(Unit n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(UseNode n) {
+  public T visit(Use n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(TypeNode n) {
+  public T visit(Type n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(PolicyNode n) {
+  public T visit(Policy n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(PolicyMethodNode n) {
+  public T visit(PolicyMethod n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(FieldNode n) {
+  public T visit(Field n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(MethodNode n) {
+  public T visit(Method n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(ParamNode n) {
+  public T visit(Param n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(ConstructorNode n) {
+  public T visit(Constructor n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(ConstructorCallNode n) {
+  public T visit(ConstructorCall n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(BlockNode n) {
+  public T visit(Block n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(AssignmentNode n) {
+  public T visit(Assignment n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(VarNode n) {
+  public T visit(Var n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(StmtIfNode n) {
+  public T visit(StmtIf n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(ExprIfNode n) {
+  public T visit(ExprIf n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(ForNode n) {
+  public T visit(For n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(SkipNode n) {
+  public T visit(Skip n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(BreakNode n) {
+  public T visit(Break n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(RangeNode n) {
+  public T visit(Range n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(ExitNode n) {
+  public T visit(Exit n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(TupleNode n) {
+  public T visit(Tuple n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(ReturnSlotAssignmentNode n) {
+  public T visit(ReturnSlotAssignment n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(SlotDeclarationNode n) {
+  public T visit(SlotDeclaration n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(SlotAssignmentNode n) {
+  public T visit(SlotAssignment n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(MultipleSlotAssignmentNode n) {
+  public T visit(MultipleSlotAssignment n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(ExprNode n) {
+  public T visit(Expr n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(BinaryOpNode n) {
+  public T visit(BinaryOp n) {
     return defaultVisit(n);
   }
 
   @Override
-  public T visit(UnaryNode n) {
+  public T visit(Unary n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(TypeCastNode n) {
+  public T visit(TypeCast n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(MethodCallNode n) {
+  public T visit(MethodCall n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(ArrayNode n) {
+  public T visit(Array n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(IndexAccessNode n) {
+  public T visit(IndexAccess n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(RangeIndexNode n) {
+  public T visit(RangeIndex n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(MultiRangeIndexNode n) {
+  public T visit(MultiRangeIndex n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(EqualityChainNode n) {
+  public T visit(EqualityChain n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(BooleanChainNode n) {
+  public T visit(BooleanChain n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(SlotNode n) {
+  public T visit(Slot n) {
     return n.accept(this);
   }
 
   @Override
-  public T visit(LambdaNode n) {
+  public T visit(Lambda n) {
     return n.accept(this);
   }
   
   @Override
-public T visit(PropertyAccessNode n) {
+public T visit(PropertyAccess n) {
     return n.accept(this);
 }
 
 @Override
-public T visit(IdentifierNode n) {
+public T visit(Identifier n) {
     return n.accept(this);
 }
 
 @Override
-public T visit(IntLiteralNode n) {
+public T visit(IntLiteral n) {
     return n.accept(this);
 }
 
 @Override
-public T visit(FloatLiteralNode n) {
+public T visit(FloatLiteral n) {
     return n.accept(this);
 }
 
 @Override
-public T visit(TextLiteralNode n) {
+public T visit(TextLiteral n) {
     return n.accept(this);
 }
 
 @Override
-public T visit(BoolLiteralNode n) {
+public T visit(BoolLiteral n) {
     return n.accept(this);
 }
 
 @Override
-public T visit(NoneLiteralNode n) {
+public T visit(NoneLiteral n) {
     return n.accept(this);
 }
 
 @Override
-public T visit(ThisNode n) {
+public T visit(This n) {
     return n.accept(this);
 }
 
 @Override
-public T visit(SuperNode n) {
+public T visit(Super n) {
     return n.accept(this);
 }
 
 @Override
-public T visit(ChainedComparisonNode n) {
+public T visit(ChainedComparison n) {
     return defaultVisit(n);
 }
 
   @Override
-  public final T visit(ASTNode n) {
+  public final T visit(Base n) {
     // This is the entry point - delegate to the n's accept method
     return n.accept(this);
   }
 
   @Override
-  public List<T> visitList(List<? extends ASTNode> nodes) {
+  public List<T> visitList(List<? extends Base> nodes) {
     List<T> results = new ArrayList<T>();
-    for (ASTNode n : nodes) {
+    for (Base n : nodes) {
       results.add(visit(n));
     }
     return results;
   }
 
   @Override
-  public void visitAll(List<? extends ASTNode> nodes) {
-    for (ASTNode n : nodes) {
+  public void visitAll(List<? extends Base> nodes) {
+    for (Base n : nodes) {
       visit(n);
     }
   }
 
   // Helper method to dispatch via accept() - this is what should be used in InterpreterVisitor
-  public T dispatch(ASTNode n) {
+  public T dispatch(Base n) {
     return n.accept(this);
   }
 }

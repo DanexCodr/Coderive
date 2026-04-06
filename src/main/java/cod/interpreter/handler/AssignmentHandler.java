@@ -41,7 +41,7 @@ public class AssignmentHandler {
     
     // === Core Assignment Logic ===
     
-    public Object handleAssignment(AssignmentNode node, ExecutionContext ctx) {
+    public Object handleAssignment(Assignment node, ExecutionContext ctx) {
         if (node == null) {
             throw new InternalError("handleAssignment called with null node");
         }
@@ -52,10 +52,10 @@ public class AssignmentHandler {
         try {
             Object newValue = dispatcher.dispatch(node.right);
             
-            if (node.left instanceof IndexAccessNode) {
-                return handleIndexAssignment((IndexAccessNode) node.left, newValue, ctx);
-            } else if (node.left instanceof ExprNode) {
-                return handleVariableAssignment((ExprNode) node.left, newValue, ctx);
+            if (node.left instanceof IndexAccess) {
+                return handleIndexAssignment((IndexAccess) node.left, newValue, ctx);
+            } else if (node.left instanceof Expr) {
+                return handleVariableAssignment((Expr) node.left, newValue, ctx);
             }
             
             throw new ProgramError("Invalid assignment target");
@@ -68,7 +68,7 @@ public class AssignmentHandler {
     
     // In AssignmentHandler.java - optimized slot handling
 
-public Object handleSlotAssignment(SlotAssignmentNode node, ExecutionContext ctx) {
+public Object handleSlotAssignment(SlotAssignment node, ExecutionContext ctx) {
     if (node == null) {
         throw new InternalError("handleSlotAssignment called with null node");
     }
@@ -98,7 +98,7 @@ public Object handleSlotAssignment(SlotAssignmentNode node, ExecutionContext ctx
     }
 }
 
-public Object handleMultipleSlotAssignment(MultipleSlotAssignmentNode node, ExecutionContext ctx) {
+public Object handleMultipleSlotAssignment(MultipleSlotAssignment node, ExecutionContext ctx) {
     if (node == null) {
         throw new InternalError("handleMultipleSlotAssignment called with null node");
     }
@@ -110,7 +110,7 @@ public Object handleMultipleSlotAssignment(MultipleSlotAssignmentNode node, Exec
         Object lastValue = null;
         int slotIndex = 0;
         
-        for (SlotAssignmentNode assign : node.assignments) {
+        for (SlotAssignment assign : node.assignments) {
             Object value = dispatcher.dispatch(assign.value);
             String target = determineTargetOptimized(assign, ctx, slotIndex);
             
@@ -127,7 +127,7 @@ public Object handleMultipleSlotAssignment(MultipleSlotAssignmentNode node, Exec
 }
 
 // NEW: O(1) target determination
-private String determineTargetOptimized(SlotAssignmentNode assign, ExecutionContext ctx, int slotIndex) {
+private String determineTargetOptimized(SlotAssignment assign, ExecutionContext ctx, int slotIndex) {
     String varName = assign.slotName;
     
     if (varName != null && !varName.isEmpty() && !"_".equals(varName)) {
@@ -167,7 +167,7 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
     // === Assignment Implementation Methods ===
     
     @SuppressWarnings("unchecked")
-    private Object handleIndexAssignment(IndexAccessNode indexAccess, Object newValue, ExecutionContext ctx) {
+    private Object handleIndexAssignment(IndexAccess indexAccess, Object newValue, ExecutionContext ctx) {
         try {
             Object arrayObj = dispatcher.dispatch(indexAccess.array);
             arrayObj = typeSystem.unwrap(arrayObj);
@@ -333,19 +333,19 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
         return index;
     }
     
-    private Object handleVariableAssignment(ExprNode target, Object newValue, ExecutionContext ctx) {
+    private Object handleVariableAssignment(Expr target, Object newValue, ExecutionContext ctx) {
         try {
-            if (target instanceof PropertyAccessNode) {
-                PropertyAccessNode prop = (PropertyAccessNode) target;
+            if (target instanceof PropertyAccess) {
+                PropertyAccess prop = (PropertyAccess) target;
                 
-                if (prop.left instanceof ThisNode) {
-                    if (prop.right instanceof IdentifierNode) {
-                        IdentifierNode right = (IdentifierNode) prop.right;
+                if (prop.left instanceof This) {
+                    if (prop.right instanceof Identifier) {
+                        Identifier right = (Identifier) prop.right;
                         return assignToField(right.name, newValue, ctx);
                     }
-                } else if (prop.left instanceof SuperNode) {
-                    if (prop.right instanceof IdentifierNode) {
-                        IdentifierNode right = (IdentifierNode) prop.right;
+                } else if (prop.left instanceof Super) {
+                    if (prop.right instanceof Identifier) {
+                        Identifier right = (Identifier) prop.right;
                         return assignToSuperField(right.name, newValue, ctx);
                     }
                 }
@@ -353,8 +353,8 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
                 throw new ProgramError("Invalid property assignment target");
             }
             
-            if (target instanceof IdentifierNode) {
-                IdentifierNode id = (IdentifierNode) target;
+            if (target instanceof Identifier) {
+                Identifier id = (Identifier) target;
                 return assignToVariableScoped(id.name, newValue, ctx);
             }
             
@@ -450,7 +450,7 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
             }
             
             ConstructorResolver resolver = interpreter.getConstructorResolver();
-            TypeNode parentType = resolver.findParentType(ctx.objectInstance.type, ctx);
+            Type parentType = resolver.findParentType(ctx.objectInstance.type, ctx);
             
             if (parentType == null) {
                 throw new ProgramError("Parent class not found for 'super." + fieldName + "'");
@@ -480,12 +480,12 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
         }
     }
 
-    private boolean isFieldDeclaredInTypeHierarchy(TypeNode type, String fieldName, ExecutionContext ctx) {
-        TypeNode current = type;
+    private boolean isFieldDeclaredInTypeHierarchy(Type type, String fieldName, ExecutionContext ctx) {
+        Type current = type;
         ConstructorResolver resolver = interpreter.getConstructorResolver();
         while (current != null) {
             if (current.fields != null) {
-                for (FieldNode field : current.fields) {
+                for (Field field : current.fields) {
                     if (field != null && field.name != null && field.name.equals(fieldName)) {
                         return true;
                     }

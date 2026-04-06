@@ -19,20 +19,20 @@ public class ConstructorResolver {
     private final PolicyResolver policyResolver;
     
     // Flattened method tables for O(1) method lookup
-    private Map<String, Map<String, MethodNode>> flattenedMethodTables = 
-        new HashMap<String, Map<String, MethodNode>>();
+    private Map<String, Map<String, Method>> flattenedMethodTables = 
+        new HashMap<String, Map<String, Method>>();
     
     // Flattened field tables for O(1) field lookup
-    private Map<String, Map<String, FieldNode>> flattenedFieldTables = 
-        new HashMap<String, Map<String, FieldNode>>();
+    private Map<String, Map<String, Field>> flattenedFieldTables = 
+        new HashMap<String, Map<String, Field>>();
     
     // Type hierarchy cache
-    private Map<String, List<TypeNode>> inheritanceChainCache = 
-        new HashMap<String, List<TypeNode>>();
+    private Map<String, List<Type>> inheritanceChainCache = 
+        new HashMap<String, List<Type>>();
     
     // Constructor signature cache
-    private Map<String, Map<String, ConstructorNode>> constructorSignatureCache = 
-        new HashMap<String, Map<String, ConstructorNode>>();
+    private Map<String, Map<String, Constructor>> constructorSignatureCache = 
+        new HashMap<String, Map<String, Constructor>>();
     
     public ConstructorResolver(TypeHandler typeSystem, Interpreter interpreter) {
         if (typeSystem == null) {
@@ -49,26 +49,26 @@ public class ConstructorResolver {
     }
     
     // Build flattened method table for a type
-    private void buildFlattenedMethodTable(TypeNode type, ExecutionContext ctx) {
+    private void buildFlattenedMethodTable(Type type, ExecutionContext ctx) {
         String typeKey = type.name;
         if (flattenedMethodTables.containsKey(typeKey)) {
             return;
         }
         
-        Map<String, MethodNode> methodTable = new HashMap<String, MethodNode>();
-        Map<String, FieldNode> fieldTable = new HashMap<String, FieldNode>();
+        Map<String, Method> methodTable = new HashMap<String, Method>();
+        Map<String, Field> fieldTable = new HashMap<String, Field>();
         
-        List<TypeNode> chain = getInheritanceChainCached(type, ctx);
+        List<Type> chain = getInheritanceChainCached(type, ctx);
         
-        for (TypeNode chainType : chain) {
+        for (Type chainType : chain) {
             if (chainType.methods != null) {
-                for (MethodNode method : chainType.methods) {
+                for (Method method : chainType.methods) {
                     methodTable.put(method.methodName, method);
                 }
             }
             
             if (chainType.fields != null) {
-                for (FieldNode field : chainType.fields) {
+                for (Field field : chainType.fields) {
                     fieldTable.put(field.name, field);
                 }
             }
@@ -82,16 +82,16 @@ public class ConstructorResolver {
     }
     
     // Get inheritance chain with caching
-    private List<TypeNode> getInheritanceChainCached(TypeNode type, ExecutionContext ctx) {
+    private List<Type> getInheritanceChainCached(Type type, ExecutionContext ctx) {
         String typeKey = type.name;
         if (inheritanceChainCache.containsKey(typeKey)) {
             return inheritanceChainCache.get(typeKey);
         }
         
-        List<TypeNode> chain = new ArrayList<TypeNode>();
+        List<Type> chain = new ArrayList<Type>();
         
         if (type.extendName != null) {
-            TypeNode parent = findParentType(type, ctx);
+            Type parent = findParentType(type, ctx);
             if (parent != null) {
                 chain.addAll(getInheritanceChainCached(parent, ctx));
             }
@@ -104,7 +104,7 @@ public class ConstructorResolver {
     }
     
     // Get constructor signature key
-    private String getConstructorSignatureKey(ConstructorNode constructor) {
+    private String getConstructorSignatureKey(Constructor constructor) {
         if (constructor.parameters == null || constructor.parameters.isEmpty()) {
             return "()";
         }
@@ -112,7 +112,7 @@ public class ConstructorResolver {
         StringBuilder sb = new StringBuilder("(");
         for (int i = 0; i < constructor.parameters.size(); i++) {
             if (i > 0) sb.append(",");
-            ParamNode p = constructor.parameters.get(i);
+            Param p = constructor.parameters.get(i);
             sb.append(p.type);
         }
         sb.append(")");
@@ -120,23 +120,23 @@ public class ConstructorResolver {
     }
     
     // Build constructor signature cache
-    private void buildConstructorSignatureCache(TypeNode type) {
+    private void buildConstructorSignatureCache(Type type) {
         String typeKey = type.name;
         if (constructorSignatureCache.containsKey(typeKey)) {
             return;
         }
         
-        Map<String, ConstructorNode> signatureMap = new HashMap<String, ConstructorNode>();
+        Map<String, Constructor> signatureMap = new HashMap<String, Constructor>();
         
         if (type.constructors != null) {
-            for (ConstructorNode constructor : type.constructors) {
+            for (Constructor constructor : type.constructors) {
                 String sigKey = getConstructorSignatureKey(constructor);
                 signatureMap.put(sigKey, constructor);
             }
         }
         
         if (!signatureMap.containsKey("()")) {
-            ConstructorNode defaultConstructor = createDefaultConstructor(type);
+            Constructor defaultConstructor = createDefaultConstructor(type);
             signatureMap.put("()", defaultConstructor);
         }
         
@@ -146,7 +146,7 @@ public class ConstructorResolver {
             ": signatures=" + signatureMap.size());
     }
     
-    public ObjectInstance resolveAndCreate(ConstructorCallNode call, ExecutionContext ctx) {
+    public ObjectInstance resolveAndCreate(ConstructorCall call, ExecutionContext ctx) {
         if (call == null) {
             throw new InternalError("resolveAndCreate called with null call");
         }
@@ -155,7 +155,7 @@ public class ConstructorResolver {
         }
         
         try {
-            TypeNode type = findType(call.className, ctx);
+            Type type = findType(call.className, ctx);
             if (type == null) {
                 throw new ProgramError(
                     "Type not found: " + call.className + "\n" +
@@ -188,9 +188,9 @@ public class ConstructorResolver {
     
     private String getAvailableTypes(ExecutionContext ctx) {
         StringBuilder sb = new StringBuilder();
-        ProgramNode currentProgram = interpreter.getCurrentProgram();
+        Program currentProgram = interpreter.getCurrentProgram();
         if (currentProgram != null && currentProgram.unit != null && currentProgram.unit.types != null) {
-            for (TypeNode type : currentProgram.unit.types) {
+            for (Type type : currentProgram.unit.types) {
                 if (sb.length() > 0) sb.append(", ");
                 sb.append(type.name);
             }
@@ -198,7 +198,7 @@ public class ConstructorResolver {
         return sb.toString();
     }
     
-    private String formatArguments(ConstructorCallNode call) {
+    private String formatArguments(ConstructorCall call) {
         if (call.arguments == null || call.arguments.isEmpty()) {
             return "none";
         }
@@ -213,18 +213,18 @@ public class ConstructorResolver {
         return sb.toString();
     }
     
-    private String formatConstructors(List<ConstructorNode> constructors) {
+    private String formatConstructors(List<Constructor> constructors) {
         if (constructors == null || constructors.isEmpty()) {
             return "  () [default constructor]\n";
         }
         StringBuilder sb = new StringBuilder();
-        for (ConstructorNode c : constructors) {
+        for (Constructor c : constructors) {
             sb.append("  ").append(ASTFactory.getConstructorSignature(c)).append("\n");
         }
         return sb.toString();
     }
     
-    private void validateInheritanceHierarchy(TypeNode type, ExecutionContext ctx) {
+    private void validateInheritanceHierarchy(Type type, ExecutionContext ctx) {
         if (type.extendName == null) {
             return;
         }
@@ -243,7 +243,7 @@ public class ConstructorResolver {
             
             visited.add(current);
             
-            TypeNode nextType = findType(current, ctx);
+            Type nextType = findType(current, ctx);
             if (nextType == null) {
                 throw new ProgramError("Parent class not found: " + current);
             }
@@ -256,14 +256,14 @@ public class ConstructorResolver {
         }
     }
     
-    private TypeNode findType(String className, ExecutionContext ctx) {
+    private Type findType(String className, ExecutionContext ctx) {
         if (className == null) {
             throw new InternalError("findType called with null className");
         }
         
-        ProgramNode currentProgram = interpreter.getCurrentProgram();
+        Program currentProgram = interpreter.getCurrentProgram();
         if (currentProgram != null && currentProgram.unit != null && currentProgram.unit.types != null) {
-            for (TypeNode type : currentProgram.unit.types) {
+            for (Type type : currentProgram.unit.types) {
                 if (type.name.equals(className)) {
                     return type;
                 }
@@ -272,7 +272,7 @@ public class ConstructorResolver {
         
         if (importResolver != null) {
             try {
-                TypeNode type = importResolver.findType(className);
+                Type type = importResolver.findType(className);
                 if (type != null) {
                     return type;
                 }
@@ -284,11 +284,11 @@ public class ConstructorResolver {
         return null;
     }
     
-    private ConstructorMatch findBestMatchingConstructor(TypeNode type, 
-                                                       ConstructorCallNode call,
+    private ConstructorMatch findBestMatchingConstructor(Type type, 
+                                                       ConstructorCall call,
                                                        ExecutionContext ctx) {
         String typeKey = type.name;
-        Map<String, ConstructorNode> signatureMap = constructorSignatureCache.get(typeKey);
+        Map<String, Constructor> signatureMap = constructorSignatureCache.get(typeKey);
         
         if (signatureMap == null) {
             buildConstructorSignatureCache(type);
@@ -296,7 +296,7 @@ public class ConstructorResolver {
         }
         
         String callSignature = buildCallSignature(call);
-        ConstructorNode exactMatch = signatureMap.get(callSignature);
+        Constructor exactMatch = signatureMap.get(callSignature);
         if (exactMatch != null) {
             Map<String, Object> argValues = matchConstructorArguments(exactMatch, call, ctx);
             if (argValues != null) {
@@ -305,13 +305,13 @@ public class ConstructorResolver {
         }
         
         if (type.constructors == null || type.constructors.isEmpty()) {
-            ConstructorNode defaultConstructor = signatureMap.get("()");
+            Constructor defaultConstructor = signatureMap.get("()");
             return new ConstructorMatch(defaultConstructor, Collections.<String, Object>emptyMap(), 0);
         }
         
         List<ConstructorMatch> candidates = new ArrayList<ConstructorMatch>();
         
-        for (ConstructorNode constructor : type.constructors) {
+        for (Constructor constructor : type.constructors) {
             ConstructorMatch match = tryMatchConstructor(constructor, call, ctx);
             if (match != null) {
                 candidates.add(match);
@@ -325,7 +325,7 @@ public class ConstructorResolver {
         return selectBestMatch(candidates);
     }
     
-    private String buildCallSignature(ConstructorCallNode call) {
+    private String buildCallSignature(ConstructorCall call) {
         if (call.arguments == null || call.arguments.isEmpty()) {
             return "()";
         }
@@ -336,8 +336,8 @@ public class ConstructorResolver {
         return sb.toString();
     }
     
-    private Map<String, Object> matchConstructorArguments(ConstructorNode constructor,
-                                                         ConstructorCallNode call,
+    private Map<String, Object> matchConstructorArguments(Constructor constructor,
+                                                         ConstructorCall call,
                                                          ExecutionContext ctx) {
         if (constructor.parameters == null || constructor.parameters.isEmpty()) {
             return new HashMap<String, Object>();
@@ -347,14 +347,14 @@ public class ConstructorResolver {
         Evaluator evaluator = interpreter.getVisitor();
         
         if (call.argNames != null && !call.argNames.isEmpty() && call.argNames.get(0) != null) {
-            Map<String, ExprNode> namedArgs = new HashMap<String, ExprNode>();
+            Map<String, Expr> namedArgs = new HashMap<String, Expr>();
             for (int i = 0; i < call.arguments.size(); i++) {
                 namedArgs.put(call.argNames.get(i), call.arguments.get(i));
             }
             
-            for (ParamNode param : constructor.parameters) {
+            for (Param param : constructor.parameters) {
                 if (namedArgs.containsKey(param.name)) {
-                    ExprNode argExpr = namedArgs.get(param.name);
+                    Expr argExpr = namedArgs.get(param.name);
                     Object argValue = evaluator.evaluate(argExpr, ctx);
                     if (!typeSystem.validateType(param.type, argValue)) {
                         return null;
@@ -373,10 +373,10 @@ public class ConstructorResolver {
         }
         
         for (int i = 0; i < constructor.parameters.size(); i++) {
-            ParamNode param = constructor.parameters.get(i);
+            Param param = constructor.parameters.get(i);
             
             if (i < call.arguments.size()) {
-                ExprNode argExpr = call.arguments.get(i);
+                Expr argExpr = call.arguments.get(i);
                 Object argValue = evaluator.evaluate(argExpr, ctx);
                 if (!typeSystem.validateType(param.type, argValue)) {
                     return null;
@@ -390,8 +390,8 @@ public class ConstructorResolver {
         return argValues;
     }
     
-    private ConstructorMatch tryMatchConstructor(ConstructorNode constructor,
-                                               ConstructorCallNode call,
+    private ConstructorMatch tryMatchConstructor(Constructor constructor,
+                                               ConstructorCall call,
                                                ExecutionContext ctx) {
         try {
             if (call.argNames != null && !call.argNames.isEmpty() && call.argNames.get(0) != null) {
@@ -406,11 +406,11 @@ public class ConstructorResolver {
         }
     }
     
-    private ConstructorMatch tryMatchNamedConstructor(ConstructorNode constructor,
-                                                    ConstructorCallNode call,
+    private ConstructorMatch tryMatchNamedConstructor(Constructor constructor,
+                                                    ConstructorCall call,
                                                     ExecutionContext ctx) {
         Map<String, Object> argumentValues = new HashMap<String, Object>();
-        Map<String, ExprNode> providedArgs = new HashMap<String, ExprNode>();
+        Map<String, Expr> providedArgs = new HashMap<String, Expr>();
         int conversionScore = 0;
         
         Evaluator evaluator = interpreter.getVisitor();
@@ -419,9 +419,9 @@ public class ConstructorResolver {
             providedArgs.put(call.argNames.get(i), call.arguments.get(i));
         }
         
-        for (ParamNode param : constructor.parameters) {
+        for (Param param : constructor.parameters) {
             if (providedArgs.containsKey(param.name)) {
-                ExprNode argExpr = providedArgs.get(param.name);
+                Expr argExpr = providedArgs.get(param.name);
                 Object argValue = evaluateArgument(evaluator, argExpr, param, ctx);
                 
                 if (argValue == null) {
@@ -449,7 +449,7 @@ public class ConstructorResolver {
         
         for (String argName : call.argNames) {
             boolean found = false;
-            for (ParamNode param : constructor.parameters) {
+            for (Param param : constructor.parameters) {
                 if (param.name.equals(argName)) {
                     found = true;
                     break;
@@ -463,8 +463,8 @@ public class ConstructorResolver {
         return new ConstructorMatch(constructor, argumentValues, conversionScore);
     }
     
-    private ConstructorMatch tryMatchPositionalConstructor(ConstructorNode constructor,
-                                                         ConstructorCallNode call,
+    private ConstructorMatch tryMatchPositionalConstructor(Constructor constructor,
+                                                         ConstructorCall call,
                                                          ExecutionContext ctx) {
         Map<String, Object> argumentValues = new HashMap<String, Object>();
         int conversionScore = 0;
@@ -474,10 +474,10 @@ public class ConstructorResolver {
         Evaluator evaluator = interpreter.getVisitor();
         
         while (paramIndex < constructor.parameters.size()) {
-            ParamNode param = constructor.parameters.get(paramIndex);
+            Param param = constructor.parameters.get(paramIndex);
             
             if (argIndex < call.arguments.size()) {
-                ExprNode argExpr = call.arguments.get(argIndex);
+                Expr argExpr = call.arguments.get(argIndex);
                 
                 if (isUnderscore(argExpr)) {
                     if (!param.hasDefaultValue) {
@@ -523,7 +523,7 @@ public class ConstructorResolver {
         return new ConstructorMatch(constructor, argumentValues, conversionScore);
     }
     
-    private Object evaluateArgument(Evaluator evaluator, ExprNode argExpr, ParamNode param, ExecutionContext ctx) {
+    private Object evaluateArgument(Evaluator evaluator, Expr argExpr, Param param, ExecutionContext ctx) {
         try {
             ExecutionContext argEvalCtx = new ExecutionContext(
                 ctx.objectInstance, 
@@ -565,7 +565,7 @@ public class ConstructorResolver {
         }
     }
     
-    private Object evaluateDefaultValue(Evaluator evaluator, ParamNode param, ExecutionContext ctx) {
+    private Object evaluateDefaultValue(Evaluator evaluator, Param param, ExecutionContext ctx) {
         try {
             ExecutionContext defaultValueCtx = new ExecutionContext(
                 ctx.objectInstance, 
@@ -583,8 +583,8 @@ public class ConstructorResolver {
         }
     }
     
-    private boolean isUnderscore(ExprNode expr) {
-        return expr instanceof IdentifierNode && "_".equals(((IdentifierNode) expr).name);
+    private boolean isUnderscore(Expr expr) {
+        return expr instanceof Identifier && "_".equals(((Identifier) expr).name);
     }
     
     private ConstructorMatch selectBestMatch(List<ConstructorMatch> candidates) {
@@ -614,7 +614,7 @@ public class ConstructorResolver {
         return bestMatch;
     }
     
-    public void validateViralPolicies(TypeNode type, ExecutionContext ctx) {
+    public void validateViralPolicies(Type type, ExecutionContext ctx) {
         if (type == null) {
             throw new InternalError("validateViralPolicies called with null type");
         }
@@ -625,17 +625,17 @@ public class ConstructorResolver {
             if (!valid) {
                 Set<String> requiredPolicies = policyResolver.getClassPolicies(type, ctx);
                 for (String policyName : requiredPolicies) {
-                    PolicyNode policy = findPolicy(policyName, ctx);
+                    Policy policy = findPolicy(policyName, ctx);
                     if (policy != null) {
-                        List<PolicyMethodNode> requiredMethods = 
+                        List<PolicyMethod> requiredMethods = 
                             policyResolver.getFlattenedPolicyMethods(policy);
                         
-                        for (PolicyMethodNode requiredMethod : requiredMethods) {
+                        for (PolicyMethod requiredMethod : requiredMethods) {
                             boolean implementsMethod = false;
                             
-                            Map<String, MethodNode> methodTable = flattenedMethodTables.get(type.name);
+                            Map<String, Method> methodTable = flattenedMethodTables.get(type.name);
                             if (methodTable != null) {
-                                MethodNode classMethod = methodTable.get(requiredMethod.methodName);
+                                Method classMethod = methodTable.get(requiredMethod.methodName);
                                 if (classMethod != null && classMethod.isPolicyMethod) {
                                     implementsMethod = true;
                                 }
@@ -658,10 +658,10 @@ public class ConstructorResolver {
         }
     }
     
-    private PolicyNode findPolicy(String policyName, ExecutionContext ctx) {
+    private Policy findPolicy(String policyName, ExecutionContext ctx) {
         if (importResolver != null) {
             try {
-                PolicyNode policy = importResolver.findPolicy(policyName);
+                Policy policy = importResolver.findPolicy(policyName);
                 if (policy != null) {
                     return policy;
                 }
@@ -670,9 +670,9 @@ public class ConstructorResolver {
             }
         }
         
-        ProgramNode currentProgram = interpreter.getCurrentProgram();
+        Program currentProgram = interpreter.getCurrentProgram();
         if (currentProgram != null && currentProgram.unit != null && currentProgram.unit.policies != null) {
-            for (PolicyNode policy : currentProgram.unit.policies) {
+            for (Policy policy : currentProgram.unit.policies) {
                 if (policy.name.equals(policyName)) {
                     return policy;
                 }
@@ -682,9 +682,9 @@ public class ConstructorResolver {
         return null;
     }
     
-    private ObjectInstance createInstance(TypeNode type, 
+    private ObjectInstance createInstance(Type type, 
                                          ConstructorMatch match,
-                                         ConstructorCallNode call,
+                                         ConstructorCall call,
                                          ExecutionContext ctx) {
         if (type == null) {
             throw new InternalError("createInstance called with null type");
@@ -698,8 +698,8 @@ public class ConstructorResolver {
             
             validateViralPolicies(type, ctx);
             
-            List<TypeNode> inheritanceChain = getInheritanceChainCached(type, ctx);
-            for (TypeNode chainType : inheritanceChain) {
+            List<Type> inheritanceChain = getInheritanceChainCached(type, ctx);
+            for (Type chainType : inheritanceChain) {
                 initializeFields(chainType, obj, ctx);
             }
             
@@ -709,15 +709,15 @@ public class ConstructorResolver {
                 constrCtx.setVariable(entry.getKey(), entry.getValue());
             }
             
-            for (ParamNode param : match.constructor.parameters) {
+            for (Param param : match.constructor.parameters) {
                 constrCtx.setVariableType(param.name, param.type);
             }
             
             boolean explicitSuperCalled = false;
             Evaluator evaluator = interpreter.getVisitor();
             
-            if (!match.constructor.body.isEmpty() && match.constructor.body.get(0) instanceof MethodCallNode) {
-                MethodCallNode firstCall = (MethodCallNode) match.constructor.body.get(0);
+            if (!match.constructor.body.isEmpty() && match.constructor.body.get(0) instanceof MethodCall) {
+                MethodCall firstCall = (MethodCall) match.constructor.body.get(0);
                 if (firstCall.isSuperCall) {
                     explicitSuperCalled = true;
                     invokeSuperConstructor(type, firstCall, obj, ctx, constrCtx, evaluator);
@@ -725,7 +725,7 @@ public class ConstructorResolver {
             }
             
             if (!explicitSuperCalled && type.extendName != null) {
-                TypeNode parentType = findParentType(type, ctx);
+                Type parentType = findParentType(type, ctx);
                 if (parentType != null) {
                     ConstructorMatch parentMatch = findDefaultConstructor(parentType);
                     if (parentMatch != null) {
@@ -736,7 +736,7 @@ public class ConstructorResolver {
             
             int startIndex = explicitSuperCalled ? 1 : 0;
             for (int i = startIndex; i < match.constructor.body.size(); i++) {
-                StmtNode stmt = match.constructor.body.get(i);
+                Stmt stmt = match.constructor.body.get(i);
                 evaluator.evaluate(stmt, constrCtx);
             }
             
@@ -748,18 +748,18 @@ public class ConstructorResolver {
         }
     }
 
-    private void invokeSuperConstructor(TypeNode childType, MethodCallNode superCall, 
+    private void invokeSuperConstructor(Type childType, MethodCall superCall, 
                                         ObjectInstance childObj, ExecutionContext childCtx,
                                         ExecutionContext constrCtx, Evaluator evaluator) {
         try {
-            TypeNode parentType = findParentType(childType, childCtx);
+            Type parentType = findParentType(childType, childCtx);
             if (parentType == null) {
                 throw new ProgramError(
                     "Cannot call super constructor: parent type not found for " + childType.name
                 );
             }
             
-            ConstructorCallNode parentCall = new ConstructorCallNode();
+            ConstructorCall parentCall = new ConstructorCall();
             parentCall.className = parentType.name;
             parentCall.arguments = superCall.arguments;
             parentCall.argNames = superCall.argNames;
@@ -780,11 +780,11 @@ public class ConstructorResolver {
                 parentConstrCtx.setVariable(entry.getKey(), entry.getValue());
             }
             
-            for (ParamNode param : parentMatch.constructor.parameters) {
+            for (Param param : parentMatch.constructor.parameters) {
                 parentConstrCtx.setVariableType(param.name, param.type);
             }
             
-            for (StmtNode stmt : parentMatch.constructor.body) {
+            for (Stmt stmt : parentMatch.constructor.body) {
                 evaluator.evaluate(stmt, parentConstrCtx);
             }
             
@@ -795,7 +795,7 @@ public class ConstructorResolver {
         }
     }
 
-    private void invokeParentConstructorSilently(TypeNode parentType, ConstructorMatch parentMatch,
+    private void invokeParentConstructorSilently(Type parentType, ConstructorMatch parentMatch,
                                                 ObjectInstance childObj, ExecutionContext childCtx,
                                                 ExecutionContext constrCtx, Evaluator evaluator) {
         try {
@@ -805,11 +805,11 @@ public class ConstructorResolver {
                 parentConstrCtx.setVariable(entry.getKey(), entry.getValue());
             }
             
-            for (ParamNode param : parentMatch.constructor.parameters) {
+            for (Param param : parentMatch.constructor.parameters) {
                 parentConstrCtx.setVariableType(param.name, param.type);
             }
             
-            for (StmtNode stmt : parentMatch.constructor.body) {
+            for (Stmt stmt : parentMatch.constructor.body) {
                 evaluator.evaluate(stmt, parentConstrCtx);
             }
             
@@ -820,21 +820,21 @@ public class ConstructorResolver {
         }
     }
 
-    private ConstructorMatch findDefaultConstructor(TypeNode type) {
+    private ConstructorMatch findDefaultConstructor(Type type) {
         String typeKey = type.name;
-        Map<String, ConstructorNode> signatureMap = constructorSignatureCache.get(typeKey);
+        Map<String, Constructor> signatureMap = constructorSignatureCache.get(typeKey);
         
         if (signatureMap != null && signatureMap.containsKey("()")) {
-            ConstructorNode defaultConstructor = signatureMap.get("()");
+            Constructor defaultConstructor = signatureMap.get("()");
             return new ConstructorMatch(defaultConstructor, Collections.<String, Object>emptyMap(), 0);
         }
         
         if (type.constructors == null || type.constructors.isEmpty()) {
-            ConstructorNode defaultConstructor = createDefaultConstructor(type);
+            Constructor defaultConstructor = createDefaultConstructor(type);
             return new ConstructorMatch(defaultConstructor, Collections.<String, Object>emptyMap(), 0);
         }
         
-        for (ConstructorNode constructor : type.constructors) {
+        for (Constructor constructor : type.constructors) {
             if (constructor.parameters == null || constructor.parameters.isEmpty()) {
                 return new ConstructorMatch(constructor, Collections.<String, Object>emptyMap(), 0);
             }
@@ -843,16 +843,16 @@ public class ConstructorResolver {
         return null;
     }
     
-    private void initializeFields(TypeNode type, ObjectInstance obj, ExecutionContext ctx) {
+    private void initializeFields(Type type, ObjectInstance obj, ExecutionContext ctx) {
         try {
             ExecutionContext fieldCtx = new ExecutionContext(obj, new HashMap<String, Object>(), null, null, ctx.getTypeHandler());
             Evaluator evaluator = interpreter.getVisitor();
             
-            Map<String, FieldNode> fieldTable = flattenedFieldTables.get(type.name);
+            Map<String, Field> fieldTable = flattenedFieldTables.get(type.name);
             
             if (fieldTable != null) {
-                for (Map.Entry<String, FieldNode> entry : fieldTable.entrySet()) {
-                    FieldNode field = entry.getValue();
+                for (Map.Entry<String, Field> entry : fieldTable.entrySet()) {
+                    Field field = entry.getValue();
                     if (field.value != null) {
                         Object defaultValue = evaluator.evaluate(field.value, fieldCtx);
                         obj.fields.put(field.name, defaultValue);
@@ -879,15 +879,15 @@ public class ConstructorResolver {
         }
     }
     
-    private ConstructorNode createDefaultConstructor(TypeNode type) {
-        ConstructorNode defaultConstructor = new ConstructorNode();
-        defaultConstructor.parameters = new ArrayList<ParamNode>();
-        defaultConstructor.body = new ArrayList<StmtNode>();
+    private Constructor createDefaultConstructor(Type type) {
+        Constructor defaultConstructor = new Constructor();
+        defaultConstructor.parameters = new ArrayList<Param>();
+        defaultConstructor.body = new ArrayList<Stmt>();
         
-        for (FieldNode field : type.fields) {
+        for (Field field : type.fields) {
             if (field.value != null) {
-                ExprNode fieldTarget = ASTFactory.createIdentifier(field.name, null);
-                AssignmentNode fieldInit = ASTFactory.createAsmt(fieldTarget, field.value, false, null);
+                Expr fieldTarget = ASTFactory.createIdentifier(field.name, null);
+                Assignment fieldInit = ASTFactory.createAsmt(fieldTarget, field.value, false, null);
                 defaultConstructor.body.add(fieldInit);
             }
         }
@@ -895,7 +895,7 @@ public class ConstructorResolver {
         return defaultConstructor;
     }
     
-    public Object getFieldFromHierarchy(TypeNode type, String fieldName, ExecutionContext ctx) {
+    public Object getFieldFromHierarchy(Type type, String fieldName, ExecutionContext ctx) {
         if (type == null) {
             throw new InternalError("getFieldFromHierarchy called with null type");
         }
@@ -909,7 +909,7 @@ public class ConstructorResolver {
                 actualFieldName = fieldName.substring(5);
             }
             
-            Map<String, FieldNode> fieldTable = flattenedFieldTables.get(type.name);
+            Map<String, Field> fieldTable = flattenedFieldTables.get(type.name);
             if (fieldTable != null && fieldTable.containsKey(actualFieldName)) {
                 return ctx.objectInstance.fields.get(actualFieldName);
             }
@@ -922,7 +922,7 @@ public class ConstructorResolver {
         }
     }
     
-    public MethodNode findMethodInHierarchy(TypeNode type, String methodName, ExecutionContext ctx) {
+    public Method findMethodInHierarchy(Type type, String methodName, ExecutionContext ctx) {
         if (type == null) {
             throw new InternalError("findMethodInHierarchy called with null type");
         }
@@ -933,7 +933,7 @@ public class ConstructorResolver {
         try {
             buildFlattenedMethodTable(type, ctx);
             
-            Map<String, MethodNode> methodTable = flattenedMethodTables.get(type.name);
+            Map<String, Method> methodTable = flattenedMethodTables.get(type.name);
             if (methodTable != null) {
                 return methodTable.get(methodName);
             }
@@ -946,14 +946,14 @@ public class ConstructorResolver {
         }
     }
     
-    public TypeNode findParentType(TypeNode childType, ExecutionContext ctx) {
+    public Type findParentType(Type childType, ExecutionContext ctx) {
         if (childType.extendName == null) {
             return null;
         }
         
         if (importResolver != null) {
             try {
-                TypeNode parent = importResolver.findType(childType.extendName);
+                Type parent = importResolver.findType(childType.extendName);
                 if (parent != null) {
                     return parent;
                 }
@@ -962,9 +962,9 @@ public class ConstructorResolver {
             }
         }
         
-        ProgramNode currentProgram = interpreter.getCurrentProgram();
+        Program currentProgram = interpreter.getCurrentProgram();
         if (currentProgram != null && currentProgram.unit != null && currentProgram.unit.types != null) {
-            for (TypeNode type : currentProgram.unit.types) {
+            for (Type type : currentProgram.unit.types) {
                 if (type.name.equals(childType.extendName)) {
                     return type;
                 }
@@ -998,11 +998,11 @@ public class ConstructorResolver {
     }
     
     private static class ConstructorMatch {
-        final ConstructorNode constructor;
+        final Constructor constructor;
         final Map<String, Object> argumentValues;
         final int conversionScore;
         
-        ConstructorMatch(ConstructorNode constructor, Map<String, Object> argumentValues, int conversionScore) {
+        ConstructorMatch(Constructor constructor, Map<String, Object> argumentValues, int conversionScore) {
             if (constructor == null) {
                 throw new InternalError("ConstructorMatch constructed with null constructor");
             }

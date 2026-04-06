@@ -6,7 +6,7 @@ import cod.debug.DebugSystem;
 import cod.interpreter.Interpreter;
 import cod.debug.Linter;
 import cod.util.Index;
-import cod.util.BytecodeManager;
+import cod.ir.IRManager;
 
 import java.io.File;
 import java.util.List;
@@ -28,7 +28,7 @@ public class TestRunner extends BaseRunner {
     private final DebugSystem.Level level = DebugSystem.Level.OFF;
 
     private final Interpreter interpreter;
-    private BytecodeManager bytecodeManager;
+    private IRManager irManager;
 
     public TestRunner() {
         this.interpreter = new Interpreter();
@@ -63,10 +63,10 @@ public class TestRunner extends BaseRunner {
         interpreter.setFilePath(config.inputFilename);
 
         // Parse with interpreter for unit validation
-        ProgramNode ast = parse(config.inputFilename, interpreter);
+        Program ast = parse(config.inputFilename, interpreter);
 
-        // Initialize bytecode manager after parsing (project root is now known)
-        initializeBytecodeManager();
+        // Initialize IR manager after parsing (project root is now known)
+        initializeIRManager();
 
         // Perform linting and check completion status
         boolean lintingCompleted = performLinting(ast);
@@ -87,15 +87,15 @@ public class TestRunner extends BaseRunner {
     }
 
     /**
-     * Initialize bytecode manager after project root is known
+     * Initialize IR manager after project root is known
      */
-    private void initializeBytecodeManager() {
+    private void initializeIRManager() {
         String srcMainRoot = interpreter.getImportResolver().getSrcMainRoot();
         if (srcMainRoot != null) {
             String projectRoot = Index.getProjectRoot();
             if (projectRoot != null) {
-                this.bytecodeManager = new BytecodeManager(projectRoot);
-                DebugSystem.debug(NAME + LOG_TAG, "Bytecode manager initialized with root: " + projectRoot);
+                this.irManager = new IRManager(projectRoot);
+                DebugSystem.debug(NAME + LOG_TAG, "IR manager initialized with root: " + projectRoot);
             }
         }
     }
@@ -147,16 +147,16 @@ public class TestRunner extends BaseRunner {
         }
     }
 
-    private void executeWithManualInterpreter(ProgramNode ast) {
+    private void executeWithManualInterpreter(Program ast) {
         DebugSystem.info(NAME + LOG_TAG, "Running Interpreter");
         
         // Generate indexes before execution for O(1) import resolution
         DebugSystem.info(NAME + LOG_TAG, "Generating indexes...");
         generateIndexes(ast, interpreter);
         
-        // Compile to bytecode after index generation
-        if (bytecodeManager != null && ast != null && ast.unit != null) {
-            DebugSystem.info(NAME + LOG_TAG, "Generating bytecode...");
+        // Compile to IR after index generation
+        if (irManager != null && ast != null && ast.unit != null) {
+            DebugSystem.info(NAME + LOG_TAG, "Generating IR...");
             compileToBytecode(ast);
         }
         
@@ -242,10 +242,10 @@ public class TestRunner extends BaseRunner {
     }
     
     /**
-     * Compile all classes in the program to .codb bytecode files
+     * Compile all classes in the program to .codb IR files
      */
-    private void compileToBytecode(ProgramNode ast) {
-        if (ast == null || ast.unit == null || bytecodeManager == null) {
+    private void compileToBytecode(Program ast) {
+        if (ast == null || ast.unit == null || irManager == null) {
             return;
         }
         
@@ -255,9 +255,9 @@ public class TestRunner extends BaseRunner {
         }
         
         int compiled = 0;
-        for (TypeNode type : ast.unit.types) {
+        for (Type type : ast.unit.types) {
             try {
-                bytecodeManager.save(unitName, type);
+                irManager.save(unitName, type);
                 compiled++;
                 DebugSystem.debug(NAME + LOG_TAG, "Compiled: " + type.name + " → " + type.name + ".codb");
             } catch (Exception e) {
@@ -266,11 +266,11 @@ public class TestRunner extends BaseRunner {
         }
         
         if (compiled > 0) {
-            DebugSystem.info(NAME + LOG_TAG, "Compiled " + compiled + " class(es) to bytecode");
+            DebugSystem.info(NAME + LOG_TAG, "Compiled " + compiled + " class(es) to IR");
         }
     }
 
-    private boolean performLinting(ProgramNode ast) {
+    private boolean performLinting(Program ast) {
         DebugSystem.startTimer("linting");
         Linter linter = new Linter();
         List<String> warnings = linter.lint(ast);

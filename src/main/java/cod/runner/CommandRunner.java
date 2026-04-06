@@ -6,12 +6,12 @@ import cod.ast.nodes.*;
 import cod.debug.DebugSystem;
 import cod.interpreter.Interpreter;
 import cod.util.Index;
-import cod.util.BytecodeManager;
+import cod.ir.IRManager;
 
 public class CommandRunner extends BaseRunner {
 
     private final Interpreter interpreter;
-    private BytecodeManager bytecodeManager;
+    private IRManager irManager;
 
     private static final String NAME = "COMMAND";
 
@@ -82,15 +82,15 @@ public class CommandRunner extends BaseRunner {
         interpreter.setFilePath(config.inputFilename);
 
         DebugSystem.startTimer("parsing");
-        ProgramNode ast = parse(config.inputFilename, interpreter);
+        Program ast = parse(config.inputFilename, interpreter);
         if (ast == null) {
             throw new RuntimeException("Parsing failed, AST is null.");
         }
         DebugSystem.stopTimer("parsing");
         DebugSystem.info(NAME + LOG_TAG, "AST built successfully");
         
-        // Initialize bytecode manager
-        initializeBytecodeManager();
+        // Initialize IR manager
+        initializeIRManager();
 
         executeInterpretation(ast);
 
@@ -112,22 +112,22 @@ public class CommandRunner extends BaseRunner {
         
         Interpreter tempInterpreter = new Interpreter();
         tempInterpreter.setFilePath(sourceFile);
-        ProgramNode ast = parse(sourceFile, tempInterpreter);
+        Program ast = parse(sourceFile, tempInterpreter);
         
         if (ast == null) {
             outE("Error: Failed to parse source file");
             return;
         }
         
-        // Initialize bytecode manager for compilation
+        // Initialize IR manager for compilation
         String srcMainRoot = tempInterpreter.getImportResolver().getSrcMainRoot();
         if (srcMainRoot != null) {
             String projectRoot = Index.getProjectRoot();
             if (projectRoot != null) {
-                BytecodeManager bm = new BytecodeManager(projectRoot);
+                IRManager bm = new IRManager(projectRoot);
                 
                 int compiled = 0;
-                for (TypeNode type : ast.unit.types) {
+                for (Type type : ast.unit.types) {
                     bm.save(ast.unit.name, type);
                     System.out.println("Compiled: " + type.name + " → " + type.name + ".codb");
                     compiled++;
@@ -143,29 +143,29 @@ public class CommandRunner extends BaseRunner {
     }
 
     /**
-     * Initialize bytecode manager after project root is known
+     * Initialize IR manager after project root is known
      */
-    private void initializeBytecodeManager() {
+    private void initializeIRManager() {
         String srcMainRoot = interpreter.getImportResolver().getSrcMainRoot();
         if (srcMainRoot != null) {
             String projectRoot = Index.getProjectRoot();
             if (projectRoot != null) {
-                this.bytecodeManager = new BytecodeManager(projectRoot);
-                DebugSystem.debug(NAME + LOG_TAG, "Bytecode manager initialized with root: " + projectRoot);
+                this.irManager = new IRManager(projectRoot);
+                DebugSystem.debug(NAME + LOG_TAG, "IR manager initialized with root: " + projectRoot);
             }
         }
     }
 
-    private void executeInterpretation(ProgramNode ast) {
+    private void executeInterpretation(Program ast) {
         DebugSystem.info(NAME + LOG_TAG, "Starting program interpretation");
         
         // Generate indexes before execution for O(1) import resolution
         DebugSystem.info(NAME + LOG_TAG, "Generating indexes...");
         generateIndexes(ast, interpreter);
         
-        // Compile to bytecode after index generation
-        if (bytecodeManager != null && ast != null && ast.unit != null) {
-            DebugSystem.info(NAME + LOG_TAG, "Generating bytecode...");
+        // Compile to IR after index generation
+        if (irManager != null && ast != null && ast.unit != null) {
+            DebugSystem.info(NAME + LOG_TAG, "Generating IR...");
             compileToBytecode(ast);
         }
         
@@ -174,10 +174,10 @@ public class CommandRunner extends BaseRunner {
     }
     
     /**
-     * Compile all classes in the program to .codb bytecode files
+     * Compile all classes in the program to .codb IR files
      */
-    private void compileToBytecode(ProgramNode ast) {
-        if (ast == null || ast.unit == null || bytecodeManager == null) {
+    private void compileToBytecode(Program ast) {
+        if (ast == null || ast.unit == null || irManager == null) {
             return;
         }
         
@@ -187,9 +187,9 @@ public class CommandRunner extends BaseRunner {
         }
         
         int compiled = 0;
-        for (TypeNode type : ast.unit.types) {
+        for (Type type : ast.unit.types) {
             try {
-                bytecodeManager.save(unitName, type);
+                irManager.save(unitName, type);
                 compiled++;
                 DebugSystem.debug(NAME + LOG_TAG, "Compiled: " + type.name + " → " + type.name + ".codb");
             } catch (Exception e) {
@@ -198,7 +198,7 @@ public class CommandRunner extends BaseRunner {
         }
         
         if (compiled > 0) {
-            DebugSystem.info(NAME + LOG_TAG, "Compiled " + compiled + " class(es) to bytecode");
+            DebugSystem.info(NAME + LOG_TAG, "Compiled " + compiled + " class(es) to IR");
         }
     }
 

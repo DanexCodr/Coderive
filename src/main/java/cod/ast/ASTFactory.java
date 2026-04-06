@@ -25,17 +25,17 @@ public class ASTFactory {
     return result;
   }
 
-  public static ProgramNode createProgram() {
-    return new ProgramNode();
+  public static Program createProgram() {
+    return new Program();
   }
 
-  public static ChainedComparisonNode createChainedComparison(
-      List<ExprNode> expressions, List<String> operators, Token firstToken) {
-    ChainedComparisonNode node = new ChainedComparisonNode(expressions, operators);
+  public static ChainedComparison createChainedComparison(
+      List<Expr> expressions, List<String> operators, Token firstToken) {
+    ChainedComparison node = new ChainedComparison(expressions, operators);
 
     List<SourceSpan> spans = new ArrayList<SourceSpan>();
     if (firstToken != null) spans.add(span(firstToken));
-    for (ExprNode expr : expressions) {
+    for (Expr expr : expressions) {
       if (expr != null) spans.add(expr.getSourceSpan());
     }
 
@@ -43,17 +43,17 @@ public class ASTFactory {
     return node;
   }
 
-  public static LambdaNode createLambda(
-      List<ParamNode> parameters, List<SlotNode> returnSlots, StmtNode body, Token lambdaToken) {
-    LambdaNode lambda = new LambdaNode(parameters, returnSlots, body);
+  public static Lambda createLambda(
+      List<Param> parameters, List<Slot> returnSlots, Stmt body, Token lambdaToken) {
+    Lambda lambda = new Lambda(parameters, returnSlots, body);
     if (lambdaToken != null) {
       lambda.setSourceSpan(span(lambdaToken));
     }
     return lambda;
   }
 
-  public static LambdaNode createLambda(List<ParamNode> parameters, Token lambdaToken) {
-    LambdaNode lambda = new LambdaNode();
+  public static Lambda createLambda(List<Param> parameters, Token lambdaToken) {
+    Lambda lambda = new Lambda();
     lambda.parameters = parameters;
     if (lambdaToken != null) {
       lambda.setSourceSpan(span(lambdaToken));
@@ -61,12 +61,12 @@ public class ASTFactory {
     return lambda;
   }
 
-  public static UnitNode createUnit(String name, Token unitToken) {
-    UnitNode unit = new UnitNode();
+  public static Unit createUnit(String name, Token unitToken) {
+    Unit unit = new Unit();
     unit.name = name;
-    unit.imports = new UseNode();
-    unit.types = new ArrayList<TypeNode>();
-    unit.resolvedImports = new HashMap<String, ProgramNode>();
+    unit.imports = new Use();
+    unit.types = new ArrayList<Type>();
+    unit.resolvedImports = new HashMap<String, Program>();
     unit.mainClassName = null;
     if (unitToken != null) {
       unit.setSourceSpan(span(unitToken));
@@ -74,12 +74,12 @@ public class ASTFactory {
     return unit;
   }
 
-  public static UnitNode createUnit(String name, String mainClassName, Token unitToken) {
-    UnitNode unit = new UnitNode();
+  public static Unit createUnit(String name, String mainClassName, Token unitToken) {
+    Unit unit = new Unit();
     unit.name = name;
-    unit.imports = new UseNode();
-    unit.types = new ArrayList<TypeNode>();
-    unit.resolvedImports = new HashMap<String, ProgramNode>();
+    unit.imports = new Use();
+    unit.types = new ArrayList<Type>();
+    unit.resolvedImports = new HashMap<String, Program>();
     unit.mainClassName = mainClassName;
     if (unitToken != null) {
       unit.setSourceSpan(span(unitToken));
@@ -87,8 +87,8 @@ public class ASTFactory {
     return unit;
   }
 
-  public static UseNode createUseNode(List<String> imports, Token useToken) {
-    UseNode useNode = new UseNode();
+  public static Use createUseNode(List<String> imports, Token useToken) {
+    Use useNode = new Use();
     useNode.imports = imports;
     if (useToken != null) {
       useNode.setSourceSpan(span(useToken));
@@ -96,16 +96,16 @@ public class ASTFactory {
     return useNode;
   }
 
-  public static TypeNode createType(
+  public static Type createType(
       String name, Keyword visibility, String extendName, Token nameToken) {
-    TypeNode type = new TypeNode();
+    Type type = new Type();
     type.name = name;
     type.visibility = visibility;
     type.extendName = extendName;
-    type.fields = new ArrayList<FieldNode>();
-    type.methods = new ArrayList<MethodNode>();
-    type.statements = new ArrayList<StmtNode>();
-    type.constructors = new ArrayList<ConstructorNode>();
+    type.fields = new ArrayList<Field>();
+    type.methods = new ArrayList<Method>();
+    type.statements = new ArrayList<Stmt>();
+    type.constructors = new ArrayList<Constructor>();
     type.implementedPolicies = new ArrayList<String>();
     if (nameToken != null) {
       type.setSourceSpan(span(nameToken));
@@ -113,11 +113,11 @@ public class ASTFactory {
     return type;
   }
 
-  public static PolicyNode createPolicy(String name, Keyword visibility, Token nameToken) {
-    PolicyNode node = new PolicyNode();
+  public static Policy createPolicy(String name, Keyword visibility, Token nameToken) {
+    Policy node = new Policy();
     node.name = name;
     node.visibility = visibility;
-    node.methods = new ArrayList<PolicyMethodNode>();
+    node.methods = new ArrayList<PolicyMethod>();
     node.composedPolicies = new ArrayList<String>();
     if (nameToken != null) {
       node.setSourceSpan(span(nameToken));
@@ -125,19 +125,19 @@ public class ASTFactory {
     return node;
   }
 
-  public static PolicyMethodNode createPolicyMethod(String name, Token nameToken) {
-    PolicyMethodNode method = new PolicyMethodNode();
+  public static PolicyMethod createPolicyMethod(String name, Token nameToken) {
+    PolicyMethod method = new PolicyMethod();
     method.methodName = name;
-    method.parameters = new ArrayList<ParamNode>();
-    method.returnSlots = new ArrayList<SlotNode>();
+    method.parameters = new ArrayList<Param>();
+    method.returnSlots = new ArrayList<Slot>();
     if (nameToken != null) {
       method.setSourceSpan(span(nameToken));
     }
     return method;
   }
 
-  public static FieldNode createField(String name, String type, ExprNode value, Token nameToken) {
-    FieldNode field = new FieldNode();
+  public static Field createField(String name, String type, Expr value, Token nameToken) {
+    Field field = new Field();
     field.name = name;
     field.type = type;
     field.value = value;
@@ -147,13 +147,13 @@ public class ASTFactory {
     return field;
   }
 
-  public static FieldNode createField(String name, String type, Token nameToken) {
+  public static Field createField(String name, String type, Token nameToken) {
     return createField(name, type, null, nameToken);
   }
 
-  public static AssignmentNode createAsmt(
-      ExprNode target, ExprNode value, boolean isDeclaration, Token assignToken) {
-    AssignmentNode assignment = new AssignmentNode();
+  public static Assignment createAsmt(
+      Expr target, Expr value, boolean isDeclaration, Token assignToken) {
+    Assignment assignment = new Assignment();
     assignment.left = target;
     assignment.right = value;
     assignment.isDeclaration = isDeclaration;
@@ -165,11 +165,11 @@ public class ASTFactory {
     return assignment;
   }
 
-  public static ConstructorCallNode createConstructorCall(
-      String className, List<ExprNode> arguments, Token nameToken) {
-    ConstructorCallNode call = new ConstructorCallNode();
+  public static ConstructorCall createConstructorCall(
+      String className, List<Expr> arguments, Token nameToken) {
+    ConstructorCall call = new ConstructorCall();
     call.className = className;
-    call.arguments = arguments != null ? arguments : new ArrayList<ExprNode>();
+    call.arguments = arguments != null ? arguments : new ArrayList<Expr>();
     call.argNames = new ArrayList<String>();
     if (arguments != null) {
       for (int i = 0; i < arguments.size(); i++) {
@@ -182,25 +182,25 @@ public class ASTFactory {
     return call;
   }
 
-  public static ConstructorNode createConstructor(
-      List<ParamNode> parameters, List<StmtNode> body, Token thisToken) {
-    ConstructorNode cons = new ConstructorNode();
-    cons.parameters = parameters != null ? parameters : new ArrayList<ParamNode>();
-    cons.body = body != null ? body : new ArrayList<StmtNode>();
+  public static Constructor createConstructor(
+      List<Param> parameters, List<Stmt> body, Token thisToken) {
+    Constructor cons = new Constructor();
+    cons.parameters = parameters != null ? parameters : new ArrayList<Param>();
+    cons.body = body != null ? body : new ArrayList<Stmt>();
     if (thisToken != null) {
       cons.setSourceSpan(span(thisToken));
     }
     return cons;
   }
 
-  public static MethodNode createMethod(
-      String name, Keyword visibility, List<SlotNode> returnSlots, Token nameToken) {
-    MethodNode node = new MethodNode();
+  public static Method createMethod(
+      String name, Keyword visibility, List<Slot> returnSlots, Token nameToken) {
+    Method node = new Method();
     node.methodName = name;
     node.visibility = visibility;
-    node.returnSlots = returnSlots != null ? returnSlots : new ArrayList<SlotNode>();
-    node.parameters = new ArrayList<ParamNode>();
-    node.body = new ArrayList<StmtNode>();
+    node.returnSlots = returnSlots != null ? returnSlots : new ArrayList<Slot>();
+    node.parameters = new ArrayList<Param>();
+    node.body = new ArrayList<Stmt>();
     node.isBuiltin = false;
     if (nameToken != null) {
       node.setSourceSpan(span(nameToken));
@@ -208,9 +208,9 @@ public class ASTFactory {
     return node;
   }
 
-  public static ParamNode createParam(
-      String name, String type, ExprNode defaultValue, boolean typeInferred, Token nameToken) {
-    ParamNode param = new ParamNode();
+  public static Param createParam(
+      String name, String type, Expr defaultValue, boolean typeInferred, Token nameToken) {
+    Param param = new Param();
     param.name = name;
     param.type = type;
     if (defaultValue != null) {
@@ -224,8 +224,8 @@ public class ASTFactory {
     return param;
   }
 
-  public static SlotNode createSlot(String type, String name, Token nameToken) {
-    SlotNode slot = new SlotNode();
+  public static Slot createSlot(String type, String name, Token nameToken) {
+    Slot slot = new Slot();
     slot.type = type;
     slot.name = name;
     if (nameToken != null) {
@@ -234,9 +234,9 @@ public class ASTFactory {
     return slot;
   }
 
-  public static PropertyAccessNode createPropertyAccess(
-      ExprNode left, ExprNode right, Token dotToken) {
-    PropertyAccessNode node = new PropertyAccessNode();
+  public static PropertyAccess createPropertyAccess(
+      Expr left, Expr right, Token dotToken) {
+    PropertyAccess node = new PropertyAccess();
     node.left = left;
     node.right = right;
     node.dotToken = dotToken;
@@ -248,81 +248,81 @@ public class ASTFactory {
     return node;
   }
 
-  public static ExprNode createIdentifier(String name, Token token) {
-    IdentifierNode node = new IdentifierNode(name);
+  public static Expr createIdentifier(String name, Token token) {
+    Identifier node = new Identifier(name);
     if (token != null) {
       node.setSourceSpan(span(token));
     }
     return node;
   }
 
-  public static ExprNode createIntLiteral(int value, Token token) {
-    IntLiteralNode node = new IntLiteralNode(value);
+  public static Expr createIntLiteral(int value, Token token) {
+    IntLiteral node = new IntLiteral(value);
     if (token != null) {
       node.setSourceSpan(span(token));
     }
     return node;
   }
 
-  public static ExprNode createLongLiteral(long value, Token token) {
-    IntLiteralNode node = new IntLiteralNode(value);
+  public static Expr createLongLiteral(long value, Token token) {
+    IntLiteral node = new IntLiteral(value);
     if (token != null) {
       node.setSourceSpan(span(token));
     }
     return node;
   }
 
-  public static ExprNode createFloatLiteral(AutoStackingNumber value, Token token) {
-    FloatLiteralNode node = new FloatLiteralNode(value);
+  public static Expr createFloatLiteral(AutoStackingNumber value, Token token) {
+    FloatLiteral node = new FloatLiteral(value);
     if (token != null) {
       node.setSourceSpan(span(token));
     }
     return node;
   }
 
-  public static ExprNode createTextLiteral(String value, Token token) {
-    TextLiteralNode node = new TextLiteralNode(value);
+  public static Expr createTextLiteral(String value, Token token) {
+    TextLiteral node = new TextLiteral(value);
     if (token != null) {
       node.setSourceSpan(span(token));
     }
     return node;
   }
 
-  public static ExprNode createBoolLiteral(boolean value, Token token) {
-    BoolLiteralNode node = new BoolLiteralNode(value);
+  public static Expr createBoolLiteral(boolean value, Token token) {
+    BoolLiteral node = new BoolLiteral(value);
     if (token != null) {
       node.setSourceSpan(span(token));
     }
     return node;
   }
 
-  public static ExprNode createNoneLiteral(Token token) {
-    NoneLiteralNode node = new NoneLiteralNode();
+  public static Expr createNoneLiteral(Token token) {
+    NoneLiteral node = new NoneLiteral();
     if (token != null) {
       node.setSourceSpan(span(token));
     }
     return node;
   }
 
-  public static ExprNode createThisExpr(String className, Token thisToken) {
-    ThisNode node = (className != null) ? new ThisNode(className) : new ThisNode();
+  public static Expr createThisExpr(String className, Token thisToken) {
+    This node = (className != null) ? new This(className) : new This();
     if (thisToken != null) {
       node.setSourceSpan(span(thisToken));
     }
     return node;
   }
 
-  public static ExprNode createSuperExpr(Token superToken) {
-    SuperNode node = new SuperNode();
+  public static Expr createSuperExpr(Token superToken) {
+    Super node = new Super();
     if (superToken != null) {
       node.setSourceSpan(span(superToken));
     }
     return node;
   }
 
-  public static BinaryOpNode createBinaryOp(
-      ExprNode left, String op, ExprNode right, Token opToken) {
-    BinaryOpNode node = new BinaryOpNode();
+  public static BinaryOp createBinaryOp(
+      Expr left, String op, Expr right, Token opToken) {
+    BinaryOp node = new BinaryOp();
     node.left = left;
     node.op = op;
     node.right = right;
@@ -334,26 +334,26 @@ public class ASTFactory {
     return node;
   }
 
-  public static EqualityChainNode createEqualityChain(
-      ExprNode left,
+  public static EqualityChain createEqualityChain(
+      Expr left,
       String operator,
       boolean isAllChain,
-      List<ExprNode> chainArguments,
+      List<Expr> chainArguments,
       Token leftToken,
       Token opToken,
       Token chainToken) {
-    EqualityChainNode chain = new EqualityChainNode();
+    EqualityChain chain = new EqualityChain();
     chain.left = left;
     chain.operator = operator;
     chain.isAllChain = isAllChain;
-    chain.chainArguments = chainArguments != null ? chainArguments : new ArrayList<ExprNode>();
+    chain.chainArguments = chainArguments != null ? chainArguments : new ArrayList<Expr>();
 
     List<SourceSpan> spans = new ArrayList<SourceSpan>();
     if (left != null) spans.add(left.getSourceSpan());
     if (leftToken != null) spans.add(span(leftToken));
     if (opToken != null) spans.add(span(opToken));
     if (chainToken != null) spans.add(span(chainToken));
-    for (ExprNode arg : chainArguments) {
+    for (Expr arg : chainArguments) {
       if (arg != null) spans.add(arg.getSourceSpan());
     }
 
@@ -361,15 +361,15 @@ public class ASTFactory {
     return chain;
   }
 
-  public static BooleanChainNode createBooleanChain(
-      boolean isAll, List<ExprNode> expressions, Token keywordToken) {
-    BooleanChainNode node = new BooleanChainNode();
+  public static BooleanChain createBooleanChain(
+      boolean isAll, List<Expr> expressions, Token keywordToken) {
+    BooleanChain node = new BooleanChain();
     node.isAll = isAll;
-    node.expressions = expressions != null ? expressions : new ArrayList<ExprNode>();
+    node.expressions = expressions != null ? expressions : new ArrayList<Expr>();
 
     List<SourceSpan> spans = new ArrayList<SourceSpan>();
     if (keywordToken != null) spans.add(span(keywordToken));
-    for (ExprNode expr : node.expressions) {
+    for (Expr expr : node.expressions) {
       if (expr != null) spans.add(expr.getSourceSpan());
     }
 
@@ -377,17 +377,17 @@ public class ASTFactory {
     return node;
   }
 
-  public static UnaryNode createUnaryOp(String op, ExprNode operand, Token opToken) {
-    UnaryNode node = new UnaryNode();
+  public static Unary createUnaryOp(String op, Expr operand, Token opToken) {
+    Unary node = new Unary();
     node.op = op;
     node.operand = operand;
     node.setSourceSpan(mergeSpans(span(opToken), operand != null ? operand.getSourceSpan() : null));
     return node;
   }
 
-  public static TypeCastNode createTypeCast(
-      String targetType, ExprNode expression, Token lparenToken) {
-    TypeCastNode node = new TypeCastNode();
+  public static TypeCast createTypeCast(
+      String targetType, Expr expression, Token lparenToken) {
+    TypeCast node = new TypeCast();
     node.targetType = targetType;
     node.expression = expression;
     node.setSourceSpan(
@@ -395,8 +395,8 @@ public class ASTFactory {
     return node;
   }
 
-  public static SlotAssignmentNode createImplicitReturn(ExprNode returnExpr, Token returnToken) {
-    SlotAssignmentNode returnStmt = new SlotAssignmentNode();
+  public static SlotAssignment createImplicitReturn(Expr returnExpr, Token returnToken) {
+    SlotAssignment returnStmt = new SlotAssignment();
     returnStmt.slotName = "_";
     returnStmt.value = returnExpr;
     returnStmt.setSourceSpan(
@@ -406,12 +406,12 @@ public class ASTFactory {
     return returnStmt;
   }
 
-  public static MethodCallNode createMethodCall(
+  public static MethodCall createMethodCall(
       String name, String qualifiedName, Token nameToken) {
-    MethodCallNode call = new MethodCallNode();
+    MethodCall call = new MethodCall();
     call.name = name;
     call.qualifiedName = qualifiedName;
-    call.arguments = new ArrayList<ExprNode>();
+    call.arguments = new ArrayList<Expr>();
     call.slotNames = new ArrayList<String>();
     call.argNames = new ArrayList<String>();
     call.isSuperCall = false;
@@ -422,13 +422,13 @@ public class ASTFactory {
     return call;
   }
 
-  public static ArrayNode createArray(List<ExprNode> elements, Token lbracketToken) {
-    ArrayNode array = new ArrayNode();
-    array.elements = elements != null ? elements : new ArrayList<ExprNode>();
+  public static Array createArray(List<Expr> elements, Token lbracketToken) {
+    Array array = new Array();
+    array.elements = elements != null ? elements : new ArrayList<Expr>();
 
     List<SourceSpan> spans = new ArrayList<SourceSpan>();
     if (lbracketToken != null) spans.add(span(lbracketToken));
-    for (ExprNode elem : array.elements) {
+    for (Expr elem : array.elements) {
       if (elem != null) spans.add(elem.getSourceSpan());
     }
 
@@ -436,13 +436,13 @@ public class ASTFactory {
     return array;
   }
 
-  public static TupleNode createTuple(List<ExprNode> elements, Token lparenToken) {
-    TupleNode node = new TupleNode();
-    node.elements = elements != null ? elements : new ArrayList<ExprNode>();
+  public static Tuple createTuple(List<Expr> elements, Token lparenToken) {
+    Tuple node = new Tuple();
+    node.elements = elements != null ? elements : new ArrayList<Expr>();
 
     List<SourceSpan> spans = new ArrayList<SourceSpan>();
     if (lparenToken != null) spans.add(span(lparenToken));
-    for (ExprNode elem : node.elements) {
+    for (Expr elem : node.elements) {
       if (elem != null) spans.add(elem.getSourceSpan());
     }
 
@@ -450,9 +450,9 @@ public class ASTFactory {
     return node;
   }
 
-  public static IndexAccessNode createIndexAccess(
-      ExprNode array, ExprNode index, Token lbracketToken) {
-    IndexAccessNode node = new IndexAccessNode();
+  public static IndexAccess createIndexAccess(
+      Expr array, Expr index, Token lbracketToken) {
+    IndexAccess node = new IndexAccess();
     node.array = array;
     node.index = index;
     node.setSourceSpan(
@@ -463,9 +463,9 @@ public class ASTFactory {
     return node;
   }
 
-  public static RangeIndexNode createRangeIndex(
-      ExprNode step, ExprNode start, ExprNode end, Token byToken, Token toToken) {
-    RangeIndexNode node = new RangeIndexNode(step, start, end);
+  public static RangeIndex createRangeIndex(
+      Expr step, Expr start, Expr end, Token byToken, Token toToken) {
+    RangeIndex node = new RangeIndex(step, start, end);
 
     List<SourceSpan> spans = new ArrayList<SourceSpan>();
     if (byToken != null) spans.add(span(byToken));
@@ -478,13 +478,13 @@ public class ASTFactory {
     return node;
   }
 
-  public static MultiRangeIndexNode createMultiRangeIndex(
-      List<RangeIndexNode> ranges, Token firstLbracketToken) {
-    MultiRangeIndexNode node = new MultiRangeIndexNode(ranges);
+  public static MultiRangeIndex createMultiRangeIndex(
+      List<RangeIndex> ranges, Token firstLbracketToken) {
+    MultiRangeIndex node = new MultiRangeIndex(ranges);
 
     List<SourceSpan> spans = new ArrayList<SourceSpan>();
     if (firstLbracketToken != null) spans.add(span(firstLbracketToken));
-    for (RangeIndexNode range : ranges) {
+    for (RangeIndex range : ranges) {
       if (range != null) spans.add(range.getSourceSpan());
     }
 
@@ -492,9 +492,9 @@ public class ASTFactory {
     return node;
   }
 
-  public static ExprIfNode createIfExpr(
-      ExprNode condition, ExprNode thenExpr, ExprNode elseExpr, Token ifToken, Token elseToken) {
-    ExprIfNode node = new ExprIfNode();
+  public static ExprIf createIfExpr(
+      Expr condition, Expr thenExpr, Expr elseExpr, Token ifToken, Token elseToken) {
+    ExprIf node = new ExprIf();
     node.condition = condition;
     node.thenExpr = thenExpr;
     node.elseExpr = elseExpr;
@@ -508,37 +508,37 @@ public class ASTFactory {
     return node;
   }
 
-  public static StmtIfNode createIfStmt(ExprNode condition, Token ifToken) {
-    StmtIfNode stmtIfNode = new StmtIfNode();
+  public static StmtIf createIfStmt(Expr condition, Token ifToken) {
+    StmtIf stmtIfNode = new StmtIf();
     stmtIfNode.condition = condition;
-    stmtIfNode.thenBlock = new BlockNode();
-    stmtIfNode.elseBlock = new BlockNode();
+    stmtIfNode.thenBlock = new Block();
+    stmtIfNode.elseBlock = new Block();
     if (ifToken != null) {
       stmtIfNode.setSourceSpan(span(ifToken));
     }
     return stmtIfNode;
   }
 
-  public static ForNode createFor(
-      String iterator, RangeNode range, Token forToken, Token iteratorToken) {
-    ForNode forNode = new ForNode();
+  public static For createFor(
+      String iterator, Range range, Token forToken, Token iteratorToken) {
+    For forNode = new For();
     forNode.iterator = iterator;
     forNode.range = range;
     forNode.arraySource = null;
-    forNode.body = new BlockNode();
+    forNode.body = new Block();
     forNode.setSourceSpan(
         mergeSpans(
             span(forToken), span(iteratorToken), range != null ? range.getSourceSpan() : null));
     return forNode;
   }
 
-  public static ForNode createFor(
-      String iterator, ExprNode arraySource, Token forToken, Token iteratorToken) {
-    ForNode forNode = new ForNode();
+  public static For createFor(
+      String iterator, Expr arraySource, Token forToken, Token iteratorToken) {
+    For forNode = new For();
     forNode.iterator = iterator;
     forNode.range = null;
     forNode.arraySource = arraySource;
-    forNode.body = new BlockNode();
+    forNode.body = new Block();
     forNode.setSourceSpan(
         mergeSpans(
             span(forToken),
@@ -547,9 +547,9 @@ public class ASTFactory {
     return forNode;
   }
 
-  public static RangeNode createRange(
-      ExprNode step, ExprNode start, ExprNode end, Token byToken, Token toToken) {
-    RangeNode node = new RangeNode(step, start, end);
+  public static Range createRange(
+      Expr step, Expr start, Expr end, Token byToken, Token toToken) {
+    Range node = new Range(step, start, end);
 
     List<SourceSpan> spans = new ArrayList<SourceSpan>();
     if (byToken != null) spans.add(span(byToken));
@@ -562,17 +562,17 @@ public class ASTFactory {
     return node;
   }
 
-  public static BlockNode createBlock(Token lbraceToken) {
-    BlockNode block = new BlockNode();
+  public static Block createBlock(Token lbraceToken) {
+    Block block = new Block();
     if (lbraceToken != null) {
       block.setSourceSpan(span(lbraceToken));
     }
     return block;
   }
 
-  public static BlockNode createBlock(
-      List<StmtNode> statements, Token lbraceToken, Token rbraceToken) {
-    BlockNode block = new BlockNode(statements);
+  public static Block createBlock(
+      List<Stmt> statements, Token lbraceToken, Token rbraceToken) {
+    Block block = new Block(statements);
     if (lbraceToken != null && rbraceToken != null) {
       block.setSourceSpan(new SourceSpan(lbraceToken, rbraceToken));
     } else if (lbraceToken != null) {
@@ -581,8 +581,8 @@ public class ASTFactory {
     return block;
   }
 
-  public static VarNode createVar(String name, ExprNode value, Token nameToken) {
-    VarNode var = new VarNode();
+  public static Var createVar(String name, Expr value, Token nameToken) {
+    Var var = new Var();
     var.name = name;
     var.value = value;
     if (nameToken != null) {
@@ -591,21 +591,21 @@ public class ASTFactory {
     return var;
   }
 
-  public static ExitNode createExit(Token exitToken) {
-    ExitNode exit = new ExitNode();
+  public static Exit createExit(Token exitToken) {
+    Exit exit = new Exit();
     if (exitToken != null) {
       exit.setSourceSpan(span(exitToken));
     }
     return exit;
   }
 
-  public static ArgumentListNode createArgumentList(List<ExprNode> arguments, Token lparenToken) {
-    ArgumentListNode node = new ArgumentListNode();
-    node.arguments = arguments != null ? arguments : new ArrayList<ExprNode>();
+  public static ArgumentList createArgumentList(List<Expr> arguments, Token lparenToken) {
+    ArgumentList node = new ArgumentList();
+    node.arguments = arguments != null ? arguments : new ArrayList<Expr>();
 
     List<SourceSpan> spans = new ArrayList<SourceSpan>();
     if (lparenToken != null) spans.add(span(lparenToken));
-    for (ExprNode arg : node.arguments) {
+    for (Expr arg : node.arguments) {
       if (arg != null) spans.add(arg.getSourceSpan());
     }
 
@@ -613,25 +613,25 @@ public class ASTFactory {
     return node;
   }
 
-  public static SkipNode createSkipStmt(Token skipToken) {
-    SkipNode skip = new SkipNode();
+  public static Skip createSkipStmt(Token skipToken) {
+    Skip skip = new Skip();
     if (skipToken != null) {
       skip.setSourceSpan(span(skipToken));
     }
     return skip;
   }
 
-  public static BreakNode createBreakStmt(Token breakToken) {
-    BreakNode brk = new BreakNode();
+  public static Break createBreakStmt(Token breakToken) {
+    Break brk = new Break();
     if (breakToken != null) {
       brk.setSourceSpan(span(breakToken));
     }
     return brk;
   }
 
-  public static ReturnSlotAssignmentNode createReturnSlotAsmt(
-      List<String> variableNames, LambdaNode lambda, Token assignToken) {
-    ReturnSlotAssignmentNode assignment = new ReturnSlotAssignmentNode();
+  public static ReturnSlotAssignment createReturnSlotAsmt(
+      List<String> variableNames, Lambda lambda, Token assignToken) {
+    ReturnSlotAssignment assignment = new ReturnSlotAssignment();
     assignment.variableNames = variableNames;
     assignment.lambda = lambda;
     assignment.setSourceSpan(
@@ -639,9 +639,9 @@ public class ASTFactory {
     return assignment;
   }
 
-  public static ReturnSlotAssignmentNode createReturnSlotAsmt(
-      List<String> variableNames, MethodCallNode methodCall, Token assignToken) {
-    ReturnSlotAssignmentNode assignment = new ReturnSlotAssignmentNode();
+  public static ReturnSlotAssignment createReturnSlotAsmt(
+      List<String> variableNames, MethodCall methodCall, Token assignToken) {
+    ReturnSlotAssignment assignment = new ReturnSlotAssignment();
     assignment.variableNames = variableNames;
     assignment.methodCall = methodCall;
     assignment.setSourceSpan(
@@ -649,9 +649,9 @@ public class ASTFactory {
     return assignment;
   }
 
-  public static SlotDeclarationNode createSlotDeclaration(
+  public static SlotDeclaration createSlotDeclaration(
       List<String> slotNames, Token lbracketToken) {
-    SlotDeclarationNode node = new SlotDeclarationNode();
+    SlotDeclaration node = new SlotDeclaration();
     node.slotNames = slotNames;
     if (lbracketToken != null) {
       node.setSourceSpan(span(lbracketToken));
@@ -659,9 +659,9 @@ public class ASTFactory {
     return node;
   }
 
-  public static SlotAssignmentNode createSlotAsmt(
-      String slotName, ExprNode value, Token colonToken) {
-    SlotAssignmentNode node = new SlotAssignmentNode();
+  public static SlotAssignment createSlotAsmt(
+      String slotName, Expr value, Token colonToken) {
+    SlotAssignment node = new SlotAssignment();
     node.slotName = slotName;
     node.value = value;
     node.setSourceSpan(
@@ -671,14 +671,14 @@ public class ASTFactory {
     return node;
   }
 
-  public static MultipleSlotAssignmentNode createMultipleSlotAsmt(
-      List<SlotAssignmentNode> assignments, Token tildeArrowToken) {
-    MultipleSlotAssignmentNode node = new MultipleSlotAssignmentNode();
+  public static MultipleSlotAssignment createMultipleSlotAsmt(
+      List<SlotAssignment> assignments, Token tildeArrowToken) {
+    MultipleSlotAssignment node = new MultipleSlotAssignment();
     node.assignments = assignments;
 
     List<SourceSpan> spans = new ArrayList<SourceSpan>();
     if (tildeArrowToken != null) spans.add(span(tildeArrowToken));
-    for (SlotAssignmentNode assignment : assignments) {
+    for (SlotAssignment assignment : assignments) {
       if (assignment != null) spans.add(assignment.getSourceSpan());
     }
 
@@ -686,7 +686,7 @@ public class ASTFactory {
     return node;
   }
 
-  public static String getConstructorSignature(ConstructorNode constructor) {
+  public static String getConstructorSignature(Constructor constructor) {
     if (constructor == null || constructor.parameters == null) {
       return "()";
     }
@@ -694,7 +694,7 @@ public class ASTFactory {
     StringBuilder sb = new StringBuilder("(");
     for (int i = 0; i < constructor.parameters.size(); i++) {
       if (i > 0) sb.append(", ");
-      ParamNode p = constructor.parameters.get(i);
+      Param p = constructor.parameters.get(i);
       sb.append(p.name).append(": ").append(p.type);
       if (p.hasDefaultValue) {
         sb.append(" = default");
