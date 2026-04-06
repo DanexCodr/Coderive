@@ -56,10 +56,11 @@ canonicalize_output_for_diff() {
   local out_file="$2"
   local lazy_creation_suffix=' ms  (O(1) — no elements generated yet)'
   local lazy_pattern_suffix=' ms  (formula, not 1Qi iterations)'
+  local decimal_number='[-]?[0-9]+([.][0-9]+)?'
   sed -E \
-    -e "s/(Done in )[-0-9.]+(${lazy_creation_suffix//\//\\/})/\\1<TIME_MS>\\2/" \
-    -e "s/(Pattern recorded in )[-0-9.]+(${lazy_pattern_suffix//\//\\/})/\\1<TIME_MS>\\2/" \
-    -e 's/[-0-9.]+ ms/<TIME_MS> ms/g' \
+    -e "s/(Done in )${decimal_number}(${lazy_creation_suffix//\//\\/})/\\1<TIME_MS>\\2/" \
+    -e "s/(Pattern recorded in )${decimal_number}(${lazy_pattern_suffix//\//\\/})/\\1<TIME_MS>\\2/" \
+    -e "s/${decimal_number} ms/<TIME_MS> ms/g" \
     "$in_file" \
     | awk '
         { lines[NR] = $0 }

@@ -16,13 +16,13 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public final class CodBoot {
-    // This constant is needed before core semantics are parsed; keep in sync with core.ce messages.parseEvalErrorPrefix.
+    // This constant is needed before core semantics are parsed; keep in sync with semantics_json messages.parseEvalErrorPrefix in core.ce.
     private static final String CORE_PARSE_EVAL_ERROR_PREFIX = "[core] parse/eval error: ";
     private static final String CORE_MISSING_SEMANTICS_KEY_PREFIX = "[core] missing semantics key: ";
     // Keep in sync with core.ce semantics_json missing-semantics error contract.
     private static final String CORE_MISSING_SEMANTICS_JSON_MESSAGE = "[core] missing semantics_json block";
     // Matches JSON string literals and captures escaped content between quotes.
-    // This one is static/precompiled because it is key-agnostic and reused directly.
+    // Unlike JSON_NUMBER_VALUE_REGEX (templated per-key), this one is static/precompiled because it is key-agnostic and reused directly.
     private static final Pattern JSON_STRING_ITEM_PATTERN = Pattern.compile("\"((?:\\\\.|[^\\\\\"])*)\"");
     // Matches JSON numeric values used by semantics payload: optional sign, integer part, optional decimal part, optional exponent.
     // Capture group 1 returns the number text only: -? (sign), \d+ (integer), (?:\.\d+)? (fraction), (?:[eE][+-]?\d+)? (exponent).

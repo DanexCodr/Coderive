@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process');
-// This constant is needed before core semantics are parsed; keep in sync with core.ce messages.parseEvalErrorPrefix.
+// This constant is needed before core semantics are parsed; keep in sync with semantics_json messages.parseEvalErrorPrefix in core.ce.
 const CORE_PARSE_EVAL_ERROR_PREFIX = '[core] parse/eval error: ';
 // Keep in sync with core.ce semantics_json missing-semantics error contract.
 const CORE_MISSING_SEMANTICS_JSON_MESSAGE = '[core] missing semantics_json block';
@@ -20,6 +20,10 @@ function containsUnsafeShellChar(value) {
 
 function containsPathSeparator(value) {
   return value.indexOf('/') >= 0 || value.indexOf('\\') >= 0;
+}
+
+function isCommentLine(line) {
+  return line.length > 1 && line.charAt(0) === '/' && line.charAt(1) === '/';
 }
 
 function createHost() {
@@ -193,7 +197,7 @@ function isLegacyCodBootProgram(programSource, semantics) {
     if (line.length === 0 || line.charAt(0) === '#') {
       continue;
     }
-    if (line.length > 1 && line.charAt(0) === '/' && line.charAt(1) === '/') {
+    if (isCommentLine(line)) {
       continue;
     }
     if (line.indexOf(outPrefix) === 0 || line.indexOf(hostPrefix) === 0) {
@@ -286,7 +290,7 @@ function runLegacyCodBoot(programSource, host, semantics) {
     if (line.length === 0 || line.charAt(0) === '#') {
       continue;
     }
-    if (line.length > 1 && line.charAt(0) === '/' && line.charAt(1) === '/') {
+    if (isCommentLine(line)) {
       continue;
     }
     if (line.indexOf(semantics.keywords.out + '(') === 0) {
@@ -454,7 +458,7 @@ function hasCoreEntrypoint(coreSource) {
   const lines = coreSource.split(/\r?\n/);
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i].trim();
-    if (line.length === 0 || line.charAt(0) === '#' || (line.length > 1 && line.charAt(0) === '/' && line.charAt(1) === '/')) {
+    if (line.length === 0 || line.charAt(0) === '#' || isCommentLine(line)) {
       continue;
     }
     return line === 'entrypoint := "CodBootCore::v0"';
