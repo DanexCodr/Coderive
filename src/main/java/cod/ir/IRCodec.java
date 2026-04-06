@@ -713,6 +713,7 @@ final class IRCodec {
         return value != null && ((Boolean) value).booleanValue();
     }
 
+    // Unchecked cast helper: caller guarantees element type by node/field contract.
     @SuppressWarnings("unchecked")
     private static <T> List<T> castList(Object value) {
         return (List<T>) value;
@@ -1027,6 +1028,7 @@ final class IRCodec {
             return writeNode("PropertyAccess", new String[]{"left", "right"}, new Object[]{n.left, n.right});
         }
 
+        @Override
         public List<Void> visitList(List<? extends Base> nodes) {
             List<Void> results = new ArrayList<Void>();
             for (Base n : nodes) {
@@ -1035,6 +1037,7 @@ final class IRCodec {
             return results;
         }
 
+        @Override
         public void visitAll(List<? extends Base> nodes) {
             for (Base n : nodes) {
                 visit(n);
