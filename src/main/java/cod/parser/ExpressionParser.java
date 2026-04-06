@@ -1326,7 +1326,7 @@ public class ExpressionParser extends BaseParser {
 
     private boolean isReducibleInfixOperator(Token token) {
         if (token == null) return false;
-        return is(token, IS, PLUS, MINUS, MUL, DIV, MOD, EQ, NEQ, GT, LT, GTE, LTE);
+        return is(token, IS) || is(token, PLUS, MINUS, MUL, DIV, MOD, EQ, NEQ, GT, LT, GTE, LTE);
     }
 
     private Expr parsePrefix() {
