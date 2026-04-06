@@ -10,6 +10,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,8 @@ final class IRCodec {
     private static final byte TAG_AUTO_STACKING = 10;
 
     private static final String NODE_PACKAGE_PREFIX = "cod.ast.nodes.";
+    private static final Map<String, byte[]> STRING_BYTES_CACHE = new HashMap<String, byte[]>();
+    private static final int STRING_BYTES_CACHE_LIMIT = 512;
 
     private IRCodec() {}
 
@@ -187,7 +190,8 @@ final class IRCodec {
         out.writeByte(TAG_NODE);
 
         if (node instanceof ValueExpr) {
-            writeNodeFields(out, "ValueExpr", depth, new String[]{"value"}, new Object[]{((ValueExpr) node).getValue()});
+            writeNodeStart(out, "ValueExpr", 1);
+            writeNodeField(out, "value", ((ValueExpr) node).getValue(), depth);
             return;
         }
 
@@ -270,7 +274,7 @@ final class IRCodec {
             out.writeInt(-1);
             return;
         }
-        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = cachedUtf8Bytes(value);
         if (bytes.length > MAX_STRING_BYTES) {
             throw new IOException("String exceeds IR limit: " + bytes.length + " bytes");
         }
@@ -308,13 +312,57 @@ final class IRCodec {
         if (fieldNames.length != values.length) {
             throw new IOException("IR node field name/value mismatch for " + nodeName);
         }
-        ensureCollectionSize(fieldNames.length, "fields");
-        writeString(out, NODE_PACKAGE_PREFIX + nodeName);
-        out.writeInt(fieldNames.length);
+        writeNodeStart(out, nodeName, fieldNames.length);
         for (int i = 0; i < fieldNames.length; i++) {
-            writeString(out, fieldNames[i]);
-            writeValue(out, values[i], depth + 1);
+            writeNodeField(out, fieldNames[i], values[i], depth);
         }
+    }
+
+    static void writeNodeStart(DataOutput out, String nodeName, int fieldCount) throws IOException {
+        ensureCollectionSize(fieldCount, "fields");
+        writeString(out, nodeClassName(nodeName));
+        out.writeInt(fieldCount);
+    }
+
+    static void writeNodeField(DataOutput out, String fieldName, Object value, int depth) throws IOException {
+        writeString(out, fieldName);
+        writeValue(out, value, depth + 1);
+    }
+
+    private static String nodeClassName(String nodeName) {
+        return NODE_PACKAGE_PREFIX + nodeName;
+    }
+
+    private static byte[] cachedUtf8Bytes(String value) {
+        synchronized (STRING_BYTES_CACHE) {
+            byte[] cached = STRING_BYTES_CACHE.get(value);
+            if (cached != null) {
+                return cached;
+            }
+            byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+            if (STRING_BYTES_CACHE.size() < STRING_BYTES_CACHE_LIMIT
+                    && (value.startsWith(NODE_PACKAGE_PREFIX) || isIdentifierLike(value))) {
+                STRING_BYTES_CACHE.put(value, bytes);
+            }
+            return bytes;
+        }
+    }
+
+    private static boolean isIdentifierLike(String value) {
+        if (value.length() == 0 || value.length() > 64) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            boolean ok = (c >= 'a' && c <= 'z')
+                    || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9')
+                    || c == '_' || c == '.';
+            if (!ok) {
+                return false;
+            }
+        }
+        return true;
     }
 
 }

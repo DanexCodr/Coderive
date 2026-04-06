@@ -21,32 +21,19 @@ final class SerializationVisitor implements VisitorImpl<Void> {
         return node.accept(this);
     }
 
-    NodeBuilder writeNode(String nodeName) {
-        return new NodeBuilder(nodeName);
+    private void writeNodeStart(String nodeName, int fieldCount) {
+        try {
+            IRCodec.writeNodeStart(out, nodeName, fieldCount);
+        } catch (IOException e) {
+            throw new SerializationException(e);
+        }
     }
 
-    final class NodeBuilder {
-        private final String nodeName;
-        private final List<String> fieldNames = new ArrayList<String>();
-        private final List<Object> values = new ArrayList<Object>();
-
-        NodeBuilder(String nodeName) {
-            this.nodeName = nodeName;
-        }
-
-        NodeBuilder field(String name, Object value) {
-            fieldNames.add(name);
-            values.add(value);
-            return this;
-        }
-
-        Void done() {
-            try {
-                IRCodec.writeNodeFields(out, nodeName, depth, fieldNames.toArray(new String[0]), values.toArray(new Object[0]));
-                return null;
-            } catch (IOException e) {
-                throw new SerializationException(e);
-            }
+    private void writeNodeField(String fieldName, Object value) {
+        try {
+            IRCodec.writeNodeField(out, fieldName, value, depth);
+        } catch (IOException e) {
+            throw new SerializationException(e);
         }
     }
 
@@ -60,414 +47,419 @@ final class SerializationVisitor implements VisitorImpl<Void> {
 
     @Override
     public Void visit(Program n) {
-        return writeNode("Program")
-                .field("unit", n.unit)
-                .field("programType", n.programType)
-                .done();
+        writeNodeStart("Program", 2);
+                writeNodeField("unit", n.unit);
+                writeNodeField("programType", n.programType);
+                return null;
     }
 
     @Override
     public Void visit(Unit n) {
-        return writeNode("Unit")
-                .field("name", n.name)
-                .field("imports", n.imports)
-                .field("policies", n.policies)
-                .field("types", n.types)
-                .field("mainClassName", n.mainClassName)
-                .field("resolvedImports", n.resolvedImports)
-                .done();
+        writeNodeStart("Unit", 6);
+                writeNodeField("name", n.name);
+                writeNodeField("imports", n.imports);
+                writeNodeField("policies", n.policies);
+                writeNodeField("types", n.types);
+                writeNodeField("mainClassName", n.mainClassName);
+                writeNodeField("resolvedImports", n.resolvedImports);
+                return null;
     }
 
     @Override
     public Void visit(Use n) {
-        return writeNode("Use")
-                .field("imports", n.imports)
-                .done();
+        writeNodeStart("Use", 1);
+                writeNodeField("imports", n.imports);
+                return null;
     }
 
     @Override
     public Void visit(Type n) {
-        return writeNode("Type")
-                .field("name", n.name)
-                .field("visibility", n.visibility)
-                .field("extendName", n.extendName)
-                .field("fields", n.fields)
-                .field("constructor", n.constructor)
-                .field("methods", n.methods)
-                .field("statements", n.statements)
-                .field("constructors", n.constructors)
-                .field("implementedPolicies", n.implementedPolicies)
-                .field("cachedAncestorPolicies", n.cachedAncestorPolicies)
-                .field("viralPoliciesValidated", Boolean.valueOf(n.viralPoliciesValidated))
-                .done();
+        writeNodeStart("Type", 11);
+                writeNodeField("name", n.name);
+                writeNodeField("visibility", n.visibility);
+                writeNodeField("extendName", n.extendName);
+                writeNodeField("fields", n.fields);
+                writeNodeField("constructor", n.constructor);
+                writeNodeField("methods", n.methods);
+                writeNodeField("statements", n.statements);
+                writeNodeField("constructors", n.constructors);
+                writeNodeField("implementedPolicies", n.implementedPolicies);
+                writeNodeField("cachedAncestorPolicies", n.cachedAncestorPolicies);
+                writeNodeField("viralPoliciesValidated", Boolean.valueOf(n.viralPoliciesValidated));
+                return null;
     }
 
     @Override
     public Void visit(Field n) {
-        return writeNode("Field")
-                .field("name", n.name)
-                .field("type", n.type)
-                .field("visibility", n.visibility)
-                .field("value", n.value)
-                .done();
+        writeNodeStart("Field", 4);
+                writeNodeField("name", n.name);
+                writeNodeField("type", n.type);
+                writeNodeField("visibility", n.visibility);
+                writeNodeField("value", n.value);
+                return null;
     }
 
     @Override
     public Void visit(Method n) {
-        return writeNode("Method")
-                .field("methodName", n.methodName)
-                .field("associatedClass", n.associatedClass)
-                .field("visibility", n.visibility)
-                .field("returnSlots", n.returnSlots)
-                .field("parameters", n.parameters)
-                .field("body", n.body)
-                .field("isBuiltin", Boolean.valueOf(n.isBuiltin))
-                .field("isPolicyMethod", Boolean.valueOf(n.isPolicyMethod))
-                .done();
+        writeNodeStart("Method", 8);
+                writeNodeField("methodName", n.methodName);
+                writeNodeField("associatedClass", n.associatedClass);
+                writeNodeField("visibility", n.visibility);
+                writeNodeField("returnSlots", n.returnSlots);
+                writeNodeField("parameters", n.parameters);
+                writeNodeField("body", n.body);
+                writeNodeField("isBuiltin", Boolean.valueOf(n.isBuiltin));
+                writeNodeField("isPolicyMethod", Boolean.valueOf(n.isPolicyMethod));
+                return null;
     }
 
     @Override
     public Void visit(Param n) {
-        return writeNode("Param")
-                .field("name", n.name)
-                .field("type", n.type)
-                .field("defaultValue", n.defaultValue)
-                .field("hasDefaultValue", Boolean.valueOf(n.hasDefaultValue))
-                .field("typeInferred", Boolean.valueOf(n.typeInferred))
-                .field("isLambdaParameter", Boolean.valueOf(n.isLambdaParameter))
-                .field("isTupleDestructuring", Boolean.valueOf(n.isTupleDestructuring))
-                .field("tupleElements", n.tupleElements)
-                .done();
+        writeNodeStart("Param", 8);
+                writeNodeField("name", n.name);
+                writeNodeField("type", n.type);
+                writeNodeField("defaultValue", n.defaultValue);
+                writeNodeField("hasDefaultValue", Boolean.valueOf(n.hasDefaultValue));
+                writeNodeField("typeInferred", Boolean.valueOf(n.typeInferred));
+                writeNodeField("isLambdaParameter", Boolean.valueOf(n.isLambdaParameter));
+                writeNodeField("isTupleDestructuring", Boolean.valueOf(n.isTupleDestructuring));
+                writeNodeField("tupleElements", n.tupleElements);
+                return null;
     }
 
     @Override
     public Void visit(Constructor n) {
-        return writeNode("Constructor")
-                .field("parameters", n.parameters)
-                .field("body", n.body)
-                .done();
+        writeNodeStart("Constructor", 2);
+                writeNodeField("parameters", n.parameters);
+                writeNodeField("body", n.body);
+                return null;
     }
 
     @Override
     public Void visit(ConstructorCall n) {
-        return writeNode("ConstructorCall")
-                .field("className", n.className)
-                .field("arguments", n.arguments)
-                .field("argNames", n.argNames)
-                .done();
+        writeNodeStart("ConstructorCall", 3);
+                writeNodeField("className", n.className);
+                writeNodeField("arguments", n.arguments);
+                writeNodeField("argNames", n.argNames);
+                return null;
     }
 
     @Override
     public Void visit(Policy n) {
-        return writeNode("Policy")
-                .field("name", n.name)
-                .field("visibility", n.visibility)
-                .field("methods", n.methods)
-                .field("sourceUnit", n.sourceUnit)
-                .field("composedPolicies", n.composedPolicies)
-                .done();
+        writeNodeStart("Policy", 5);
+                writeNodeField("name", n.name);
+                writeNodeField("visibility", n.visibility);
+                writeNodeField("methods", n.methods);
+                writeNodeField("sourceUnit", n.sourceUnit);
+                writeNodeField("composedPolicies", n.composedPolicies);
+                return null;
     }
 
     @Override
     public Void visit(PolicyMethod n) {
-        return writeNode("PolicyMethod")
-                .field("methodName", n.methodName)
-                .field("parameters", n.parameters)
-                .field("returnSlots", n.returnSlots)
-                .done();
+        writeNodeStart("PolicyMethod", 3);
+                writeNodeField("methodName", n.methodName);
+                writeNodeField("parameters", n.parameters);
+                writeNodeField("returnSlots", n.returnSlots);
+                return null;
     }
 
     @Override
     public Void visit(Block n) {
-        return writeNode("Block")
-                .field("statements", n.statements)
-                .done();
+        writeNodeStart("Block", 1);
+                writeNodeField("statements", n.statements);
+                return null;
     }
 
     @Override
     public Void visit(Assignment n) {
-        return writeNode("Assignment")
-                .field("left", n.left)
-                .field("right", n.right)
-                .field("isDeclaration", Boolean.valueOf(n.isDeclaration))
-                .done();
+        writeNodeStart("Assignment", 3);
+                writeNodeField("left", n.left);
+                writeNodeField("right", n.right);
+                writeNodeField("isDeclaration", Boolean.valueOf(n.isDeclaration));
+                return null;
     }
 
     @Override
     public Void visit(Var n) {
-        return writeNode("Var")
-                .field("name", n.name)
-                .field("value", n.value)
-                .field("explicitType", n.explicitType)
-                .done();
+        writeNodeStart("Var", 3);
+                writeNodeField("name", n.name);
+                writeNodeField("value", n.value);
+                writeNodeField("explicitType", n.explicitType);
+                return null;
     }
 
     @Override
     public Void visit(StmtIf n) {
-        return writeNode("StmtIf")
-                .field("condition", n.condition)
-                .field("thenBlock", n.thenBlock)
-                .field("elseBlock", n.elseBlock)
-                .done();
+        writeNodeStart("StmtIf", 3);
+                writeNodeField("condition", n.condition);
+                writeNodeField("thenBlock", n.thenBlock);
+                writeNodeField("elseBlock", n.elseBlock);
+                return null;
     }
 
     @Override
     public Void visit(ExprIf n) {
-        return writeNode("ExprIf")
-                .field("condition", n.condition)
-                .field("thenExpr", n.thenExpr)
-                .field("elseExpr", n.elseExpr)
-                .done();
+        writeNodeStart("ExprIf", 3);
+                writeNodeField("condition", n.condition);
+                writeNodeField("thenExpr", n.thenExpr);
+                writeNodeField("elseExpr", n.elseExpr);
+                return null;
     }
 
     @Override
     public Void visit(For n) {
-        return writeNode("For")
-                .field("iterator", n.iterator)
-                .field("range", n.range)
-                .field("arraySource", n.arraySource)
-                .field("body", n.body)
-                .done();
+        writeNodeStart("For", 4);
+                writeNodeField("iterator", n.iterator);
+                writeNodeField("range", n.range);
+                writeNodeField("arraySource", n.arraySource);
+                writeNodeField("body", n.body);
+                return null;
     }
 
     @Override
     public Void visit(Skip n) {
-        return writeNode("Skip").done();
+        writeNodeStart("Skip", 0);
+        return null;
     }
 
     @Override
     public Void visit(Break n) {
-        return writeNode("Break").done();
+        writeNodeStart("Break", 0);
+        return null;
     }
 
     @Override
     public Void visit(Range n) {
-        return writeNode("Range")
-                .field("step", n.step)
-                .field("start", n.start)
-                .field("end", n.end)
-                .done();
+        writeNodeStart("Range", 3);
+                writeNodeField("step", n.step);
+                writeNodeField("start", n.start);
+                writeNodeField("end", n.end);
+                return null;
     }
 
     @Override
     public Void visit(Exit n) {
-        return writeNode("Exit").done();
+        writeNodeStart("Exit", 0);
+        return null;
     }
 
     @Override
     public Void visit(Tuple n) {
-        return writeNode("Tuple")
-                .field("elements", n.elements)
-                .done();
+        writeNodeStart("Tuple", 1);
+                writeNodeField("elements", n.elements);
+                return null;
     }
 
     @Override
     public Void visit(ReturnSlotAssignment n) {
-        return writeNode("ReturnSlotAssignment")
-                .field("variableNames", n.variableNames)
-                .field("methodCall", n.methodCall)
-                .field("lambda", n.lambda)
-                .done();
+        writeNodeStart("ReturnSlotAssignment", 3);
+                writeNodeField("variableNames", n.variableNames);
+                writeNodeField("methodCall", n.methodCall);
+                writeNodeField("lambda", n.lambda);
+                return null;
     }
 
     @Override
     public Void visit(SlotDeclaration n) {
-        return writeNode("SlotDeclaration")
-                .field("slotNames", n.slotNames)
-                .done();
+        writeNodeStart("SlotDeclaration", 1);
+                writeNodeField("slotNames", n.slotNames);
+                return null;
     }
 
     @Override
     public Void visit(SlotAssignment n) {
-        return writeNode("SlotAssignment")
-                .field("slotName", n.slotName)
-                .field("value", n.value)
-                .done();
+        writeNodeStart("SlotAssignment", 2);
+                writeNodeField("slotName", n.slotName);
+                writeNodeField("value", n.value);
+                return null;
     }
 
     @Override
     public Void visit(MultipleSlotAssignment n) {
-        return writeNode("MultipleSlotAssignment")
-                .field("assignments", n.assignments)
-                .done();
+        writeNodeStart("MultipleSlotAssignment", 1);
+                writeNodeField("assignments", n.assignments);
+                return null;
     }
 
     @Override
     public Void visit(BinaryOp n) {
-        return writeNode("BinaryOp")
-                .field("left", n.left)
-                .field("op", n.op)
-                .field("right", n.right)
-                .done();
+        writeNodeStart("BinaryOp", 3);
+                writeNodeField("left", n.left);
+                writeNodeField("op", n.op);
+                writeNodeField("right", n.right);
+                return null;
     }
 
     @Override
     public Void visit(Unary n) {
-        return writeNode("Unary")
-                .field("op", n.op)
-                .field("operand", n.operand)
-                .done();
+        writeNodeStart("Unary", 2);
+                writeNodeField("op", n.op);
+                writeNodeField("operand", n.operand);
+                return null;
     }
 
     @Override
     public Void visit(TypeCast n) {
-        return writeNode("TypeCast")
-                .field("targetType", n.targetType)
-                .field("expression", n.expression)
-                .done();
+        writeNodeStart("TypeCast", 2);
+                writeNodeField("targetType", n.targetType);
+                writeNodeField("expression", n.expression);
+                return null;
     }
 
     @Override
     public Void visit(MethodCall n) {
-        return writeNode("MethodCall")
-                .field("name", n.name)
-                .field("qualifiedName", n.qualifiedName)
-                .field("arguments", n.arguments)
-                .field("slotNames", n.slotNames)
-                .field("argNames", n.argNames)
-                .field("isSuperCall", Boolean.valueOf(n.isSuperCall))
-                .field("isGlobal", Boolean.valueOf(n.isGlobal))
-                .field("target", n.target)
-                .field("isSingleSlotCall", Boolean.valueOf(n.isSingleSlotCall))
-                .done();
+        writeNodeStart("MethodCall", 9);
+                writeNodeField("name", n.name);
+                writeNodeField("qualifiedName", n.qualifiedName);
+                writeNodeField("arguments", n.arguments);
+                writeNodeField("slotNames", n.slotNames);
+                writeNodeField("argNames", n.argNames);
+                writeNodeField("isSuperCall", Boolean.valueOf(n.isSuperCall));
+                writeNodeField("isGlobal", Boolean.valueOf(n.isGlobal));
+                writeNodeField("target", n.target);
+                writeNodeField("isSingleSlotCall", Boolean.valueOf(n.isSingleSlotCall));
+                return null;
     }
 
     @Override
     public Void visit(cod.ast.nodes.Array n) {
-        return writeNode("Array")
-                .field("elements", n.elements)
-                .field("elementType", n.elementType)
-                .done();
+        writeNodeStart("Array", 2);
+                writeNodeField("elements", n.elements);
+                writeNodeField("elementType", n.elementType);
+                return null;
     }
 
     @Override
     public Void visit(IndexAccess n) {
-        return writeNode("IndexAccess")
-                .field("array", n.array)
-                .field("index", n.index)
-                .done();
+        writeNodeStart("IndexAccess", 2);
+                writeNodeField("array", n.array);
+                writeNodeField("index", n.index);
+                return null;
     }
 
     @Override
     public Void visit(RangeIndex n) {
-        return writeNode("RangeIndex")
-                .field("step", n.step)
-                .field("start", n.start)
-                .field("end", n.end)
-                .done();
+        writeNodeStart("RangeIndex", 3);
+                writeNodeField("step", n.step);
+                writeNodeField("start", n.start);
+                writeNodeField("end", n.end);
+                return null;
     }
 
     @Override
     public Void visit(MultiRangeIndex n) {
-        return writeNode("MultiRangeIndex")
-                .field("ranges", n.ranges)
-                .done();
+        writeNodeStart("MultiRangeIndex", 1);
+                writeNodeField("ranges", n.ranges);
+                return null;
     }
 
     @Override
     public Void visit(EqualityChain n) {
-        return writeNode("EqualityChain")
-                .field("left", n.left)
-                .field("operator", n.operator)
-                .field("isAllChain", Boolean.valueOf(n.isAllChain))
-                .field("chainArguments", n.chainArguments)
-                .done();
+        writeNodeStart("EqualityChain", 4);
+                writeNodeField("left", n.left);
+                writeNodeField("operator", n.operator);
+                writeNodeField("isAllChain", Boolean.valueOf(n.isAllChain));
+                writeNodeField("chainArguments", n.chainArguments);
+                return null;
     }
 
     @Override
     public Void visit(BooleanChain n) {
-        return writeNode("BooleanChain")
-                .field("isAll", Boolean.valueOf(n.isAll))
-                .field("expressions", n.expressions)
-                .done();
+        writeNodeStart("BooleanChain", 2);
+                writeNodeField("isAll", Boolean.valueOf(n.isAll));
+                writeNodeField("expressions", n.expressions);
+                return null;
     }
 
     @Override
     public Void visit(Slot n) {
-        return writeNode("Slot")
-                .field("name", n.name)
-                .field("type", n.type)
-                .done();
+        writeNodeStart("Slot", 2);
+                writeNodeField("name", n.name);
+                writeNodeField("type", n.type);
+                return null;
     }
 
     @Override
     public Void visit(Lambda n) {
-        return writeNode("Lambda")
-                .field("parameters", n.parameters)
-                .field("returnSlots", n.returnSlots)
-                .field("body", n.body)
-                .field("expressionBody", n.expressionBody)
-                .field("inferParameters", Boolean.valueOf(n.inferParameters))
-                .done();
+        writeNodeStart("Lambda", 5);
+                writeNodeField("parameters", n.parameters);
+                writeNodeField("returnSlots", n.returnSlots);
+                writeNodeField("body", n.body);
+                writeNodeField("expressionBody", n.expressionBody);
+                writeNodeField("inferParameters", Boolean.valueOf(n.inferParameters));
+                return null;
     }
 
     @Override
     public Void visit(Identifier n) {
-        return writeNode("Identifier")
-                .field("name", n.name)
-                .done();
+        writeNodeStart("Identifier", 1);
+                writeNodeField("name", n.name);
+                return null;
     }
 
     @Override
     public Void visit(IntLiteral n) {
-        return writeNode("IntLiteral")
-                .field("value", n.value)
-                .done();
+        writeNodeStart("IntLiteral", 1);
+                writeNodeField("value", n.value);
+                return null;
     }
 
     @Override
     public Void visit(FloatLiteral n) {
-        return writeNode("FloatLiteral")
-                .field("value", n.value)
-                .done();
+        writeNodeStart("FloatLiteral", 1);
+                writeNodeField("value", n.value);
+                return null;
     }
 
     @Override
     public Void visit(TextLiteral n) {
-        return writeNode("TextLiteral")
-                .field("value", n.value)
-                .field("isInterpolated", Boolean.valueOf(n.isInterpolated))
-                .done();
+        writeNodeStart("TextLiteral", 2);
+                writeNodeField("value", n.value);
+                writeNodeField("isInterpolated", Boolean.valueOf(n.isInterpolated));
+                return null;
     }
 
     @Override
     public Void visit(BoolLiteral n) {
-        return writeNode("BoolLiteral")
-                .field("value", Boolean.valueOf(n.value))
-                .done();
+        writeNodeStart("BoolLiteral", 1);
+                writeNodeField("value", Boolean.valueOf(n.value));
+                return null;
     }
 
     @Override
     public Void visit(NoneLiteral n) {
-        return writeNode("NoneLiteral").done();
+        writeNodeStart("NoneLiteral", 0);
+        return null;
     }
 
     @Override
     public Void visit(This n) {
-        return writeNode("This")
-                .field("className", n.className)
-                .done();
+        writeNodeStart("This", 1);
+                writeNodeField("className", n.className);
+                return null;
     }
 
     @Override
     public Void visit(Super n) {
-        return writeNode("Super").done();
+        writeNodeStart("Super", 0);
+        return null;
     }
 
     @Override
     public Void visit(ChainedComparison n) {
-        return writeNode("ChainedComparison")
-                .field("expressions", n.expressions)
-                .field("operators", n.operators)
-                .done();
+        writeNodeStart("ChainedComparison", 2);
+                writeNodeField("expressions", n.expressions);
+                writeNodeField("operators", n.operators);
+                return null;
     }
 
     @Override
     public Void visit(PropertyAccess n) {
-        return writeNode("PropertyAccess")
-                .field("left", n.left)
-                .field("right", n.right)
-                .done();
+        writeNodeStart("PropertyAccess", 2);
+                writeNodeField("left", n.left);
+                writeNodeField("right", n.right);
+                return null;
     }
 
     @Override
@@ -490,9 +482,9 @@ final class SerializationVisitor implements VisitorImpl<Void> {
     public Void visit(Expr n) {
         if (n instanceof ArgumentList) {
             ArgumentList args = (ArgumentList) n;
-            return writeNode("ArgumentList")
-                    .field("arguments", args.arguments)
-                    .done();
+            writeNodeStart("ArgumentList", 1);
+                writeNodeField("arguments", args.arguments);
+                return null;
         }
         throw new SerializationException(new IOException("Unsupported IR expr node type: " + n.getClass().getName()));
     }
