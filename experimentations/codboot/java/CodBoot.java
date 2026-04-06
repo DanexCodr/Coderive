@@ -633,7 +633,16 @@ public final class CodBoot {
         if (!matcher.find()) {
             throw new RuntimeException(CORE_MISSING_SEMANTICS_KEY_PREFIX + arrayKey);
         }
-        return matcher.group(1).contains("\"" + value + "\"");
+        String body = matcher.group(1);
+        Pattern itemPattern = Pattern.compile("\"((?:\\\\.|[^\\\\\"])*)\"");
+        Matcher itemMatcher = itemPattern.matcher(body);
+        while (itemMatcher.find()) {
+            String item = unescapeJsonString(itemMatcher.group(1));
+            if (value.equals(item)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static CoreSemantics parseCoreSemantics(String coreSource) {

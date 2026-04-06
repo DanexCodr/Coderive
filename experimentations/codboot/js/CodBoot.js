@@ -5,7 +5,6 @@ const childProcess = require('child_process');
 // This constant is needed before core semantics are parsed; fallback prefix must match core message format.
 const CORE_PARSE_EVAL_ERROR_PREFIX = '[core] parse/eval error: ';
 const CORE_MISSING_SEMANTICS_JSON_MESSAGE = '[core] missing semantics_json block';
-const CORE_UNTERMINATED_SEMANTICS_ESCAPE_MESSAGE = '[core] unterminated escape in semantics_json';
 
 function containsUnsafeShellChar(value) {
   for (let i = 0; i < value.length; i += 1) {
@@ -444,10 +443,7 @@ function unescapeJsonString(value) {
   let out = '';
   for (let i = 0; i < value.length; i += 1) {
     const ch = value.charAt(i);
-    if (ch === '\\') {
-      if (i + 1 >= value.length) {
-        throw new Error(CORE_UNTERMINATED_SEMANTICS_ESCAPE_MESSAGE);
-      }
+    if (ch === '\\' && i + 1 < value.length) {
       const esc = value.charAt(i + 1);
       if (esc === 'n') {
         out += '\n';
