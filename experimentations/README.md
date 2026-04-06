@@ -12,7 +12,7 @@ This directory contains isolated, non-production experiments for Coderive.
 
 - Current status: **~80% of final self-hosting goal**
 - Why not 100% yet:
-  - `core.ce` now owns shared semantics definitions (forms, host command mapping, diagnostics), but execution is still bootstrapped by host-side interpreters rather than a pure core-executed evaluator.
+  - `core.ce` now owns shared semantics definitions (forms, host command mapping, diagnostics) and is executable by the main Coderive runtime, but CodBoot execution is still bootstrapped by host-side interpreters rather than a pure core-executed evaluator.
   - Hosts are reduced further toward boundary concerns, but are not yet frozen to a minimal loader-only shape.
   - Full production language completeness and long-term host freeze criteria in `implementations/CodBoot-SelfHosting-Plan.md` are not yet fully satisfied.
 
@@ -35,6 +35,7 @@ What this confirms today:
 - full repository `.cod` differential sweep
 - Java repeat-run determinism checks
 - bootstrap/self-interpretation checks under strict self-host-only execution
+- `core.ce` parses and runs in the primary Coderive runtime (`CommandRunner`)
 
 ## What remains to reach 100% self-hosting
 
