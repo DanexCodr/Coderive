@@ -279,4 +279,10 @@ public class Token {
     public void reset() {
         cachedText = null;
     }
+
+    public void releaseSource() {
+        if (cachedText == null && length > 0) {
+            cachedText = getText();
+        }
+    }
 }

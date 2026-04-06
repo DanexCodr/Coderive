@@ -20,6 +20,12 @@ import java.util.regex.Pattern;
 public class ImportResolver {
     private static final Pattern SAFE_UNIT_NAME_PATTERN =
         Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*");
+    private static final int IMPORT_NAME_CACHE_LIMIT = 4096;
+    private static final int TYPE_CACHE_LIMIT = 4096;
+    private static final int INDEX_CACHE_LIMIT = 1024;
+    private static final int LOADED_TYPES_CACHE_LIMIT = 4096;
+    private static final int FILE_CACHE_LIMIT = 2048;
+    private static final int FILE_METADATA_CACHE_LIMIT = 4096;
 
     private Map<String, Program> importedUnits = new HashMap<String, Program>();
     private Map<String, Program> loadedPrograms = new HashMap<String, Program>();
@@ -36,25 +42,25 @@ public class ImportResolver {
     private Map<String, String> policyToUnitMap = new HashMap<String, String>();
     
     // Import name cache for O(1) lookups
-    private Map<String, String> importNameCache = new HashMap<String, String>();
+    private Map<String, String> importNameCache = createBoundedMap(IMPORT_NAME_CACHE_LIMIT);
     
     // Type cache for O(1) type lookups
-    private Map<String, Type> typeCache = new HashMap<String, Type>();
+    private Map<String, Type> typeCache = createBoundedMap(TYPE_CACHE_LIMIT);
     
     // Index cache for O(1) class lookups
-    private Map<String, Index> indexCache = new HashMap<String, Index>();
+    private Map<String, Index> indexCache = createBoundedMap(INDEX_CACHE_LIMIT);
     
     // IR manager for .codb files
     private IRManager irManager;
     
     // Cache for loaded TypeNodes (bytecode or parsed)
-    private Map<String, Type> loadedTypes = new HashMap<String, Type>();
+    private Map<String, Type> loadedTypes = createBoundedMap(LOADED_TYPES_CACHE_LIMIT);
     
     // Filesystem result cache
-    private Map<String, CachedFileResult> fileCache = new HashMap<String, CachedFileResult>();
+    private Map<String, CachedFileResult> fileCache = createBoundedMap(FILE_CACHE_LIMIT);
     
     // File metadata cache (exists, isDirectory, lastModified)
-    private Map<String, FileMetadata> fileMetadataCache = new HashMap<String, FileMetadata>();
+    private Map<String, FileMetadata> fileMetadataCache = createBoundedMap(FILE_METADATA_CACHE_LIMIT);
     
     // Cache hit/miss counters for debugging
     private int fileCacheHits = 0;
@@ -103,6 +109,18 @@ public class ImportResolver {
                    file.isDirectory() == isDirectory && 
                    file.lastModified() == lastModified;
         }
+    }
+
+    private static <K, V> Map<K, V> createBoundedMap(final int maxSize) {
+        Map<K, V> lru = new LinkedHashMap<K, V>(maxSize + 1, 0.75f, true) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+                return size() > maxSize;
+            }
+        };
+        return Collections.synchronizedMap(lru);
     }
     
     public ImportResolver() {
