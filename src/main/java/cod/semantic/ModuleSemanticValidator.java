@@ -29,7 +29,7 @@ public final class ModuleSemanticValidator {
 
         boolean hasUnit = program.unit.name != null && !program.unit.name.equals(DEFAULT_UNIT_NAME);
 
-        List<Stmt> actualStatements = new ArrayList<Stmt>();
+        List<Stmt> actualStatements = new ArrayList<>();
         for (Stmt stmt : topLevelStatements) {
             if (stmt instanceof Block) {
                 Block block = (Block) stmt;
@@ -105,7 +105,7 @@ public final class ModuleSemanticValidator {
             }
         }
 
-        if (!nil(program.unit.mainClassName) && interpreter != null) {
+        if (interpreter != null && !nil(program.unit.mainClassName)) {
             try {
                 String packageName = extractPackageName(program.unit.name);
                 interpreter.getImportResolver().registerBroadcast(
@@ -277,7 +277,7 @@ public final class ModuleSemanticValidator {
         }
 
         String[] parts = relative.split("/");
-        List<String> unitParts = new ArrayList<String>();
+        List<String> unitParts = new ArrayList<>();
 
         for (int i = 0; i < parts.length; i++) {
             String part = parts[i];
@@ -352,7 +352,7 @@ public final class ModuleSemanticValidator {
     }
 
     private static void validateImplementedPolicies(List<Type> types, List<Policy> policies, Token errorToken) {
-        Map<String, Policy> policyMap = new HashMap<String, Policy>();
+        Map<String, Policy> policyMap = new HashMap<>();
         for (Policy policy : policies) {
             policyMap.put(policy.name, policy);
         }
