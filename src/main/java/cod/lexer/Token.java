@@ -279,4 +279,15 @@ public class Token {
     public void reset() {
         cachedText = null;
     }
+
+    /**
+     * Eagerly materializes and caches token text so callers can release external source buffers.
+     * Calling this multiple times is safe and idempotent.
+     * This does not mutate token position metadata or token type semantics.
+     */
+    public void releaseSource() {
+        if (cachedText == null && length > 0) {
+            cachedText = getText();
+        }
+    }
 }

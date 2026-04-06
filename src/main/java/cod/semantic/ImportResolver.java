@@ -12,8 +12,22 @@ import cod.ir.IRManager;
 
 import java.util.*;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 public class ImportResolver {
+    private static final Pattern SAFE_UNIT_NAME_PATTERN =
+        Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*");
+    private static final int IMPORT_NAME_CACHE_LIMIT = 4096;
+    private static final int TYPE_CACHE_LIMIT = 4096;
+    private static final int INDEX_CACHE_LIMIT = 1024;
+    private static final int LOADED_TYPES_CACHE_LIMIT = 4096;
+    private static final int FILE_CACHE_LIMIT = 2048;
+    private static final int FILE_METADATA_CACHE_LIMIT = 4096;
+    private final Object policyLookupLock = new Object();
+
     private Map<String, Program> importedUnits = new HashMap<String, Program>();
     private Map<String, Program> loadedPrograms = new HashMap<String, Program>();
     private Map<String, Program> preloadedImports = new HashMap<String, Program>();
@@ -25,29 +39,30 @@ public class ImportResolver {
     private List<String> importPaths = new ArrayList<String>();
     private Map<String, String> packageBroadcasts = new HashMap<String, String>();
     
-    private Map<String, Policy> importedPolicies = new HashMap<String, Policy>();
+    // Concurrent map keeps lock-free fast-path reads in findPolicy/get/register paths.
+    private Map<String, Policy> importedPolicies = new ConcurrentHashMap<String, Policy>();
     private Map<String, String> policyToUnitMap = new HashMap<String, String>();
     
     // Import name cache for O(1) lookups
-    private Map<String, String> importNameCache = new HashMap<String, String>();
+    private Map<String, String> importNameCache = createBoundedMap(IMPORT_NAME_CACHE_LIMIT);
     
     // Type cache for O(1) type lookups
-    private Map<String, Type> typeCache = new HashMap<String, Type>();
+    private Map<String, Type> typeCache = createBoundedMap(TYPE_CACHE_LIMIT);
     
     // Index cache for O(1) class lookups
-    private Map<String, Index> indexCache = new HashMap<String, Index>();
+    private Map<String, Index> indexCache = createBoundedMap(INDEX_CACHE_LIMIT);
     
     // IR manager for .codb files
     private IRManager irManager;
     
     // Cache for loaded TypeNodes (bytecode or parsed)
-    private Map<String, Type> loadedTypes = new HashMap<String, Type>();
+    private Map<String, Type> loadedTypes = createBoundedMap(LOADED_TYPES_CACHE_LIMIT);
     
     // Filesystem result cache
-    private Map<String, CachedFileResult> fileCache = new HashMap<String, CachedFileResult>();
+    private Map<String, CachedFileResult> fileCache = createBoundedMap(FILE_CACHE_LIMIT);
     
     // File metadata cache (exists, isDirectory, lastModified)
-    private Map<String, FileMetadata> fileMetadataCache = new HashMap<String, FileMetadata>();
+    private Map<String, FileMetadata> fileMetadataCache = createBoundedMap(FILE_METADATA_CACHE_LIMIT);
     
     // Cache hit/miss counters for debugging
     private int fileCacheHits = 0;
@@ -96,6 +111,19 @@ public class ImportResolver {
                    file.isDirectory() == isDirectory && 
                    file.lastModified() == lastModified;
         }
+    }
+
+    private static <K, V> Map<K, V> createBoundedMap(final int maxSize) {
+        Map<K, V> lru = new LinkedHashMap<K, V>(maxSize + 1, 0.75f, true) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+                // removeEldestEntry is evaluated after insertion, so '>' enforces maxSize.
+                return size() > maxSize;
+            }
+        };
+        return Collections.synchronizedMap(lru);
     }
     
     public ImportResolver() {
@@ -197,10 +225,20 @@ public class ImportResolver {
      * Get absolute path for a unit
      */
     private String getUnitPath(String unitName) {
+        validateUnitName(unitName);
         if (srcMainRoot != null) {
             return srcMainRoot + "/" + unitName;
         }
         return "src/main/" + unitName;
+    }
+
+    private void validateUnitName(String unitName) {
+        if (unitName == null || unitName.isEmpty()) {
+            throw new IllegalArgumentException("Unit name cannot be null/empty");
+        }
+        if (!SAFE_UNIT_NAME_PATTERN.matcher(unitName).matches()) {
+            throw new ProgramError("Invalid import unit name: " + unitName);
+        }
     }
     
     /**
@@ -377,58 +415,67 @@ public class ImportResolver {
         
         DebugSystem.debug("POLICY", "findPolicy called for: " + qualifiedPolicyName);
         
-        if (importedPolicies.containsKey(qualifiedPolicyName)) {
+        Policy cached = importedPolicies.get(qualifiedPolicyName);
+        if (cached != null) {
             DebugSystem.debug("POLICY", "Policy already loaded: " + qualifiedPolicyName);
-            return importedPolicies.get(qualifiedPolicyName);
+            return cached;
         }
-        
-        int lastDot = qualifiedPolicyName.lastIndexOf('.');
-        String policyName;
-        String importName;
-        
-        if (lastDot == -1) {
-            policyName = qualifiedPolicyName;
-            importName = qualifiedPolicyName;
-        } else {
-            policyName = qualifiedPolicyName.substring(lastDot + 1);
-            importName = qualifiedPolicyName.substring(0, lastDot);
-        }
-        
-        DebugSystem.debug("POLICY", "Import part: '" + importName + "', policy: '" + policyName + "'");
-        
-        String actualImportName = findMatchingImportCached(importName);
-        
-        if (!loadedPrograms.containsKey(actualImportName)) {
-            try {
-                DebugSystem.debug("POLICY", "Import not loaded, attempting to load: " + actualImportName);
-                Program program = resolveImportAsProgram(actualImportName);
-                if (program == null) {
-                    throw new ProgramError("Failed to load import: " + actualImportName);
-                }
-            } catch (ProgramError e) {
-                throw e;
-            } catch (Exception e) {
-                throw new InternalError("Unexpected error loading import: " + actualImportName, e);
+
+        synchronized (policyLookupLock) {
+            cached = importedPolicies.get(qualifiedPolicyName);
+            if (cached != null) {
+                DebugSystem.debug("POLICY", "Policy already loaded (post-lock): " + qualifiedPolicyName);
+                return cached;
             }
-        }
-        
-        Program program = loadedPrograms.get(actualImportName);
-        if (program != null && program.unit != null && program.unit.policies != null) {
-            for (Policy policy : program.unit.policies) {
-                if (policy.name.equals(policyName)) {
-                    DebugSystem.debug("POLICY", "Found policy: " + policy.name);
-                    importedPolicies.put(qualifiedPolicyName, policy);
-                    policyToUnitMap.put(policyName, program.unit.name);
-                    return policy;
+
+            int lastDot = qualifiedPolicyName.lastIndexOf('.');
+            String policyName;
+            String importName;
+            
+            if (lastDot == -1) {
+                policyName = qualifiedPolicyName;
+                importName = qualifiedPolicyName;
+            } else {
+                policyName = qualifiedPolicyName.substring(lastDot + 1);
+                importName = qualifiedPolicyName.substring(0, lastDot);
+            }
+            
+            DebugSystem.debug("POLICY", "Import part: '" + importName + "', policy: '" + policyName + "'");
+            
+            String actualImportName = findMatchingImportCached(importName);
+            
+            if (!loadedPrograms.containsKey(actualImportName)) {
+                try {
+                    DebugSystem.debug("POLICY", "Import not loaded, attempting to load: " + actualImportName);
+                    Program program = resolveImportAsProgram(actualImportName);
+                    if (program == null) {
+                        throw new ProgramError("Failed to load import: " + actualImportName);
+                    }
+                } catch (ProgramError e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new InternalError("Unexpected error loading import: " + actualImportName, e);
                 }
             }
+
+            Program program = loadedPrograms.get(actualImportName);
+            if (program != null && program.unit != null && program.unit.policies != null) {
+                for (Policy policy : program.unit.policies) {
+                    if (policy.name.equals(policyName)) {
+                        DebugSystem.debug("POLICY", "Found policy: " + policy.name);
+                        importedPolicies.put(qualifiedPolicyName, policy);
+                        policyToUnitMap.put(policyName, program.unit.name);
+                        return policy;
+                    }
+                }
+            }
+            
+            throw new ProgramError(
+                "Policy not found: '" + qualifiedPolicyName + "'\n" +
+                "Available policies in import '" + actualImportName + "': " + 
+                getPolicyNames(program)
+            );
         }
-        
-        throw new ProgramError(
-            "Policy not found: '" + qualifiedPolicyName + "'\n" +
-            "Available policies in import '" + actualImportName + "': " + 
-            getPolicyNames(program)
-        );
     }
     
     private String getPolicyNames(Program program) {
@@ -678,6 +725,7 @@ public class ImportResolver {
      * Fallback: resolve import by scanning directory (slow path)
      */
     private Type resolveImportByScan(String importName, String unitName, String className) throws Exception {
+        validateUnitName(unitName);
         String dirPath = unitName.replace('.', '/');
         DebugSystem.debug("IMPORTS", "Scanning for: " + dirPath);
         
@@ -819,15 +867,14 @@ public class ImportResolver {
         
         DebugSystem.debug("IMPORTS", "Loading import from file: " + filePath);
         
-        BufferedReader reader = null;
         try {
             StringBuilder content = new StringBuilder();
-            reader = new BufferedReader(new FileReader(file));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                content.append(line).append("\n");
+            try (BufferedReader reader = Files.newBufferedReader(file.toPath(), StandardCharsets.UTF_8)) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    content.append(line).append("\n");
+                }
             }
-            reader.close();
             
             DebugSystem.debug("IMPORTS", "File content length: " + content.length() + " characters");
             
@@ -850,14 +897,6 @@ public class ImportResolver {
             throw e;
         } catch (Exception e) {
             throw new InternalError("Failed to parse import file: " + filePath, e);
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    DebugSystem.debug("IMPORTS", "Failed to close reader: " + e.getMessage());
-                }
-            }
         }
     }
 
@@ -1366,6 +1405,7 @@ public class ImportResolver {
     }
 
     private Program loadStaticModuleProgram(String unitName) {
+        validateUnitName(unitName);
         String dirPath = unitName.replace('.', '/');
         List<String> pathsToTry = new ArrayList<String>();
         
