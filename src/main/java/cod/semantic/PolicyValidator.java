@@ -485,6 +485,7 @@ public final class PolicyValidator {
 
       if (!nil(requiredSignature.returnSlots) && !requiredSignature.returnSlots.isEmpty()) {
         if (nil(method.returnSlots) || method.returnSlots.isEmpty()) {
+          // Intentionally allowed: implementing method may omit explicit return slot contract.
         } else if (method.returnSlots.size() != requiredSignature.returnSlots.size()) {
           String errorSource =
               isRequiredByAncestor
