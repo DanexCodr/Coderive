@@ -330,11 +330,7 @@ public class DeclarationParser extends BaseParser {
     Token nameToken = now();
     String policyName = expect(ID).getText();
 
-    if (policyName.length() > 0 && !Character.isUpperCase(policyName.charAt(0))) {
-      throw error(
-          "Policy name '" + policyName + "' must start with an uppercase letter",
-          nameToken);
-    }
+    NamingValidator.validatePolicyName(policyName, nameToken);
 
     List<String> composedPolicies = new ArrayList<String>();
     if (is(WITH)) {
@@ -386,11 +382,7 @@ public class DeclarationParser extends BaseParser {
       throw error("Expected method name in policy declaration");
     }
 
-    if (methodName.length() > 0 && !Character.isLowerCase(methodName.charAt(0))) {
-      throw error(
-          "Method name '" + methodName + "' must start with a lowercase letter",
-          methodNameToken);
-    }
+    NamingValidator.validatePolicyMethodName(methodName, methodNameToken);
 
     PolicyMethod method = ASTFactory.createPolicyMethod(methodName, methodNameToken);
     if (!is(LPAREN)) {
@@ -645,21 +637,11 @@ public class DeclarationParser extends BaseParser {
     Token fieldNameToken = now();
     String fieldName = expect(ID).getText();
 
-    if (fieldName.equals("_")) {
-      throw error(
-          "Field name cannot be '_'. Underscore is reserved for discard/placeholder.",
-          startToken);
-    }
-
     expect(COLON);
 
     String fieldType = parseTypeReference();
 
-    if (NamingValidator.isAllCaps(fieldName)) {
-      NamingValidator.validateConstantName(fieldName, startToken);
-    } else {
-      NamingValidator.validateVariableName(fieldName, startToken);
-    }
+    NamingValidator.validateFieldName(fieldName, startToken);
 
     Field field = ASTFactory.createField(fieldName, fieldType, fieldNameToken);
     if (visibility != null) {
