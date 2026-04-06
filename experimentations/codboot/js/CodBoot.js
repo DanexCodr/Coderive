@@ -3,9 +3,9 @@
 const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process');
-// This constant is needed before core semantics are parsed; keep in sync with semantics_json messages.parseEvalErrorPrefix in core.ce.
+// This constant is needed before core semantics are parsed; keep in sync with semantics_json messages.parseEvalErrorPrefix in core.cod.
 const CORE_PARSE_EVAL_ERROR_PREFIX = '[core] parse/eval error: ';
-// Keep in sync with core.ce semantics_json missing-semantics error contract.
+// Keep in sync with core.cod semantics_json missing-semantics error contract.
 const CORE_MISSING_SEMANTICS_JSON_MESSAGE = '[core] missing semantics_json block';
 
 function containsUnsafeShellChar(value) {
@@ -309,6 +309,20 @@ function runCore(coreSource, corePath, programPath, host, semantics) {
   }
 }
 
+function runBootstrapSelf(corePath, semantics) {
+  try {
+    const noStdin = '';
+    const runnerResult = runViaCommandRunner(corePath, corePath, noStdin);
+    if (runnerResult.exitCode !== 0) {
+      const err = runnerResult.stderr.length > 0 ? runnerResult.stderr : 'CommandRunner failed';
+      return { exitCode: 2, lines: [semantics.messages.parseEvalErrorPrefix + err] };
+    }
+    return { exitCode: 0, lines: [semantics.messages.bootstrapSelfCheckPassed] };
+  } catch (err) {
+    return { exitCode: 2, lines: [semantics.messages.parseEvalErrorPrefix + err.message] };
+  }
+}
+
 function isParseEvalError(result, semantics) {
   return result.exitCode !== 0 &&
     result.lines.length > 0 &&
@@ -317,7 +331,7 @@ function isParseEvalError(result, semantics) {
 
 function main(argv, host) {
   if (argv.length < 4) {
-    host.print('Usage: node CodBoot.js <core.ce-path> <program.cod-path> [--bootstrap-self]');
+    host.print('Usage: node CodBoot.js <core.cod-path> <program.cod-path> [--bootstrap-self]');
     return 64;
   }
   const corePath = argv[2];
@@ -334,8 +348,11 @@ function main(argv, host) {
   }
 
   if (bootstrapSelf) {
-    host.print(semantics.messages.bootstrapSelfCheckPassed);
-    return 0;
+    const bootstrapResult = runBootstrapSelf(corePath, semantics);
+    for (let i = 0; i < bootstrapResult.lines.length; i += 1) {
+      host.print(bootstrapResult.lines[i]);
+    }
+    return bootstrapResult.exitCode;
   }
 
   let result = runCore(coreSource, corePath, programPath, host, semantics);

@@ -42,4 +42,4 @@ The staged dependency model from `implementations/CodBoot-SelfHosting-Plan.md` i
 
 - Keeps portability and parity predictable.
 - Makes host contracts small and easier to freeze.
-- Pushes language evolution pressure toward shared core representation (`core.ce`) instead of host-specific logic.
+- Pushes language evolution pressure toward shared core representation (`core.cod`) instead of host-specific logic.

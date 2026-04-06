@@ -16,10 +16,10 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public final class CodBoot {
-    // This constant is needed before core semantics are parsed; keep in sync with semantics_json messages.parseEvalErrorPrefix in core.ce.
+    // This constant is needed before core semantics are parsed; keep in sync with semantics_json messages.parseEvalErrorPrefix in core.cod.
     private static final String CORE_PARSE_EVAL_ERROR_PREFIX = "[core] parse/eval error: ";
     private static final String CORE_MISSING_SEMANTICS_KEY_PREFIX = "[core] missing semantics key: ";
-    // Keep in sync with core.ce semantics_json missing-semantics error contract.
+    // Keep in sync with core.cod semantics_json missing-semantics error contract.
     private static final String CORE_MISSING_SEMANTICS_JSON_MESSAGE = "[core] missing semantics_json block";
     // Matches JSON string literals and captures escaped content between quotes.
     // Unlike JSON_NUMBER_VALUE_REGEX (a string template expanded at runtime per key),
@@ -507,7 +507,7 @@ public final class CodBoot {
 
         try {
             String hostInput = host.consumeRemainingInput();
-            RunnerResult runner = runViaCommandRunner(programPath, hostInput, corePath);
+            RunnerResult runner = runProgramViaCommandRunner(corePath, programPath, hostInput);
             if (runner.exitCode != 0) {
                 List<String> parseError = new ArrayList<String>();
                 parseError.add(semantics.parseEvalErrorPrefix + (runner.stderr.length() > 0 ? runner.stderr : "CommandRunner failed"));
@@ -521,6 +521,29 @@ public final class CodBoot {
                 lines.add(semantics.noOutStatementsDetected);
             }
             return new RunResult(0, lines);
+        } catch (RuntimeException e) {
+            List<String> parseError = new ArrayList<String>();
+            parseError.add(semantics.parseEvalErrorPrefix + e.getMessage());
+            return new RunResult(2, parseError);
+        }
+    }
+
+    private static RunResult runBootstrapSelf(String corePath, CoreSemantics semantics) {
+        try {
+            String noStdin = "";
+            RunnerResult runner = runProgramViaCommandRunner(corePath, corePath, noStdin);
+            if (runner.exitCode != 0) {
+                List<String> parseError = new ArrayList<String>();
+                parseError.add(semantics.parseEvalErrorPrefix + (runner.stderr.length() > 0 ? runner.stderr : "CommandRunner failed"));
+                return new RunResult(2, parseError);
+            }
+            List<String> lines = new ArrayList<String>();
+            lines.add(semantics.bootstrapSelfCheckPassed);
+            return new RunResult(0, lines);
+        } catch (IOException e) {
+            List<String> parseError = new ArrayList<String>();
+            parseError.add(semantics.parseEvalErrorPrefix + e.getMessage());
+            return new RunResult(2, parseError);
         } catch (RuntimeException e) {
             List<String> parseError = new ArrayList<String>();
             parseError.add(semantics.parseEvalErrorPrefix + e.getMessage());
@@ -617,6 +640,11 @@ public final class CodBoot {
         return new RunnerResult(code, lines, stderr);
     }
 
+    private static RunnerResult runProgramViaCommandRunner(String corePath, String programPath, String hostInput) throws IOException {
+        // Keep call sites in (corePath, programPath, hostInput) order and centralize the legacy bridge signature mapping here.
+        return runViaCommandRunner(programPath, hostInput, corePath);
+    }
+
     private static String readStream(java.io.InputStream in) throws IOException {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         byte[] data = new byte[4096];
@@ -658,7 +686,7 @@ public final class CodBoot {
 
     private static int mainImpl(String[] args, Host host) throws IOException {
         if (args.length < 2) {
-            host.print("Usage: java CodBoot <core.ce-path> <program.cod-path> [--bootstrap-self]");
+            host.print("Usage: java CodBoot <core.cod-path> <program.cod-path> [--bootstrap-self]");
             return 64;
         }
 
@@ -684,8 +712,11 @@ public final class CodBoot {
             return 2;
         }
         if (bootstrapSelf) {
-            host.print(semantics.bootstrapSelfCheckPassed);
-            return 0;
+            RunResult bootstrapResult = runBootstrapSelf(corePath, semantics);
+            for (int i = 0; i < bootstrapResult.lines.size(); i++) {
+                host.print(bootstrapResult.lines.get(i));
+            }
+            return bootstrapResult.exitCode;
         }
 
         RunResult result = runCore(coreSource, corePath, programPath, host, semantics);

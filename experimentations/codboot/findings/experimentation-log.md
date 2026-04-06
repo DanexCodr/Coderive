@@ -7,7 +7,7 @@ Create a full CodBoot experiment aligned with `implementations/` guidance while 
 ## What was built
 
 - Shared experimental core:
-  - `experimentations/codboot/core/core.ce`
+  - `experimentations/codboot/core/core.cod`
 - Minimal hosts:
   - `experimentations/codboot/js/CodBoot.js`
   - `experimentations/codboot/java/CodBoot.java`
@@ -37,7 +37,7 @@ Implemented Level 1-3 host dependency shape:
 
 ## Experiment behavior
 
-- Host loads `core.ce` from disk.
+- Host loads `core.cod` from disk.
 - Host validates core signature (`CodBootCore::v0` marker).
 - Host reads `.cod` program file.
 - Host decodes simple `out("...")` statements for parity demonstration.
@@ -49,12 +49,12 @@ Implemented Level 1-3 host dependency shape:
 ## Notes and limitations
 
 - This is an isolated experimentation prototype, not yet wired to production runtime paths.
-- `core.ce` currently defines protocol/contracts and experimental entrypoint shape; it is not yet a complete parser/evaluator implementation.
+- `core.cod` currently defines protocol/contracts and experimental entrypoint shape; it is not yet a complete parser/evaluator implementation.
 - JS and Java hosts now run a built-in self-contained lexer/parser/evaluator path with no repository runtime Java/JS dependency.
 
 ## Next experiments suggested
 
-1. Move protocol parsing/dispatch into executable `core.ce` semantics.
-2. Expand parity corpus to include additional protocol/error-path diagnostics once `core.ce` owns more semantics.
+1. Move protocol parsing/dispatch into executable `core.cod` semantics.
+2. Expand parity corpus to include additional protocol/error-path diagnostics once `core.cod` owns more semantics.
 3. Keep differential runner as required gate for every parity corpus change.
 4. Replace simple `out("...")` extraction with core-driven parse/eval once core execution path is available.

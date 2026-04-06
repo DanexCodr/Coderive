@@ -1,4 +1,4 @@
-// core.ce (experimental)
+// core.cod (experimental)
 // Shared core semantics source consumed by CodBoot.js and CodBoot.java.
 //
 // This file is executable in the Coderive runtime while still exposing the
@@ -19,7 +19,7 @@ out("[core] entrypoint ready: " + entrypoint)
 //     "allowParentheses": true
 //   },
 //   "messages": {
-//     "invalidCoreFormat": "[core] invalid core.ce format",
+//     "invalidCoreFormat": "[core] invalid core.cod format",
 //     "runningPrefix": "[core] running: ",
 //     "experimentalEvaluatorActive": "[core] experimental evaluator active",
 //     "bootstrapSelfCheckPassed": "[core] bootstrap self-check passed",
