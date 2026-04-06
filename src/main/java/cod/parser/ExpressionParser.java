@@ -26,6 +26,7 @@ public class ExpressionParser extends BaseParser {
     private static final int PREC_UNARY = 90;
     private static final int PREC_CALL = 100;
     private static final int PREC_IS = 40;
+    // Infix-only reduction tiers. Unary and call/member/indexing are parsed in prefix/primary phases.
     private static final int[] REDUCTION_PRECEDENCE_ORDER = {
         PREC_FACTOR, PREC_TERM, PREC_COMPARISON, PREC_EQUALITY, PREC_IS
     };
@@ -1325,9 +1326,7 @@ public class ExpressionParser extends BaseParser {
 
     private boolean isReducibleInfixOperator(Token token) {
         if (token == null) return false;
-        if (is(token, IS)) return true;
-        if (!is(token, SYMBOL)) return false;
-        return is(token, PLUS, MINUS, MUL, DIV, MOD, EQ, NEQ, GT, LT, GTE, LTE);
+        return is(token, IS, PLUS, MINUS, MUL, DIV, MOD, EQ, NEQ, GT, LT, GTE, LTE);
     }
 
     private Expr parsePrefix() {
