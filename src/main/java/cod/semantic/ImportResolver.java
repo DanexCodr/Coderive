@@ -26,6 +26,7 @@ public class ImportResolver {
     private static final int LOADED_TYPES_CACHE_LIMIT = 4096;
     private static final int FILE_CACHE_LIMIT = 2048;
     private static final int FILE_METADATA_CACHE_LIMIT = 4096;
+    private final Object policyLookupLock = new Object();
 
     private Map<String, Program> importedUnits = new HashMap<String, Program>();
     private Map<String, Program> loadedPrograms = new HashMap<String, Program>();
@@ -38,6 +39,7 @@ public class ImportResolver {
     private List<String> importPaths = new ArrayList<String>();
     private Map<String, String> packageBroadcasts = new HashMap<String, String>();
     
+    // Concurrent map keeps lock-free fast-path reads in findPolicy/get/register paths.
     private Map<String, Policy> importedPolicies = new ConcurrentHashMap<String, Policy>();
     private Map<String, String> policyToUnitMap = new HashMap<String, String>();
     
@@ -117,6 +119,7 @@ public class ImportResolver {
 
             @Override
             protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+                // removeEldestEntry is evaluated after insertion, so '>' enforces maxSize.
                 return size() > maxSize;
             }
         };
@@ -418,7 +421,7 @@ public class ImportResolver {
             return cached;
         }
 
-        synchronized (this) {
+        synchronized (policyLookupLock) {
             cached = importedPolicies.get(qualifiedPolicyName);
             if (cached != null) {
                 DebugSystem.debug("POLICY", "Policy already loaded (post-lock): " + qualifiedPolicyName);
