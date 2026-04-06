@@ -28,7 +28,7 @@ public final class PolicyValidator {
       return;
     }
 
-    Set<String> visited = new HashSet<String>();
+    Set<String> visited = new HashSet<>();
     visited.add(policy.name);
 
     for (String composedName : policy.composedPolicies) {
@@ -157,11 +157,11 @@ public final class PolicyValidator {
 
   private List<PolicyMethod> getAllPolicyMethods(Policy policy) {
     if (nil(policy)) {
-      return new ArrayList<PolicyMethod>();
+      return new ArrayList<>();
     }
 
-    List<PolicyMethod> allMethods = new ArrayList<PolicyMethod>();
-    Set<String> visitedPolicies = new HashSet<String>();
+    List<PolicyMethod> allMethods = new ArrayList<>();
+    Set<String> visitedPolicies = new HashSet<>();
 
     collectPolicyMethodsViaComposition(policy, allMethods, visitedPolicies);
 
@@ -191,12 +191,12 @@ public final class PolicyValidator {
   }
 
   private List<String> getAllAffectingPolicies(Type currentClass, Program currentProgram) {
-    List<String> allPolicies = new ArrayList<String>();
+    List<String> allPolicies = new ArrayList<>();
     if (nil(currentClass)) {
       return allPolicies;
     }
 
-    Set<String> visitedClasses = new HashSet<String>();
+    Set<String> visitedClasses = new HashSet<>();
     collectAffectingPoliciesRecursive(currentClass, allPolicies, visitedClasses, currentProgram);
 
     return allPolicies;
@@ -227,7 +227,7 @@ public final class PolicyValidator {
   }
 
   private List<String> getAncestorPolicies(Type currentClass, Program currentProgram) {
-    List<String> ancestorPolicies = new ArrayList<String>();
+    List<String> ancestorPolicies = new ArrayList<>();
     if (nil(currentClass, currentClass.extendName)) {
       return ancestorPolicies;
     }
@@ -296,7 +296,7 @@ public final class PolicyValidator {
 
   private Set<String> getAllMethodsRequiredByAncestors(
       Type currentClass, Program currentProgram) {
-    Set<String> requiredMethods = new HashSet<String>();
+    Set<String> requiredMethods = new HashSet<>();
     List<String> ancestorPolicies = getAncestorPolicies(currentClass, currentProgram);
 
     for (String policyName : ancestorPolicies) {
