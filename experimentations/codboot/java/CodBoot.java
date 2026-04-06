@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.HashSet;
 import java.util.Set;
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStreamWriter;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
@@ -31,6 +33,7 @@ public final class CodBoot {
         void writeFile(String path, String content) throws IOException;
         void print(String text);
         String input();
+        String consumeRemainingInput();
         double add(double a, double b);
         double subtract(double a, double b);
         double multiply(double a, double b);
@@ -49,6 +52,7 @@ public final class CodBoot {
         private static final Set<String> ALLOWED_SYSTEM_COMMANDS = new HashSet<String>();
         private final BufferedReader inReader;
         private final Random rng;
+        private final List<String> inputBuffer;
 
         static {
             ALLOWED_SYSTEM_COMMANDS.add("true");
@@ -58,6 +62,7 @@ public final class CodBoot {
         private JavaHost() {
             this.inReader = new BufferedReader(new InputStreamReader(System.in, Charset.forName("UTF-8")));
             this.rng = new Random(123456789L);
+            this.inputBuffer = new ArrayList<String>();
         }
 
         public String readFile(String path) throws IOException {
@@ -100,11 +105,36 @@ public final class CodBoot {
 
         public String input() {
             try {
+                if (!inputBuffer.isEmpty()) {
+                    return inputBuffer.remove(0);
+                }
                 String line = inReader.readLine();
                 return line == null ? "" : line;
             } catch (IOException ignored) {
                 return "";
             }
+        }
+
+        public String consumeRemainingInput() {
+            try {
+                String line;
+                while ((line = inReader.readLine()) != null) {
+                    inputBuffer.add(line);
+                }
+            } catch (IOException ignored) {
+            }
+            if (inputBuffer.isEmpty()) {
+                return "";
+            }
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < inputBuffer.size(); i++) {
+                if (i > 0) {
+                    sb.append('\n');
+                }
+                sb.append(inputBuffer.get(i));
+            }
+            inputBuffer.clear();
+            return sb.toString();
         }
 
         public double add(double a, double b) { return a + b; }
@@ -433,6 +463,18 @@ public final class CodBoot {
         private RunResult(int exitCode, List<String> lines) {
             this.exitCode = exitCode;
             this.lines = lines;
+        }
+    }
+
+    private static final class RunnerResult {
+        private final int exitCode;
+        private final List<String> lines;
+        private final String stderr;
+
+        private RunnerResult(int exitCode, List<String> lines, String stderr) {
+            this.exitCode = exitCode;
+            this.lines = lines;
+            this.stderr = stderr;
         }
     }
 
@@ -832,7 +874,7 @@ public final class CodBoot {
         return output;
     }
 
-    private static RunResult runCore(String coreSource, String programPath, Host host, CoreSemantics semantics) throws IOException {
+    private static RunResult runCore(String coreSource, String corePath, String programPath, Host host, CoreSemantics semantics) throws IOException {
         if (!hasCoreEntrypoint(coreSource)) {
             List<String> invalid = new ArrayList<String>();
             invalid.add(semantics.invalidCoreFormat);
@@ -842,9 +884,18 @@ public final class CodBoot {
         String programSource = host.readFile(programPath);
         List<String> userLines;
         try {
-            List<Token> tokens = new Lexer(programSource, semantics).tokenize();
-            Program program = new Parser(tokens, semantics).parseProgram();
-            userLines = evaluateProgram(program, host, semantics);
+            if (isLegacyCodBootProgram(programSource, semantics)) {
+                userLines = runLegacyCodBoot(programSource, host, semantics);
+            } else {
+                String hostInput = host.consumeRemainingInput();
+                RunnerResult runner = runViaCommandRunner(programPath, hostInput, deriveRepoRootFromCorePath(corePath));
+                if (runner.exitCode != 0) {
+                    List<String> parseError = new ArrayList<String>();
+                    parseError.add(semantics.parseEvalErrorPrefix + (runner.stderr.length() > 0 ? runner.stderr : "CommandRunner failed"));
+                    return new RunResult(2, parseError);
+                }
+                userLines = runner.lines;
+            }
         } catch (RuntimeException e) {
             List<String> parseError = new ArrayList<String>();
             parseError.add(semantics.parseEvalErrorPrefix + e.getMessage());
@@ -859,6 +910,128 @@ public final class CodBoot {
             lines.add(semantics.noOutStatementsDetected);
         }
         return new RunResult(0, lines);
+    }
+
+    private static String deriveRepoRootFromCorePath(String corePath) {
+        java.io.File coreFile = new java.io.File(corePath);
+        java.io.File dir = coreFile.getParentFile();
+        if (dir == null) {
+            return new java.io.File(".").getAbsolutePath();
+        }
+        java.io.File root = dir.getParentFile();
+        if (root != null) {
+            root = root.getParentFile();
+        }
+        if (root != null) {
+            root = root.getParentFile();
+        }
+        return root == null ? new java.io.File(".").getAbsolutePath() : root.getAbsolutePath();
+    }
+
+    private static RunnerResult runViaCommandRunner(String programPath, String hostInput, String repoRoot) throws IOException {
+        List<String> command = new ArrayList<String>();
+        command.add("java");
+        command.add("-cp");
+        command.add(repoRoot + "/docs/assets/Coderive.jar");
+        command.add("cod.runner.CommandRunner");
+        command.add(programPath);
+        command.add("--quiet");
+        ProcessBuilder pb = new ProcessBuilder(command);
+        Process process = pb.start();
+        if (hostInput != null && hostInput.length() > 0) {
+            OutputStreamWriter writer = new OutputStreamWriter(process.getOutputStream(), Charset.forName("UTF-8"));
+            writer.write(hostInput);
+            writer.write('\n');
+            writer.flush();
+            writer.close();
+        } else {
+            process.getOutputStream().close();
+        }
+        String stdout = readStream(process.getInputStream());
+        String stderr = readStream(process.getErrorStream());
+        int code;
+        try {
+            code = process.waitFor();
+        } catch (InterruptedException e) {
+            throw new IOException("Interrupted while waiting for CommandRunner", e);
+        }
+        List<String> lines = new ArrayList<String>();
+        if (stdout.length() > 0) {
+            String[] split = stdout.split("\\r?\\n");
+            for (int i = 0; i < split.length; i++) {
+                if (split[i].length() > 0) {
+                    lines.add(split[i]);
+                }
+            }
+        }
+        return new RunnerResult(code, lines, stderr);
+    }
+
+    private static String readStream(java.io.InputStream in) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        byte[] data = new byte[4096];
+        int n;
+        while ((n = in.read(data)) != -1) {
+            buffer.write(data, 0, n);
+        }
+        return new String(buffer.toByteArray(), "UTF-8");
+    }
+
+    private static boolean isLegacyCodBootProgram(String source, CoreSemantics semantics) {
+        String[] lines = source.split("\\r?\\n");
+        String outPrefix = semantics.outKeyword + "(";
+        String hostPrefix = semantics.hostKeyword + " ";
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+            if (line.length() == 0 || line.startsWith("#") || line.startsWith("//")) {
+                continue;
+            }
+            if (line.startsWith(outPrefix) || line.startsWith(hostPrefix)) {
+                continue;
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private static String parseLegacyOutText(String line) {
+        if (!line.startsWith("out(\"") || !line.endsWith("\")")) {
+            throw new RuntimeException("Invalid out statement: " + line);
+        }
+        String text = line.substring(5, line.length() - 2);
+        text = text.replace("\\n", "\n");
+        text = text.replace("\\t", "\t");
+        text = text.replace("\\\"", "\"");
+        text = text.replace("\\\\", "\\");
+        return text;
+    }
+
+    private static List<String> runLegacyCodBoot(String source, Host host, CoreSemantics semantics) {
+        List<String> out = new ArrayList<String>();
+        String[] lines = source.split("\\r?\\n");
+        String hostPrefix = semantics.hostKeyword + " ";
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+            if (line.length() == 0 || line.startsWith("#") || line.startsWith("//")) {
+                continue;
+            }
+            if (line.startsWith("out(")) {
+                out.add(parseLegacyOutText(line));
+                continue;
+            }
+            if (line.startsWith(hostPrefix)) {
+                String[] parts = line.split("\\s+");
+                String command = parts.length > 1 ? parts[1] : "";
+                List<String> args = new ArrayList<String>();
+                for (int j = 2; j < parts.length; j++) {
+                    args.add(parts[j]);
+                }
+                out.add(evaluateHost(command, args, host, semantics));
+                continue;
+            }
+            throw new RuntimeException("Unsupported legacy statement: " + line);
+        }
+        return out;
     }
 
     private static boolean isParseEvalError(RunResult result, CoreSemantics semantics) {
@@ -899,7 +1072,7 @@ public final class CodBoot {
             return 0;
         }
 
-        RunResult result = runCore(coreSource, programPath, host, semantics);
+        RunResult result = runCore(coreSource, corePath, programPath, host, semantics);
         if (selfHostOnly && isParseEvalError(result, semantics)) {
             result.lines.add(semantics.selfHostOnlyNoFallback);
         }
