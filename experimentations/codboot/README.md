@@ -141,6 +141,7 @@ Runtime behavior:
 - Hosts execute only constrained boundary operations (I/O/process/platform APIs plus staged primitives).
 - Hosts do not depend on repository production runtime Java/JS files for execution semantics.
 - Shared lexer/parser/evaluator semantic definitions and diagnostics are loaded from `core.ce` in both hosts.
+- Full-language `.cod` execution runs through `cod.runner.CommandRunner` bridge in both JS and Java hosts (no legacy host-side `out(...)`/`host ...` fallback execution path).
 
 - Host exposes staged dependencies:
   - Level 1:
@@ -159,4 +160,4 @@ Runtime behavior:
     - `system(command)`
 - `core.ce` drives behavior and produces output as text.
 - `core.ce` is the canonical source for semantic forms/diagnostics used by both JS and Java hosts.
-- Hosts remain experimental bootstrap executors until full core-executed evaluation is completed.
+- Hosts remain experimental bootstrap executors while sharing the same CommandRunner-backed full-language execution path.
