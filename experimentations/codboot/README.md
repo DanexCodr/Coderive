@@ -4,7 +4,7 @@ This experiment follows `implementations/CodBoot-SelfHosting-Plan.md` and keeps 
 
 ## Goals
 
-- Shared `core.ce` for runtime behavior.
+- Shared `core.ce` as source-of-truth for runtime semantics and diagnostics.
 - Minimal host dependencies with staged support:
   - Level 1: `read-file`, `print`, `exit`
   - Level 2: arithmetic/comparison/string helpers
@@ -16,7 +16,7 @@ This experiment follows `implementations/CodBoot-SelfHosting-Plan.md` and keeps 
 
 ## Layout
 
-- `core/core.ce` — shared core entrypoint and experimental behavior.
+- `core/core.ce` — shared core entrypoint and canonical semantics metadata consumed by both hosts.
 - `js/CodBoot.js` — Node-based constrained host.
 - `java/CodBoot.java` — Java 7 constrained host.
 - `parity/` — corpus and expected outputs.
@@ -110,7 +110,7 @@ java -cp "$JAVA_OUT" CodBoot \
 
 ## Differential parity check
 
-Run a full JS-vs-Java parity comparison across all parity `.cod` programs:
+Run a full JS-vs-Java parity comparison across all parity `.cod` programs (strict self-host-only mode + bootstrap self-check):
 
 ```bash
 experimentations/codboot/parity/compare_hosts.sh
@@ -130,6 +130,7 @@ This validates:
 - generated mixed-behavior coverage
 - differential sweep across all repository `.cod` files
 - Java repeat-run determinism/consistency checks
+- bootstrap self-check parity checks
 
 Capability tracking checklist:
 - `experimentations/codboot/parity/capability-checklist.txt`
@@ -137,8 +138,9 @@ Capability tracking checklist:
 ## Contract
 
 Runtime behavior:
-- Hosts run a built-in self-contained lexer/parser/evaluator implementation.
-- Hosts do not depend on repository runtime Java/JS files for execution semantics.
+- Hosts execute only constrained boundary operations (I/O/process/platform APIs plus staged primitives).
+- Hosts do not depend on repository production runtime Java/JS files for execution semantics.
+- Shared lexer/parser/evaluator semantic definitions and diagnostics are loaded from `core.ce` in both hosts.
 
 - Host exposes staged dependencies:
   - Level 1:
@@ -156,4 +158,5 @@ Runtime behavior:
     - `random()`
     - `system(command)`
 - `core.ce` drives behavior and produces output as text.
-- Hosts currently include pre-release language semantics for parity execution.
+- `core.ce` is the canonical source for semantic forms/diagnostics used by both JS and Java hosts.
+- Hosts remain experimental bootstrap executors until full core-executed evaluation is completed.

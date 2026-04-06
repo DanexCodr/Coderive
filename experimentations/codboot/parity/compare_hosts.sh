@@ -35,11 +35,11 @@ run_one() {
   mkdir -p "$run_dir"
 
   if [[ -n "$input_line" ]]; then
-    (cd "$run_dir" && printf '%s\n' "$input_line" | node "$JS_HOST" "$CORE_PATH" "$program_path" >"$js_out")
-    (cd "$run_dir" && printf '%s\n' "$input_line" | java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" >"$java_out")
+    (cd "$run_dir" && printf '%s\n' "$input_line" | node "$JS_HOST" "$CORE_PATH" "$program_path" --self-host-only >"$js_out")
+    (cd "$run_dir" && printf '%s\n' "$input_line" | java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --self-host-only >"$java_out")
   else
-    (cd "$run_dir" && node "$JS_HOST" "$CORE_PATH" "$program_path" >"$js_out")
-    (cd "$run_dir" && java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" >"$java_out")
+    (cd "$run_dir" && node "$JS_HOST" "$CORE_PATH" "$program_path" --self-host-only >"$js_out")
+    (cd "$run_dir" && java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --self-host-only >"$java_out")
   fi
 
   if ! diff -u "$js_out" "$java_out"; then
@@ -56,6 +56,24 @@ run_one() {
   fi
 }
 
+run_bootstrap_self_check() {
+  local js_out="$TMP_DIR/bootstrap.js.out"
+  local java_out="$TMP_DIR/bootstrap.java.out"
+  # Program path position is still required by host CLI contract; bootstrap mode ignores the file body.
+  node "$JS_HOST" "$CORE_PATH" "$PROGRAM_DIR/hello.cod" --bootstrap-self >"$js_out"
+  java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$PROGRAM_DIR/hello.cod" --bootstrap-self >"$java_out"
+  if ! diff -u "$js_out" "$java_out"; then
+    echo "Bootstrap self-check mismatch between hosts" >&2
+    return 1
+  fi
+}
+
+if [[ "${1:-}" == "--bootstrap-only" ]]; then
+  run_bootstrap_self_check
+  echo "CodBoot bootstrap self-check parity passed."
+  exit 0
+fi
+
 for program_path in "$PROGRAM_DIR"/*.cod; do
   expected_file="$EXPECTED_DIR/$(basename "${program_path%.cod}").out"
   input_line=""
@@ -66,5 +84,7 @@ for program_path in "$PROGRAM_DIR"/*.cod; do
   esac
   run_one "$program_path" "$expected_file" "$input_line"
 done
+
+run_bootstrap_self_check
 
 echo "CodBoot JS/Java parity comparison passed."

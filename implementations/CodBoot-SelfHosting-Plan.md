@@ -158,6 +158,12 @@ Do **not** declare success if any of the following remain true:
 - Evaluator still executes in JS or Java in normal runtime.
 - Language semantics are maintained in duplicate (host + `core.ce`) rather than core-first.
 
+## Current execution reality (2026-04)
+
+- `core.ce` is now executable by the primary Coderive runtime (no longer metadata-only), which removes one historical blocker in Phase 3.
+- CodBoot JS/Java now execute full-language `.cod` programs through `CommandRunner` runtime bridging and keep only boundary adaptation plus legacy-compat handling for codboot parity directives.
+- Remaining Option-1 completion work is focused on hardening and boundary maintenance while preserving parity gates and host boundary constraints.
+
 ## Testing and validation strategy
 
 - **Cross-host parity tests:** same input set, compare output/error/exit code.

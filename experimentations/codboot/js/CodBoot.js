@@ -1,7 +1,12 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 const childProcess = require('child_process');
+// This constant is needed before core semantics are parsed; keep in sync with semantics_json messages.parseEvalErrorPrefix in core.ce.
+const CORE_PARSE_EVAL_ERROR_PREFIX = '[core] parse/eval error: ';
+// Keep in sync with core.ce semantics_json missing-semantics error contract.
+const CORE_MISSING_SEMANTICS_JSON_MESSAGE = '[core] missing semantics_json block';
 
 function containsUnsafeShellChar(value) {
   for (let i = 0; i < value.length; i += 1) {
@@ -15,6 +20,20 @@ function containsUnsafeShellChar(value) {
 
 function containsPathSeparator(value) {
   return value.indexOf('/') >= 0 || value.indexOf('\\') >= 0;
+}
+
+function isCommentLine(line) {
+  return line.length > 1 && line.charAt(0) === '/' && line.charAt(1) === '/';
+}
+
+function validateBridgePath(filePath, label) {
+  const value = String(filePath || '');
+  if (value.length === 0 || value.indexOf('\0') >= 0 || /[\r\n]/.test(value)) {
+    throw new Error('invalid ' + label + ' path');
+  }
+  if (!fs.existsSync(value)) {
+    throw new Error(label + ' path not found: ' + value);
+  }
 }
 
 function createHost() {
@@ -57,6 +76,15 @@ function createHost() {
         return '';
       }
       return inputLines.shift();
+    },
+    consumeRemainingInput: function() {
+      loadInput();
+      if (inputLines.length === 0) {
+        return '';
+      }
+      const remaining = inputLines.join('\n');
+      inputLines = [];
+      return remaining;
     },
     add: function(a, b) {
       return a + b;
@@ -116,212 +144,187 @@ function createHost() {
   };
 }
 
-function Token(type, value, line, column) {
-  this.type = type;
-  this.value = value;
-  this.line = line;
-  this.column = column;
+function deriveRepoRootFromCorePath(corePath) {
+  return path.resolve(path.dirname(corePath), '..', '..', '..');
 }
 
-function Lexer(source) {
-  this.source = source;
-  this.index = 0;
-  this.line = 1;
-  this.column = 1;
-}
-
-Lexer.prototype.currentChar = function() {
-  return this.index < this.source.length ? this.source.charAt(this.index) : '';
-};
-
-Lexer.prototype.advance = function() {
-  const ch = this.currentChar();
-  if (ch === '\n') {
-    this.line += 1;
-    this.column = 1;
-  } else {
-    this.column += 1;
-  }
-  this.index += 1;
-};
-
-Lexer.prototype.readString = function(line, column) {
-  let result = '';
-  this.advance();
-  while (this.index < this.source.length) {
-    const ch = this.currentChar();
-    if (ch === '"') {
-      this.advance();
-      return new Token('STRING', result, line, column);
+function findJarFromDir(startDir) {
+  let dir = path.resolve(startDir);
+  for (let i = 0; i < 10; i += 1) {
+    const candidate = path.join(dir, 'docs', 'assets', 'Coderive.jar');
+    if (fs.existsSync(candidate)) {
+      return candidate;
     }
-    if (ch === '\\') {
-      this.advance();
-      const esc = this.currentChar();
-      if (esc === 'n') {
-        result += '\n';
-      } else if (esc === 't') {
-        result += '\t';
-      } else if (esc === '"') {
-        result += '"';
-      } else if (esc === '\\') {
-        result += '\\';
-      } else {
-        result += esc;
-      }
-      this.advance();
-    } else {
-      result += ch;
-      this.advance();
-    }
-  }
-  throw new Error('Unterminated string at line ' + line + ', column ' + column);
-};
-
-Lexer.prototype.readWord = function(line, column) {
-  let result = '';
-  while (this.index < this.source.length) {
-    const ch = this.currentChar();
-    if (ch === '' || ch === '\n' || ch === ' ' || ch === '\t' || ch === '\r' || ch === '(' || ch === ')' || ch === '#') {
+    const parent = path.dirname(dir);
+    if (parent === dir) {
       break;
     }
-    result += ch;
-    this.advance();
+    dir = parent;
   }
-  return new Token('WORD', result, line, column);
-};
-
-Lexer.prototype.tokenize = function() {
-  const tokens = [];
-  while (this.index < this.source.length) {
-    const ch = this.currentChar();
-    if (ch === ' ' || ch === '\t' || ch === '\r') {
-      this.advance();
-      continue;
-    }
-    if (ch === '\n') {
-      tokens.push(new Token('NEWLINE', '\n', this.line, this.column));
-      this.advance();
-      continue;
-    }
-    if (ch === '#') {
-      while (this.index < this.source.length && this.currentChar() !== '\n') {
-        this.advance();
-      }
-      continue;
-    }
-    if (ch === '/' && this.index + 1 < this.source.length && this.source.charAt(this.index + 1) === '/') {
-      while (this.index < this.source.length && this.currentChar() !== '\n') {
-        this.advance();
-      }
-      continue;
-    }
-    if (ch === '(') {
-      tokens.push(new Token('LPAREN', '(', this.line, this.column));
-      this.advance();
-      continue;
-    }
-    if (ch === ')') {
-      tokens.push(new Token('RPAREN', ')', this.line, this.column));
-      this.advance();
-      continue;
-    }
-    if (ch === '"') {
-      tokens.push(this.readString(this.line, this.column));
-      continue;
-    }
-    tokens.push(this.readWord(this.line, this.column));
-  }
-  tokens.push(new Token('EOF', '', this.line, this.column));
-  return tokens;
-};
-
-function Parser(tokens) {
-  this.tokens = tokens;
-  this.index = 0;
+  return '';
 }
 
-Parser.prototype.peek = function() {
-  return this.tokens[this.index];
-};
+function resolveCoderiveJarPath(corePath) {
+  if (process.env.CODERIVE_JAR && fs.existsSync(process.env.CODERIVE_JAR)) {
+    return process.env.CODERIVE_JAR;
+  }
+  const fromCwd = findJarFromDir(process.cwd());
+  if (fromCwd) {
+    return fromCwd;
+  }
+  const fromCore = findJarFromDir(path.dirname(corePath));
+  if (fromCore) {
+    return fromCore;
+  }
+  return path.join(deriveRepoRootFromCorePath(corePath), 'docs', 'assets', 'Coderive.jar');
+}
 
-Parser.prototype.advance = function() {
-  const token = this.peek();
-  this.index += 1;
-  return token;
-};
+function runViaCommandRunner(corePath, programPath, hostInput) {
+  const jarPath = resolveCoderiveJarPath(corePath);
+  validateBridgePath(jarPath, 'jar');
+  validateBridgePath(programPath, 'program');
+  const args = ['-cp', jarPath, 'cod.runner.CommandRunner', programPath, '--quiet'];
+  const result = childProcess.spawnSync('java', args, {
+    encoding: 'utf8',
+    cwd: process.cwd(),
+    shell: false,
+    input: hostInput || ''
+  });
+  const stdout = (result.stdout || '').replace(/\r\n/g, '\n').replace(/\n+$/, '');
+  const stderr = (result.stderr || '').replace(/\r\n/g, '\n').replace(/\n+$/, '');
+  const lines = stdout.length === 0 ? [] : stdout.split('\n');
+  return {
+    exitCode: typeof result.status === 'number' ? result.status : 1,
+    lines: lines,
+    stderr: stderr
+  };
+}
 
-Parser.prototype.match = function(type, value) {
-  const token = this.peek();
-  if (!token || token.type !== type) {
+function isLegacyCodBootProgram(programSource, semantics) {
+  const lines = programSource.split(/\r?\n/);
+  const outPrefix = semantics.keywords.out + '(';
+  const hostPrefix = semantics.keywords.host + ' ';
+  for (let i = 0; i < lines.length; i += 1) {
+    const raw = lines[i];
+    const line = raw.trim();
+    if (line.length === 0 || line.charAt(0) === '#') {
+      continue;
+    }
+    if (isCommentLine(line)) {
+      continue;
+    }
+    if (line.indexOf(outPrefix) === 0 || line.indexOf(hostPrefix) === 0) {
+      continue;
+    }
     return false;
   }
-  if (typeof value !== 'undefined' && token.value !== value) {
-    return false;
-  }
-  this.advance();
   return true;
-};
+}
 
-Parser.prototype.expect = function(type, value) {
-  const token = this.peek();
-  if (!this.match(type, value)) {
-    throw new Error('Parse error at line ' + token.line + ', column ' + token.column + ': expected ' + type + (typeof value !== 'undefined' ? ' ' + value : ''));
+function parseLegacyStringLiteral(text) {
+  if (!text || text.charAt(0) !== '"' || text.charAt(text.length - 1) !== '"') {
+    throw new Error('Invalid out statement: ' + text);
   }
-  return this.tokens[this.index - 1];
-};
-
-Parser.prototype.skipNewlines = function() {
-  while (this.match('NEWLINE')) {
-    // noop
+  let out = '';
+  for (let i = 1; i < text.length - 1; i += 1) {
+    const ch = text.charAt(i);
+    if (ch === '\\') {
+      if (i + 1 >= text.length - 1) {
+        throw new Error('Unterminated string literal in legacy CodBoot statement');
+      }
+      const esc = text.charAt(i + 1);
+      if (esc === 'n') {
+        out += '\n';
+      } else if (esc === 't') {
+        out += '\t';
+      } else if (esc === '"' || esc === '\\') {
+        out += esc;
+      } else {
+        out += esc;
+      }
+      i += 1;
+      continue;
+    }
+    out += ch;
   }
-};
+  return out;
+}
 
-Parser.prototype.parseProgram = function() {
-  const statements = [];
-  this.skipNewlines();
-  while (this.peek().type !== 'EOF') {
-    statements.push(this.parseStatement());
-    this.skipNewlines();
-  }
-  return { type: 'Program', statements: statements };
-};
-
-Parser.prototype.parseStatement = function() {
-  const token = this.expect('WORD');
-  if (token.value === 'out') {
-    let text = '';
-    if (this.match('LPAREN')) {
-      while (this.peek().type !== 'RPAREN' && this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
-        const next = this.advance();
-        if (next.type === 'STRING' && text.length === 0) {
-          text = next.value;
+function splitLegacyHostArgs(text) {
+  const args = [];
+  let i = 0;
+  while (i < text.length) {
+    while (i < text.length && /\s/.test(text.charAt(i))) {
+      i += 1;
+    }
+    if (i >= text.length) {
+      break;
+    }
+    if (text.charAt(i) === '"') {
+      let token = '"';
+      i += 1;
+      let closed = false;
+      while (i < text.length) {
+        const ch = text.charAt(i);
+        token += ch;
+        if (ch === '\\') {
+          i += 1;
+          if (i < text.length) {
+            token += text.charAt(i);
+          }
+        } else if (ch === '"') {
+          closed = true;
+          i += 1;
+          break;
         }
+        i += 1;
       }
-      this.match('RPAREN');
-    } else {
-      while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
-        this.advance();
+      if (!closed) {
+        throw new Error('Unterminated string literal in host statement');
       }
+      args.push(parseLegacyStringLiteral(token));
+      continue;
     }
-    return { type: 'OutStatement', text: text };
-  }
-  if (token.value === 'host') {
-    const command = this.expect('WORD').value;
-    const args = [];
-    while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
-      const next = this.peek();
-      if (next.type !== 'WORD' && next.type !== 'STRING') {
-        throw new Error('Parse error at line ' + next.line + ', column ' + next.column + ': expected host argument');
-      }
-      args.push(this.advance().value);
+    const start = i;
+    while (i < text.length && !/\s/.test(text.charAt(i))) {
+      i += 1;
     }
-    return { type: 'HostStatement', command: command, args: args };
+    args.push(text.substring(start, i));
   }
-  while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
-    this.advance();
+  return args;
+}
+
+function runLegacyCodBoot(programSource, host, semantics) {
+  const output = [];
+  const lines = programSource.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    const raw = lines[i];
+    const line = raw.trim();
+    if (line.length === 0 || line.charAt(0) === '#') {
+      continue;
+    }
+    if (isCommentLine(line)) {
+      continue;
+    }
+    if (line.indexOf(semantics.keywords.out + '(') === 0) {
+      if (line.charAt(line.length - 1) !== ')') {
+        throw new Error('Invalid out statement: ' + line);
+      }
+      const payload = line.substring(semantics.keywords.out.length + 1, line.length - 1).trim();
+      output.push(parseLegacyStringLiteral(payload));
+      continue;
+    }
+    if (line.indexOf(semantics.keywords.host + ' ') === 0) {
+      const body = line.substring((semantics.keywords.host + ' ').length);
+      const firstSpace = body.search(/\s/);
+      const command = firstSpace < 0 ? body : body.substring(0, firstSpace);
+      const args = firstSpace < 0 ? [] : splitLegacyHostArgs(body.substring(firstSpace + 1));
+      output.push(evaluateHost(command, args, host, semantics));
+      continue;
+    }
   }
-  return { type: 'IgnoredStatement' };
-};
+  return output;
+}
 
 function parseAtom(text) {
   if (/^-?\d+(\.\d+)?$/.test(text)) {
@@ -330,79 +333,145 @@ function parseAtom(text) {
   return text;
 }
 
-function formatNumber(value) {
-  if (Math.abs(value - Math.round(value)) < 1e-9) {
-    return String(Math.round(value));
+function formatNumber(value, semantics) {
+  const evaluator = semantics && semantics.evaluator ? semantics.evaluator : {};
+  const tolerance = typeof evaluator.wholeNumberTolerance === 'number' ? evaluator.wholeNumberTolerance : 1e-9;
+  const mode = typeof evaluator.wholeNumberMode === 'string' ? evaluator.wholeNumberMode : 'round';
+  if (mode !== 'round' && mode !== 'trunc') {
+    throw new Error('invalid wholeNumberMode: ' + mode + '. Expected "round" or "trunc"');
+  }
+  const whole = mode === 'trunc' ? Math.trunc(value) : Math.round(value);
+  if (Math.abs(value - whole) < tolerance) {
+    return String(whole);
   }
   return String(value);
 }
 
-function evaluateHost(command, args, host) {
+function evaluateHost(command, args, host, semantics) {
+  const cmds = semantics.hostCommands;
+  const messages = semantics.messages;
   switch (command) {
-    case 'add':
-      return formatNumber(host.add(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case 'subtract':
-      return formatNumber(host.subtract(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case 'multiply':
-      return formatNumber(host.multiply(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case 'divide':
+    case cmds.add:
+      return formatNumber(host.add(parseAtom(args[0] || ''), parseAtom(args[1] || '')), semantics);
+    case cmds.subtract:
+      return formatNumber(host.subtract(parseAtom(args[0] || ''), parseAtom(args[1] || '')), semantics);
+    case cmds.multiply:
+      return formatNumber(host.multiply(parseAtom(args[0] || ''), parseAtom(args[1] || '')), semantics);
+    case cmds.divide:
       try {
-        return formatNumber(host.divide(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
+        return formatNumber(host.divide(parseAtom(args[0] || ''), parseAtom(args[1] || '')), semantics);
       } catch (err) {
-        return '[host] divide error: ' + err.message;
+        return messages.divideErrorPrefix + err.message;
       }
-    case 'less-than':
+    case cmds.lessThan:
       return String(host.lessThan(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case 'greater-than':
+    case cmds.greaterThan:
       return String(host.greaterThan(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case 'equal':
+    case cmds.equal:
       return String(host.equal(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case 'string-append':
+    case cmds.stringAppend:
       return host.stringAppend(args[0] || '', args[1] || '');
-    case 'write-file':
+    case cmds.writeFile:
       try {
         host.writeFile(args[0] || '', args[1] || '');
-        return '[host] write-file ok';
+        return messages.writeFileOk;
       } catch (err) {
-        return '[host] write-file error: ' + err.message;
+        return messages.writeFileErrorPrefix + err.message;
       }
-    case 'read-file':
+    case cmds.readFile:
       try {
         return host.readFile(args[0] || '').replace(/\r?\n$/, '');
       } catch (err) {
-        return '[host] read-file error: ' + err.message;
+        return messages.readFileErrorPrefix + err.message;
       }
-    case 'input':
+    case cmds.input:
       return host.input();
-    case 'now':
+    case cmds.now:
       return String(host.now());
-    case 'random':
+    case cmds.random:
       return String(host.random());
-    case 'system':
+    case cmds.system:
       return String(host.system(args[0] || ''));
     default:
-      return '[host] unknown directive: ' + command;
+      return messages.unknownDirectivePrefix + command;
   }
 }
 
-function evaluateProgram(program, host) {
-  const output = [];
-  for (let i = 0; i < program.statements.length; i += 1) {
-    const stmt = program.statements[i];
-    if (stmt.type === 'OutStatement') {
-      output.push(stmt.text);
-    } else if (stmt.type === 'HostStatement') {
-      output.push(evaluateHost(stmt.command, stmt.args, host));
+
+function extractSemanticsJson(coreSource) {
+  const triple = coreSource.match(/semantics_json\s*:=\s*"""\s*([\s\S]*?)\s*"""/);
+  if (triple) {
+    return triple[1];
+  }
+  const commentBlock = coreSource.match(/\/\/\s*semantics_json_begin\s*\r?\n([\s\S]*?)\/\/\s*semantics_json_end/);
+  if (commentBlock) {
+    const lines = commentBlock[1].split(/\r?\n/);
+    const jsonLines = [];
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+      const match = line.match(/^\s*\/\/\s?(.*)$/);
+      if (match) {
+        jsonLines.push(match[1]);
+      }
+    }
+    const json = jsonLines.join('\n').trim();
+    if (json) {
+      return json;
     }
   }
-  return output;
+  const single = coreSource.match(/semantics_json\s*:=\s*"((?:\\.|[^"\\])*)"/);
+  if (!single) {
+    return '';
+  }
+  return unescapeJsonString(single[1]);
+}
+
+function unescapeJsonString(value) {
+  let out = '';
+  for (let i = 0; i < value.length; i += 1) {
+    const ch = value.charAt(i);
+    if (ch === '\\' && i + 1 < value.length) {
+      const esc = value.charAt(i + 1);
+      if (esc === 'n') {
+        out += '\n';
+      } else if (esc === 't') {
+        out += '\t';
+      } else if (esc === 'r') {
+        out += '\r';
+      } else if (esc === '"') {
+        out += '"';
+      } else if (esc === '\\') {
+        out += '\\';
+      } else if (esc === '/') {
+        out += '/';
+      } else if (esc === 'b') {
+        out += '\b';
+      } else if (esc === 'f') {
+        out += '\f';
+      } else {
+        out += esc;
+      }
+      i += 1;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+function parseCoreSemantics(coreSource) {
+  const jsonText = extractSemanticsJson(coreSource);
+  if (!jsonText) {
+    throw new Error(CORE_MISSING_SEMANTICS_JSON_MESSAGE);
+  }
+  return JSON.parse(jsonText);
 }
 
 function hasCoreEntrypoint(coreSource) {
   const lines = coreSource.split(/\r?\n/);
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i].trim();
-    if (line.length === 0 || line.charAt(0) === '#') {
+    if (line.length === 0 || line.charAt(0) === '#' || isCommentLine(line)) {
       continue;
     }
     return line === 'entrypoint := "CodBootCore::v0"';
@@ -410,34 +479,45 @@ function hasCoreEntrypoint(coreSource) {
   return false;
 }
 
-function runCore(coreSource, programPath, host) {
+function runCore(coreSource, corePath, programPath, host, semantics) {
   if (!hasCoreEntrypoint(coreSource)) {
-    return { exitCode: 2, lines: ['[core] invalid core.ce format'] };
+    return { exitCode: 2, lines: [semantics.messages.invalidCoreFormat] };
   }
   const programSource = host.readFile(programPath);
   let userLines;
   try {
-    const tokens = new Lexer(programSource).tokenize();
-    const program = new Parser(tokens).parseProgram();
-    userLines = evaluateProgram(program, host);
+    if (isLegacyCodBootProgram(programSource, semantics)) {
+      userLines = runLegacyCodBoot(programSource, host, semantics);
+    } else {
+      const hostInput = host.consumeRemainingInput();
+      const runnerResult = runViaCommandRunner(corePath, programPath, hostInput);
+      if (runnerResult.exitCode !== 0) {
+        const err = runnerResult.stderr.length > 0 ? runnerResult.stderr : 'CommandRunner failed';
+        return { exitCode: 2, lines: [semantics.messages.parseEvalErrorPrefix + err] };
+      }
+      userLines = runnerResult.lines;
+    }
   } catch (err) {
-    return { exitCode: 2, lines: ['[core] parse/eval error: ' + err.message] };
+    return { exitCode: 2, lines: [semantics.messages.parseEvalErrorPrefix + err.message] };
   }
 
-  const lines = ['[core] running: ' + programPath, '[core] experimental evaluator active'];
+  const lines = [
+    semantics.messages.runningPrefix + programPath,
+    semantics.messages.experimentalEvaluatorActive
+  ];
   for (let i = 0; i < userLines.length; i += 1) {
     lines.push(userLines[i]);
   }
   if (userLines.length === 0) {
-    lines.push('[core] no out("...") statements detected');
+    lines.push(semantics.messages.noOutStatementsDetected);
   }
   return { exitCode: 0, lines: lines };
 }
 
-function isParseEvalError(result) {
+function isParseEvalError(result, semantics) {
   return result.exitCode !== 0 &&
     result.lines.length > 0 &&
-    result.lines[0].indexOf('[core] parse/eval error:') === 0;
+    result.lines[0].indexOf(semantics.messages.parseEvalErrorPrefix) === 0;
 }
 
 function main(argv, host) {
@@ -450,15 +530,22 @@ function main(argv, host) {
   const bootstrapSelf = argv.indexOf('--bootstrap-self') >= 0;
   const selfHostedOnly = argv.indexOf('--self-host-only') >= 0;
   const coreSource = host.readFile(corePath);
+  let semantics;
+  try {
+    semantics = parseCoreSemantics(coreSource);
+  } catch (err) {
+    host.print(CORE_PARSE_EVAL_ERROR_PREFIX + err.message);
+    return 2;
+  }
 
   if (bootstrapSelf) {
-    host.print('[core] bootstrap self-check passed');
+    host.print(semantics.messages.bootstrapSelfCheckPassed);
     return 0;
   }
 
-  let result = runCore(coreSource, programPath, host);
-  if (selfHostedOnly && isParseEvalError(result)) {
-    result.lines.push('[core] self-host-only mode: no host fallback paths available');
+  let result = runCore(coreSource, corePath, programPath, host, semantics);
+  if (selfHostedOnly && isParseEvalError(result, semantics)) {
+    result.lines.push(semantics.messages.selfHostOnlyNoFallback);
   }
   for (let i = 0; i < result.lines.length; i += 1) {
     host.print(result.lines[i]);
