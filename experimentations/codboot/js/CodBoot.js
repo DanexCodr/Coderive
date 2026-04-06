@@ -127,11 +127,16 @@ function Token(type, value, line, column) {
   this.column = column;
 }
 
-function Lexer(source) {
+function Lexer(source, semantics) {
   this.source = source;
   this.index = 0;
   this.line = 1;
   this.column = 1;
+  const lexerSemantics = semantics && semantics.lexer ? semantics.lexer : {};
+  const lineComments = Array.isArray(lexerSemantics.lineComments) ? lexerSemantics.lineComments : ['#', '//'];
+  this.allowParentheses = typeof lexerSemantics.allowParentheses === 'boolean' ? lexerSemantics.allowParentheses : true;
+  this.hashCommentsEnabled = lineComments.indexOf('#') >= 0;
+  this.doubleSlashCommentsEnabled = lineComments.indexOf('//') >= 0;
 }
 
 Lexer.prototype.currentChar = function() {
@@ -185,7 +190,9 @@ Lexer.prototype.readWord = function(line, column) {
   let result = '';
   while (this.index < this.source.length) {
     const ch = this.currentChar();
-    if (ch === '' || ch === '\n' || ch === ' ' || ch === '\t' || ch === '\r' || ch === '(' || ch === ')' || ch === '#') {
+    const isParenDelimiter = this.allowParentheses && (ch === '(' || ch === ')');
+    const isHashDelimiter = this.hashCommentsEnabled && ch === '#';
+    if (ch === '' || ch === '\n' || ch === ' ' || ch === '\t' || ch === '\r' || isParenDelimiter || isHashDelimiter) {
       break;
     }
     result += ch;
@@ -207,24 +214,24 @@ Lexer.prototype.tokenize = function() {
       this.advance();
       continue;
     }
-    if (ch === '#') {
+    if (this.hashCommentsEnabled && ch === '#') {
       while (this.index < this.source.length && this.currentChar() !== '\n') {
         this.advance();
       }
       continue;
     }
-    if (ch === '/' && this.index + 1 < this.source.length && this.source.charAt(this.index + 1) === '/') {
+    if (this.doubleSlashCommentsEnabled && ch === '/' && this.index + 1 < this.source.length && this.source.charAt(this.index + 1) === '/') {
       while (this.index < this.source.length && this.currentChar() !== '\n') {
         this.advance();
       }
       continue;
     }
-    if (ch === '(') {
+    if (this.allowParentheses && ch === '(') {
       tokens.push(new Token('LPAREN', '(', this.line, this.column));
       this.advance();
       continue;
     }
-    if (ch === ')') {
+    if (this.allowParentheses && ch === ')') {
       tokens.push(new Token('RPAREN', ')', this.line, this.column));
       this.advance();
       continue;
@@ -496,7 +503,7 @@ function runCore(coreSource, programPath, host, semantics) {
   const programSource = host.readFile(programPath);
   let userLines;
   try {
-    const tokens = new Lexer(programSource).tokenize();
+    const tokens = new Lexer(programSource, semantics).tokenize();
     const program = new Parser(tokens, semantics).parseProgram();
     userLines = evaluateProgram(program, host, semantics);
   } catch (err) {

@@ -173,12 +173,18 @@ public final class CodBoot {
 
     private static final class Lexer {
         private final String source;
+        private final boolean allowParentheses;
+        private final boolean hashCommentsEnabled;
+        private final boolean doubleSlashCommentsEnabled;
         private int index;
         private int line;
         private int column;
 
-        private Lexer(String source) {
+        private Lexer(String source, CoreSemantics semantics) {
             this.source = source;
+            this.allowParentheses = semantics.lexerAllowParentheses;
+            this.hashCommentsEnabled = semantics.lexerHashCommentsEnabled;
+            this.doubleSlashCommentsEnabled = semantics.lexerDoubleSlashCommentsEnabled;
             this.index = 0;
             this.line = 1;
             this.column = 1;
@@ -238,7 +244,9 @@ public final class CodBoot {
             StringBuilder result = new StringBuilder();
             while (index < source.length()) {
                 char ch = currentChar();
-                if (ch == '\0' || ch == '\n' || ch == ' ' || ch == '\t' || ch == '\r' || ch == '(' || ch == ')' || ch == '#') {
+                boolean isParenDelimiter = allowParentheses && (ch == '(' || ch == ')');
+                boolean isHashDelimiter = hashCommentsEnabled && ch == '#';
+                if (ch == '\0' || ch == '\n' || ch == ' ' || ch == '\t' || ch == '\r' || isParenDelimiter || isHashDelimiter) {
                     break;
                 }
                 result.append(ch);
@@ -260,24 +268,24 @@ public final class CodBoot {
                     advance();
                     continue;
                 }
-                if (ch == '#') {
+                if (hashCommentsEnabled && ch == '#') {
                     while (index < source.length() && currentChar() != '\n') {
                         advance();
                     }
                     continue;
                 }
-                if (ch == '/' && index + 1 < source.length() && source.charAt(index + 1) == '/') {
+                if (doubleSlashCommentsEnabled && ch == '/' && index + 1 < source.length() && source.charAt(index + 1) == '/') {
                     while (index < source.length() && currentChar() != '\n') {
                         advance();
                     }
                     continue;
                 }
-                if (ch == '(') {
+                if (allowParentheses && ch == '(') {
                     tokens.add(new Token("LPAREN", "(", line, column));
                     advance();
                     continue;
                 }
-                if (ch == ')') {
+                if (allowParentheses && ch == ')') {
                     tokens.add(new Token("RPAREN", ")", line, column));
                     advance();
                     continue;
@@ -423,6 +431,9 @@ public final class CodBoot {
     private static final class CoreSemantics {
         private final String keywordOut;
         private final String keywordHost;
+        private final boolean lexerAllowParentheses;
+        private final boolean lexerHashCommentsEnabled;
+        private final boolean lexerDoubleSlashCommentsEnabled;
         private final String invalidCoreFormat;
         private final String runningPrefix;
         private final String experimentalEvaluatorActive;
@@ -453,6 +464,9 @@ public final class CodBoot {
         private CoreSemantics(
             String keywordOut,
             String keywordHost,
+            boolean lexerAllowParentheses,
+            boolean lexerHashCommentsEnabled,
+            boolean lexerDoubleSlashCommentsEnabled,
             String invalidCoreFormat,
             String runningPrefix,
             String experimentalEvaluatorActive,
@@ -482,6 +496,9 @@ public final class CodBoot {
         ) {
             this.keywordOut = keywordOut;
             this.keywordHost = keywordHost;
+            this.lexerAllowParentheses = lexerAllowParentheses;
+            this.lexerHashCommentsEnabled = lexerHashCommentsEnabled;
+            this.lexerDoubleSlashCommentsEnabled = lexerDoubleSlashCommentsEnabled;
             this.invalidCoreFormat = invalidCoreFormat;
             this.runningPrefix = runningPrefix;
             this.experimentalEvaluatorActive = experimentalEvaluatorActive;
@@ -601,6 +618,24 @@ public final class CodBoot {
         return unescapeJsonString(matcher.group(1));
     }
 
+    private static boolean requireJsonBooleanValue(String json, String key) {
+        Pattern pattern = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*(true|false)");
+        Matcher matcher = pattern.matcher(json);
+        if (!matcher.find()) {
+            throw new RuntimeException(CORE_MISSING_SEMANTICS_KEY_PREFIX + key);
+        }
+        return "true".equals(matcher.group(1));
+    }
+
+    private static boolean jsonArrayContainsString(String json, String arrayKey, String value) {
+        Pattern pattern = Pattern.compile("\"" + Pattern.quote(arrayKey) + "\"\\s*:\\s*\\[([\\s\\S]*?)\\]");
+        Matcher matcher = pattern.matcher(json);
+        if (!matcher.find()) {
+            throw new RuntimeException(CORE_MISSING_SEMANTICS_KEY_PREFIX + arrayKey);
+        }
+        return matcher.group(1).contains("\"" + value + "\"");
+    }
+
     private static CoreSemantics parseCoreSemantics(String coreSource) {
         String json = extractSemanticsJson(coreSource);
         if (json.length() == 0) {
@@ -609,6 +644,9 @@ public final class CodBoot {
         return new CoreSemantics(
             requireJsonStringValue(json, "out"),
             requireJsonStringValue(json, "host"),
+            requireJsonBooleanValue(json, "allowParentheses"),
+            jsonArrayContainsString(json, "lineComments", "#"),
+            jsonArrayContainsString(json, "lineComments", "//"),
             requireJsonStringValue(json, "invalidCoreFormat"),
             requireJsonStringValue(json, "runningPrefix"),
             requireJsonStringValue(json, "experimentalEvaluatorActive"),
@@ -763,7 +801,7 @@ public final class CodBoot {
         String programSource = host.readFile(programPath);
         List<String> userLines;
         try {
-            List<Token> tokens = new Lexer(programSource).tokenize();
+            List<Token> tokens = new Lexer(programSource, semantics).tokenize();
             Program program = new Parser(tokens, semantics).parseProgram();
             userLines = evaluateProgram(program, host, semantics);
         } catch (RuntimeException e) {
