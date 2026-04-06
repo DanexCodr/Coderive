@@ -10,7 +10,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +37,7 @@ final class IRCodec {
     private static final byte TAG_AUTO_STACKING = 10;
 
     private static final String NODE_PACKAGE_PREFIX = "cod.ast.nodes.";
-    private static final Map<String, byte[]> STRING_BYTES_CACHE = new HashMap<String, byte[]>();
+    private static final Map<String, byte[]> STRING_BYTES_CACHE = new ConcurrentHashMap<String, byte[]>();
     private static final int STRING_BYTES_CACHE_LIMIT = 512;
 
     private IRCodec() {}
@@ -307,7 +307,7 @@ final class IRCodec {
         }
     }
 
-    static void writeNodeFields(DataOutput out, String nodeName, int depth, String[] fieldNames, Object[] values)
+    private static void writeNodeFields(DataOutput out, String nodeName, int depth, String[] fieldNames, Object[] values)
             throws IOException {
         if (fieldNames.length != values.length) {
             throw new IOException("IR node field name/value mismatch for " + nodeName);
@@ -334,18 +334,16 @@ final class IRCodec {
     }
 
     private static byte[] cachedUtf8Bytes(String value) {
-        synchronized (STRING_BYTES_CACHE) {
-            byte[] cached = STRING_BYTES_CACHE.get(value);
-            if (cached != null) {
-                return cached;
-            }
-            byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-            if (STRING_BYTES_CACHE.size() < STRING_BYTES_CACHE_LIMIT
-                    && (value.startsWith(NODE_PACKAGE_PREFIX) || isIdentifierLike(value))) {
-                STRING_BYTES_CACHE.put(value, bytes);
-            }
-            return bytes;
+        byte[] cached = STRING_BYTES_CACHE.get(value);
+        if (cached != null) {
+            return cached;
         }
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        if (STRING_BYTES_CACHE.size() < STRING_BYTES_CACHE_LIMIT
+                && (value.startsWith(NODE_PACKAGE_PREFIX) || isIdentifierLike(value))) {
+            STRING_BYTES_CACHE.putIfAbsent(value, bytes);
+        }
+        return bytes;
     }
 
     private static boolean isIdentifierLike(String value) {
