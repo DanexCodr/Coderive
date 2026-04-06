@@ -200,204 +200,6 @@ function runViaCommandRunner(corePath, programPath, hostInput) {
   };
 }
 
-function isLegacyCodBootProgram(programSource, semantics) {
-  const lines = programSource.split(/\r?\n/);
-  const outPrefix = semantics.keywords.out + '(';
-  const hostPrefix = semantics.keywords.host + ' ';
-  for (let i = 0; i < lines.length; i += 1) {
-    const raw = lines[i];
-    const line = raw.trim();
-    if (line.length === 0 || line.charAt(0) === '#') {
-      continue;
-    }
-    if (isCommentLine(line)) {
-      continue;
-    }
-    if (line.indexOf(outPrefix) === 0 || line.indexOf(hostPrefix) === 0) {
-      continue;
-    }
-    return false;
-  }
-  return true;
-}
-
-function parseLegacyStringLiteral(text) {
-  if (!text || text.charAt(0) !== '"' || text.charAt(text.length - 1) !== '"') {
-    throw new Error('Invalid out statement: ' + text);
-  }
-  let out = '';
-  for (let i = 1; i < text.length - 1; i += 1) {
-    const ch = text.charAt(i);
-    if (ch === '\\') {
-      if (i + 1 >= text.length - 1) {
-        throw new Error('Unterminated string literal in legacy CodBoot statement');
-      }
-      const esc = text.charAt(i + 1);
-      if (esc === 'n') {
-        out += '\n';
-      } else if (esc === 't') {
-        out += '\t';
-      } else if (esc === '"' || esc === '\\') {
-        out += esc;
-      } else {
-        out += esc;
-      }
-      i += 1;
-      continue;
-    }
-    out += ch;
-  }
-  return out;
-}
-
-function splitLegacyHostArgs(text) {
-  const args = [];
-  let i = 0;
-  while (i < text.length) {
-    while (i < text.length && /\s/.test(text.charAt(i))) {
-      i += 1;
-    }
-    if (i >= text.length) {
-      break;
-    }
-    if (text.charAt(i) === '"') {
-      let token = '"';
-      i += 1;
-      let closed = false;
-      while (i < text.length) {
-        const ch = text.charAt(i);
-        token += ch;
-        if (ch === '\\') {
-          i += 1;
-          if (i < text.length) {
-            token += text.charAt(i);
-          }
-        } else if (ch === '"') {
-          closed = true;
-          i += 1;
-          break;
-        }
-        i += 1;
-      }
-      if (!closed) {
-        throw new Error('Unterminated string literal in host statement');
-      }
-      args.push(parseLegacyStringLiteral(token));
-      continue;
-    }
-    const start = i;
-    while (i < text.length && !/\s/.test(text.charAt(i))) {
-      i += 1;
-    }
-    args.push(text.substring(start, i));
-  }
-  return args;
-}
-
-function runLegacyCodBoot(programSource, host, semantics) {
-  const output = [];
-  const lines = programSource.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i += 1) {
-    const raw = lines[i];
-    const line = raw.trim();
-    if (line.length === 0 || line.charAt(0) === '#') {
-      continue;
-    }
-    if (isCommentLine(line)) {
-      continue;
-    }
-    if (line.indexOf(semantics.keywords.out + '(') === 0) {
-      if (line.charAt(line.length - 1) !== ')') {
-        throw new Error('Invalid out statement: ' + line);
-      }
-      const payload = line.substring(semantics.keywords.out.length + 1, line.length - 1).trim();
-      output.push(parseLegacyStringLiteral(payload));
-      continue;
-    }
-    if (line.indexOf(semantics.keywords.host + ' ') === 0) {
-      const body = line.substring((semantics.keywords.host + ' ').length);
-      const firstSpace = body.search(/\s/);
-      const command = firstSpace < 0 ? body : body.substring(0, firstSpace);
-      const args = firstSpace < 0 ? [] : splitLegacyHostArgs(body.substring(firstSpace + 1));
-      output.push(evaluateHost(command, args, host, semantics));
-      continue;
-    }
-  }
-  return output;
-}
-
-function parseAtom(text) {
-  if (/^-?\d+(\.\d+)?$/.test(text)) {
-    return Number(text);
-  }
-  return text;
-}
-
-function formatNumber(value, semantics) {
-  const evaluator = semantics && semantics.evaluator ? semantics.evaluator : {};
-  const tolerance = typeof evaluator.wholeNumberTolerance === 'number' ? evaluator.wholeNumberTolerance : 1e-9;
-  const mode = typeof evaluator.wholeNumberMode === 'string' ? evaluator.wholeNumberMode : 'round';
-  if (mode !== 'round' && mode !== 'trunc') {
-    throw new Error('invalid wholeNumberMode: ' + mode + '. Expected "round" or "trunc"');
-  }
-  const whole = mode === 'trunc' ? Math.trunc(value) : Math.round(value);
-  if (Math.abs(value - whole) < tolerance) {
-    return String(whole);
-  }
-  return String(value);
-}
-
-function evaluateHost(command, args, host, semantics) {
-  const cmds = semantics.hostCommands;
-  const messages = semantics.messages;
-  switch (command) {
-    case cmds.add:
-      return formatNumber(host.add(parseAtom(args[0] || ''), parseAtom(args[1] || '')), semantics);
-    case cmds.subtract:
-      return formatNumber(host.subtract(parseAtom(args[0] || ''), parseAtom(args[1] || '')), semantics);
-    case cmds.multiply:
-      return formatNumber(host.multiply(parseAtom(args[0] || ''), parseAtom(args[1] || '')), semantics);
-    case cmds.divide:
-      try {
-        return formatNumber(host.divide(parseAtom(args[0] || ''), parseAtom(args[1] || '')), semantics);
-      } catch (err) {
-        return messages.divideErrorPrefix + err.message;
-      }
-    case cmds.lessThan:
-      return String(host.lessThan(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case cmds.greaterThan:
-      return String(host.greaterThan(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case cmds.equal:
-      return String(host.equal(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
-    case cmds.stringAppend:
-      return host.stringAppend(args[0] || '', args[1] || '');
-    case cmds.writeFile:
-      try {
-        host.writeFile(args[0] || '', args[1] || '');
-        return messages.writeFileOk;
-      } catch (err) {
-        return messages.writeFileErrorPrefix + err.message;
-      }
-    case cmds.readFile:
-      try {
-        return host.readFile(args[0] || '').replace(/\r?\n$/, '');
-      } catch (err) {
-        return messages.readFileErrorPrefix + err.message;
-      }
-    case cmds.input:
-      return host.input();
-    case cmds.now:
-      return String(host.now());
-    case cmds.random:
-      return String(host.random());
-    case cmds.system:
-      return String(host.system(args[0] || ''));
-    default:
-      return messages.unknownDirectivePrefix + command;
-  }
-}
-
-
 function extractSemanticsJson(coreSource) {
   const triple = coreSource.match(/semantics_json\s*:=\s*"""\s*([\s\S]*?)\s*"""/);
   if (triple) {
@@ -483,35 +285,28 @@ function runCore(coreSource, corePath, programPath, host, semantics) {
   if (!hasCoreEntrypoint(coreSource)) {
     return { exitCode: 2, lines: [semantics.messages.invalidCoreFormat] };
   }
-  const programSource = host.readFile(programPath);
-  let userLines;
   try {
-    if (isLegacyCodBootProgram(programSource, semantics)) {
-      userLines = runLegacyCodBoot(programSource, host, semantics);
-    } else {
-      const hostInput = host.consumeRemainingInput();
-      const runnerResult = runViaCommandRunner(corePath, programPath, hostInput);
-      if (runnerResult.exitCode !== 0) {
-        const err = runnerResult.stderr.length > 0 ? runnerResult.stderr : 'CommandRunner failed';
-        return { exitCode: 2, lines: [semantics.messages.parseEvalErrorPrefix + err] };
-      }
-      userLines = runnerResult.lines;
+    const hostInput = host.consumeRemainingInput();
+    const runnerResult = runViaCommandRunner(corePath, programPath, hostInput);
+    if (runnerResult.exitCode !== 0) {
+      const err = runnerResult.stderr.length > 0 ? runnerResult.stderr : 'CommandRunner failed';
+      return { exitCode: 2, lines: [semantics.messages.parseEvalErrorPrefix + err] };
     }
+    const userLines = runnerResult.lines;
+    const lines = [
+      semantics.messages.runningPrefix + programPath,
+      semantics.messages.experimentalEvaluatorActive
+    ];
+    for (let i = 0; i < userLines.length; i += 1) {
+      lines.push(userLines[i]);
+    }
+    if (userLines.length === 0) {
+      lines.push(semantics.messages.noOutStatementsDetected);
+    }
+    return { exitCode: 0, lines: lines };
   } catch (err) {
     return { exitCode: 2, lines: [semantics.messages.parseEvalErrorPrefix + err.message] };
   }
-
-  const lines = [
-    semantics.messages.runningPrefix + programPath,
-    semantics.messages.experimentalEvaluatorActive
-  ];
-  for (let i = 0; i < userLines.length; i += 1) {
-    lines.push(userLines[i]);
-  }
-  if (userLines.length === 0) {
-    lines.push(semantics.messages.noOutStatementsDetected);
-  }
-  return { exitCode: 0, lines: lines };
 }
 
 function isParseEvalError(result, semantics) {

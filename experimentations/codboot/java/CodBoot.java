@@ -339,6 +339,10 @@ public final class CodBoot {
         return false;
     }
 
+    private static boolean isWhole(double value) {
+        return Math.abs(value - Math.rint(value)) < 1e-9;
+    }
+
     private static String extractSemanticsJson(String coreSource) {
         Pattern triplePattern = Pattern.compile("semantics_json\\s*:=\\s*\"\"\"\\s*([\\s\\S]*?)\\s*\"\"\"");
         Matcher tripleMatcher = triplePattern.matcher(coreSource);
@@ -494,117 +498,6 @@ public final class CodBoot {
         );
     }
 
-    private static Object parseAtom(String token) {
-        if (token == null) {
-            return "";
-        }
-        if (token.matches("^-?\\d+(\\.\\d+)?$")) {
-            return Double.valueOf(token);
-        }
-        return token;
-    }
-
-    private static String readToken(List<String> tokens, int index) {
-        if (index < 0 || index >= tokens.size()) {
-            return "";
-        }
-        return tokens.get(index);
-    }
-
-    private static double asNumber(Object value) {
-        if (value instanceof Double) {
-            return ((Double) value).doubleValue();
-        }
-        if (value instanceof Number) {
-            return ((Number) value).doubleValue();
-        }
-        try {
-            return Double.parseDouble(String.valueOf(value));
-        } catch (NumberFormatException ignored) {
-            return 0.0d;
-        }
-    }
-
-    private static long truncateTowardZero(double value) {
-        return (long) (value >= 0 ? Math.floor(value) : Math.ceil(value));
-    }
-
-    private static String formatNumber(double value, CoreSemantics semantics) {
-        String mode = semantics.evaluatorWholeNumberMode;
-        if (!"round".equals(mode) && !"trunc".equals(mode)) {
-            throw new RuntimeException("invalid wholeNumberMode: " + mode + ". Expected \"round\" or \"trunc\"");
-        }
-        long whole = "trunc".equals(mode) ? truncateTowardZero(value) : Math.round(value);
-        if (Math.abs(value - whole) < semantics.evaluatorWholeNumberTolerance) {
-            return String.valueOf(whole);
-        }
-        return String.valueOf(value);
-    }
-
-    private static boolean isWhole(double value) {
-        return Math.abs(value - Math.rint(value)) < 1e-9;
-    }
-
-    private static String evaluateHost(String command, List<String> args, Host host, CoreSemantics semantics) {
-        if (semantics.cmdAdd.equals(command)) {
-            return formatNumber(host.add(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))), semantics);
-        }
-        if (semantics.cmdSubtract.equals(command)) {
-            return formatNumber(host.subtract(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))), semantics);
-        }
-        if (semantics.cmdMultiply.equals(command)) {
-            return formatNumber(host.multiply(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))), semantics);
-        }
-        if (semantics.cmdDivide.equals(command)) {
-            try {
-                return formatNumber(host.divide(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))), semantics);
-            } catch (RuntimeException e) {
-                return semantics.divideErrorPrefix + e.getMessage();
-            }
-        }
-        if (semantics.cmdLessThan.equals(command)) {
-            return String.valueOf(host.lessThan(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))));
-        }
-        if (semantics.cmdGreaterThan.equals(command)) {
-            return String.valueOf(host.greaterThan(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))));
-        }
-        if (semantics.cmdEqual.equals(command)) {
-            return String.valueOf(host.equal(String.valueOf(parseAtom(readToken(args, 0))), String.valueOf(parseAtom(readToken(args, 1)))));
-        }
-        if (semantics.cmdStringAppend.equals(command)) {
-            return host.stringAppend(readToken(args, 0), readToken(args, 1));
-        }
-        if (semantics.cmdWriteFile.equals(command)) {
-            try {
-                host.writeFile(readToken(args, 0), readToken(args, 1));
-                return semantics.writeFileOk;
-            } catch (IOException e) {
-                return semantics.writeFileErrorPrefix + e.getMessage();
-            }
-        }
-        if (semantics.cmdReadFile.equals(command)) {
-            try {
-                return host.readFile(readToken(args, 0)).replaceFirst("\\r?\\n$", "");
-            } catch (IOException e) {
-                return semantics.readFileErrorPrefix + e.getMessage();
-            }
-        }
-        if (semantics.cmdInput.equals(command)) {
-            return host.input();
-        }
-        if (semantics.cmdNow.equals(command)) {
-            return String.valueOf(host.now());
-        }
-        if (semantics.cmdRandom.equals(command)) {
-            return String.valueOf(host.random());
-        }
-        if (semantics.cmdSystem.equals(command)) {
-            return String.valueOf(host.system(readToken(args, 0)));
-        }
-        return semantics.unknownDirectivePrefix + command;
-    }
-
-
     private static RunResult runCore(String coreSource, String corePath, String programPath, Host host, CoreSemantics semantics) throws IOException {
         if (!hasCoreEntrypoint(coreSource)) {
             List<String> invalid = new ArrayList<String>();
@@ -612,35 +505,27 @@ public final class CodBoot {
             return new RunResult(2, invalid);
         }
 
-        String programSource = host.readFile(programPath);
-        List<String> userLines;
         try {
-            if (isLegacyCodBootProgram(programSource, semantics)) {
-                userLines = runLegacyCodBoot(programSource, host, semantics);
-            } else {
-                String hostInput = host.consumeRemainingInput();
-                RunnerResult runner = runViaCommandRunner(programPath, hostInput, corePath);
-                if (runner.exitCode != 0) {
-                    List<String> parseError = new ArrayList<String>();
-                    parseError.add(semantics.parseEvalErrorPrefix + (runner.stderr.length() > 0 ? runner.stderr : "CommandRunner failed"));
-                    return new RunResult(2, parseError);
-                }
-                userLines = runner.lines;
+            String hostInput = host.consumeRemainingInput();
+            RunnerResult runner = runViaCommandRunner(programPath, hostInput, corePath);
+            if (runner.exitCode != 0) {
+                List<String> parseError = new ArrayList<String>();
+                parseError.add(semantics.parseEvalErrorPrefix + (runner.stderr.length() > 0 ? runner.stderr : "CommandRunner failed"));
+                return new RunResult(2, parseError);
             }
+            List<String> lines = new ArrayList<String>();
+            lines.add(semantics.runningPrefix + programPath);
+            lines.add(semantics.experimentalEvaluatorActive);
+            lines.addAll(runner.lines);
+            if (runner.lines.isEmpty()) {
+                lines.add(semantics.noOutStatementsDetected);
+            }
+            return new RunResult(0, lines);
         } catch (RuntimeException e) {
             List<String> parseError = new ArrayList<String>();
             parseError.add(semantics.parseEvalErrorPrefix + e.getMessage());
             return new RunResult(2, parseError);
         }
-
-        List<String> lines = new ArrayList<String>();
-        lines.add(semantics.runningPrefix + programPath);
-        lines.add(semantics.experimentalEvaluatorActive);
-        lines.addAll(userLines);
-        if (userLines.isEmpty()) {
-            lines.add(semantics.noOutStatementsDetected);
-        }
-        return new RunResult(0, lines);
     }
 
     private static String deriveRepoRootFromCorePath(String corePath) {
@@ -763,138 +648,6 @@ public final class CodBoot {
         if (!new File(value).exists()) {
             throw new RuntimeException(label + " path not found: " + value);
         }
-    }
-
-    private static boolean isLegacyCodBootProgram(String source, CoreSemantics semantics) {
-        String[] lines = source.split("\\r?\\n");
-        String outPrefix = semantics.keywordOut + "(";
-        String hostPrefix = semantics.keywordHost + " ";
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i].trim();
-            if (line.length() == 0 || line.startsWith("#") || line.startsWith("//")) {
-                continue;
-            }
-            if (line.startsWith(outPrefix) || line.startsWith(hostPrefix)) {
-                continue;
-            }
-            return false;
-        }
-        return true;
-    }
-
-    private static String parseLegacyStringLiteral(String text) {
-        if (text == null || text.length() < 2 || text.charAt(0) != '"' || text.charAt(text.length() - 1) != '"') {
-            throw new RuntimeException("Invalid out statement: " + text);
-        }
-        StringBuilder out = new StringBuilder();
-        for (int i = 1; i < text.length() - 1; i++) {
-            char ch = text.charAt(i);
-            if (ch == '\\') {
-                if (i + 1 >= text.length() - 1) {
-                    throw new RuntimeException("Unterminated string literal in legacy CodBoot statement");
-                }
-                char esc = text.charAt(i + 1);
-                if (esc == 'n') {
-                    out.append('\n');
-                } else if (esc == 't') {
-                    out.append('\t');
-                } else if (esc == '"' || esc == '\\') {
-                    out.append(esc);
-                } else {
-                    out.append(esc);
-                }
-                i += 1;
-            } else {
-                out.append(ch);
-            }
-        }
-        return out.toString();
-    }
-
-    private static List<String> splitLegacyHostArgs(String text) {
-        List<String> args = new ArrayList<String>();
-        int i = 0;
-        while (i < text.length()) {
-            while (i < text.length() && Character.isWhitespace(text.charAt(i))) {
-                i++;
-            }
-            if (i >= text.length()) {
-                break;
-            }
-            if (text.charAt(i) == '"') {
-                StringBuilder token = new StringBuilder();
-                token.append('"');
-                i++;
-                boolean closed = false;
-                while (i < text.length()) {
-                    char ch = text.charAt(i);
-                    token.append(ch);
-                    if (ch == '\\') {
-                        i++;
-                        if (i < text.length()) {
-                            token.append(text.charAt(i));
-                        }
-                    } else if (ch == '"') {
-                        closed = true;
-                        i++;
-                        break;
-                    }
-                    i++;
-                }
-                if (!closed) {
-                    throw new RuntimeException("Unterminated string literal in host statement");
-                }
-                args.add(parseLegacyStringLiteral(token.toString()));
-                continue;
-            }
-            int start = i;
-            while (i < text.length() && !Character.isWhitespace(text.charAt(i))) {
-                i++;
-            }
-            args.add(text.substring(start, i));
-        }
-        return args;
-    }
-
-    private static List<String> runLegacyCodBoot(String source, Host host, CoreSemantics semantics) {
-        List<String> out = new ArrayList<String>();
-        String[] lines = source.split("\\r?\\n");
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i].trim();
-            if (line.length() == 0 || line.startsWith("#") || line.startsWith("//")) {
-                continue;
-            }
-            if (line.startsWith(semantics.keywordOut + "(")) {
-                if (!line.endsWith(")")) {
-                    throw new RuntimeException("Invalid out statement: " + line);
-                }
-                String payload = line.substring(semantics.keywordOut.length() + 1, line.length() - 1).trim();
-                out.add(parseLegacyStringLiteral(payload));
-                continue;
-            }
-            if (line.startsWith(semantics.keywordHost + " ")) {
-                String body = line.substring((semantics.keywordHost + " ").length());
-                int splitAt = -1;
-                for (int idx = 0; idx < body.length(); idx++) {
-                    if (Character.isWhitespace(body.charAt(idx))) {
-                        splitAt = idx;
-                        break;
-                    }
-                }
-                String command;
-                List<String> args;
-                if (splitAt < 0) {
-                    command = body;
-                    args = new ArrayList<String>();
-                } else {
-                    command = body.substring(0, splitAt);
-                    args = splitLegacyHostArgs(body.substring(splitAt + 1));
-                }
-                out.add(evaluateHost(command, args, host, semantics));
-                continue;
-            }
-        }
-        return out;
     }
 
     private static boolean isParseEvalError(RunResult result, CoreSemantics semantics) {
