@@ -138,7 +138,7 @@ public final class ModuleSemanticValidator {
 
         String dirName = extractDirNameNoFileIO(filePath);
         if (dirName.isEmpty()) {
-            validateFileInCurrentDirectory(unitName, errorToken);
+            validateFileInCurrentDirectory(unitName, filePath, errorToken);
             return;
         }
 
@@ -223,7 +223,7 @@ public final class ModuleSemanticValidator {
         return filePath.substring(prevSeparator + 1, lastSeparator);
     }
 
-    private static void validateFileInCurrentDirectory(String unitName, Token errorToken) {
+    private static void validateFileInCurrentDirectory(String unitName, String filePath, Token errorToken) {
         if (unitName.isEmpty()) {
             throw error("Unit name cannot be empty", errorToken);
         }
@@ -312,12 +312,12 @@ public final class ModuleSemanticValidator {
 
         boolean classFound = false;
         for (Type type : typesInFile) {
-            if (unit.mainClassName.equals(type.name)) {
+            if (java.util.Objects.equals(unit.mainClassName, type.name)) {
                 classFound = true;
 
                 boolean hasMainMethod = false;
                 for (Method method : type.methods) {
-                    if (method.methodName.equals("main")) {
+                    if ("main".equals(method.methodName)) {
                         hasMainMethod = true;
                         break;
                     }
