@@ -5,7 +5,7 @@
 // exact same semantics payload consumed by JS/Java CodBoot hosts.
 
 entrypoint := "CodBootCore::v0"
-out("[core] entrypoint ready: {entrypoint}")
+out("[core] entrypoint ready: " + entrypoint)
 
 // semantics_json_begin
 // {

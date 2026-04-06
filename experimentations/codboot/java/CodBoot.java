@@ -17,6 +17,7 @@ public final class CodBoot {
     private static final String CORE_PARSE_EVAL_ERROR_PREFIX = "[core] parse/eval error: ";
     private static final String CORE_MISSING_SEMANTICS_KEY_PREFIX = "[core] missing semantics key: ";
     private static final String CORE_MISSING_SEMANTICS_JSON_MESSAGE = "[core] missing semantics_json block";
+    private static final Pattern JSON_STRING_ITEM_PATTERN = Pattern.compile("\"((?:\\\\.|[^\\\\\"])*)\"");
 
     private interface Host {
         String readFile(String path) throws IOException;
@@ -634,8 +635,7 @@ public final class CodBoot {
             throw new RuntimeException(CORE_MISSING_SEMANTICS_KEY_PREFIX + arrayKey);
         }
         String body = matcher.group(1);
-        Pattern itemPattern = Pattern.compile("\"((?:\\\\.|[^\\\\\"])*)\"");
-        Matcher itemMatcher = itemPattern.matcher(body);
+        Matcher itemMatcher = JSON_STRING_ITEM_PATTERN.matcher(body);
         while (itemMatcher.find()) {
             String item = unescapeJsonString(itemMatcher.group(1));
             if (value.equals(item)) {
