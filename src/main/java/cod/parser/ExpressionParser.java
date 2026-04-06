@@ -26,6 +26,10 @@ public class ExpressionParser extends BaseParser {
     private static final int PREC_UNARY = 90;
     private static final int PREC_CALL = 100;
     private static final int PREC_IS = 40;
+    // Infix-only reduction tiers. Unary and call/member/indexing are parsed in prefix/primary phases.
+    private static final int[] REDUCTION_PRECEDENCE_ORDER = {
+        PREC_FACTOR, PREC_TERM, PREC_COMPARISON, PREC_EQUALITY, PREC_IS
+    };
     
     private final GlobalRegistry globalRegistry;
     private Set<String> globalFunctionNames;
@@ -1203,47 +1207,36 @@ public class ExpressionParser extends BaseParser {
     }
 
     private Expr parsePrecedence(int precedence) {
-        Expr left = parsePrefix();
-        
-        while(true) {
+        List<Expr> operands = new ArrayList<>();
+        List<Token> operators = new ArrayList<>();
+
+        operands.add(parsePrefix());
+
+        while (true) {
             Token op = now();
             if (op == null) break;
-            
+
             int opPrecedence = getPrecedence(op);
-            
-            if (opPrecedence < precedence) {
+            // Only consume true infix operators here; postfix/member forms are handled in parsePrimaryExpr().
+            if (opPrecedence < precedence || !isReducibleInfixOperator(op)) {
                 break;
             }
-            
-            // Handle chained comparisons
-            if (opPrecedence == PREC_CHAIN) {
-                return parseComparisonChain(left);
+
+            if (isComparisonOp(op) && isChainComparison(1)) {
+                Expr chainLeft = reduceFlatExpression(operands, operators);
+                return parseComparisonChain(chainLeft);
             }
-            
+
             if (isComparisonOp(op) && isChainFollows(1)) {
-                return parseEqualityChain(left, op.getText());
+                Expr chainLeft = reduceFlatExpression(operands, operators);
+                return parseEqualityChain(chainLeft, op.getText());
             }
-            
-            if (opPrecedence > 0) {
-                Token opToken = consume();
-                Expr right = parsePrecedence(opPrecedence + 1);
-                if (is(opToken, IS)) {
-                    left = ASTFactory.createBinaryOp(left, IS.toString(), right, opToken);
-                } else {
-                    left = ASTFactory.createBinaryOp(left, op.getText(), right, opToken);
-                }
-                continue;
-            }
-            
-            if (is(op, LBRACKET)) {
-                left = parseIndexAccessContinuation(left);
-                continue;
-            }
-            
-            break;
+
+            operators.add(consume());
+            operands.add(parsePrefix());
         }
-        
-        return left;
+
+        return reduceFlatExpression(operands, operators);
     }
 
     private Expr parseComparisonChain(Expr first) {
@@ -1265,8 +1258,8 @@ public class ExpressionParser extends BaseParser {
             operators.add(opToken.getText());  // Lazy allocation
             consume(); // consume operator
             
-            // Parse the next expression with lower precedence to avoid right-associativity
-            Expr nextExpr = parsePrecedence(PREC_CHAIN - 1);
+            // Parse only the comparison operand (exclude further comparison operators)
+            Expr nextExpr = parsePrecedence(PREC_COMPARISON + 1);
             expressions.add(nextExpr);
             
             // Look ahead - if next token is another comparison, continue the chain
@@ -1277,6 +1270,63 @@ public class ExpressionParser extends BaseParser {
         }
         
         return ASTFactory.createChainedComparison(expressions, operators, firstToken);
+    }
+
+    private Expr reduceFlatExpression(List<Expr> operands, List<Token> operators) {
+        if (operands.isEmpty()) {
+            throw error("Expected expression");
+        }
+        if (operators.isEmpty()) {
+            return operands.get(0);
+        }
+
+        for (int reductionPrecedence : REDUCTION_PRECEDENCE_ORDER) {
+            reduceAtPrecedence(operands, operators, reductionPrecedence);
+        }
+
+        if (!operators.isEmpty()) {
+            throw error("Invalid expression near operator: " + operators.get(0).getText(), operators.get(0));
+        }
+        if (operands.size() != 1) {
+            throw error("Invalid expression structure");
+        }
+        return operands.get(0);
+    }
+
+    private void reduceAtPrecedence(List<Expr> operands, List<Token> operators, int precedence) {
+        if (operators.isEmpty()) return;
+
+        List<Expr> newOperands = new ArrayList<>();
+        List<Token> newOperators = new ArrayList<>();
+
+        Expr current = operands.get(0);
+        for (int i = 0; i < operators.size(); i++) {
+            Token op = operators.get(i);
+            Expr right = operands.get(i + 1);
+
+            if (getPrecedence(op) == precedence) {
+                if (is(op, IS)) {
+                    current = ASTFactory.createBinaryOp(current, IS.toString(), right, op);
+                } else {
+                    current = ASTFactory.createBinaryOp(current, op.getText(), right, op);
+                }
+            } else {
+                newOperands.add(current);
+                newOperators.add(op);
+                current = right;
+            }
+        }
+
+        newOperands.add(current);
+        operands.clear();
+        operands.addAll(newOperands);
+        operators.clear();
+        operators.addAll(newOperators);
+    }
+
+    private boolean isReducibleInfixOperator(Token token) {
+        if (token == null) return false;
+        return is(token, IS, PLUS, MINUS, MUL, DIV, MOD, EQ, NEQ, GT, LT, GTE, LTE);
     }
 
     private Expr parsePrefix() {
