@@ -16,10 +16,10 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public final class CodBoot {
-    // This constant is needed before core semantics are parsed; keep in sync with semantics_json messages.parseEvalErrorPrefix in core.ce.
+    // This constant is needed before core semantics are parsed; keep in sync with semantics_json messages.parseEvalErrorPrefix in core.cod.
     private static final String CORE_PARSE_EVAL_ERROR_PREFIX = "[core] parse/eval error: ";
     private static final String CORE_MISSING_SEMANTICS_KEY_PREFIX = "[core] missing semantics key: ";
-    // Keep in sync with core.ce semantics_json missing-semantics error contract.
+    // Keep in sync with core.cod semantics_json missing-semantics error contract.
     private static final String CORE_MISSING_SEMANTICS_JSON_MESSAGE = "[core] missing semantics_json block";
     // Matches JSON string literals and captures escaped content between quotes.
     // Unlike JSON_NUMBER_VALUE_REGEX (a string template expanded at runtime per key),
@@ -658,7 +658,7 @@ public final class CodBoot {
 
     private static int mainImpl(String[] args, Host host) throws IOException {
         if (args.length < 2) {
-            host.print("Usage: java CodBoot <core.ce-path> <program.cod-path> [--bootstrap-self]");
+            host.print("Usage: java CodBoot <core.cod-path> <program.cod-path> [--bootstrap-self]");
             return 64;
         }
 

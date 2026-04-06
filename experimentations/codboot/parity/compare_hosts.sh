@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-CORE_PATH="$ROOT_DIR/experimentations/codboot/core/core.ce"
+CORE_PATH="$ROOT_DIR/experimentations/codboot/core/core.cod"
 PROGRAM_DIR="$ROOT_DIR/experimentations/codboot/parity/programs"
 EXPECTED_DIR="$ROOT_DIR/experimentations/codboot/parity/expected"
 JS_HOST="$ROOT_DIR/experimentations/codboot/js/CodBoot.js"

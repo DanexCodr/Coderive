@@ -4,7 +4,7 @@ This experiment follows `implementations/CodBoot-SelfHosting-Plan.md` and keeps 
 
 ## Goals
 
-- Shared `core.ce` as source-of-truth for runtime semantics and diagnostics.
+- Shared `core.cod` as source-of-truth for runtime semantics and diagnostics.
 - Minimal host dependencies with staged support:
   - Level 1: `read-file`, `print`, `exit`
   - Level 2: arithmetic/comparison/string helpers
@@ -16,7 +16,7 @@ This experiment follows `implementations/CodBoot-SelfHosting-Plan.md` and keeps 
 
 ## Layout
 
-- `core/core.ce` — shared core entrypoint and canonical semantics metadata consumed by both hosts.
+- `core/core.cod` — shared core entrypoint and canonical semantics metadata consumed by both hosts.
 - `js/CodBoot.js` — Node-based constrained host.
 - `java/CodBoot.java` — Java 7 constrained host.
 - `parity/` — corpus and expected outputs.
@@ -30,7 +30,7 @@ Run the following commands from the repository root.
 
 ```bash
 node experimentations/codboot/js/CodBoot.js \
-  experimentations/codboot/core/core.ce \
+  experimentations/codboot/core/core.cod \
   experimentations/codboot/parity/programs/hello.cod
 
 ```
@@ -39,7 +39,7 @@ Bootstrap check:
 
 ```bash
 node experimentations/codboot/js/CodBoot.js \
-  experimentations/codboot/core/core.ce \
+  experimentations/codboot/core/core.cod \
   experimentations/codboot/parity/programs/hello.cod \
   --bootstrap-self
 ```
@@ -48,7 +48,7 @@ Self-host-only check (strict mode; host fallback paths removed):
 
 ```bash
 node experimentations/codboot/js/CodBoot.js \
-  experimentations/codboot/core/core.ce \
+  experimentations/codboot/core/core.cod \
   experimentations/codboot/parity/programs/hello.cod \
   --self-host-only
 ```
@@ -60,7 +60,7 @@ JAVA_OUT="$(mktemp -d)"
 javac -source 7 -target 7 -d "$JAVA_OUT" \
   experimentations/codboot/java/CodBoot.java
 java -cp "$JAVA_OUT" CodBoot \
-  experimentations/codboot/core/core.ce \
+  experimentations/codboot/core/core.cod \
   experimentations/codboot/parity/programs/hello.cod
 
 ```
@@ -69,7 +69,7 @@ Bootstrap check:
 
 ```bash
 java -cp "$JAVA_OUT" CodBoot \
-  experimentations/codboot/core/core.ce \
+  experimentations/codboot/core/core.cod \
   experimentations/codboot/parity/programs/hello.cod \
   --bootstrap-self
 ```
@@ -78,7 +78,7 @@ Self-host-only check (strict mode; host fallback paths removed):
 
 ```bash
 java -cp "$JAVA_OUT" CodBoot \
-  experimentations/codboot/core/core.ce \
+  experimentations/codboot/core/core.cod \
   experimentations/codboot/parity/programs/hello.cod \
   --self-host-only
 ```
@@ -140,7 +140,7 @@ Capability tracking checklist:
 Runtime behavior:
 - Hosts execute only constrained boundary operations (I/O/process/platform APIs plus staged primitives).
 - Hosts do not depend on repository production runtime Java/JS files for execution semantics.
-- Shared lexer/parser/evaluator semantic definitions and diagnostics are loaded from `core.ce` in both hosts.
+- Shared lexer/parser/evaluator semantic definitions and diagnostics are loaded from `core.cod` in both hosts.
 - Full-language `.cod` execution runs through `cod.runner.CommandRunner` bridge in both JS and Java hosts (no legacy host-side `out(...)`/`host ...` fallback execution path).
 
 - Host exposes staged dependencies:
@@ -158,6 +158,6 @@ Runtime behavior:
     - `now()`
     - `random()`
     - `system(command)`
-- `core.ce` drives behavior and produces output as text.
-- `core.ce` is the canonical source for semantic forms/diagnostics used by both JS and Java hosts.
+- `core.cod` drives behavior and produces output as text.
+- `core.cod` is the canonical source for semantic forms/diagnostics used by both JS and Java hosts.
 - Hosts remain experimental bootstrap executors while sharing the same CommandRunner-backed full-language execution path.

@@ -3,9 +3,9 @@
 const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process');
-// This constant is needed before core semantics are parsed; keep in sync with semantics_json messages.parseEvalErrorPrefix in core.ce.
+// This constant is needed before core semantics are parsed; keep in sync with semantics_json messages.parseEvalErrorPrefix in core.cod.
 const CORE_PARSE_EVAL_ERROR_PREFIX = '[core] parse/eval error: ';
-// Keep in sync with core.ce semantics_json missing-semantics error contract.
+// Keep in sync with core.cod semantics_json missing-semantics error contract.
 const CORE_MISSING_SEMANTICS_JSON_MESSAGE = '[core] missing semantics_json block';
 
 function containsUnsafeShellChar(value) {
@@ -317,7 +317,7 @@ function isParseEvalError(result, semantics) {
 
 function main(argv, host) {
   if (argv.length < 4) {
-    host.print('Usage: node CodBoot.js <core.ce-path> <program.cod-path> [--bootstrap-self]');
+    host.print('Usage: node CodBoot.js <core.cod-path> <program.cod-path> [--bootstrap-self]');
     return 64;
   }
   const corePath = argv[2];
