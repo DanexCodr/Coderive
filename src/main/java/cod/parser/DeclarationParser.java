@@ -6,6 +6,8 @@ import cod.error.ParseError;
 import cod.parser.context.*;
 import cod.semantic.ImportResolver;
 import cod.semantic.NamingValidator;
+import cod.semantic.PolicyValidator;
+import cod.semantic.ReturnContractValidator;
 import cod.syntax.Keyword;
 import java.util.*;
 
@@ -17,23 +19,21 @@ import static cod.syntax.Symbol.*;
 public class DeclarationParser extends BaseParser {
 
   private final StatementParser statementParser;
-  private final ImportResolver importResolver;
   private final SlotParser slotParser;
+  private final PolicyValidator policyValidator;
 
   private Type currentParsingClass = null;
-  private Map<String, Policy> availablePolicies = new HashMap<String, Policy>();
-
   public DeclarationParser(
       ParserContext ctx, StatementParser statementParser, ImportResolver importResolver) {
     super(ctx);
     this.statementParser = statementParser;
-    this.importResolver = importResolver;
     this.slotParser = new SlotParser(this);
+    this.policyValidator = new PolicyValidator(importResolver);
   }
 
   @Override
   protected BaseParser createIsolatedParser(ParserContext isolatedCtx) {
-    return new DeclarationParser(isolatedCtx, this.statementParser, this.importResolver);
+    return new DeclarationParser(isolatedCtx, this.statementParser, this.policyValidator.getImportResolver());
   }
   
   public StatementParser getStatementParser() {
@@ -48,509 +48,13 @@ public class DeclarationParser extends BaseParser {
     return currentParsingClass;
   }
 
-  private Policy findPolicy(String policyName) {
-    if (availablePolicies.containsKey(policyName)) {
-      return availablePolicies.get(policyName);
-    }
-
-    if (!nil(importResolver)) {
-      try {
-        return importResolver.findPolicy(policyName);
-      } catch (Exception e) {
-      }
-    }
-
-    if (policyName.contains(".")) {
-      return null;
-    }
-
-    return null;
-  }
-
-  private Type findClassByName(String className, Program currentProgram) {
-    if (!nil(currentProgram, currentProgram.unit, currentProgram.unit.types)) {
-      for (Type type : currentProgram.unit.types) {
-        if (type.name.equals(className)) {
-          return type;
-        }
-      }
-    }
-
-    if (!nil(importResolver)) {
-      return importResolver.findType(className);
-    }
-
-    return null;
-  }
-
-  private List<PolicyMethod> getAllPolicyMethods(Policy policy) {
-    if (nil(policy)) {
-      return new ArrayList<PolicyMethod>();
-    }
-
-    List<PolicyMethod> allMethods = new ArrayList<PolicyMethod>();
-    Set<String> visitedPolicies = new HashSet<String>();
-
-    collectPolicyMethodsViaComposition(policy, allMethods, visitedPolicies);
-
-    return allMethods;
-  }
-
-  private void collectPolicyMethodsViaComposition(
-      Policy policy, List<PolicyMethod> allMethods, Set<String> visited) {
-    if (nil(policy) || visited.contains(policy.name)) {
-      return;
-    }
-
-    visited.add(policy.name);
-
-    if (!nil(policy.composedPolicies)) {
-      for (String composedName : policy.composedPolicies) {
-        Policy composed = findPolicy(composedName);
-        if (!nil(composed)) {
-          collectPolicyMethodsViaComposition(composed, allMethods, visited);
-        }
-      }
-    }
-
-    if (policy.methods != null) {
-      allMethods.addAll(policy.methods);
-    }
-  }
-
-  private List<String> getAllAffectingPolicies(Type currentClass, Program currentProgram) {
-    List<String> allPolicies = new ArrayList<String>();
-    if (nil(currentClass)) {
-      return allPolicies;
-    }
-
-    Set<String> visitedClasses = new HashSet<String>();
-    collectAffectingPoliciesRecursive(currentClass, allPolicies, visitedClasses, currentProgram);
-
-    return allPolicies;
-  }
-
-  private void collectAffectingPoliciesRecursive(
-      Type type, List<String> allPolicies, Set<String> visited, Program currentProgram) {
-    if (nil(type) || visited.contains(type.name)) {
-      return;
-    }
-
-    visited.add(type.name);
-
-    if (!nil(type.extendName)) {
-      Type parent = findClassByName(type.extendName, currentProgram);
-      if (!nil(parent)) {
-        collectAffectingPoliciesRecursive(parent, allPolicies, visited, currentProgram);
-      }
-    }
-
-    if (!nil(type.implementedPolicies)) {
-      for (String policyName : type.implementedPolicies) {
-        if (!allPolicies.contains(policyName)) {
-          allPolicies.add(policyName);
-        }
-      }
-    }
-  }
-
-  private List<String> getAncestorPolicies(Type currentClass, Program currentProgram) {
-    List<String> ancestorPolicies = new ArrayList<String>();
-    if (nil(currentClass, currentClass.extendName)) {
-      return ancestorPolicies;
-    }
-
-    List<String> allAffecting = getAllAffectingPolicies(currentClass, currentProgram);
-
-    if (!nil(currentClass.implementedPolicies)) {
-      for (String ownPolicy : currentClass.implementedPolicies) {
-        allAffecting.remove(ownPolicy);
-      }
-    }
-
-    return allAffecting;
-  }
-
-  private String getRequiringAncestorWithPolicy(String methodName, Type currentClass, 
-                                               Program currentProgram) {
-    if (nil(currentClass, currentClass.extendName)) {
-      return null;
-    }
-
-    Type current = findClassByName(currentClass.extendName, currentProgram);
-    while (!nil(current)) {
-      if (!nil(current.implementedPolicies)) {
-        for (String policyName : current.implementedPolicies) {
-          Policy policy = findPolicy(policyName);
-          if (!nil(policy)) {
-            List<PolicyMethod> allRequiredMethods = getAllPolicyMethods(policy);
-            for (PolicyMethod policyMethod : allRequiredMethods) {
-              if (policyMethod.methodName.equals(methodName)) {
-                return current.name + " (implements policy '" + policyName + "')";
-              }
-            }
-          }
-        }
-      }
-
-      if (!nil(current.extendName)) {
-        current = findClassByName(current.extendName, currentProgram);
-      } else {
-        current = null;
-      }
-    }
-
-    return null;
-  }
-
-  private boolean isMethodRequiredFromAncestorPolicy(
-      String methodName, Type currentClass, Program currentProgram) {
-    List<String> ancestorPolicies = getAncestorPolicies(currentClass, currentProgram);
-
-    for (String policyName : ancestorPolicies) {
-      Policy policy = findPolicy(policyName);
-      if (!nil(policy)) {
-        List<PolicyMethod> allRequiredMethods = getAllPolicyMethods(policy);
-        for (PolicyMethod policyMethod : allRequiredMethods) {
-          if (policyMethod.methodName.equals(methodName)) {
-            return true;
-          }
-        }
-      }
-    }
-
-    return false;
-  }
-
-  private Set<String> getAllMethodsRequiredByAncestors(
-      Type currentClass, Program currentProgram) {
-    Set<String> requiredMethods = new HashSet<String>();
-    List<String> ancestorPolicies = getAncestorPolicies(currentClass, currentProgram);
-
-    for (String policyName : ancestorPolicies) {
-      Policy policy = findPolicy(policyName);
-      if (!nil(policy)) {
-        List<PolicyMethod> allRequiredMethods = getAllPolicyMethods(policy);
-        for (PolicyMethod method : allRequiredMethods) {
-          requiredMethods.add(method.methodName);
-        }
-      }
-    }
-
-    return requiredMethods;
-  }
-
-  private void validatePolicyComposition(Policy policy) {
-    if (nil(policy, policy.composedPolicies) || policy.composedPolicies.isEmpty()) {
-      return;
-    }
-
-    Set<String> visited = new HashSet<String>();
-    visited.add(policy.name);
-
-    for (String composedName : policy.composedPolicies) {
-      checkForCompositionCycle(policy.name, composedName, visited);
-    }
-  }
-
-  private void checkForCompositionCycle(
-      String currentPolicy, String composedName, Set<String> visited) {
-    if (visited.contains(composedName)) {
-      throw error(
-          "Circular composition detected in policies: "
-              + String.join(" -> ", visited)
-              + " -> "
-              + composedName);
-    }
-
-    visited.add(composedName);
-
-    Policy composed = findPolicy(composedName);
-    if (!nil(composed) && !nil(composed.composedPolicies)) {
-      for (String nestedComposed : composed.composedPolicies) {
-        checkForCompositionCycle(currentPolicy, nestedComposed, visited);
-      }
-    }
-
-    visited.remove(composedName);
-  }
-
-  private boolean areTypesCompatible(String implType, String policyType) {
-    if (nil(implType, policyType)) {
-      return false;
-    }
-
-    if (implType.equals(policyType)) {
-      return true;
-    }
-
-    if (policyType.contains("|")) {
-      String[] policyUnion = policyType.split("\\|");
-      for (String unionMember : policyUnion) {
-        if (unionMember.trim().equals(implType)) {
-          return true;
-        }
-      }
-    }
-
-    if (policyType.equals("[]") && implType.startsWith("[") && implType.endsWith("]")) {
-      return true;
-    }
-
-    if (policyType.equals("type") && !nil(implType)) {
-      return true;
-    }
-
-    return false;
-  }
-
-  private void validatePolicyMethod(Method method, Program currentProgram) {
-    Type currentClass = getCurrentParsingClass();
-
-    if (nil(currentClass)) {
-      throw error(
-          "Policy method '" + method.methodName + "' can only be declared in a class");
-    }
-
-    boolean isRequiredByOwnPolicy = false;
-    String requiringPolicy = null;
-    PolicyMethod requiredSignature = null;
-
-    if (!nil(currentClass.implementedPolicies)) {
-      for (String policyName : currentClass.implementedPolicies) {
-        Policy policy = findPolicy(policyName);
-        if (!nil(policy)) {
-          List<PolicyMethod> allRequiredMethods = getAllPolicyMethods(policy);
-          for (PolicyMethod policyMethod : allRequiredMethods) {
-            if (policyMethod.methodName.equals(method.methodName)) {
-              isRequiredByOwnPolicy = true;
-              requiringPolicy = policyName;
-              requiredSignature = policyMethod;
-              break;
-            }
-          }
-          if (isRequiredByOwnPolicy) break;
-        }
-      }
-    }
-
-    boolean isRequiredByAncestor = false;
-    String requiringAncestor = null;
-
-    if (!isRequiredByOwnPolicy) {
-      isRequiredByAncestor =
-          isMethodRequiredFromAncestorPolicy(method.methodName, currentClass, currentProgram);
-      if (isRequiredByAncestor) {
-        requiringAncestor = getRequiringAncestorWithPolicy(method.methodName, currentClass, currentProgram);
-
-        if (!nil(requiringAncestor)) {
-          String ancestorName = requiringAncestor.split(" ")[0];
-          Type ancestor = findClassByName(ancestorName, currentProgram);
-          if (!nil(ancestor) && !nil(ancestor.implementedPolicies)) {
-            for (String policyName : ancestor.implementedPolicies) {
-              Policy policy = findPolicy(policyName);
-              if (!nil(policy)) {
-                List<PolicyMethod> allRequiredMethods = getAllPolicyMethods(policy);
-                for (PolicyMethod policyMethod : allRequiredMethods) {
-                  if (policyMethod.methodName.equals(method.methodName)) {
-                    requiredSignature = policyMethod;
-                    requiringPolicy = policyName;
-                    break;
-                  }
-                }
-              }
-              if (requiredSignature != null) break;
-            }
-          }
-        }
-      }
-    }
-
-    if (!isRequiredByOwnPolicy && !isRequiredByAncestor) {
-      throw error(
-          "Method '"
-              + method.methodName
-              + "' is not required by any implemented policy or ancestor's policies. "
-              + "Remove 'policy' keyword or add to a policy.");
-    }
-
-    if (requiredSignature != null) {
-      if (method.parameters.size() != requiredSignature.parameters.size()) {
-        String errorSource =
-            isRequiredByAncestor
-                ? "ancestor '" + requiringAncestor + "'"
-                : "policy '" + requiringPolicy + "'";
-
-        throw error(
-            "Policy method '"
-                + method.methodName
-                + "' signature mismatch for "
-                + errorSource
-                + ": expected "
-                + requiredSignature.parameters.size()
-                + " parameters, got "
-                + method.parameters.size());
-      }
-
-      for (int i = 0; i < method.parameters.size(); i++) {
-        Param implParam = method.parameters.get(i);
-        Param policyParam = requiredSignature.parameters.get(i);
-
-        if (!areTypesCompatible(implParam.type, policyParam.type)) {
-          String errorSource =
-              isRequiredByAncestor
-                  ? "ancestor '" + requiringAncestor + "'"
-                  : "policy '" + requiringPolicy + "'";
-
-          throw error(
-              "Policy method '"
-                  + method.methodName
-                  + "' parameter type mismatch for parameter "
-                  + (i + 1)
-                  + " '"
-                  + policyParam.name
-                  + "' in "
-                  + errorSource
-                  + ": expected "
-                  + policyParam.type
-                  + ", got "
-                  + implParam.type);
-        }
-      }
-
-      if (!nil(requiredSignature.returnSlots) && !requiredSignature.returnSlots.isEmpty()) {
-        if (nil(method.returnSlots) || method.returnSlots.isEmpty()) {
-        } else if (method.returnSlots.size() != requiredSignature.returnSlots.size()) {
-          String errorSource =
-              isRequiredByAncestor
-                  ? "ancestor '" + requiringAncestor + "'"
-                  : "policy '" + requiringPolicy + "'";
-
-          throw error(
-              "Policy method '"
-                  + method.methodName
-                  + "' return slot mismatch for "
-                  + errorSource
-                  + ": expected "
-                  + requiredSignature.returnSlots.size()
-                  + " slots, got "
-                  + method.returnSlots.size());
-        } else {
-          for (int i = 0; i < method.returnSlots.size(); i++) {
-            Slot implSlot = method.returnSlots.get(i);
-            Slot policySlot = requiredSignature.returnSlots.get(i);
-
-            if (!areTypesCompatible(implSlot.type, policySlot.type)) {
-              String errorSource =
-                  isRequiredByAncestor
-                      ? "ancestor '" + requiringAncestor + "'"
-                      : "policy '" + requiringPolicy + "'";
-
-              throw error(
-                  "Policy method '"
-                      + method.methodName
-                      + "' return slot type mismatch for slot "
-                      + (i + 1)
-                      + " in "
-                      + errorSource
-                      + ": expected "
-                      + policySlot.type
-                      + ", got "
-                      + implSlot.type);
-            }
-          }
-        }
-      }
-    }
-  }
 
   public void validateClassViralPolicies(Type type, Program currentProgram) {
-    if (nil(type, type.extendName)) {
-      return;
-    }
-
-    Set<String> requiredMethods = getAllMethodsRequiredByAncestors(type, currentProgram);
-
-    for (String methodName : requiredMethods) {
-      boolean implementsMethod = false;
-
-      if (!nil(type.methods)) {
-        for (Method method : type.methods) {
-          if (method.methodName.equals(methodName) && method.isPolicyMethod) {
-            implementsMethod = true;
-            break;
-          }
-        }
-      }
-
-      if (!implementsMethod) {
-        String requiringAncestor = getRequiringAncestorWithPolicy(methodName, type, currentProgram);
-        
-        Token errorToken = null;
-        if (type.parentToken != null) {
-          errorToken = type.parentToken;
-        } else if (type.extendToken != null) {
-          errorToken = type.extendToken;
-        }
-        
-        if (!nil(requiringAncestor)) {
-          if (errorToken != null) {
-            throw error(
-                "Class '"
-                    + type.name
-                    + "' inherits from '" + type.extendName + "'\n" +
-                "The ancestor " + requiringAncestor + " requires policy method '" + methodName + "'\n" +
-                "Add: policy " + methodName + "(...) { ... } inside the class",
-                errorToken);
-          } else {
-            throw error(
-                "Class '"
-                    + type.name
-                    + "' inherits from '" + type.extendName + "'\n" +
-                "The ancestor " + requiringAncestor + " requires policy method '" + methodName + "'\n" +
-                "Add: policy " + methodName + "(...) { ... } inside the class");
-          }
-        } else {
-          if (errorToken != null) {
-            throw error(
-                "Class '"
-                    + type.name
-                    + "' inherits from '" + type.extendName + "' which requires policy method '"
-                    + methodName
-                    + "'\n"
-                    + "Add: policy " + methodName + "(...) { ... } inside the class",
-                errorToken);
-          } else {
-            throw error(
-                "Class '"
-                    + type.name
-                    + "' inherits from '" + type.extendName + "' which requires policy method '"
-                    + methodName
-                    + "'\n"
-                    + "Add: policy " + methodName + "(...) { ... } inside the class");
-          }
-        }
-      }
-    }
+    policyValidator.validateClassViralPolicies(type, currentProgram);
   }
 
   public void validateAllPolicyMethods(Type type, Program currentProgram) {
-    if (nil(type, type.methods)) {
-      return;
-    }
-
-    Type savedClass = getCurrentParsingClass();
-    setCurrentParsingClass(type);
-
-    try {
-      for (Method method : type.methods) {
-        if (method.isPolicyMethod) {
-          validatePolicyMethod(method, currentProgram);
-        }
-      }
-    } finally {
-      setCurrentParsingClass(savedClass);
-    }
+    policyValidator.validateAllPolicyMethods(type, currentProgram);
   }
   
   private boolean wsComments(int offset) {
@@ -826,11 +330,7 @@ public class DeclarationParser extends BaseParser {
     Token nameToken = now();
     String policyName = expect(ID).getText();
 
-    if (policyName.length() > 0 && !Character.isUpperCase(policyName.charAt(0))) {
-      throw error(
-          "Policy name '" + policyName + "' must start with an uppercase letter",
-          nameToken);
-    }
+    NamingValidator.validatePolicyName(policyName, nameToken);
 
     List<String> composedPolicies = new ArrayList<String>();
     if (is(WITH)) {
@@ -864,9 +364,8 @@ public class DeclarationParser extends BaseParser {
 
     expect(RBRACE);
 
-    availablePolicies.put(policyName, policy);
-
-    validatePolicyComposition(policy);
+    policyValidator.registerLocalPolicy(policy);
+    policyValidator.validatePolicyComposition(policy, nameToken);
 
     return policy;
   }
@@ -883,11 +382,7 @@ public class DeclarationParser extends BaseParser {
       throw error("Expected method name in policy declaration");
     }
 
-    if (methodName.length() > 0 && !Character.isLowerCase(methodName.charAt(0))) {
-      throw error(
-          "Method name '" + methodName + "' must start with a lowercase letter",
-          methodNameToken);
-    }
+    NamingValidator.validatePolicyMethodName(methodName, methodNameToken);
 
     PolicyMethod method = ASTFactory.createPolicyMethod(methodName, methodNameToken);
     if (!is(LPAREN)) {
@@ -965,95 +460,6 @@ public class DeclarationParser extends BaseParser {
           }
         });
   }
-
-  // Recursive method to check for slot assignments in nested blocks
-  private boolean hasSlotAssignmentsInBody(Stmt stmt) {
-    if (stmt instanceof SlotAssignment || stmt instanceof MultipleSlotAssignment) {
-      return true;
-    }
-    if (stmt instanceof Block) {
-      Block block = (Block) stmt;
-      for (Stmt child : block.statements) {
-        if (hasSlotAssignmentsInBody(child)) {
-          return true;
-        }
-      }
-    }
-    if (stmt instanceof StmtIf) {
-      StmtIf ifNode = (StmtIf) stmt;
-      if (hasSlotAssignmentsInBody(ifNode.thenBlock)) {
-        return true;
-      }
-      if (ifNode.elseBlock != null && hasSlotAssignmentsInBody(ifNode.elseBlock)) {
-        return true;
-      }
-    }
-    if (stmt instanceof For) {
-      For forNode = (For) stmt;
-      if (hasSlotAssignmentsInBody(forNode.body)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  // ========== DEAD CODE VALIDATION FOR ~> ==========
-  
-  private void validateNoStatementsAfterReturn(Block block, String methodName, Token startToken) {
-    if (block == null || block.statements == null) {
-      return;
-    }
-    
-    boolean foundReturn = false;
-    int returnIndex = -1;
-    
-    for (int i = 0; i < block.statements.size(); i++) {
-      Stmt stmt = block.statements.get(i);
-      
-      if (stmt instanceof SlotAssignment || stmt instanceof MultipleSlotAssignment) {
-        if (foundReturn) {
-          // Multiple ~> statements in same block
-          throw error(
-              "Method '" + methodName + "' has return contract (::) but contains multiple ~> statements in the same block.\n" +
-              "Only one ~> statement is allowed per block. Use comma-separated assignments:\n" +
-              "  ~> slot1: value1, slot2: value2",
-              startToken);
-        }
-        foundReturn = true;
-        returnIndex = i;
-      }
-    }
-    
-    // If we found a ~> statement, check if there's anything after it
-    if (foundReturn && returnIndex < block.statements.size() - 1) {
-      Stmt deadCodeStmt = block.statements.get(returnIndex + 1);
-      Token deadCodeToken = deadCodeStmt.getSourceSpan() != null ? 
-                            deadCodeStmt.getSourceSpan().getErrorToken() : startToken;
-      
-      throw error(
-          "Method '" + methodName + "' has return contract (::) but has dead code after ~>.\n" +
-          "The ~> statement is the return point - any code after it will never execute.\n" +
-          "Remove the dead code or move it before the ~> statement.",
-          deadCodeToken);
-    }
-    
-    // Recursively validate nested blocks
-    for (Stmt stmt : block.statements) {
-      if (stmt instanceof Block) {
-        validateNoStatementsAfterReturn((Block) stmt, methodName, startToken);
-      } else if (stmt instanceof StmtIf) {
-        StmtIf ifNode = (StmtIf) stmt;
-        validateNoStatementsAfterReturn(ifNode.thenBlock, methodName, startToken);
-        if (ifNode.elseBlock != null) {
-          validateNoStatementsAfterReturn(ifNode.elseBlock, methodName, startToken);
-        }
-      } else if (stmt instanceof For) {
-        For forNode = (For) stmt;
-        validateNoStatementsAfterReturn(forNode.body, methodName, startToken);
-      }
-    }
-  }
-  // ========== END DEAD CODE VALIDATION ==========
 
   public Method parseMethod() {
     Token startToken = now();
@@ -1195,34 +601,7 @@ public class DeclarationParser extends BaseParser {
         }
         expect(RBRACE);
         
- // Validate dead code after ~> if method has return contract
-if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
-    validateNoStatementsAfterReturn(new Block(method.body), methodName, startToken);
-}
-        
-        // Validate that if there's a return contract, the body has ~> assignments
-        if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
-            boolean hasSlotAssignments = false;
-            for (Stmt stmt : method.body) {
-                if (hasSlotAssignmentsInBody(stmt)) {
-                    hasSlotAssignments = true;
-                    break;
-                }
-            }
-            if (!hasSlotAssignments) {
-                String context = "";
-                if (currentParsingClass != null) {
-                    context = "class '" + currentParsingClass.name + "' ";
-                } else if (method.associatedClass != null && !method.associatedClass.isEmpty()) {
-                    context = "class '" + method.associatedClass + "' ";
-                }
-                
-                throw error(
-                    "Method '" + methodName + "' of " + context + "has return contract (::) but no ~> assignments in body.\n"
-                    + "Use '~> slot: value' or '~> value' to return values.",
-                    startToken);
-            }
-        }
+        ReturnContractValidator.validateMethodReturnContract(method, currentParsingClass, startToken);
     } else {
         Token current = now();
         throw error(
@@ -1258,21 +637,11 @@ if (method.returnSlots != null && !method.returnSlots.isEmpty()) {
     Token fieldNameToken = now();
     String fieldName = expect(ID).getText();
 
-    if (fieldName.equals("_")) {
-      throw error(
-          "Field name cannot be '_'. Underscore is reserved for discard/placeholder.",
-          startToken);
-    }
-
     expect(COLON);
 
     String fieldType = parseTypeReference();
 
-    if (NamingValidator.isAllCaps(fieldName)) {
-      NamingValidator.validateConstantName(fieldName, startToken);
-    } else {
-      NamingValidator.validateVariableName(fieldName, startToken);
-    }
+    NamingValidator.validateFieldName(fieldName, startToken);
 
     Field field = ASTFactory.createField(fieldName, fieldType, fieldNameToken);
     if (visibility != null) {

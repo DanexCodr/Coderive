@@ -295,29 +295,13 @@ public class StatementParser extends BaseParser {
       varName = expect(ID).getText();
 
       if (is(DOUBLE_COLON_ASSIGN)) {
-        if (is(THIS) && !nextIsPropertyAccess()) {
-          throw error("Cannot declare variable named 'this'", startToken);
-        }
-
-        if ("_".equals(varName)) {
-          throw error(
-              "Cannot declare variable '_'. Underscore is reserved for discard/placeholder.",
-              startToken);
-        }
+        NamingValidator.validateVariableDeclarationName(varName, startToken);
         isImplicit = true;
         expect(DOUBLE_COLON_ASSIGN);
         value = expressionParser.parseExpr();
 
       } else if (is(COLON)) {
-        if (is(THIS) && !nextIsPropertyAccess()) {
-          throw error("Cannot declare variable named 'this'", startToken);
-        }
-
-        if ("_".equals(varName)) {
-          throw error(
-              "Cannot declare variable '_'. Underscore is reserved for discard/placeholder",
-              startToken);
-        }
+        NamingValidator.validateVariableDeclarationName(varName, startToken);
 
         expect(COLON);
 
@@ -345,11 +329,7 @@ public class StatementParser extends BaseParser {
     }
 
     if (!nil(varName)) {
-      if (NamingValidator.isAllCaps(varName)) {
-        NamingValidator.validateConstantName(varName, startToken);
-      } else {
-        NamingValidator.validateVariableName(varName, startToken);
-      }
+      NamingValidator.validateVariableOrConstantName(varName, startToken);
     }
 
     Var varNode = ASTFactory.createVar(varName, value, startToken);
