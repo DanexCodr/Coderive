@@ -528,6 +528,28 @@ public final class CodBoot {
         }
     }
 
+    private static RunResult runBootstrapSelf(String corePath, CoreSemantics semantics) {
+        try {
+            RunnerResult runner = runViaCommandRunner(corePath, "", corePath);
+            if (runner.exitCode != 0) {
+                List<String> parseError = new ArrayList<String>();
+                parseError.add(semantics.parseEvalErrorPrefix + (runner.stderr.length() > 0 ? runner.stderr : "CommandRunner failed"));
+                return new RunResult(2, parseError);
+            }
+            List<String> lines = new ArrayList<String>();
+            lines.add(semantics.bootstrapSelfCheckPassed);
+            return new RunResult(0, lines);
+        } catch (IOException e) {
+            List<String> parseError = new ArrayList<String>();
+            parseError.add(semantics.parseEvalErrorPrefix + e.getMessage());
+            return new RunResult(2, parseError);
+        } catch (RuntimeException e) {
+            List<String> parseError = new ArrayList<String>();
+            parseError.add(semantics.parseEvalErrorPrefix + e.getMessage());
+            return new RunResult(2, parseError);
+        }
+    }
+
     private static String deriveRepoRootFromCorePath(String corePath) {
         File dir = new File(corePath).getParentFile();
         if (dir == null) {
@@ -684,8 +706,11 @@ public final class CodBoot {
             return 2;
         }
         if (bootstrapSelf) {
-            host.print(semantics.bootstrapSelfCheckPassed);
-            return 0;
+            RunResult bootstrapResult = runBootstrapSelf(corePath, semantics);
+            for (int i = 0; i < bootstrapResult.lines.size(); i++) {
+                host.print(bootstrapResult.lines.get(i));
+            }
+            return bootstrapResult.exitCode;
         }
 
         RunResult result = runCore(coreSource, corePath, programPath, host, semantics);

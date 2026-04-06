@@ -309,6 +309,19 @@ function runCore(coreSource, corePath, programPath, host, semantics) {
   }
 }
 
+function runBootstrapSelf(corePath, semantics) {
+  try {
+    const runnerResult = runViaCommandRunner(corePath, corePath, '');
+    if (runnerResult.exitCode !== 0) {
+      const err = runnerResult.stderr.length > 0 ? runnerResult.stderr : 'CommandRunner failed';
+      return { exitCode: 2, lines: [semantics.messages.parseEvalErrorPrefix + err] };
+    }
+    return { exitCode: 0, lines: [semantics.messages.bootstrapSelfCheckPassed] };
+  } catch (err) {
+    return { exitCode: 2, lines: [semantics.messages.parseEvalErrorPrefix + err.message] };
+  }
+}
+
 function isParseEvalError(result, semantics) {
   return result.exitCode !== 0 &&
     result.lines.length > 0 &&
@@ -334,8 +347,11 @@ function main(argv, host) {
   }
 
   if (bootstrapSelf) {
-    host.print(semantics.messages.bootstrapSelfCheckPassed);
-    return 0;
+    const bootstrapResult = runBootstrapSelf(corePath, semantics);
+    for (let i = 0; i < bootstrapResult.lines.length; i += 1) {
+      host.print(bootstrapResult.lines[i]);
+    }
+    return bootstrapResult.exitCode;
   }
 
   let result = runCore(coreSource, corePath, programPath, host, semantics);

@@ -40,7 +40,7 @@ Bootstrap check:
 ```bash
 node experimentations/codboot/js/CodBoot.js \
   experimentations/codboot/core/core.cod \
-  experimentations/codboot/parity/programs/hello.cod \
+  experimentations/codboot/core/core.cod \
   --bootstrap-self
 ```
 
@@ -70,7 +70,7 @@ Bootstrap check:
 ```bash
 java -cp "$JAVA_OUT" CodBoot \
   experimentations/codboot/core/core.cod \
-  experimentations/codboot/parity/programs/hello.cod \
+  experimentations/codboot/core/core.cod \
   --bootstrap-self
 ```
 

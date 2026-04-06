@@ -59,9 +59,8 @@ run_one() {
 run_bootstrap_self_check() {
   local js_out="$TMP_DIR/bootstrap.js.out"
   local java_out="$TMP_DIR/bootstrap.java.out"
-  # Program path position is still required by host CLI contract; bootstrap mode ignores the file body.
-  node "$JS_HOST" "$CORE_PATH" "$PROGRAM_DIR/hello.cod" --bootstrap-self >"$js_out"
-  java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$PROGRAM_DIR/hello.cod" --bootstrap-self >"$java_out"
+  node "$JS_HOST" "$CORE_PATH" "$CORE_PATH" --bootstrap-self >"$js_out"
+  java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$CORE_PATH" --bootstrap-self >"$java_out"
   if ! diff -u "$js_out" "$java_out"; then
     echo "Bootstrap self-check mismatch between hosts" >&2
     return 1
