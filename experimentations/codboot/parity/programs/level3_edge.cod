@@ -1,4 +1,0 @@
-out("Level3 edge parity start")
-out("[host] write-file ok")
-out("edge-ok")
-out(2)

@@ -1,4 +1,0 @@
-out("Level2 edge parity start")
-out(9 / 4)
-out(-9 / 3)
-out("unknown-op")

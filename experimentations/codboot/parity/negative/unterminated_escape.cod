@@ -1,2 +1,0 @@
-out("another negative")
-out("line with escape \")

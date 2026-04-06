@@ -1,5 +1,0 @@
-out("Level3 parity start")
-out("[host] write-file ok")
-out("level3-ok")
-out(in(text, ""))
-out(0)
