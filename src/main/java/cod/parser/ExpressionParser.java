@@ -26,6 +26,9 @@ public class ExpressionParser extends BaseParser {
     private static final int PREC_UNARY = 90;
     private static final int PREC_CALL = 100;
     private static final int PREC_IS = 40;
+    private static final int[] REDUCTION_PRECEDENCE_ORDER = {
+        PREC_FACTOR, PREC_TERM, PREC_COMPARISON, PREC_EQUALITY, PREC_IS
+    };
     
     private final GlobalRegistry globalRegistry;
     private Set<String> globalFunctionNames;
@@ -1203,8 +1206,8 @@ public class ExpressionParser extends BaseParser {
     }
 
     private Expr parsePrecedence(int precedence) {
-        List<Expr> operands = new ArrayList<Expr>();
-        List<Token> operators = new ArrayList<Token>();
+        List<Expr> operands = new ArrayList<>();
+        List<Token> operators = new ArrayList<>();
 
         operands.add(parsePrefix());
 
@@ -1213,6 +1216,7 @@ public class ExpressionParser extends BaseParser {
             if (op == null) break;
 
             int opPrecedence = getPrecedence(op);
+            // Only consume true infix operators here; postfix/member forms are handled in parsePrimaryExpr().
             if (opPrecedence < precedence || !isReducibleInfixOperator(op)) {
                 break;
             }
@@ -1275,11 +1279,9 @@ public class ExpressionParser extends BaseParser {
             return operands.get(0);
         }
 
-        reduceAtPrecedence(operands, operators, PREC_FACTOR);
-        reduceAtPrecedence(operands, operators, PREC_TERM);
-        reduceAtPrecedence(operands, operators, PREC_COMPARISON);
-        reduceAtPrecedence(operands, operators, PREC_EQUALITY);
-        reduceAtPrecedence(operands, operators, PREC_IS);
+        for (int reductionPrecedence : REDUCTION_PRECEDENCE_ORDER) {
+            reduceAtPrecedence(operands, operators, reductionPrecedence);
+        }
 
         if (!operators.isEmpty()) {
             throw error("Invalid expression near operator: " + operators.get(0).getText(), operators.get(0));
@@ -1291,25 +1293,34 @@ public class ExpressionParser extends BaseParser {
     }
 
     private void reduceAtPrecedence(List<Expr> operands, List<Token> operators, int precedence) {
-        int i = 0;
-        while (i < operators.size()) {
+        if (operators.isEmpty()) return;
+
+        List<Expr> newOperands = new ArrayList<>();
+        List<Token> newOperators = new ArrayList<>();
+
+        Expr current = operands.get(0);
+        for (int i = 0; i < operators.size(); i++) {
             Token op = operators.get(i);
+            Expr right = operands.get(i + 1);
+
             if (getPrecedence(op) == precedence) {
-                Expr left = operands.get(i);
-                Expr right = operands.get(i + 1);
-                Expr combined;
                 if (is(op, IS)) {
-                    combined = ASTFactory.createBinaryOp(left, IS.toString(), right, op);
+                    current = ASTFactory.createBinaryOp(current, IS.toString(), right, op);
                 } else {
-                    combined = ASTFactory.createBinaryOp(left, op.getText(), right, op);
+                    current = ASTFactory.createBinaryOp(current, op.getText(), right, op);
                 }
-                operands.set(i, combined);
-                operands.remove(i + 1);
-                operators.remove(i);
-                continue;
+            } else {
+                newOperands.add(current);
+                newOperators.add(op);
+                current = right;
             }
-            i++;
         }
+
+        newOperands.add(current);
+        operands.clear();
+        operands.addAll(newOperands);
+        operators.clear();
+        operators.addAll(newOperators);
     }
 
     private boolean isReducibleInfixOperator(Token token) {
