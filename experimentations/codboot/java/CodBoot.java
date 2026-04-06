@@ -513,7 +513,7 @@ public final class CodBoot {
         String[] lines = coreSource.split("\\r?\\n");
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
-            if (line.length() == 0 || line.startsWith("#")) {
+            if (line.length() == 0 || line.startsWith("#") || line.startsWith("//")) {
                 continue;
             }
             return "entrypoint := \"CodBootCore::v0\"".equals(line);
@@ -522,12 +522,39 @@ public final class CodBoot {
     }
 
     private static String extractSemanticsJson(String coreSource) {
-        Pattern pattern = Pattern.compile("semantics_json\\s*:=\\s*\"\"\"\\s*([\\s\\S]*?)\\s*\"\"\"");
-        Matcher matcher = pattern.matcher(coreSource);
-        if (!matcher.find()) {
+        Pattern triplePattern = Pattern.compile("semantics_json\\s*:=\\s*\"\"\"\\s*([\\s\\S]*?)\\s*\"\"\"");
+        Matcher tripleMatcher = triplePattern.matcher(coreSource);
+        if (tripleMatcher.find()) {
+            return tripleMatcher.group(1);
+        }
+
+        Pattern commentPattern = Pattern.compile("//\\s*semantics_json_begin\\s*\\r?\\n([\\s\\S]*?)//\\s*semantics_json_end");
+        Matcher commentMatcher = commentPattern.matcher(coreSource);
+        if (commentMatcher.find()) {
+            String[] lines = commentMatcher.group(1).split("\\r?\\n");
+            StringBuilder json = new StringBuilder();
+            for (int i = 0; i < lines.length; i++) {
+                String line = lines[i];
+                Matcher lineMatcher = Pattern.compile("^\\s*//\\s?(.*)$").matcher(line);
+                if (lineMatcher.find()) {
+                    if (json.length() > 0) {
+                        json.append('\n');
+                    }
+                    json.append(lineMatcher.group(1));
+                }
+            }
+            String value = json.toString().trim();
+            if (value.length() > 0) {
+                return value;
+            }
+        }
+
+        Pattern singlePattern = Pattern.compile("semantics_json\\s*:=\\s*\"((?:\\\\.|[^\\\\\"])*)\"");
+        Matcher singleMatcher = singlePattern.matcher(coreSource);
+        if (!singleMatcher.find()) {
             return "";
         }
-        return matcher.group(1);
+        return unescapeJsonString(singleMatcher.group(1));
     }
 
     private static String unescapeJsonString(String value) {

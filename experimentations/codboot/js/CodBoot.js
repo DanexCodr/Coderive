@@ -404,8 +404,31 @@ function evaluateProgram(program, host, semantics) {
 }
 
 function extractSemanticsJson(coreSource) {
-  const match = coreSource.match(/semantics_json\s*:=\s*"""\s*([\s\S]*?)\s*"""/);
-  return match ? match[1] : '';
+  const triple = coreSource.match(/semantics_json\s*:=\s*"""\s*([\s\S]*?)\s*"""/);
+  if (triple) {
+    return triple[1];
+  }
+  const commentBlock = coreSource.match(/\/\/\s*semantics_json_begin\s*\r?\n([\s\S]*?)\/\/\s*semantics_json_end/);
+  if (commentBlock) {
+    const lines = commentBlock[1].split(/\r?\n/);
+    const jsonLines = [];
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+      const match = line.match(/^\s*\/\/\s?(.*)$/);
+      if (match) {
+        jsonLines.push(match[1]);
+      }
+    }
+    const json = jsonLines.join('\n').trim();
+    if (json) {
+      return json;
+    }
+  }
+  const single = coreSource.match(/semantics_json\s*:=\s*"((?:\\.|[^"\\])*)"/);
+  if (!single) {
+    return '';
+  }
+  return JSON.parse('"' + single[1] + '"');
 }
 
 function parseCoreSemantics(coreSource) {
@@ -420,7 +443,7 @@ function hasCoreEntrypoint(coreSource) {
   const lines = coreSource.split(/\r?\n/);
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i].trim();
-    if (line.length === 0 || line.charAt(0) === '#') {
+    if (line.length === 0 || line.charAt(0) === '#' || (line.length > 1 && line.charAt(0) === '/' && line.charAt(1) === '/')) {
       continue;
     }
     return line === 'entrypoint := "CodBootCore::v0"';
