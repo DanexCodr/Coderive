@@ -641,6 +641,7 @@ public final class CodBoot {
     }
 
     private static RunnerResult runProgramViaCommandRunner(String corePath, String programPath, String hostInput) throws IOException {
+        // Keep call sites in (corePath, programPath, hostInput) order and centralize the legacy bridge signature mapping here.
         return runViaCommandRunner(programPath, hostInput, corePath);
     }
 
