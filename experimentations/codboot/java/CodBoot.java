@@ -22,7 +22,8 @@ public final class CodBoot {
     // Keep in sync with core.ce semantics_json missing-semantics error contract.
     private static final String CORE_MISSING_SEMANTICS_JSON_MESSAGE = "[core] missing semantics_json block";
     // Matches JSON string literals and captures escaped content between quotes.
-    // Unlike JSON_NUMBER_VALUE_REGEX (templated per-key), this one is static/precompiled because it is key-agnostic and reused directly.
+    // Unlike JSON_NUMBER_VALUE_REGEX (a string template expanded at runtime per key),
+    // this Pattern is compiled once and reused directly for key-agnostic string item extraction.
     private static final Pattern JSON_STRING_ITEM_PATTERN = Pattern.compile("\"((?:\\\\.|[^\\\\\"])*)\"");
     // Matches JSON numeric values used by semantics payload: optional sign, integer part, optional decimal part, optional exponent.
     // Capture group 1 returns the number text only: -? (sign), \d+ (integer), (?:\.\d+)? (fraction), (?:[eE][+-]?\d+)? (exponent).
@@ -531,7 +532,7 @@ public final class CodBoot {
     private static String formatNumber(double value, CoreSemantics semantics) {
         String mode = semantics.evaluatorWholeNumberMode;
         if (!"round".equals(mode) && !"trunc".equals(mode)) {
-            throw new RuntimeException("invalid wholeNumberMode: " + mode);
+            throw new RuntimeException("invalid wholeNumberMode: " + mode + ". Expected \"round\" or \"trunc\"");
         }
         long whole = "trunc".equals(mode) ? truncateTowardZero(value) : Math.round(value);
         if (Math.abs(value - whole) < semantics.evaluatorWholeNumberTolerance) {
@@ -685,9 +686,12 @@ public final class CodBoot {
 
     private static RunnerResult runViaCommandRunner(String programPath, String hostInput, String corePath) throws IOException {
         List<String> command = new ArrayList<String>();
+        String jarPath = resolveCoderiveJarPath(corePath);
+        validateBridgePath(jarPath, "jar");
+        validateBridgePath(programPath, "program");
         command.add("java");
         command.add("-cp");
-        command.add(resolveCoderiveJarPath(corePath));
+        command.add(jarPath);
         command.add("cod.runner.CommandRunner");
         command.add(programPath);
         command.add("--quiet");
@@ -696,7 +700,9 @@ public final class CodBoot {
         if (hostInput != null && hostInput.length() > 0) {
             OutputStreamWriter writer = new OutputStreamWriter(process.getOutputStream(), Charset.forName("UTF-8"));
             writer.write(hostInput);
-            writer.write('\n');
+            if (!hostInput.endsWith("\n")) {
+                writer.write('\n');
+            }
             writer.flush();
             writer.close();
         } else {
@@ -747,6 +753,16 @@ public final class CodBoot {
             }
         }
         return text.substring(0, end);
+    }
+
+    private static void validateBridgePath(String filePath, String label) {
+        String value = filePath == null ? "" : filePath;
+        if (value.length() == 0 || value.indexOf('\0') >= 0 || value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) {
+            throw new RuntimeException("invalid " + label + " path");
+        }
+        if (!new File(value).exists()) {
+            throw new RuntimeException(label + " path not found: " + value);
+        }
     }
 
     private static boolean isLegacyCodBootProgram(String source, CoreSemantics semantics) {

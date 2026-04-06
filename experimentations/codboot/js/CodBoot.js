@@ -26,6 +26,16 @@ function isCommentLine(line) {
   return line.length > 1 && line.charAt(0) === '/' && line.charAt(1) === '/';
 }
 
+function validateBridgePath(filePath, label) {
+  const value = String(filePath || '');
+  if (value.length === 0 || value.indexOf('\0') >= 0 || /[\r\n]/.test(value)) {
+    throw new Error('invalid ' + label + ' path');
+  }
+  if (!fs.existsSync(value)) {
+    throw new Error(label + ' path not found: ' + value);
+  }
+}
+
 function createHost() {
   const allowedSystemCommands = { true: true, false: true };
   let randomSeed = 123456789;
@@ -171,10 +181,13 @@ function resolveCoderiveJarPath(corePath) {
 
 function runViaCommandRunner(corePath, programPath, hostInput) {
   const jarPath = resolveCoderiveJarPath(corePath);
+  validateBridgePath(jarPath, 'jar');
+  validateBridgePath(programPath, 'program');
   const args = ['-cp', jarPath, 'cod.runner.CommandRunner', programPath, '--quiet'];
   const result = childProcess.spawnSync('java', args, {
     encoding: 'utf8',
     cwd: process.cwd(),
+    shell: false,
     input: hostInput || ''
   });
   const stdout = (result.stdout || '').replace(/\r\n/g, '\n').replace(/\n+$/, '');
@@ -325,7 +338,7 @@ function formatNumber(value, semantics) {
   const tolerance = typeof evaluator.wholeNumberTolerance === 'number' ? evaluator.wholeNumberTolerance : 1e-9;
   const mode = typeof evaluator.wholeNumberMode === 'string' ? evaluator.wholeNumberMode : 'round';
   if (mode !== 'round' && mode !== 'trunc') {
-    throw new Error('invalid wholeNumberMode: ' + mode);
+    throw new Error('invalid wholeNumberMode: ' + mode + '. Expected "round" or "trunc"');
   }
   const whole = mode === 'trunc' ? Math.trunc(value) : Math.round(value);
   if (Math.abs(value - whole) < tolerance) {
