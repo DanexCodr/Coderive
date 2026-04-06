@@ -359,6 +359,9 @@ public final class ModuleValidator {
         }
 
         for (Type type : types) {
+            if (nil(type.implementedPolicies)) {
+                continue;
+            }
             for (String policyName : type.implementedPolicies) {
                 if (!policyMap.containsKey(policyName)) {
                     throw error(

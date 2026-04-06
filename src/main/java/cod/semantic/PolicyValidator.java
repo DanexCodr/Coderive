@@ -17,6 +17,10 @@ public final class PolicyValidator {
     this.importResolver = importResolver;
   }
 
+  public ImportResolver getImportResolver() {
+    return importResolver;
+  }
+
   public void registerLocalPolicy(Policy policy) {
     if (!nil(policy) && !nil(policy.name)) {
       availablePolicies.put(policy.name, policy);

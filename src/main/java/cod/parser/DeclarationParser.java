@@ -33,7 +33,7 @@ public class DeclarationParser extends BaseParser {
 
   @Override
   protected BaseParser createIsolatedParser(ParserContext isolatedCtx) {
-    return new DeclarationParser(isolatedCtx, this.statementParser, null);
+    return new DeclarationParser(isolatedCtx, this.statementParser, this.policyValidator.getImportResolver());
   }
   
   public StatementParser getStatementParser() {
