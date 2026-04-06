@@ -11,7 +11,7 @@ import static cod.util.ObjectChecker.nil;
 public final class PolicyValidator {
 
   private final ImportResolver importResolver;
-  private final Map<String, Policy> availablePolicies = new HashMap<String, Policy>();
+  private final Map<String, Policy> availablePolicies = new HashMap<>();
 
   public PolicyValidator(ImportResolver importResolver) {
     this.importResolver = importResolver;

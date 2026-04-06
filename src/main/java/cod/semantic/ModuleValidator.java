@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static cod.util.ObjectChecker.nil;
 
@@ -312,7 +313,7 @@ public final class ModuleValidator {
 
         boolean classFound = false;
         for (Type type : typesInFile) {
-            if (java.util.Objects.equals(unit.mainClassName, type.name)) {
+            if (Objects.equals(unit.mainClassName, type.name)) {
                 classFound = true;
 
                 boolean hasMainMethod = false;
