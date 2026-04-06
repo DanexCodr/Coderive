@@ -2,7 +2,7 @@ package cod.runner;
 
 import cod.ast.ASTFactory;
 import cod.semantic.NamingValidator;
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.debug.DebugSystem;
 
 import cod.interpreter.Interpreter;

@@ -1,6 +1,6 @@
 package cod.ast;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import java.util.List;
 
 public interface VisitorImpl<T> {

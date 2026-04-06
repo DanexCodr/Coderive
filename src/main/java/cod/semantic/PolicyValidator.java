@@ -1,12 +1,12 @@
 package cod.semantic;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.error.ParseError;
 import cod.lexer.Token;
 
 import java.util.*;
 
-import static cod.util.ObjectChecker.nil;
+import static cod.semantic.ObjectValidator.nil;
 
 public final class PolicyValidator {
 

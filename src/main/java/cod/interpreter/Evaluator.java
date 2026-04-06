@@ -1,6 +1,6 @@
 package cod.interpreter;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.interpreter.context.ExecutionContext;
 import java.util.List;
 

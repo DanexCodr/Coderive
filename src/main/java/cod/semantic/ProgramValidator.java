@@ -1,9 +1,9 @@
 package cod.semantic;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.parser.MainParser.ProgramType;
 import cod.error.ProgramError;
-import static cod.util.ObjectChecker.nil;
+import static cod.semantic.ObjectValidator.nil;
 
 import java.util.*;
 

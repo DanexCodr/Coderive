@@ -1,7 +1,7 @@
 package cod.ast;
 
 import static cod.syntax.Keyword.*;
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 
 public class ASTPrinter extends ASTVisitor<Void> {
     private int indent = 0;

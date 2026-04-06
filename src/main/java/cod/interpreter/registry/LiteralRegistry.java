@@ -1,6 +1,6 @@
 package cod.interpreter.registry;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.error.ProgramError;
 import cod.interpreter.context.ExecutionContext;
 import cod.interpreter.Evaluator;

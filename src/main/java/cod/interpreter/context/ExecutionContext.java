@@ -1,6 +1,6 @@
 package cod.interpreter.context;
 
-import cod.ast.nodes.Type;
+import cod.ast.node.Type;
 import cod.error.InternalError;
 import cod.interpreter.handler.TypeHandler;
 import java.util.*;

@@ -1,6 +1,6 @@
 package cod.ir;
 
-import cod.ast.nodes.Type;
+import cod.ast.node.Type;
 
 import java.io.File;
 import java.io.IOException;

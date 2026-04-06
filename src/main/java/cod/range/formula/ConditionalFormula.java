@@ -1,7 +1,7 @@
 // In ConditionalFormula.java
 package cod.range.formula;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.interpreter.Evaluator;
 import cod.interpreter.context.ExecutionContext;
 import cod.interpreter.handler.TypeHandler;

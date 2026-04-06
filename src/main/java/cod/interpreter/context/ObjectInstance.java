@@ -1,6 +1,6 @@
 package cod.interpreter.context;
 
-import cod.ast.nodes.Type;
+import cod.ast.node.Type;
 
 import java.util.HashMap;
 import java.util.Map;

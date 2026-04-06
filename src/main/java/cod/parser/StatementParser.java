@@ -3,7 +3,7 @@ package cod.parser;
 import cod.ast.ASTFactory;
 import cod.semantic.NamingValidator;
 import cod.error.ParseError;
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 
 import java.util.ArrayList;
 import java.util.List;

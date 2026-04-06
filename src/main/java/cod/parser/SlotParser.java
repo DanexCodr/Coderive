@@ -1,7 +1,7 @@
 package cod.parser;
 
 import cod.ast.ASTFactory;
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.lexer.Token;
 import static cod.lexer.TokenType.*;
 import static cod.syntax.Symbol.*;

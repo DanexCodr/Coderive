@@ -1,6 +1,6 @@
 package cod.interpreter.handler;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.error.InternalError;
 import cod.error.ProgramError;
 import cod.range.NaturalArray;

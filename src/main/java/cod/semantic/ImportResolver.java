@@ -1,13 +1,13 @@
 package cod.semantic;
 
 import cod.ast.ASTFactory;
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.error.InternalError;
 import cod.error.ProgramError;
 import cod.lexer.*;
 import cod.parser.MainParser;
 import cod.debug.DebugSystem;
-import cod.util.Index;
+import cod.interpreter.Index;
 import cod.ir.IRManager;
 
 import java.util.*;

@@ -1,6 +1,6 @@
 package cod.ir;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.math.AutoStackingNumber;
 import cod.parser.MainParser.ProgramType;
 import cod.syntax.Keyword;
@@ -36,7 +36,7 @@ final class IRCodec {
     private static final byte TAG_NODE = 9;
     private static final byte TAG_AUTO_STACKING = 10;
 
-    private static final String NODE_PACKAGE_PREFIX = "cod.ast.nodes.";
+    private static final String NODE_PACKAGE_PREFIX = "cod.ast.node.";
     private static final Map<String, byte[]> STRING_BYTES_CACHE = new ConcurrentHashMap<String, byte[]>();
     private static final int STRING_BYTES_CACHE_LIMIT = 512;
     private static final int MAX_IDENTIFIER_LIKE_STRING_LENGTH = 64;
