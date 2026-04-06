@@ -161,8 +161,8 @@ Do **not** declare success if any of the following remain true:
 ## Current execution reality (2026-04)
 
 - `core.ce` is now executable by the primary Coderive runtime (no longer metadata-only), which removes one historical blocker in Phase 3.
-- CodBoot JS/Java still execute the parity corpus through host-side lexer/parser/evaluator paths, so Phase 2/4 acceptance gates are still open.
-- Achieving full Option-1 completion requires exposing a stable runtime bridge from `core.ce` to program-path loading plus host command dispatch without re-embedding language semantics in JS/Java.
+- CodBoot JS/Java now execute full-language `.cod` programs through `CommandRunner` runtime bridging and keep only boundary adaptation plus legacy-compat handling for codboot parity directives.
+- Remaining Option-1 completion work is focused on hardening/cleanup (removing dormant host parser/evaluator code paths entirely while preserving parity gates and host boundary constraints).
 
 ## Testing and validation strategy
 

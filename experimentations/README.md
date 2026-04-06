@@ -32,7 +32,7 @@ What this confirms today:
 - JS↔Java parity on known parity corpus
 - negative/error-path parity
 - generated mixed-behavior checks
-- full repository `.cod` differential sweep
+- full repository `.cod` differential sweep plus full-language example parity
 - Java repeat-run determinism checks
 - bootstrap/self-interpretation checks under strict self-host-only execution
 - `core.ce` parses and runs in the primary Coderive runtime (`CommandRunner`)
@@ -42,11 +42,8 @@ What this confirms today:
 Reference plan: `implementations/CodBoot-SelfHosting-Plan.md`
 
 Primary remaining milestones:
-1. Execute parser/evaluator directly from `core.ce` runtime logic (not host-embedded execution paths).
-2. Reduce/freeze hosts to boundary-only adapters (I/O/process/platform APIs).
-3. Expand full-language parity corpus beyond current experimental subset.
-4. Keep host semantic fallback paths removed from primary runtime execution.
-5. Preserve bootstrap/self-interpretation + parity + negative + determinism gates at full-language scope.
+1. Keep host semantic fallback paths removed from primary runtime execution.
+2. Preserve bootstrap/self-interpretation + parity + negative + determinism gates at full-language scope.
 
 ## Boundaries
 

@@ -6,6 +6,7 @@ CORE_PATH="$ROOT_DIR/experimentations/codboot/core/core.ce"
 PARITY_DIR="$ROOT_DIR/experimentations/codboot/parity"
 PROGRAM_DIR="$PARITY_DIR/programs"
 EXPECTED_DIR="$PARITY_DIR/expected"
+EXAMPLES_DIR="$ROOT_DIR/examples"
 NEGATIVE_DIR="$PARITY_DIR/negative"
 JS_HOST="$ROOT_DIR/experimentations/codboot/js/CodBoot.js"
 JAVA_HOST="$ROOT_DIR/experimentations/codboot/java/CodBoot.java"
@@ -50,6 +51,26 @@ run_java() {
   fi
 }
 
+canonicalize_output_for_diff() {
+  local in_file="$1"
+  local out_file="$2"
+  local lazy_creation_suffix=' ms  (O(1) — no elements generated yet)'
+  local lazy_pattern_suffix=' ms  (formula, not 1Qi iterations)'
+  sed -E \
+    -e "s/(Done in )[-0-9.]+(${lazy_creation_suffix//\//\\/})/\\1<TIME_MS>\\2/" \
+    -e "s/(Pattern recorded in )[-0-9.]+(${lazy_pattern_suffix//\//\\/})/\\1<TIME_MS>\\2/" \
+    -e 's/[-0-9.]+ ms/<TIME_MS> ms/g' \
+    "$in_file" \
+    | awk '
+        { lines[NR] = $0 }
+        END {
+          n = NR
+          while (n > 0 && lines[n] == "") n--
+          for (i = 1; i <= n; i++) print lines[i]
+        }
+      ' >"$out_file"
+}
+
 run_parity_case() {
   local label="$1"
   local program_path="$2"
@@ -61,6 +82,8 @@ run_parity_case() {
   safe_label="$(printf '%s' "$label" | sed 's/[^A-Za-z0-9._-]/_/g')"
   local js_out="$TMP_DIR/$safe_label.js.out"
   local java_out="$TMP_DIR/$safe_label.java.out"
+  local js_cmp="$TMP_DIR/$safe_label.js.cmp.out"
+  local java_cmp="$TMP_DIR/$safe_label.java.cmp.out"
   local expected_out="$TMP_DIR/$safe_label.expected.out"
   local run_dir="$TMP_DIR/run-$safe_label"
   mkdir -p "$run_dir"
@@ -77,7 +100,10 @@ run_parity_case() {
     return 1
   fi
 
-  if ! diff -u "$js_out" "$java_out"; then
+  canonicalize_output_for_diff "$js_out" "$js_cmp"
+  canonicalize_output_for_diff "$java_out" "$java_cmp"
+
+  if ! diff -u "$js_cmp" "$java_cmp"; then
     echo "Output mismatch for $label" >&2
     return 1
   fi
@@ -89,10 +115,40 @@ run_parity_case() {
 
   if [[ -n "$expected_file" ]]; then
     normalize_expected "$expected_file" "$program_path" "$input_line" >"$expected_out"
-    if ! diff -u "$expected_out" "$js_out"; then
+    if ! diff -u "$expected_out" "$js_cmp"; then
       echo "Expected output mismatch for $label" >&2
       return 1
     fi
+  fi
+}
+
+run_full_language_example_case() {
+  local label="$1"
+  local program_path="$2"
+  local input_line="$3"
+  local safe_label
+  safe_label="$(printf '%s' "$label" | sed 's/[^A-Za-z0-9._-]/_/g')"
+  local js_out="$TMP_DIR/$safe_label.js.out"
+  local java_out="$TMP_DIR/$safe_label.java.out"
+  local js_cmp="$TMP_DIR/$safe_label.js.cmp.out"
+  local java_cmp="$TMP_DIR/$safe_label.java.cmp.out"
+  local run_dir="$TMP_DIR/run-$safe_label"
+  mkdir -p "$run_dir"
+  set +e
+  run_js "$program_path" "$input_line" "$js_out" "$run_dir"
+  local js_code=$?
+  run_java "$program_path" "$input_line" "$java_out" "$run_dir"
+  local java_code=$?
+  set -e
+  if [[ "$js_code" -ne "$java_code" ]]; then
+    echo "Exit code mismatch for $label (js=$js_code java=$java_code)" >&2
+    return 1
+  fi
+  canonicalize_output_for_diff "$js_out" "$js_cmp"
+  canonicalize_output_for_diff "$java_out" "$java_cmp"
+  if ! diff -u "$js_cmp" "$java_cmp"; then
+    echo "Output mismatch for $label" >&2
+    return 1
   fi
 }
 
@@ -151,6 +207,11 @@ while IFS= read -r program_path; do
   run_parity_case "full-sweep-$(basename "$program_path")" "$program_path" ""
 done <"$TMP_DIR/all-cod-files.txt"
 
+run_full_language_example_case "example-fizzbuzz" "$EXAMPLES_DIR/fizzbuzz.cod" ""
+run_full_language_example_case "example-smart_loops" "$EXAMPLES_DIR/smart_loops.cod" ""
+run_full_language_example_case "example-lazy_arrays" "$EXAMPLES_DIR/lazy_arrays.cod" ""
+run_full_language_example_case "example-hello" "$EXAMPLES_DIR/hello.cod" "level3-test-input"
+
 echo "[5/7] Java-only repeat-run consistency checks"
 deterministic_programs=(
   "$PROGRAM_DIR/hello.cod"
@@ -204,4 +265,4 @@ echo "[7/7] Baseline script compatibility"
 
 echo "CodBoot full validation passed:"
 echo "- Capability checklist: $PARITY_DIR/capability-checklist.txt"
-echo "- Positive parity, negative parity, generated coverage, full .cod sweep, and Java repeat-run checks all green."
+echo "- Positive parity, negative parity, generated coverage, full .cod sweep, full-language examples, and Java repeat-run checks all green."

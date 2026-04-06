@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process');
-// This constant is needed before core semantics are parsed; keep in sync with core.ce semantics_json.messages.parseEvalErrorPrefix.
+// This constant is needed before core semantics are parsed; keep in sync with core.ce messages.parseEvalErrorPrefix.
 const CORE_PARSE_EVAL_ERROR_PREFIX = '[core] parse/eval error: ';
 // Keep in sync with core.ce semantics_json missing-semantics error contract.
 const CORE_MISSING_SEMANTICS_JSON_MESSAGE = '[core] missing semantics_json block';
@@ -135,17 +135,47 @@ function deriveRepoRootFromCorePath(corePath) {
   return path.resolve(path.dirname(corePath), '..', '..', '..');
 }
 
+function findJarFromDir(startDir) {
+  let dir = path.resolve(startDir);
+  for (let i = 0; i < 10; i += 1) {
+    const candidate = path.join(dir, 'docs', 'assets', 'Coderive.jar');
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+  return '';
+}
+
+function resolveCoderiveJarPath(corePath) {
+  if (process.env.CODERIVE_JAR && fs.existsSync(process.env.CODERIVE_JAR)) {
+    return process.env.CODERIVE_JAR;
+  }
+  const fromCwd = findJarFromDir(process.cwd());
+  if (fromCwd) {
+    return fromCwd;
+  }
+  const fromCore = findJarFromDir(path.dirname(corePath));
+  if (fromCore) {
+    return fromCore;
+  }
+  return path.join(deriveRepoRootFromCorePath(corePath), 'docs', 'assets', 'Coderive.jar');
+}
+
 function runViaCommandRunner(corePath, programPath, hostInput) {
-  const repoRoot = deriveRepoRootFromCorePath(corePath);
-  const jarPath = path.join(repoRoot, 'docs', 'assets', 'Coderive.jar');
+  const jarPath = resolveCoderiveJarPath(corePath);
   const args = ['-cp', jarPath, 'cod.runner.CommandRunner', programPath, '--quiet'];
   const result = childProcess.spawnSync('java', args, {
     encoding: 'utf8',
     cwd: process.cwd(),
     input: hostInput || ''
   });
-  const stdout = (result.stdout || '').replace(/\r\n/g, '\n').replace(/\n$/, '');
-  const stderr = (result.stderr || '').replace(/\r\n/g, '\n').replace(/\n$/, '');
+  const stdout = (result.stdout || '').replace(/\r\n/g, '\n').replace(/\n+$/, '');
+  const stderr = (result.stderr || '').replace(/\r\n/g, '\n').replace(/\n+$/, '');
   const lines = stdout.length === 0 ? [] : stdout.split('\n');
   return {
     exitCode: typeof result.status === 'number' ? result.status : 1,
@@ -188,32 +218,9 @@ function parseLegacyOutText(line) {
 }
 
 function runLegacyCodBoot(programSource, host, semantics) {
-  const output = [];
-  const lines = programSource.split(/\r?\n/);
-  const hostPrefix = semantics.keywords.host + ' ';
-  for (let i = 0; i < lines.length; i += 1) {
-    const raw = lines[i];
-    const line = raw.trim();
-    if (line.length === 0 || line.charAt(0) === '#') {
-      continue;
-    }
-    if (line.length > 1 && line.charAt(0) === '/' && line.charAt(1) === '/') {
-      continue;
-    }
-    if (line.indexOf('out(') === 0) {
-      output.push(parseLegacyOutText(line));
-      continue;
-    }
-    if (line.indexOf(hostPrefix) === 0) {
-      const parts = line.split(/\s+/);
-      const command = parts[1] || '';
-      const args = parts.slice(2);
-      output.push(evaluateHost(command, args, host, semantics));
-      continue;
-    }
-    throw new Error('Unsupported legacy statement: ' + line);
-  }
-  return output;
+  const tokens = new Lexer(programSource, semantics).tokenize();
+  const program = new Parser(tokens, semantics).parseProgram();
+  return evaluateProgram(program, host, semantics);
 }
 
 function Token(type, value, line, column) {

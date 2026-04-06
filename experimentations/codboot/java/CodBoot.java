@@ -11,11 +11,12 @@ import java.util.HashSet;
 import java.util.Set;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStreamWriter;
+import java.io.File;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public final class CodBoot {
-    // This constant is needed before core semantics are parsed; keep in sync with core.ce semantics_json.messages.parseEvalErrorPrefix.
+    // This constant is needed before core semantics are parsed; keep in sync with core.ce messages.parseEvalErrorPrefix.
     private static final String CORE_PARSE_EVAL_ERROR_PREFIX = "[core] parse/eval error: ";
     private static final String CORE_MISSING_SEMANTICS_KEY_PREFIX = "[core] missing semantics key: ";
     // Keep in sync with core.ce semantics_json missing-semantics error contract.
@@ -24,6 +25,7 @@ public final class CodBoot {
     // This one is static/precompiled because it is key-agnostic and reused directly.
     private static final Pattern JSON_STRING_ITEM_PATTERN = Pattern.compile("\"((?:\\\\.|[^\\\\\"])*)\"");
     // Matches JSON numeric values used by semantics payload: optional sign, integer part, optional decimal part, optional exponent.
+    // Capture group 1 returns the number text only: -? (sign), \d+ (integer), (?:\.\d+)? (fraction), (?:[eE][+-]?\d+)? (exponent).
     // Note: this intentionally does not support non-JSON forms like leading-dot `.5` or trailing-dot `0.`.
     // Kept as a template string because the JSON key is dynamic and inserted via String.format.
     private static final String JSON_NUMBER_VALUE_REGEX = "\"%s\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)";
@@ -888,7 +890,7 @@ public final class CodBoot {
                 userLines = runLegacyCodBoot(programSource, host, semantics);
             } else {
                 String hostInput = host.consumeRemainingInput();
-                RunnerResult runner = runViaCommandRunner(programPath, hostInput, deriveRepoRootFromCorePath(corePath));
+                RunnerResult runner = runViaCommandRunner(programPath, hostInput, corePath);
                 if (runner.exitCode != 0) {
                     List<String> parseError = new ArrayList<String>();
                     parseError.add(semantics.parseEvalErrorPrefix + (runner.stderr.length() > 0 ? runner.stderr : "CommandRunner failed"));
@@ -913,26 +915,51 @@ public final class CodBoot {
     }
 
     private static String deriveRepoRootFromCorePath(String corePath) {
-        java.io.File coreFile = new java.io.File(corePath);
-        java.io.File dir = coreFile.getParentFile();
+        File dir = new File(corePath).getParentFile();
         if (dir == null) {
-            return new java.io.File(".").getAbsolutePath();
+            return new File(".").getAbsolutePath();
         }
-        java.io.File root = dir.getParentFile();
-        if (root != null) {
+        File root = dir;
+        for (int i = 0; i < 3 && root != null; i++) {
             root = root.getParentFile();
         }
-        if (root != null) {
-            root = root.getParentFile();
-        }
-        return root == null ? new java.io.File(".").getAbsolutePath() : root.getAbsolutePath();
+        return root == null ? new File(".").getAbsolutePath() : root.getAbsolutePath();
     }
 
-    private static RunnerResult runViaCommandRunner(String programPath, String hostInput, String repoRoot) throws IOException {
+    private static String resolveCoderiveJarPath(String corePath) {
+        String envJar = System.getenv("CODERIVE_JAR");
+        if (envJar != null && envJar.length() > 0 && new File(envJar).exists()) {
+            return envJar;
+        }
+        String fromCwd = findJarFromDir(new File(".").getAbsoluteFile());
+        if (fromCwd.length() > 0) {
+            return fromCwd;
+        }
+        File coreDir = new File(corePath).getParentFile();
+        String fromCore = coreDir == null ? "" : findJarFromDir(coreDir);
+        if (fromCore.length() > 0) {
+            return fromCore;
+        }
+        return new File(deriveRepoRootFromCorePath(corePath), "docs" + File.separator + "assets" + File.separator + "Coderive.jar").getPath();
+    }
+
+    private static String findJarFromDir(File startDir) {
+        File dir = startDir;
+        for (int i = 0; i < 10 && dir != null; i++) {
+            File candidate = new File(dir, "docs" + File.separator + "assets" + File.separator + "Coderive.jar");
+            if (candidate.exists()) {
+                return candidate.getPath();
+            }
+            dir = dir.getParentFile();
+        }
+        return "";
+    }
+
+    private static RunnerResult runViaCommandRunner(String programPath, String hostInput, String corePath) throws IOException {
         List<String> command = new ArrayList<String>();
         command.add("java");
         command.add("-cp");
-        command.add(repoRoot + "/docs/assets/Coderive.jar");
+        command.add(resolveCoderiveJarPath(corePath));
         command.add("cod.runner.CommandRunner");
         command.add(programPath);
         command.add("--quiet");
@@ -947,8 +974,8 @@ public final class CodBoot {
         } else {
             process.getOutputStream().close();
         }
-        String stdout = readStream(process.getInputStream());
-        String stderr = readStream(process.getErrorStream());
+        String stdout = trimTrailingNewlines(readStream(process.getInputStream()));
+        String stderr = trimTrailingNewlines(readStream(process.getErrorStream()));
         int code;
         try {
             code = process.waitFor();
@@ -957,9 +984,13 @@ public final class CodBoot {
         }
         List<String> lines = new ArrayList<String>();
         if (stdout.length() > 0) {
-            String[] split = stdout.split("\\r?\\n");
-            for (int i = 0; i < split.length; i++) {
-                if (split[i].length() > 0) {
+            String normalized = stdout.replace("\r\n", "\n");
+            if (normalized.endsWith("\n")) {
+                normalized = normalized.substring(0, normalized.length() - 1);
+            }
+            if (normalized.length() > 0) {
+                String[] split = normalized.split("\n", -1);
+                for (int i = 0; i < split.length; i++) {
                     lines.add(split[i]);
                 }
             }
@@ -977,10 +1008,23 @@ public final class CodBoot {
         return new String(buffer.toByteArray(), "UTF-8");
     }
 
+    private static String trimTrailingNewlines(String text) {
+        int end = text.length();
+        while (end > 0) {
+            char ch = text.charAt(end - 1);
+            if (ch == '\n' || ch == '\r') {
+                end--;
+            } else {
+                break;
+            }
+        }
+        return text.substring(0, end);
+    }
+
     private static boolean isLegacyCodBootProgram(String source, CoreSemantics semantics) {
         String[] lines = source.split("\\r?\\n");
-        String outPrefix = semantics.outKeyword + "(";
-        String hostPrefix = semantics.hostKeyword + " ";
+        String outPrefix = semantics.keywordOut + "(";
+        String hostPrefix = semantics.keywordHost + " ";
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
             if (line.length() == 0 || line.startsWith("#") || line.startsWith("//")) {
@@ -1007,31 +1051,9 @@ public final class CodBoot {
     }
 
     private static List<String> runLegacyCodBoot(String source, Host host, CoreSemantics semantics) {
-        List<String> out = new ArrayList<String>();
-        String[] lines = source.split("\\r?\\n");
-        String hostPrefix = semantics.hostKeyword + " ";
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i].trim();
-            if (line.length() == 0 || line.startsWith("#") || line.startsWith("//")) {
-                continue;
-            }
-            if (line.startsWith("out(")) {
-                out.add(parseLegacyOutText(line));
-                continue;
-            }
-            if (line.startsWith(hostPrefix)) {
-                String[] parts = line.split("\\s+");
-                String command = parts.length > 1 ? parts[1] : "";
-                List<String> args = new ArrayList<String>();
-                for (int j = 2; j < parts.length; j++) {
-                    args.add(parts[j]);
-                }
-                out.add(evaluateHost(command, args, host, semantics));
-                continue;
-            }
-            throw new RuntimeException("Unsupported legacy statement: " + line);
-        }
-        return out;
+        List<Token> tokens = new Lexer(source, semantics).tokenize();
+        Program program = new Parser(tokens, semantics).parseProgram();
+        return evaluateProgram(program, host, semantics);
     }
 
     private static boolean isParseEvalError(RunResult result, CoreSemantics semantics) {
