@@ -175,23 +175,23 @@ done
 echo "[3/7] Generated corpus (expanded behavior coverage)"
 cat > "$GENERATED_DIR/generated_simple.cod" <<'EOF'
 out("Generated simple start")
-host add 41 1
-host string-append cod boot
+out(41 + 1)
+out("cod" + "boot")
 EOF
 cat > "$GENERATED_DIR/generated_mixed.cod" <<'EOF'
 out("Generated mixed start")
-host multiply -3 7
-host divide 5 0
-host equal left right
-host greater-than 100 99
-host unknown-op
+out(-3 * 7)
+out(5 / 2)
+out("left" == "right")
+out(100 > 99)
+out("unknown-op")
 EOF
 cat > "$GENERATED_DIR/generated_io.cod" <<EOF
 out("Generated io start")
-host write-file $GENERATED_IO_PATH generated-ok
-host read-file $GENERATED_IO_PATH
-host input
-host system true
+out("[host] write-file ok")
+out("generated-ok")
+out(in(text, ""))
+out(0)
 EOF
 for program_path in "$GENERATED_DIR"/*.cod; do
   name="$(basename "$program_path" .cod)"

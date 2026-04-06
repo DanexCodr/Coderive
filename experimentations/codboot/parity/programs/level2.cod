@@ -1,9 +1,9 @@
 out("Level2 parity start")
-host add 7 5
-host subtract 10 3
-host multiply 6 4
-host divide 8 2
-host less-than 3 9
-host greater-than 12 5
-host equal cod cod
-host string-append hello world
+out(7 + 5)
+out(10 - 3)
+out(6 * 4)
+out(8 / 2)
+out(3 < 9)
+out(12 > 5)
+out("cod" == "cod")
+out("hello" + "world")

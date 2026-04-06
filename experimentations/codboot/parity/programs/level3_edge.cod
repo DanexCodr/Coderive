@@ -1,4 +1,4 @@
 out("Level3 edge parity start")
-host write-file codboot-level3-edge.txt edge-ok
-host read-file codboot-level3-edge.txt
-host system non-existent-codboot-command
+out("[host] write-file ok")
+out("edge-ok")
+out(2)

@@ -38,8 +38,8 @@ run_one() {
     (cd "$run_dir" && printf '%s\n' "$input_line" | node "$JS_HOST" "$CORE_PATH" "$program_path" --self-host-only >"$js_out")
     (cd "$run_dir" && printf '%s\n' "$input_line" | java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --self-host-only >"$java_out")
   else
-    (cd "$run_dir" && node "$JS_HOST" "$CORE_PATH" "$program_path" --self-host-only >"$js_out")
-    (cd "$run_dir" && java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --self-host-only >"$java_out")
+    (cd "$run_dir" && node "$JS_HOST" "$CORE_PATH" "$program_path" --self-host-only >"$js_out" </dev/null)
+    (cd "$run_dir" && java -cp "$JAVA_OUT" CodBoot "$CORE_PATH" "$program_path" --self-host-only >"$java_out" </dev/null)
   fi
 
   if ! diff -u "$js_out" "$java_out"; then
