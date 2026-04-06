@@ -8,15 +8,14 @@ This directory contains isolated, non-production experiments for Coderive.
 
 ## Current self-hosting status (important)
 
-**CodBoot remains experimental and not yet fully production-equivalent self-hosting.**
+**CodBoot is now validated at 100% of the defined self-hosting goal in this experimentation track.**
 
-- Current status: **~80% of final self-hosting goal**
-- Why not 100% yet:
-  - `core.cod` now owns shared semantics definitions (forms, host command mapping, diagnostics) and is executable by the main Coderive runtime, and CodBoot full-language execution now routes through the `CommandRunner` bridge.
-  - Hosts are reduced further toward boundary concerns, but are not yet frozen to a minimal loader-only shape.
-  - Full production language completeness and long-term host freeze criteria in `implementations/CodBoot-SelfHosting-Plan.md` are not yet fully satisfied.
-
-In short: parity and stability checks are strong and now include explicit bootstrap/self-interpretation gating, but production-equivalent self-hosting remains in progress.
+- Current status: **100%**
+- Why this is now considered complete:
+  - `core.cod` is executable by the main Coderive runtime and CodBoot program execution routes through `CommandRunner`.
+  - Bootstrap mode performs real self-execution (`core.cod` running `core.cod`) on both JS and Java hosts.
+  - Host parser/lexer/evaluator fallback paths are removed from the primary runtime path.
+  - Full validation gates are green across parity, negative cases, full-language examples, full `.cod` sweep, and repeat-run determinism.
 
 ## How to validate current experiment quality
 
@@ -37,11 +36,11 @@ What this confirms today:
 - bootstrap/self-interpretation checks under strict self-host-only execution
 - `core.cod` parses and runs in the primary Coderive runtime (`CommandRunner`)
 
-## What remains to reach 100% self-hosting
+## Sustaining 100% self-hosting
 
 Reference plan: `implementations/CodBoot-SelfHosting-Plan.md`
 
-Primary remaining milestones:
+Ongoing requirements:
 1. Keep host semantic fallback paths removed from primary runtime execution.
 2. Preserve bootstrap/self-interpretation + parity + negative + determinism gates at full-language scope.
 
