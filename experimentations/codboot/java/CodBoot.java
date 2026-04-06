@@ -17,7 +17,12 @@ public final class CodBoot {
     private static final String CORE_PARSE_EVAL_ERROR_PREFIX = "[core] parse/eval error: ";
     private static final String CORE_MISSING_SEMANTICS_KEY_PREFIX = "[core] missing semantics key: ";
     private static final String CORE_MISSING_SEMANTICS_JSON_MESSAGE = "[core] missing semantics_json block";
+    // Matches JSON string literals and captures escaped content between quotes.
+    // This one is static/precompiled because it is key-agnostic and reused directly.
     private static final Pattern JSON_STRING_ITEM_PATTERN = Pattern.compile("\"((?:\\\\.|[^\\\\\"])*)\"");
+    // Matches JSON numeric values: optional sign, integer part, optional decimal part, optional exponent.
+    // Kept as a template string because the JSON key is dynamic and inserted via String.format.
+    private static final String JSON_NUMBER_VALUE_REGEX = "\"%s\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)";
 
     private interface Host {
         String readFile(String path) throws IOException;
@@ -632,7 +637,7 @@ public final class CodBoot {
     }
 
     private static double requireJsonNumberValue(String json, String key) {
-        Pattern pattern = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)");
+        Pattern pattern = Pattern.compile(String.format(JSON_NUMBER_VALUE_REGEX, Pattern.quote(key)));
         Matcher matcher = pattern.matcher(json);
         if (!matcher.find()) {
             throw new RuntimeException(CORE_MISSING_SEMANTICS_KEY_PREFIX + key);

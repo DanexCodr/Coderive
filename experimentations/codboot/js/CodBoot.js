@@ -5,6 +5,7 @@ const childProcess = require('child_process');
 // This constant is needed before core semantics are parsed; fallback prefix must match core message format.
 const CORE_PARSE_EVAL_ERROR_PREFIX = '[core] parse/eval error: ';
 const CORE_MISSING_SEMANTICS_JSON_MESSAGE = '[core] missing semantics_json block';
+const DEFAULT_LINE_COMMENTS = ['#', '//'];
 
 function containsUnsafeShellChar(value) {
   for (let i = 0; i < value.length; i += 1) {
@@ -132,7 +133,7 @@ function Lexer(source, semantics) {
   this.line = 1;
   this.column = 1;
   const lexerSemantics = semantics && semantics.lexer ? semantics.lexer : {};
-  const lineComments = Array.isArray(lexerSemantics.lineComments) ? lexerSemantics.lineComments : ['#', '//'];
+  const lineComments = Array.isArray(lexerSemantics.lineComments) ? lexerSemantics.lineComments : DEFAULT_LINE_COMMENTS;
   this.allowParentheses = typeof lexerSemantics.allowParentheses === 'boolean' ? lexerSemantics.allowParentheses : true;
   this.hashCommentsEnabled = lineComments.indexOf('#') >= 0;
   this.doubleSlashCommentsEnabled = lineComments.indexOf('//') >= 0;
