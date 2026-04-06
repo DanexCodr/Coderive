@@ -5,7 +5,7 @@ import cod.ast.nodes.*;
 import cod.error.ParseError;
 import cod.interpreter.Interpreter;
 import cod.interpreter.registry.GlobalRegistry;
-import cod.semantic.ModuleSemanticValidator;
+import cod.semantic.ModuleValidator;
 import java.util.ArrayList;
 import java.util.List;
 import cod.lexer.Token;
@@ -143,7 +143,7 @@ public class MainParser extends BaseParser {
     }
     
     // Now validate the program structure and set final type
-    program.programType = ModuleSemanticValidator.determineProgramType(
+    program.programType = ModuleValidator.determineProgramType(
         program,
         topLevelStatements,
         topLevelMethods,
@@ -164,7 +164,7 @@ public class MainParser extends BaseParser {
     
     // Validate module-specific rules if this is a module
     if (program.programType == ProgramType.STATIC_MODULE || program.programType == ProgramType.MODULE) {
-        ModuleSemanticValidator.validateModule(
+        ModuleValidator.validateModule(
             program,
             typesInFile,
             policiesInFile,

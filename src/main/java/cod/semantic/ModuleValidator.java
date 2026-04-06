@@ -13,12 +13,12 @@ import java.util.Map;
 
 import static cod.util.ObjectChecker.nil;
 
-public final class ModuleSemanticValidator {
+public final class ModuleValidator {
 
     private static final String DEFAULT_UNIT_NAME = "default";
     private static final String SELF_BROADCAST_NAME = "this";
 
-    private ModuleSemanticValidator() {}
+    private ModuleValidator() {}
 
     public static ProgramType determineProgramType(Program program,
                                                    List<Stmt> topLevelStatements,
