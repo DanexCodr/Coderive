@@ -594,7 +594,7 @@ public final class CodBoot {
         Pattern pattern = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"((?:\\\\.|[^\\\\\"])*)\"");
         Matcher matcher = pattern.matcher(json);
         if (!matcher.find()) {
-            throw new RuntimeException("missing semantics key: " + key);
+            throw new RuntimeException("[core] missing semantics key: " + key);
         }
         return unescapeJsonString(matcher.group(1));
     }
@@ -602,7 +602,7 @@ public final class CodBoot {
     private static CoreSemantics parseCoreSemantics(String coreSource) {
         String json = extractSemanticsJson(coreSource);
         if (json.length() == 0) {
-            throw new RuntimeException("missing semantics_json block");
+            throw new RuntimeException("[core] missing semantics_json block");
         }
         return new CoreSemantics(
             requireJsonStringValue(json, "out"),

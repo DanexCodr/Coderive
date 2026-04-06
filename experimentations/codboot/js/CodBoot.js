@@ -428,7 +428,43 @@ function extractSemanticsJson(coreSource) {
   if (!single) {
     return '';
   }
-  return JSON.parse('"' + single[1] + '"');
+  return unescapeJsonString(single[1]);
+}
+
+function unescapeJsonString(value) {
+  let out = '';
+  for (let i = 0; i < value.length; i += 1) {
+    const ch = value.charAt(i);
+    if (ch === '\\') {
+      if (i + 1 >= value.length) {
+        throw new Error('unterminated escape in semantics_json');
+      }
+      const esc = value.charAt(i + 1);
+      if (esc === 'n') {
+        out += '\n';
+      } else if (esc === 't') {
+        out += '\t';
+      } else if (esc === 'r') {
+        out += '\r';
+      } else if (esc === '"') {
+        out += '"';
+      } else if (esc === '\\') {
+        out += '\\';
+      } else if (esc === '/') {
+        out += '/';
+      } else if (esc === 'b') {
+        out += '\b';
+      } else if (esc === 'f') {
+        out += '\f';
+      } else {
+        out += esc;
+      }
+      i += 1;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
 }
 
 function parseCoreSemantics(coreSource) {
