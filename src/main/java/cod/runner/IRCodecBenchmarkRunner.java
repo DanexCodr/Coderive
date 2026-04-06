@@ -27,8 +27,9 @@ public class IRCodecBenchmarkRunner {
         try {
             Type sample = createSampleType();
 
-            File irFile = new File("/tmp/coderive-ir-codec-benchmark.codb");
-            File reflectionFile = new File("/tmp/coderive-reflection-codec-benchmark.codb");
+            File tempDir = new File(System.getProperty("java.io.tmpdir"));
+            File irFile = new File(tempDir, "coderive-ir-codec-benchmark.codb");
+            File reflectionFile = new File(tempDir, "coderive-reflection-codec-benchmark.codb");
             IRWriter writer = new IRWriter();
             ReflectionSerializer reflectionSerializer = new ReflectionSerializer();
 
