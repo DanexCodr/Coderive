@@ -507,7 +507,7 @@ public final class CodBoot {
 
         try {
             String hostInput = host.consumeRemainingInput();
-            RunnerResult runner = runViaCommandRunner(programPath, hostInput, corePath);
+            RunnerResult runner = runProgramViaCommandRunner(corePath, programPath, hostInput);
             if (runner.exitCode != 0) {
                 List<String> parseError = new ArrayList<String>();
                 parseError.add(semantics.parseEvalErrorPrefix + (runner.stderr.length() > 0 ? runner.stderr : "CommandRunner failed"));
@@ -530,7 +530,8 @@ public final class CodBoot {
 
     private static RunResult runBootstrapSelf(String corePath, CoreSemantics semantics) {
         try {
-            RunnerResult runner = runViaCommandRunner(corePath, "", corePath);
+            String noStdin = "";
+            RunnerResult runner = runProgramViaCommandRunner(corePath, corePath, noStdin);
             if (runner.exitCode != 0) {
                 List<String> parseError = new ArrayList<String>();
                 parseError.add(semantics.parseEvalErrorPrefix + (runner.stderr.length() > 0 ? runner.stderr : "CommandRunner failed"));
@@ -637,6 +638,10 @@ public final class CodBoot {
             }
         }
         return new RunnerResult(code, lines, stderr);
+    }
+
+    private static RunnerResult runProgramViaCommandRunner(String corePath, String programPath, String hostInput) throws IOException {
+        return runViaCommandRunner(programPath, hostInput, corePath);
     }
 
     private static String readStream(java.io.InputStream in) throws IOException {

@@ -311,7 +311,8 @@ function runCore(coreSource, corePath, programPath, host, semantics) {
 
 function runBootstrapSelf(corePath, semantics) {
   try {
-    const runnerResult = runViaCommandRunner(corePath, corePath, '');
+    const noStdin = '';
+    const runnerResult = runViaCommandRunner(corePath, corePath, noStdin);
     if (runnerResult.exitCode !== 0) {
       const err = runnerResult.stderr.length > 0 ? runnerResult.stderr : 'CommandRunner failed';
       return { exitCode: 2, lines: [semantics.messages.parseEvalErrorPrefix + err] };
