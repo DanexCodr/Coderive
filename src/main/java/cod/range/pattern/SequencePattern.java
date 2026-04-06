@@ -17,9 +17,9 @@ public class SequencePattern {
      */
     public static class Step {
         public final String tempVar;      // null for final step
-        public final ExprNode expression;
+        public final Expr expression;
         
-        public Step(String tempVar, ExprNode expression) {
+        public Step(String tempVar, Expr expression) {
             this.tempVar = tempVar;
             this.expression = expression;
         }
@@ -34,10 +34,10 @@ public class SequencePattern {
      */
     public static class Pattern {
         public final List<Step> steps;           // All steps in sequence
-        public final ExprNode targetArray;       // The array being assigned to
+        public final Expr targetArray;       // The array being assigned to
         public final String indexVar;             // Loop index variable
         
-        public Pattern(List<Step> steps, ExprNode targetArray, String indexVar) {
+        public Pattern(List<Step> steps, Expr targetArray, String indexVar) {
             this.steps = steps;
             this.targetArray = targetArray;
             this.indexVar = indexVar;
@@ -56,7 +56,7 @@ public class SequencePattern {
             return steps.size() == 1 && steps.get(0).isFinal();
         }
         
-        public ExprNode getFinalExpression() {
+        public Expr getFinalExpression() {
             if (steps.isEmpty()) return null;
             return steps.get(steps.size() - 1).expression;
         }
@@ -71,8 +71,8 @@ public class SequencePattern {
             return names;
         }
         
-        public List<ExprNode> getTempExpressions() {
-            List<ExprNode> exprs = new ArrayList<ExprNode>();
+        public List<Expr> getTempExpressions() {
+            List<Expr> exprs = new ArrayList<Expr>();
             for (Step step : steps) {
                 if (step.tempVar != null) {
                     exprs.add(step.expression);
@@ -85,7 +85,7 @@ public class SequencePattern {
     /**
      * Extract a sequence pattern from a list of statements
      */
-    public static Pattern extract(List<StmtNode> statements, String iterator) {
+    public static Pattern extract(List<Stmt> statements, String iterator) {
         if (statements == null || statements.isEmpty()) {
             return null;
         }
@@ -95,7 +95,7 @@ public class SequencePattern {
         
         // Process all statements except the last one (temp variable definitions)
         for (int i = 0; i < statements.size() - 1; i++) {
-            StmtNode stmt = statements.get(i);
+            Stmt stmt = statements.get(i);
             Step step = extractVariableDefinition(stmt, iterator);
             
             if (step == null) {
@@ -117,7 +117,7 @@ public class SequencePattern {
         }
         
         // Process the last statement (must be array assignment)
-        StmtNode lastStmt = statements.get(statements.size() - 1);
+        Stmt lastStmt = statements.get(statements.size() - 1);
         ArrayAssignment arrayAssign = extractArrayAssignment(lastStmt, iterator);
         
         if (arrayAssign == null) {
@@ -138,24 +138,24 @@ public class SequencePattern {
     /**
      * Extract a variable definition step
      */
-    private static Step extractVariableDefinition(StmtNode stmt, String iterator) {
+    private static Step extractVariableDefinition(Stmt stmt, String iterator) {
         String varName = null;
-        ExprNode varExpr = null;
+        Expr varExpr = null;
         
-        if (stmt instanceof VarNode) {
-            // Declaration with := (VarNode)
-            VarNode varDecl = (VarNode) stmt;
+        if (stmt instanceof Var) {
+            // Declaration with := (Var)
+            Var varDecl = (Var) stmt;
             varName = varDecl.name;
             varExpr = varDecl.value;
-        } else if (stmt instanceof AssignmentNode) {
-            // Assignment with = (AssignmentNode)
-            AssignmentNode assign = (AssignmentNode) stmt;
+        } else if (stmt instanceof Assignment) {
+            // Assignment with = (Assignment)
+            Assignment assign = (Assignment) stmt;
             
             // Must assign to a simple variable (not array[index])
-            if (!(assign.left instanceof IdentifierNode)) {
+            if (!(assign.left instanceof Identifier)) {
                 return null;
             }
-            IdentifierNode leftExpr = (IdentifierNode) assign.left;
+            Identifier leftExpr = (Identifier) assign.left;
             varName = leftExpr.name;
             varExpr = assign.right;
             
@@ -174,10 +174,10 @@ public class SequencePattern {
      * Represents an array assignment
      */
     private static class ArrayAssignment {
-        final ExprNode targetArray;
-        final ExprNode expression;
+        final Expr targetArray;
+        final Expr expression;
         
-        ArrayAssignment(ExprNode targetArray, ExprNode expression) {
+        ArrayAssignment(Expr targetArray, Expr expression) {
             this.targetArray = targetArray;
             this.expression = expression;
         }
@@ -186,26 +186,26 @@ public class SequencePattern {
     /**
      * Extract array assignment from statement
      */
-    private static ArrayAssignment extractArrayAssignment(StmtNode stmt, String iterator) {
-        if (!(stmt instanceof AssignmentNode)) {
+    private static ArrayAssignment extractArrayAssignment(Stmt stmt, String iterator) {
+        if (!(stmt instanceof Assignment)) {
             return null;
         }
         
-        AssignmentNode assign = (AssignmentNode) stmt;
+        Assignment assign = (Assignment) stmt;
         
         // Must be array[index] assignment
-        if (!(assign.left instanceof IndexAccessNode)) {
+        if (!(assign.left instanceof IndexAccess)) {
             return null;
         }
         
-        IndexAccessNode indexAccess = (IndexAccessNode) assign.left;
+        IndexAccess indexAccess = (IndexAccess) assign.left;
         
         // Check if index is the iterator variable
-        if (!(indexAccess.index instanceof IdentifierNode)) {
+        if (!(indexAccess.index instanceof Identifier)) {
             return null;
         }
         
-        IdentifierNode indexExpr = (IdentifierNode) indexAccess.index;
+        Identifier indexExpr = (Identifier) indexAccess.index;
         
         // Check if index matches iterator name
         if (!iterator.equals(indexExpr.name)) {
@@ -218,7 +218,7 @@ public class SequencePattern {
     /**
      * Validate that all defined variables are used in the final expression
      */
-    private static boolean validateVariableUsage(Set<String> definedVars, ExprNode finalExpr) {
+    private static boolean validateVariableUsage(Set<String> definedVars, Expr finalExpr) {
         Set<String> usedVars = new HashSet<String>();
         collectUsedVariables(finalExpr, usedVars);
         
@@ -235,89 +235,89 @@ public class SequencePattern {
     /**
      * Collect all variable names used in an expression
      */
-    private static void collectUsedVariables(ExprNode expr, Set<String> usedVars) {
+    private static void collectUsedVariables(Expr expr, Set<String> usedVars) {
         if (expr == null) return;
         
-        if (expr instanceof IdentifierNode) {
-            usedVars.add(((IdentifierNode) expr).name);
+        if (expr instanceof Identifier) {
+            usedVars.add(((Identifier) expr).name);
             return;
         }
         
-        if (expr instanceof BinaryOpNode) {
-            BinaryOpNode binOp = (BinaryOpNode) expr;
+        if (expr instanceof BinaryOp) {
+            BinaryOp binOp = (BinaryOp) expr;
             collectUsedVariables(binOp.left, usedVars);
             collectUsedVariables(binOp.right, usedVars);
             return;
         }
         
-        if (expr instanceof UnaryNode) {
-            UnaryNode unary = (UnaryNode) expr;
+        if (expr instanceof Unary) {
+            Unary unary = (Unary) expr;
             collectUsedVariables(unary.operand, usedVars);
             return;
         }
         
-        if (expr instanceof MethodCallNode) {
-            MethodCallNode call = (MethodCallNode) expr;
+        if (expr instanceof MethodCall) {
+            MethodCall call = (MethodCall) expr;
             if (call.arguments != null) {
-                for (ExprNode arg : call.arguments) {
+                for (Expr arg : call.arguments) {
                     collectUsedVariables(arg, usedVars);
                 }
             }
             return;
         }
         
-        if (expr instanceof IndexAccessNode) {
-            IndexAccessNode access = (IndexAccessNode) expr;
+        if (expr instanceof IndexAccess) {
+            IndexAccess access = (IndexAccess) expr;
             collectUsedVariables(access.array, usedVars);
             collectUsedVariables(access.index, usedVars);
             return;
         }
         
-        if (expr instanceof TypeCastNode) {
-            TypeCastNode cast = (TypeCastNode) expr;
+        if (expr instanceof TypeCast) {
+            TypeCast cast = (TypeCast) expr;
             collectUsedVariables(cast.expression, usedVars);
             return;
         }
         
-        if (expr instanceof ArrayNode) {
-            ArrayNode array = (ArrayNode) expr;
+        if (expr instanceof Array) {
+            Array array = (Array) expr;
             if (array.elements != null) {
-                for (ExprNode elem : array.elements) {
+                for (Expr elem : array.elements) {
                     collectUsedVariables(elem, usedVars);
                 }
             }
             return;
         }
         
-        if (expr instanceof TupleNode) {
-            TupleNode tuple = (TupleNode) expr;
+        if (expr instanceof Tuple) {
+            Tuple tuple = (Tuple) expr;
             if (tuple.elements != null) {
-                for (ExprNode elem : tuple.elements) {
+                for (Expr elem : tuple.elements) {
                     collectUsedVariables(elem, usedVars);
                 }
             }
             return;
         }
         
-        if (expr instanceof PropertyAccessNode) {
-            PropertyAccessNode prop = (PropertyAccessNode) expr;
+        if (expr instanceof PropertyAccess) {
+            PropertyAccess prop = (PropertyAccess) expr;
             collectUsedVariables(prop.left, usedVars);
             collectUsedVariables(prop.right, usedVars);
             return;
         }
         
-        if (expr instanceof RangeIndexNode) {
-            RangeIndexNode range = (RangeIndexNode) expr;
+        if (expr instanceof RangeIndex) {
+            RangeIndex range = (RangeIndex) expr;
             if (range.step != null) collectUsedVariables(range.step, usedVars);
             collectUsedVariables(range.start, usedVars);
             collectUsedVariables(range.end, usedVars);
             return;
         }
         
-        if (expr instanceof MultiRangeIndexNode) {
-            MultiRangeIndexNode multiRange = (MultiRangeIndexNode) expr;
+        if (expr instanceof MultiRangeIndex) {
+            MultiRangeIndex multiRange = (MultiRangeIndex) expr;
             if (multiRange.ranges != null) {
-                for (RangeIndexNode range : multiRange.ranges) {
+                for (RangeIndex range : multiRange.ranges) {
                     if (range.step != null) collectUsedVariables(range.step, usedVars);
                     collectUsedVariables(range.start, usedVars);
                     collectUsedVariables(range.end, usedVars);
@@ -326,21 +326,21 @@ public class SequencePattern {
             return;
         }
         
-        if (expr instanceof EqualityChainNode) {
-            EqualityChainNode chain = (EqualityChainNode) expr;
+        if (expr instanceof EqualityChain) {
+            EqualityChain chain = (EqualityChain) expr;
             collectUsedVariables(chain.left, usedVars);
             if (chain.chainArguments != null) {
-                for (ExprNode arg : chain.chainArguments) {
+                for (Expr arg : chain.chainArguments) {
                     collectUsedVariables(arg, usedVars);
                 }
             }
             return;
         }
         
-        if (expr instanceof BooleanChainNode) {
-            BooleanChainNode chain = (BooleanChainNode) expr;
+        if (expr instanceof BooleanChain) {
+            BooleanChain chain = (BooleanChain) expr;
             if (chain.expressions != null) {
-                for (ExprNode e : chain.expressions) {
+                for (Expr e : chain.expressions) {
                     collectUsedVariables(e, usedVars);
                 }
             }

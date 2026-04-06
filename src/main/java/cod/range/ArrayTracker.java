@@ -1,7 +1,7 @@
 // ArrayTracker.java
 package cod.range;
 
-import cod.ast.nodes.ForNode;
+import cod.ast.nodes.For;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -53,10 +53,10 @@ public class ArrayTracker {
      */
     public static class LoopInfo {
         public final int loopId;
-        public final ForNode node;
+        public final For node;
         public final long startTime;
         
-        public LoopInfo(int loopId, ForNode node) {
+        public LoopInfo(int loopId, For node) {
             this.loopId = loopId;
             this.node = node;
             this.startTime = System.nanoTime();
@@ -124,7 +124,7 @@ public class ArrayTracker {
      * Start tracking a loop
      * @return integer ID for the loop
      */
-    public static int beginLoop(ForNode node) {
+    public static int beginLoop(For node) {
         int loopId = nextId.getAndIncrement();
         LoopInfo info = new LoopInfo(loopId, node);
         loopStack.get().push(info);

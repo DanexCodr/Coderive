@@ -34,10 +34,10 @@ public class SlotParser {
     /**
      * Parse slot contract: :: name: type, name: type
      */
-    public List<SlotNode> parseSlotContract() {
+    public List<Slot> parseSlotContract() {
         parser.expect(DOUBLE_COLON);
         
-        List<SlotNode> slots = new ArrayList<SlotNode>();
+        List<Slot> slots = new ArrayList<Slot>();
         
         boolean firstSlot = true;
         boolean isNamedMode = false;
@@ -91,8 +91,8 @@ public class SlotParser {
     /**
      * Parse slot assignments: ~> name: expr, expr
      */
-    public List<SlotAssignmentNode> parseSlotAssignments() {
-        List<SlotAssignmentNode> assignments = new ArrayList<SlotAssignmentNode>();
+    public List<SlotAssignment> parseSlotAssignments() {
+        List<SlotAssignment> assignments = new ArrayList<SlotAssignment>();
         
         // Parse first assignment
         assignments.add(parseSingleSlotAssignment());
@@ -108,9 +108,9 @@ public class SlotParser {
     /**
      * Parse a single slot assignment
      */
-    public SlotAssignmentNode parseSingleSlotAssignment() {
+    public SlotAssignment parseSingleSlotAssignment() {
         String slotName = null;
-        ExprNode value;
+        Expr value;
         Token colonToken = null;
         
         if (parser.is(parser.now(), ID)) {
@@ -135,8 +135,8 @@ public class SlotParser {
     /**
      * Parse slot assignments and wrap appropriately
      */
-    public StmtNode parseSlotAssignmentsAsStmt(Token tildeArrowToken) {
-        List<SlotAssignmentNode> assignments = parseSlotAssignments();
+    public Stmt parseSlotAssignmentsAsStmt(Token tildeArrowToken) {
+        List<SlotAssignment> assignments = parseSlotAssignments();
         
         if (assignments.size() == 1) {
             return assignments.get(0);
@@ -148,7 +148,7 @@ public class SlotParser {
     /**
      * Validate that assignments match contract
      */
-    public void validateSlotCount(List<SlotNode> contract, List<SlotAssignmentNode> assignments, Token errorToken) {
+    public void validateSlotCount(List<Slot> contract, List<SlotAssignment> assignments, Token errorToken) {
         if (contract == null || contract.isEmpty()) {
             return;
         }

@@ -29,7 +29,7 @@ public class ExpressionHandler {
     
     // === Core Expression Evaluation ===
     
-    public Object handleBinaryOp(BinaryOpNode node, ExecutionContext ctx) {
+    public Object handleBinaryOp(BinaryOp node, ExecutionContext ctx) {
     if (node == null) {
         throw new InternalError("handleBinaryOp called with null node");
     }
@@ -46,7 +46,7 @@ public class ExpressionHandler {
             case "+":
             case "+=":
                 if (left instanceof String || right instanceof String ||
-                    left instanceof TextLiteralNode || right instanceof TextLiteralNode) {
+                    left instanceof TextLiteral || right instanceof TextLiteral) {
                     
                     // === FIX: Force materialization before string conversion ===
                     Object unwrappedLeft = typeSystem.unwrap(left);
@@ -134,7 +134,7 @@ public class ExpressionHandler {
     }
 }
     
-    public Object handleUnaryOp(UnaryNode node, ExecutionContext ctx) {
+    public Object handleUnaryOp(Unary node, ExecutionContext ctx) {
         if (node == null) {
             throw new InternalError("handleUnaryOp called with null node");
         }
@@ -162,7 +162,7 @@ public class ExpressionHandler {
         }
     }
     
-    public Object handleTypeCast(TypeCastNode node, ExecutionContext ctx) {
+    public Object handleTypeCast(TypeCast node, ExecutionContext ctx) {
         if (node == null) {
             throw new InternalError("handleTypeCast called with null node");
         }
@@ -183,7 +183,7 @@ public class ExpressionHandler {
         }
     }
     
-    public Object handleBooleanChain(BooleanChainNode node, ExecutionContext ctx) {
+    public Object handleBooleanChain(BooleanChain node, ExecutionContext ctx) {
         if (node == null) {
             throw new InternalError("handleBooleanChain called with null node");
         }
@@ -194,7 +194,7 @@ public class ExpressionHandler {
         try {
             boolean isAll = node.isAll;
 
-            for (ExprNode expr : node.expressions) {
+            for (Expr expr : node.expressions) {
                 Object result = dispatcher.dispatch(expr);
                 result = typeSystem.unwrap(result);
                 boolean isTruthy = typeSystem.isTruthy(result);
@@ -214,7 +214,7 @@ public class ExpressionHandler {
         }
     }
     
-public Object handleChainedComparison(ChainedComparisonNode node, ExecutionContext ctx) {
+public Object handleChainedComparison(ChainedComparison node, ExecutionContext ctx) {
     if (node == null) {
         throw new InternalError("handleChainedComparison called with null node");
     }
@@ -225,7 +225,7 @@ public Object handleChainedComparison(ChainedComparisonNode node, ExecutionConte
     try {
         // Evaluate all expressions first
         List<Object> values = new ArrayList<Object>();
-        for (ExprNode expr : node.expressions) {
+        for (Expr expr : node.expressions) {
             Object value = dispatcher.dispatch(expr);
             values.add(typeSystem.unwrap(value));
         }
@@ -273,7 +273,7 @@ public Object handleChainedComparison(ChainedComparisonNode node, ExecutionConte
     }
 }
     
-    public Object handleEqualityChain(EqualityChainNode node, ExecutionContext ctx) {
+    public Object handleEqualityChain(EqualityChain node, ExecutionContext ctx) {
         if (node == null) {
             throw new InternalError("handleEqualityChain called with null node");
         }
@@ -285,7 +285,7 @@ public Object handleChainedComparison(ChainedComparisonNode node, ExecutionConte
             Object leftValue = dispatcher.dispatch(node.left);
             leftValue = typeSystem.unwrap(leftValue);
 
-            for (ExprNode arg : node.chainArguments) {
+            for (Expr arg : node.chainArguments) {
                 Object rightValue = dispatcher.dispatch(arg);
                 rightValue = typeSystem.unwrap(rightValue);
 
@@ -340,8 +340,8 @@ public Object handleChainedComparison(ChainedComparisonNode node, ExecutionConte
             if (obj instanceof AutoStackingNumber) {
                 return ((AutoStackingNumber) obj).longValue();
             }
-            if (obj instanceof IntLiteralNode) {
-                return ((IntLiteralNode) obj).value.longValue();
+            if (obj instanceof IntLiteral) {
+                return ((IntLiteral) obj).value.longValue();
             }
             if (obj instanceof Integer) return ((Integer) obj).longValue();
             if (obj instanceof Long) return (Long) obj;
@@ -370,8 +370,8 @@ public Object handleChainedComparison(ChainedComparisonNode node, ExecutionConte
                 }
             }
 
-            if (indexObj instanceof IntLiteralNode) {
-                return ((IntLiteralNode) indexObj).value.longValue();
+            if (indexObj instanceof IntLiteral) {
+                return ((IntLiteral) indexObj).value.longValue();
             }
 
             if (indexObj instanceof Integer) {
@@ -418,8 +418,8 @@ public Object handleChainedComparison(ChainedComparisonNode node, ExecutionConte
                 return (int) ((AutoStackingNumber) indexObj).longValue();
             }
             
-            if (indexObj instanceof IntLiteralNode) {
-                long val = ((IntLiteralNode) indexObj).value.longValue();
+            if (indexObj instanceof IntLiteral) {
+                long val = ((IntLiteral) indexObj).value.longValue();
                 if (val > Integer.MAX_VALUE || val < Integer.MIN_VALUE) {
                     throw new ProgramError("Index out of range for integer array: " + val);
                 }
@@ -492,8 +492,8 @@ public Object handleChainedComparison(ChainedComparisonNode node, ExecutionConte
                 }
             }
 
-            if (rightValue instanceof TextLiteralNode) {
-                String typeString = ((TextLiteralNode) rightValue).value;
+            if (rightValue instanceof TextLiteral) {
+                String typeString = ((TextLiteral) rightValue).value;
                 
                 if (typeSystem.isTypeLiteral(typeString)) {
                     String leftType = typeSystem.getConcreteType(leftValue);

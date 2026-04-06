@@ -58,8 +58,8 @@ public class MainParser extends BaseParser {
         return new MainParser(isolatedCtx.getState().getTokens(), interpreter);
     }
     
-    public ProgramNode parseProgram() {
-    ProgramNode program = ASTFactory.createProgram();
+    public Program parseProgram() {
+    Program program = ASTFactory.createProgram();
     
     // UNIT declaration is optional (required only for static modules)
     if (is(UNIT)) {
@@ -73,17 +73,17 @@ public class MainParser extends BaseParser {
         if (program.unit.imports == null) {
             program.unit.imports = parseUseNode();
         } else {
-            UseNode additionalImports = parseUseNode();
+            Use additionalImports = parseUseNode();
             program.unit.imports.imports.addAll(additionalImports.imports);
         }
     }
 
     // Parse everything else at top level
-    List<TypeNode> typesInFile = new ArrayList<>();
-    List<PolicyNode> policiesInFile = new ArrayList<>();
-    List<StmtNode> topLevelStatements = new ArrayList<>();
-    List<MethodNode> topLevelMethods = new ArrayList<>();
-    List<FieldNode> topLevelFields = new ArrayList<>();
+    List<Type> typesInFile = new ArrayList<>();
+    List<Policy> policiesInFile = new ArrayList<>();
+    List<Stmt> topLevelStatements = new ArrayList<>();
+    List<Method> topLevelMethods = new ArrayList<>();
+    List<Field> topLevelFields = new ArrayList<>();
     
     while (!is(EOF)) {
         Token currentToken = now();
@@ -93,7 +93,7 @@ public class MainParser extends BaseParser {
             ("local".equals(currentToken.getText()) || "share".equals(currentToken.getText()))) {
             ParserState savedState = getCurrentState();
             try {
-                MethodNode method = declarationParser.parseMethod();
+                Method method = declarationParser.parseMethod();
                 topLevelMethods.add(method);
                 continue;
             } catch (ParseError e) {
@@ -104,19 +104,19 @@ public class MainParser extends BaseParser {
         
         // Check for method declarations
         if (isMethodDeclarationStart() || isTopLevelMethodDeclaration()) {
-            MethodNode method = declarationParser.parseMethod();
+            Method method = declarationParser.parseMethod();
             topLevelMethods.add(method);
             continue;
         }
         
         if (isTopLevelFieldDeclaration()) {
-            FieldNode field = declarationParser.parseField();
+            Field field = declarationParser.parseField();
             topLevelFields.add(field);
             continue;
         }
         
         if (declarationParser.isPolicyDeclaration()) {
-            PolicyNode policy = declarationParser.parsePolicy();
+            Policy policy = declarationParser.parsePolicy();
             program.unit.policies.add(policy);
             policiesInFile.add(policy);
             continue;
@@ -125,21 +125,21 @@ public class MainParser extends BaseParser {
         if (isClassStart() || isClassStartWithoutModifier()) {
             ParserState beforeType = getCurrentState();
             
-            TypeNode type = declarationParser.parseType();
+            Type type = declarationParser.parseType();
             if (type != null) {
                 program.unit.types.add(type);
                 typesInFile.add(type);
                 continue;
             } else {
                 setState(beforeType);
-                MethodNode method = declarationParser.parseMethod();
+                Method method = declarationParser.parseMethod();
                 topLevelMethods.add(method);
                 continue;
             }
         }
         
         // Must be a statement at top level
-        StmtNode stmt = statementParser.parseStmt();
+        Stmt stmt = statementParser.parseStmt();
         topLevelStatements.add(stmt);
     }
     
@@ -148,11 +148,11 @@ public class MainParser extends BaseParser {
     
     // Add top-level elements to the appropriate places based on program type
     if (program.programType == ProgramType.STATIC_MODULE) {
-        TypeNode staticModuleType = findOrCreateImplicitType(program.unit, "__StaticModule__");
+        Type staticModuleType = findOrCreateImplicitType(program.unit, "__StaticModule__");
         staticModuleType.methods.addAll(topLevelMethods);
         staticModuleType.fields.addAll(topLevelFields);
     } else if (program.programType == ProgramType.SCRIPT) {
-        TypeNode scriptType = findOrCreateImplicitType(program.unit, "__Script__");
+        Type scriptType = findOrCreateImplicitType(program.unit, "__Script__");
         scriptType.statements.addAll(topLevelStatements);
     }
     
@@ -204,29 +204,29 @@ public class MainParser extends BaseParser {
         });
     }
 
-    private TypeNode findOrCreateImplicitType(UnitNode unit, String typeName) {
-        for (TypeNode type : unit.types) {
+    private Type findOrCreateImplicitType(Unit unit, String typeName) {
+        for (Type type : unit.types) {
             if (type.name.equals(typeName)) {
                 return type;
             }
         }
-        TypeNode implicitType = ASTFactory.createType(typeName, SHARE, null, null);
+        Type implicitType = ASTFactory.createType(typeName, SHARE, null, null);
         unit.types.add(implicitType);
         return implicitType;
     }
 
-    private void validateProgramStructure(ProgramNode program, 
-                                         List<StmtNode> topLevelStatements,
-                                         List<MethodNode> topLevelMethods,
-                                         List<TypeNode> typesInFile,
-                                         List<PolicyNode> policiesInFile) {
+    private void validateProgramStructure(Program program, 
+                                         List<Stmt> topLevelStatements,
+                                         List<Method> topLevelMethods,
+                                         List<Type> typesInFile,
+                                         List<Policy> policiesInFile) {
         
         boolean hasUnit = program.unit.name != null && !program.unit.name.equals(DEFAULT_UNIT_NAME);
         
-        List<StmtNode> actualStatements = new ArrayList<StmtNode>();
-        for (StmtNode stmt : topLevelStatements) {
-            if (stmt instanceof BlockNode) {
-                BlockNode block = (BlockNode) stmt;
+        List<Stmt> actualStatements = new ArrayList<Stmt>();
+        for (Stmt stmt : topLevelStatements) {
+            if (stmt instanceof Block) {
+                Block block = (Block) stmt;
                 if (!block.statements.isEmpty()) {
                     actualStatements.add(stmt);
                 }
@@ -290,9 +290,9 @@ public class MainParser extends BaseParser {
         program.programType = ProgramType.SCRIPT;
     }
 
-    private void validateModule(ProgramNode program, 
-                               List<TypeNode> typesInFile,
-                               List<PolicyNode> policiesInFile) {
+    private void validateModule(Program program, 
+                               List<Type> typesInFile,
+                               List<Policy> policiesInFile) {
         if (interpreter != null) {
             String filePath = interpreter.getCurrentFilePath();
             if (filePath != null) {
@@ -314,7 +314,7 @@ public class MainParser extends BaseParser {
         validateMainClassExistsInFile(program.unit, typesInFile);
         validateImplementedPolicies(program.unit, typesInFile, policiesInFile);
         
-        for (TypeNode type : typesInFile) {
+        for (Type type : typesInFile) {
             declarationParser.validateAllPolicyMethods(type, program);
             declarationParser.validateClassViralPolicies(type, program);
         }
@@ -492,18 +492,18 @@ public class MainParser extends BaseParser {
         return unitName.toString();
     }
 
-    private void validateMainClassExistsInFile(UnitNode unit, List<TypeNode> typesInFile) {
+    private void validateMainClassExistsInFile(Unit unit, List<Type> typesInFile) {
         if (unit.mainClassName == null || unit.mainClassName.isEmpty()) {
             return;
         }
         
         boolean classFound = false;
-        for (TypeNode type : typesInFile) {
+        for (Type type : typesInFile) {
             if (unit.mainClassName.equals(type.name)) {
                 classFound = true;
                 
                 boolean hasMainMethod = false;
-                for (MethodNode method : type.methods) {
+                for (Method method : type.methods) {
                     if (method.methodName.equals("main")) {
                         hasMainMethod = true;
                         break;
@@ -534,13 +534,13 @@ public class MainParser extends BaseParser {
         }
     }
 
-    private void validateImplementedPolicies(UnitNode unit, List<TypeNode> types, List<PolicyNode> policies) {
-        Map<String, PolicyNode> policyMap = new HashMap<String, PolicyNode>();
-        for (PolicyNode policy : policies) {
+    private void validateImplementedPolicies(Unit unit, List<Type> types, List<Policy> policies) {
+        Map<String, Policy> policyMap = new HashMap<String, Policy>();
+        for (Policy policy : policies) {
             policyMap.put(policy.name, policy);
         }
         
-        for (TypeNode type : types) {
+        for (Type type : types) {
             for (String policyName : type.implementedPolicies) {
                 if (!policyMap.containsKey(policyName)) {
                     throw error(
@@ -563,7 +563,7 @@ public class MainParser extends BaseParser {
         return qualifiedName;
     }
 
-    private UnitNode parseUnit() {
+    private Unit parseUnit() {
         Token unitToken = now();
         expect(UNIT);
         String unitName = parseQualifiedName();
@@ -596,12 +596,12 @@ public class MainParser extends BaseParser {
             }
         }
         
-        UnitNode unit = ASTFactory.createUnit(unitName, unitToken);
+        Unit unit = ASTFactory.createUnit(unitName, unitToken);
         unit.mainClassName = mainClassName;
         return unit;
     }
 
-    private UseNode parseUseNode() {
+    private Use parseUseNode() {
         Token useToken = now();
         expect(USE);
         expect(LBRACE);
@@ -690,12 +690,12 @@ public class MainParser extends BaseParser {
         }
     }
 
-    public StmtNode parseSingleLine() {
+    public Stmt parseSingleLine() {
         if (is(EOF)) {
             return null;
         }
 
-        StmtNode stmt = statementParser.parseStmt();
+        Stmt stmt = statementParser.parseStmt();
 
         if (!is(EOF)) {
             Token current = now();

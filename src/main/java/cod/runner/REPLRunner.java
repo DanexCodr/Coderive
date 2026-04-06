@@ -127,7 +127,7 @@ public class REPLRunner {
             }
             
             MainParser parser = new MainParser(tokens);
-            StmtNode astNode = parser.parseSingleLine();
+            Stmt astNode = parser.parseSingleLine();
             
             if (astNode == null) {
                 return "";
@@ -148,7 +148,7 @@ public class REPLRunner {
             String output = baos.toString();
             
             // Return result if it's an expression
-            if (astNode instanceof ExprNode && result != null) {
+            if (astNode instanceof Expr && result != null) {
                 return output + String.valueOf(result);
             }
             
@@ -188,11 +188,11 @@ public class REPLRunner {
         return help.toString();
     }
     
-    private static void validateREPLNaming(StmtNode stmt, Map<String, Object> locals) {
+    private static void validateREPLNaming(Stmt stmt, Map<String, Object> locals) {
         DebugSystem.debug(NAME, "Validating naming for: " + stmt.getClass().getSimpleName());
         
-        if (stmt instanceof VarNode) {
-            VarNode var = (VarNode) stmt;
+        if (stmt instanceof Var) {
+            Var var = (Var) stmt;
             String varName = var.name;
             
             if (NamingValidator.isPascalCase(varName)) {
@@ -205,11 +205,11 @@ public class REPLRunner {
                 throw new RuntimeException("Constant '" + varName + "' must have an initial value");
             }
             
-        } else if (stmt instanceof AssignmentNode) {
-            AssignmentNode assign = (AssignmentNode) stmt;
+        } else if (stmt instanceof Assignment) {
+            Assignment assign = (Assignment) stmt;
             
-            if (assign.left instanceof IdentifierNode) {
-                IdentifierNode target = (IdentifierNode) assign.left;
+            if (assign.left instanceof Identifier) {
+                Identifier target = (Identifier) assign.left;
                 String varName = target.name;
                 
                 if (NamingValidator.isPascalCase(varName)) {
@@ -222,12 +222,12 @@ public class REPLRunner {
                     throw new RuntimeException("Cannot assign to undeclared constant '" + varName + "'");
                 }
                 
-            } else if (assign.left instanceof PropertyAccessNode) {
-                PropertyAccessNode prop = (PropertyAccessNode) assign.left;
+            } else if (assign.left instanceof PropertyAccess) {
+                PropertyAccess prop = (PropertyAccess) assign.left;
                 
-                if (prop.left instanceof ThisNode || prop.left instanceof SuperNode) {
-                    if (prop.right instanceof IdentifierNode) {
-                        IdentifierNode field = (IdentifierNode) prop.right;
+                if (prop.left instanceof This || prop.left instanceof Super) {
+                    if (prop.right instanceof Identifier) {
+                        Identifier field = (Identifier) prop.right;
                         String fieldName = field.name;
                         
                         if (NamingValidator.isPascalCase(fieldName)) {
@@ -237,10 +237,10 @@ public class REPLRunner {
                     }
                 }
                 
-            } else if (assign.left instanceof IndexAccessNode) {
-                IndexAccessNode indexAccess = (IndexAccessNode) assign.left;
-                if (indexAccess.array instanceof IdentifierNode) {
-                    IdentifierNode arrayVar = (IdentifierNode) indexAccess.array;
+            } else if (assign.left instanceof IndexAccess) {
+                IndexAccess indexAccess = (IndexAccess) assign.left;
+                if (indexAccess.array instanceof Identifier) {
+                    Identifier arrayVar = (Identifier) indexAccess.array;
                     String arrayName = arrayVar.name;
                     
                     if (NamingValidator.isPascalCase(arrayName)) {
@@ -250,8 +250,8 @@ public class REPLRunner {
                 }
             }
             
-        } else if (stmt instanceof ForNode) {
-            ForNode forNode = (ForNode) stmt;
+        } else if (stmt instanceof For) {
+            For forNode = (For) stmt;
             String iterator = forNode.iterator;
             
             if (NamingValidator.isPascalCase(iterator)) {

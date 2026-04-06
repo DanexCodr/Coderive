@@ -21,8 +21,8 @@ public class BuiltinRegistry {
         if (arg instanceof String) {
             return (String) arg;
         }
-        if (arg instanceof TextLiteralNode) {
-            String text = ((TextLiteralNode) arg).value;
+        if (arg instanceof TextLiteral) {
+            String text = ((TextLiteral) arg).value;
             if (text.startsWith("\"") && text.endsWith("\"") && text.length() >= 2) {
                 return text.substring(1, text.length() - 1);
             }

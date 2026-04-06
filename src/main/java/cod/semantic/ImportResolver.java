@@ -8,15 +8,15 @@ import cod.lexer.*;
 import cod.parser.MainParser;
 import cod.debug.DebugSystem;
 import cod.util.Index;
-import cod.util.BytecodeManager;
+import cod.ir.IRManager;
 
 import java.util.*;
 import java.io.*;
 
 public class ImportResolver {
-    private Map<String, ProgramNode> importedUnits = new HashMap<String, ProgramNode>();
-    private Map<String, ProgramNode> loadedPrograms = new HashMap<String, ProgramNode>();
-    private Map<String, ProgramNode> preloadedImports = new HashMap<String, ProgramNode>();
+    private Map<String, Program> importedUnits = new HashMap<String, Program>();
+    private Map<String, Program> loadedPrograms = new HashMap<String, Program>();
+    private Map<String, Program> preloadedImports = new HashMap<String, Program>();
     private Set<String> registeredImports = new HashSet<String>();
     private List<String> methodImportSpecs = new ArrayList<String>();
     private Set<String> wildcardEverythingUnits = new HashSet<String>();
@@ -25,23 +25,23 @@ public class ImportResolver {
     private List<String> importPaths = new ArrayList<String>();
     private Map<String, String> packageBroadcasts = new HashMap<String, String>();
     
-    private Map<String, PolicyNode> importedPolicies = new HashMap<String, PolicyNode>();
+    private Map<String, Policy> importedPolicies = new HashMap<String, Policy>();
     private Map<String, String> policyToUnitMap = new HashMap<String, String>();
     
     // Import name cache for O(1) lookups
     private Map<String, String> importNameCache = new HashMap<String, String>();
     
     // Type cache for O(1) type lookups
-    private Map<String, TypeNode> typeCache = new HashMap<String, TypeNode>();
+    private Map<String, Type> typeCache = new HashMap<String, Type>();
     
     // Index cache for O(1) class lookups
     private Map<String, Index> indexCache = new HashMap<String, Index>();
     
-    // Bytecode manager for .codb files
-    private BytecodeManager bytecodeManager;
+    // IR manager for .codb files
+    private IRManager irManager;
     
     // Cache for loaded TypeNodes (bytecode or parsed)
-    private Map<String, TypeNode> loadedTypes = new HashMap<String, TypeNode>();
+    private Map<String, Type> loadedTypes = new HashMap<String, Type>();
     
     // Filesystem result cache
     private Map<String, CachedFileResult> fileCache = new HashMap<String, CachedFileResult>();
@@ -66,10 +66,10 @@ public class ImportResolver {
     
     // Cache entry with timestamp
     private static class CachedFileResult {
-        final ProgramNode program;
+        final Program program;
         final long lastModified;
         
-        CachedFileResult(ProgramNode program, long lastModified) {
+        CachedFileResult(Program program, long lastModified) {
             this.program = program;
             this.lastModified = lastModified;
         }
@@ -165,11 +165,11 @@ public class ImportResolver {
             Index.setProjectRoot(srcMainRoot);
             DebugSystem.debug("IMPORTS", "Set Index project root from: " + srcMainRoot);
             
-            // Calculate and store project root for bytecode manager
+            // Calculate and store project root for IR manager
             this.projectRoot = Index.getProjectRoot();
             if (this.projectRoot != null) {
-                this.bytecodeManager = new BytecodeManager(this.projectRoot);
-                DebugSystem.debug("IMPORTS", "Initialized BytecodeManager with root: " + this.projectRoot);
+                this.irManager = new IRManager(this.projectRoot);
+                DebugSystem.debug("IMPORTS", "Initialized IRManager with root: " + this.projectRoot);
             }
             
         } else {
@@ -300,7 +300,7 @@ public class ImportResolver {
         return metadata;
     }
     
-    private ProgramNode loadImportFromFileCached(String filePath) throws Exception {
+    private Program loadImportFromFileCached(String filePath) throws Exception {
         if (filePath == null || filePath.isEmpty()) {
             throw new InternalError("loadImportFromFileCached called with null/empty path");
         }
@@ -327,7 +327,7 @@ public class ImportResolver {
             fileCacheMisses++;
             DebugSystem.debug("IMPORTS_CACHE", "File cache miss: " + filePath);
             
-            ProgramNode program = loadImportFromFile(filePath);
+            Program program = loadImportFromFile(filePath);
             if (program != null) {
                 fileCache.put(filePath, new CachedFileResult(program, metadata.lastModified));
             }
@@ -370,7 +370,7 @@ public class ImportResolver {
         packageBroadcasts.clear();
     }
     
-    public PolicyNode findPolicy(String qualifiedPolicyName) {
+    public Policy findPolicy(String qualifiedPolicyName) {
         if (qualifiedPolicyName == null || qualifiedPolicyName.isEmpty()) {
             throw new InternalError("findPolicy called with null/empty name");
         }
@@ -401,7 +401,7 @@ public class ImportResolver {
         if (!loadedPrograms.containsKey(actualImportName)) {
             try {
                 DebugSystem.debug("POLICY", "Import not loaded, attempting to load: " + actualImportName);
-                ProgramNode program = resolveImportAsProgram(actualImportName);
+                Program program = resolveImportAsProgram(actualImportName);
                 if (program == null) {
                     throw new ProgramError("Failed to load import: " + actualImportName);
                 }
@@ -412,9 +412,9 @@ public class ImportResolver {
             }
         }
         
-        ProgramNode program = loadedPrograms.get(actualImportName);
+        Program program = loadedPrograms.get(actualImportName);
         if (program != null && program.unit != null && program.unit.policies != null) {
-            for (PolicyNode policy : program.unit.policies) {
+            for (Policy policy : program.unit.policies) {
                 if (policy.name.equals(policyName)) {
                     DebugSystem.debug("POLICY", "Found policy: " + policy.name);
                     importedPolicies.put(qualifiedPolicyName, policy);
@@ -431,7 +431,7 @@ public class ImportResolver {
         );
     }
     
-    private String getPolicyNames(ProgramNode program) {
+    private String getPolicyNames(Program program) {
         if (program == null || program.unit == null || program.unit.policies == null) {
             return "none";
         }
@@ -443,7 +443,7 @@ public class ImportResolver {
         return sb.toString();
     }
     
-    public void registerPolicy(String qualifiedName, PolicyNode policy) {
+    public void registerPolicy(String qualifiedName, Policy policy) {
         if (qualifiedName == null || qualifiedName.isEmpty()) {
             throw new InternalError("registerPolicy called with null/empty qualifiedName");
         }
@@ -555,9 +555,9 @@ public class ImportResolver {
     }
 
     /**
-     * Resolve import and return TypeNode directly
+     * Resolve import and return Type directly
      */
-    public TypeNode resolveImport(String importName) throws Exception {
+    public Type resolveImport(String importName) throws Exception {
         if (importName == null || importName.isEmpty()) {
             throw new InternalError("resolveImport called with null/empty importName");
         }
@@ -584,20 +584,20 @@ public class ImportResolver {
         
         DebugSystem.debug("IMPORTS", "Unit: " + unitName + ", Class: " + className);
         
-        // ========== TRY BYTECODE FIRST (FAST PATH) ==========
-        if (bytecodeManager != null) {
-            TypeNode cachedType = bytecodeManager.load(unitName, className);
+        // ========== TRY IR FIRST (FAST PATH) ==========
+        if (irManager != null) {
+            Type cachedType = irManager.load(unitName, className);
             if (cachedType != null) {
                 bytecodeCacheHits++;
-                DebugSystem.debug("BYTECODE", "Loaded " + className + " from .codb (cache hit)");
+                DebugSystem.debug("IR", "Loaded " + className + " from .codb (cache hit)");
                 loadedTypes.put(importName, cachedType);
                 return cachedType;
             } else {
                 bytecodeCacheMisses++;
-                DebugSystem.debug("BYTECODE", "Bytecode not found for " + className + " (cache miss)");
+                DebugSystem.debug("IR", ".codb not found for " + className + " (cache miss)");
             }
         }
-        // ========== END BYTECODE CHECK ==========
+        // ========== END IR CHECK ==========
         
         // Try to get index (fast path for source)
         Index index = getIndex(unitName);
@@ -607,15 +607,15 @@ public class ImportResolver {
                 String filePath = getUnitPath(unitName) + "/" + fileName;
                 DebugSystem.debug("IMPORTS", "Found class '" + className + "' in '" + fileName + "' via index");
                 
-                ProgramNode program = loadImportFromFileCached(filePath);
+                Program program = loadImportFromFileCached(filePath);
                 if (program != null) {
-                    // Extract the TypeNode from the program
-                    for (TypeNode type : program.unit.types) {
+                    // Extract the Type from the program
+                    for (Type type : program.unit.types) {
                         if (type.name.equals(className)) {
-                            // Save bytecode for next time
-                            if (bytecodeManager != null) {
-                                bytecodeManager.save(unitName, type);
-                                DebugSystem.debug("BYTECODE", "Saved " + className + " to .codb");
+                            // Save IR for next time
+                            if (irManager != null) {
+                                irManager.save(unitName, type);
+                                DebugSystem.debug("IR", "Saved " + className + " to .codb");
                             }
                             loadedTypes.put(importName, type);
                             return type;
@@ -637,9 +637,9 @@ public class ImportResolver {
     }
     
     /**
-     * Legacy method for ProgramNode resolution (for policies, etc.)
+     * Legacy method for Program resolution (for policies, etc.)
      */
-    public ProgramNode resolveImportAsProgram(String importName) throws Exception {
+    public Program resolveImportAsProgram(String importName) throws Exception {
         if (importName == null || importName.isEmpty()) {
             throw new InternalError("resolveImportAsProgram called with null/empty importName");
         }
@@ -651,7 +651,7 @@ public class ImportResolver {
         
         // Check preloaded imports
         if (preloadedImports.containsKey(importName)) {
-            ProgramNode program = preloadedImports.get(importName);
+            Program program = preloadedImports.get(importName);
             if (program != null) {
                 loadedPrograms.put(importName, program);
                 importedUnits.put(importName, program);
@@ -661,10 +661,10 @@ public class ImportResolver {
             }
         }
         
-        // Resolve as TypeNode first, then wrap
-        TypeNode type = resolveImport(importName);
+        // Resolve as Type first, then wrap
+        Type type = resolveImport(importName);
         if (type != null) {
-            ProgramNode program = ASTFactory.createProgram();
+            Program program = ASTFactory.createProgram();
             program.unit = ASTFactory.createUnit("default", null);
             program.unit.types.add(type);
             loadedPrograms.put(importName, program);
@@ -677,7 +677,7 @@ public class ImportResolver {
     /**
      * Fallback: resolve import by scanning directory (slow path)
      */
-    private TypeNode resolveImportByScan(String importName, String unitName, String className) throws Exception {
+    private Type resolveImportByScan(String importName, String unitName, String className) throws Exception {
         String dirPath = unitName.replace('.', '/');
         DebugSystem.debug("IMPORTS", "Scanning for: " + dirPath);
         
@@ -719,7 +719,7 @@ public class ImportResolver {
             if (file.exists() && file.isFile()) {
                 DebugSystem.debug("IMPORTS", "FOUND import at: " + absolutePath);
                 try {
-                    ProgramNode program = loadImportFromFileCached(absolutePath);
+                    Program program = loadImportFromFileCached(absolutePath);
                     if (program != null) {
                         if (program.unit != null && program.unit.name != null) {
                             if (!program.unit.name.equals(importName)) {
@@ -729,8 +729,8 @@ public class ImportResolver {
                             }
                         }
                         
-                        // Extract the TypeNode
-                        for (TypeNode type : program.unit.types) {
+                        // Extract the Type
+                        for (Type type : program.unit.types) {
                             if (type.name.equals(className)) {
                                 // Generate index for future use
                                 Index index = generateIndex(unitName);
@@ -739,10 +739,10 @@ public class ImportResolver {
                                     indexCache.put(unitName, index);
                                 }
                                 
-                                // Save bytecode
-                                if (bytecodeManager != null) {
-                                    bytecodeManager.save(unitName, type);
-                                    DebugSystem.debug("BYTECODE", "Saved " + className + " to .codb");
+                                // Save IR
+                                if (irManager != null) {
+                                    irManager.save(unitName, type);
+                                    DebugSystem.debug("IR", "Saved " + className + " to .codb");
                                 }
                                 
                                 loadedTypes.put(importName, type);
@@ -779,13 +779,13 @@ public class ImportResolver {
         throw new ProgramError(errorMsg.toString());
     }
     
-    private void registerPoliciesAndBroadcast(ProgramNode program, String importName) {
+    private void registerPoliciesAndBroadcast(Program program, String importName) {
         if (program == null || program.unit == null) {
             throw new InternalError("registerPoliciesAndBroadcast called with null program/unit");
         }
         
         if (program.unit.policies != null) {
-            for (PolicyNode policy : program.unit.policies) {
+            for (Policy policy : program.unit.policies) {
                 String qualifiedName = program.unit.name + "." + policy.name;
                 registerPolicy(qualifiedName, policy);
                 policyToUnitMap.put(policy.name, program.unit.name);
@@ -804,7 +804,7 @@ public class ImportResolver {
         }
     }
     
-    private ProgramNode loadImportFromFile(String filePath) throws Exception {
+    private Program loadImportFromFile(String filePath) throws Exception {
         if (filePath == null || filePath.isEmpty()) {
             throw new InternalError("loadImportFromFile called with null/empty path");
         }
@@ -837,7 +837,7 @@ public class ImportResolver {
             DebugSystem.debug("IMPORTS", "Generated " + tokens.size() + " tokens");
             
             MainParser parser = new MainParser(tokens);
-            ProgramNode program = parser.parseProgram();
+            Program program = parser.parseProgram();
             
             if (program == null) {
                 throw new InternalError("Parser returned null program for: " + filePath);
@@ -861,7 +861,7 @@ public class ImportResolver {
         }
     }
 
-    public TypeNode findType(String qualifiedTypeName) {
+    public Type findType(String qualifiedTypeName) {
         if (qualifiedTypeName == null || qualifiedTypeName.isEmpty()) {
             throw new InternalError("findType called with null/empty name");
         }
@@ -876,7 +876,7 @@ public class ImportResolver {
         int lastDot = qualifiedTypeName.lastIndexOf('.');
         if (lastDot == -1) {
             DebugSystem.debug("IMPORTS", "Simple type name, searching all imports");
-            TypeNode found = findTypeByName(qualifiedTypeName);
+            Type found = findTypeByName(qualifiedTypeName);
             if (found == null) {
                 throw new ProgramError("Type not found: " + qualifiedTypeName);
             }
@@ -896,7 +896,7 @@ public class ImportResolver {
         if (!loadedTypes.containsKey(actualImportName)) {
             DebugSystem.debug("IMPORTS", "Import not loaded, trying to resolve: " + actualImportName);
             try {
-                TypeNode type = resolveImport(actualImportName);
+                Type type = resolveImport(actualImportName);
                 if (type == null) {
                     throw new ProgramError("Failed to resolve import: " + actualImportName);
                 }
@@ -911,13 +911,13 @@ public class ImportResolver {
         return loadedTypes.get(actualImportName);
     }
 
-    private TypeNode findTypeByName(String typeName) {
+    private Type findTypeByName(String typeName) {
         if (typeCache.containsKey(typeName)) {
             return typeCache.get(typeName);
         }
         
-        for (Map.Entry<String, TypeNode> entry : loadedTypes.entrySet()) {
-            TypeNode type = entry.getValue();
+        for (Map.Entry<String, Type> entry : loadedTypes.entrySet()) {
+            Type type = entry.getValue();
             if (type != null && type.name.equals(typeName)) {
                 typeCache.put(typeName, type);
                 return type;
@@ -927,7 +927,7 @@ public class ImportResolver {
         for (String importName : registeredImports) {
             if (importName.endsWith("." + typeName)) {
                 try {
-                    TypeNode type = resolveImport(importName);
+                    Type type = resolveImport(importName);
                     if (type != null) {
                         typeCache.put(typeName, type);
                         return type;
@@ -940,7 +940,7 @@ public class ImportResolver {
 
         for (String unitName : wildcardClassUnits) {
             try {
-                TypeNode type = resolveImport(unitName + "." + typeName);
+                Type type = resolveImport(unitName + "." + typeName);
                 if (type != null) {
                     typeCache.put(typeName, type);
                     return type;
@@ -952,7 +952,7 @@ public class ImportResolver {
         
         for (String unitName : wildcardEverythingUnits) {
             try {
-                TypeNode type = resolveImport(unitName + "." + typeName);
+                Type type = resolveImport(unitName + "." + typeName);
                 if (type != null) {
                     typeCache.put(typeName, type);
                     return type;
@@ -976,8 +976,8 @@ public class ImportResolver {
         methodImportSpecs.clear();
         wildcardEverythingUnits.clear();
         wildcardClassUnits.clear();
-        if (bytecodeManager != null) {
-            bytecodeManager.clearCache();
+        if (irManager != null) {
+            irManager.clearCache();
         }
         fileCacheHits = 0;
         fileCacheMisses = 0;
@@ -1006,8 +1006,8 @@ public class ImportResolver {
         stats.put("indexCacheMisses", indexCacheMisses);
         stats.put("bytecodeCacheHits", bytecodeCacheHits);
         stats.put("bytecodeCacheMisses", bytecodeCacheMisses);
-        if (bytecodeManager != null) {
-            stats.put("bytecodeStats", bytecodeManager.getCacheStats());
+        if (irManager != null) {
+            stats.put("bytecodeStats", irManager.getCacheStats());
         }
         
         double hitRate = (fileCacheHits + metadataCacheHits + indexCacheHits + bytecodeCacheHits) / 
@@ -1018,7 +1018,7 @@ public class ImportResolver {
         return stats;
     }
 
-    public MethodNode findMethod(String qualifiedMethodName) {
+    public Method findMethod(String qualifiedMethodName) {
         if (qualifiedMethodName == null || qualifiedMethodName.isEmpty()) {
             throw new InternalError("findMethod called with null/empty name");
         }
@@ -1027,7 +1027,7 @@ public class ImportResolver {
         
         int lastDot = qualifiedMethodName.lastIndexOf('.');
         if (lastDot == -1) {
-            MethodNode methodBySpec = findMethodFromSpecs(qualifiedMethodName);
+            Method methodBySpec = findMethodFromSpecs(qualifiedMethodName);
             if (methodBySpec != null) {
                 return methodBySpec;
             }
@@ -1043,12 +1043,12 @@ public class ImportResolver {
         
         DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', method: '" + methodName + "'");
         
-        TypeNode type = null;
+        Type type = null;
         try {
             type = findType(actualImportName);
             if (type != null) {
                 DebugSystem.debug("IMPORTS", "Searching for method '" + methodName + "' in type: " + type.name);
-                for (MethodNode method : type.methods) {
+                for (Method method : type.methods) {
                     DebugSystem.debug("IMPORTS", "    Checking method: " + method.methodName);
                     if (method.methodName.equals(methodName)) {
                         DebugSystem.debug("IMPORTS", "    *** FOUND METHOD: " + method.methodName + " ***");
@@ -1060,7 +1060,7 @@ public class ImportResolver {
             // Not a class import; may still be a static-module method import.
         }
         
-        MethodNode moduleMethod = findMethodInStaticModule(actualImportName, methodName);
+        Method moduleMethod = findMethodInStaticModule(actualImportName, methodName);
         if (moduleMethod != null) {
             return moduleMethod;
         }
@@ -1072,7 +1072,7 @@ public class ImportResolver {
         );
     }
     
-    private String getMethodNames(TypeNode type) {
+    private String getMethodNames(Type type) {
         if (type == null || type.methods == null || type.methods.isEmpty()) {
             return "none";
         }
@@ -1133,8 +1133,8 @@ public class ImportResolver {
         DebugSystem.debug("IMPORTS", "Index cache size: " + indexCache.size());
         DebugSystem.debug("IMPORTS", "File cache size: " + fileCache.size());
         DebugSystem.debug("IMPORTS", "File metadata cache size: " + fileMetadataCache.size());
-        if (bytecodeManager != null) {
-            DebugSystem.debug("IMPORTS", "Bytecode stats: " + bytecodeManager.getCacheStats());
+        if (irManager != null) {
+            DebugSystem.debug("IMPORTS", "IR stats: " + irManager.getCacheStats());
         }
         
         Map<String, Object> stats = getCacheStats();
@@ -1149,35 +1149,35 @@ public class ImportResolver {
         DebugSystem.debug("IMPORTS", "Cache hit rate: " + stats.get("cacheHitRate"));
         DebugSystem.debug("IMPORTS", "Loaded types: " + stats.get("loadedTypes"));
 
-        for (Map.Entry<String, TypeNode> entry : loadedTypes.entrySet()) {
+        for (Map.Entry<String, Type> entry : loadedTypes.entrySet()) {
             String typeName = entry.getKey();
-            TypeNode type = entry.getValue();
+            Type type = entry.getValue();
             DebugSystem.debug("IMPORTS", "Type: " + typeName);
             if (type != null && type.methods != null) {
                 DebugSystem.debug("IMPORTS", "  Methods: " + type.methods.size());
-                for (MethodNode method : type.methods) {
+                for (Method method : type.methods) {
                     DebugSystem.debug("IMPORTS", "    Method: " + method.methodName);
                 }
             }
         }
         
-        for (Map.Entry<String, ProgramNode> entry : importedUnits.entrySet()) {
+        for (Map.Entry<String, Program> entry : importedUnits.entrySet()) {
             String unitName = entry.getKey();
-            ProgramNode program = entry.getValue();
+            Program program = entry.getValue();
             DebugSystem.debug("IMPORTS", "Unit: " + unitName);
             if (program != null && program.unit != null) {
                 if (program.unit.policies != null && !program.unit.policies.isEmpty()) {
                     DebugSystem.debug("IMPORTS", "  Policies:");
-                    for (PolicyNode policy : program.unit.policies) {
+                    for (Policy policy : program.unit.policies) {
                         DebugSystem.debug("IMPORTS", "    " + policy.name + 
                             (policy.composedPolicies != null && !policy.composedPolicies.isEmpty() ? 
                              " with " + policy.composedPolicies : ""));
                     }
                 }
                 if (program.unit.types != null) {
-                    for (TypeNode type : program.unit.types) {
+                    for (Type type : program.unit.types) {
                         DebugSystem.debug("IMPORTS", "  Type: " + type.name);
-                        for (MethodNode method : type.methods) {
+                        for (Method method : type.methods) {
                             DebugSystem.debug(
                                 "IMPORTS",
                                 "    Method: "
@@ -1193,7 +1193,7 @@ public class ImportResolver {
         DebugSystem.debug("IMPORTS", "=== END IMPORT STATUS ===");
     }
 
-    public void preloadImport(String qualifiedName, ProgramNode program) {
+    public void preloadImport(String qualifiedName, Program program) {
         if (qualifiedName == null || qualifiedName.isEmpty()) {
             throw new InternalError("preloadImport called with null/empty qualifiedName");
         }
@@ -1210,7 +1210,7 @@ public class ImportResolver {
         DebugSystem.debug("IMPORTS", "Pre-loaded import into resolver: " + qualifiedName);
         
         if (program.unit != null && program.unit.policies != null) {
-            for (PolicyNode policy : program.unit.policies) {
+            for (Policy policy : program.unit.policies) {
                 String qualifiedPolicyName = program.unit.name + "." + policy.name;
                 registerPolicy(qualifiedPolicyName, policy);
                 policyToUnitMap.put(policy.name, program.unit.name);
@@ -1218,15 +1218,15 @@ public class ImportResolver {
         }
         
         if (program.unit != null && program.unit.types != null) {
-            for (TypeNode type : program.unit.types) {
+            for (Type type : program.unit.types) {
                 String qualifiedTypeName = program.unit.name + "." + type.name;
                 typeCache.put(qualifiedTypeName, type);
                 typeCache.put(type.name, type);
                 loadedTypes.put(qualifiedTypeName, type);
                 
-                // Pre-save bytecode if available
-                if (bytecodeManager != null) {
-                    bytecodeManager.save(program.unit.name, type);
+                // Pre-save IR if available
+                if (irManager != null) {
+                    irManager.save(program.unit.name, type);
                 }
             }
         }
@@ -1235,7 +1235,7 @@ public class ImportResolver {
         if (program.unit != null && program.unit.name != null) {
             String unitName = program.unit.name;
             Index index = new Index(unitName);
-            for (TypeNode type : program.unit.types) {
+            for (Type type : program.unit.types) {
                 String fileName = type.name + ".cod";
                 index.add(type.name, fileName);
             }
@@ -1246,11 +1246,11 @@ public class ImportResolver {
         }
     }
 
-    public Map<String, ProgramNode> getLoadedPrograms() {
+    public Map<String, Program> getLoadedPrograms() {
         return loadedPrograms;
     }
 
-    public Map<String, TypeNode> getLoadedTypes() {
+    public Map<String, Type> getLoadedTypes() {
         return loadedTypes;
     }
 
@@ -1262,7 +1262,7 @@ public class ImportResolver {
         return new HashSet<String>(registeredImports);
     }
 
-    public FieldNode findField(String qualifiedFieldName) {
+    public Field findField(String qualifiedFieldName) {
         if (qualifiedFieldName == null || qualifiedFieldName.isEmpty()) {
             return null;
         }
@@ -1280,9 +1280,9 @@ public class ImportResolver {
         String unitName = fullName.substring(0, lastDot);
         String fieldName = fullName.substring(lastDot + 1);
         
-        TypeNode staticType = loadStaticModuleType(unitName);
+        Type staticType = loadStaticModuleType(unitName);
         if (staticType != null && staticType.fields != null) {
-            for (FieldNode field : staticType.fields) {
+            for (Field field : staticType.fields) {
                 if (fieldName.equals(field.name)) {
                     return field;
                 }
@@ -1290,9 +1290,9 @@ public class ImportResolver {
         }
         
         for (String wildcardUnit : wildcardEverythingUnits) {
-            TypeNode wildcardType = loadStaticModuleType(wildcardUnit);
+            Type wildcardType = loadStaticModuleType(wildcardUnit);
             if (wildcardType != null && wildcardType.fields != null) {
-                for (FieldNode field : wildcardType.fields) {
+                for (Field field : wildcardType.fields) {
                     if (qualifiedFieldName.equals(field.name) || fieldName.equals(field.name)) {
                         return field;
                     }
@@ -1303,11 +1303,11 @@ public class ImportResolver {
         return null;
     }
 
-    private MethodNode findMethodFromSpecs(String methodName) {
+    private Method findMethodFromSpecs(String methodName) {
         for (String spec : methodImportSpecs) {
             ParsedMethodImport parsed = parseMethodImport(spec);
             if (parsed != null && parsed.methodName.equals(methodName)) {
-                MethodNode method = findMethodInStaticModule(parsed.unitName, parsed.methodName);
+                Method method = findMethodInStaticModule(parsed.unitName, parsed.methodName);
                 if (method != null) {
                     return method;
                 }
@@ -1315,7 +1315,7 @@ public class ImportResolver {
         }
         
         for (String unitName : wildcardEverythingUnits) {
-            MethodNode method = findMethodInStaticModule(unitName, methodName);
+            Method method = findMethodInStaticModule(unitName, methodName);
             if (method != null) {
                 return method;
             }
@@ -1324,13 +1324,13 @@ public class ImportResolver {
         return null;
     }
 
-    private MethodNode findMethodInStaticModule(String unitName, String methodName) {
-        TypeNode staticType = loadStaticModuleType(unitName);
+    private Method findMethodInStaticModule(String unitName, String methodName) {
+        Type staticType = loadStaticModuleType(unitName);
         if (staticType == null || staticType.methods == null) {
             return null;
         }
         
-        for (MethodNode method : staticType.methods) {
+        for (Method method : staticType.methods) {
             if (methodName.equals(method.methodName)) {
                 return method;
             }
@@ -1339,12 +1339,12 @@ public class ImportResolver {
         return null;
     }
 
-    private TypeNode loadStaticModuleType(String unitName) {
+    private Type loadStaticModuleType(String unitName) {
         if (unitName == null || unitName.isEmpty()) {
             return null;
         }
         
-        ProgramNode program = loadedPrograms.get(unitName);
+        Program program = loadedPrograms.get(unitName);
         if (program == null) {
             program = loadStaticModuleProgram(unitName);
             if (program != null) {
@@ -1356,7 +1356,7 @@ public class ImportResolver {
             return null;
         }
         
-        for (TypeNode type : program.unit.types) {
+        for (Type type : program.unit.types) {
             if ("__StaticModule__".equals(type.name)) {
                 return type;
             }
@@ -1365,7 +1365,7 @@ public class ImportResolver {
         return null;
     }
 
-    private ProgramNode loadStaticModuleProgram(String unitName) {
+    private Program loadStaticModuleProgram(String unitName) {
         String dirPath = unitName.replace('.', '/');
         List<String> pathsToTry = new ArrayList<String>();
         
@@ -1388,7 +1388,7 @@ public class ImportResolver {
         
         for (String path : pathsToTry) {
             try {
-                ProgramNode program = loadImportFromFileCached(path);
+                Program program = loadImportFromFileCached(path);
                 if (program != null) {
                     return program;
                 }

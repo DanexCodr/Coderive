@@ -23,7 +23,7 @@ public class ProgramValidator {
      * @param programType The detected program type
      * @throws ProgramError if validation fails
      */
-    public static void validate(ProgramNode program, ProgramType programType) {
+    public static void validate(Program program, ProgramType programType) {
         if (nil(program)) {
             throw new ProgramError("Program cannot be null");
         }
@@ -43,10 +43,10 @@ public class ProgramValidator {
         }
     }
     
-    private static void validateClassStructure(TypeNode type) {
+    private static void validateClassStructure(Type type) {
         if (type.fields != null) {
             Set<String> fieldNames = new HashSet<String>();
-            for (FieldNode field : type.fields) {
+            for (Field field : type.fields) {
                 if (fieldNames.contains(field.name)) {
                     throw new ProgramError(
                         "Duplicate field declaration in class '" + type.name + "': '" + field.name + "'\n" +
@@ -59,11 +59,11 @@ public class ProgramValidator {
         
         if (type.methods != null) {
             Set<String> methodNames = new HashSet<String>();
-            for (MethodNode method : type.methods) {
+            for (Method method : type.methods) {
                 if (methodNames.contains(method.methodName)) {
                     // Check if it's method overloading (same name, different parameters)
                     boolean isOverload = false;
-                    for (MethodNode existing : type.methods) {
+                    for (Method existing : type.methods) {
                         if (existing.methodName.equals(method.methodName) && 
                             !areParametersSame(existing.parameters, method.parameters)) {
                             isOverload = true;
@@ -83,14 +83,14 @@ public class ProgramValidator {
     }
 
     // Helper method to check if parameters are the same
-    private static boolean areParametersSame(List<ParamNode> params1, List<ParamNode> params2) {
+    private static boolean areParametersSame(List<Param> params1, List<Param> params2) {
         if (params1 == null && params2 == null) return true;
         if (nil(params1, params2)) return false;
         if (params1.size() != params2.size()) return false;
         
         for (int i = 0; i < params1.size(); i++) {
-            ParamNode p1 = params1.get(i);
-            ParamNode p2 = params2.get(i);
+            Param p1 = params1.get(i);
+            Param p2 = params2.get(i);
             if (!p1.name.equals(p2.name) || !p1.type.equals(p2.type)) {
                 return false;
             }
@@ -108,7 +108,7 @@ public class ProgramValidator {
      * 5. If main class is specified, it must exist in the module
      * 6. No duplicate fields or methods within classes
      */
-    private static void validateModule(ProgramNode program) {
+    private static void validateModule(Program program) {
         // Rule 1: Must have unit declaration (not "default")
         if (program.unit == null || "default".equals(program.unit.name)) {
             throw new ProgramError(
@@ -127,12 +127,12 @@ public class ProgramValidator {
         }
         
         // NEW RULE 6: Validate each class's structure (no duplicate fields/methods)
-        for (TypeNode type : program.unit.types) {
+        for (Type type : program.unit.types) {
             validateClassStructure(type);
         }
         
         // Rules 3 & 4: Check each class for direct code outside methods
-        for (TypeNode type : program.unit.types) {
+        for (Type type : program.unit.types) {
             // Check for direct code in classes
             if (type.statements != null && !type.statements.isEmpty()) {
                 throw new ProgramError(
@@ -148,14 +148,14 @@ public class ProgramValidator {
         if (program.unit.mainClassName != null && !program.unit.mainClassName.isEmpty()) {
             boolean mainClassFound = false;
             
-            for (TypeNode type : program.unit.types) {
+            for (Type type : program.unit.types) {
                 if (type.name.equals(program.unit.mainClassName)) {
                     mainClassFound = true;
                     
                     // Optional: Check if main class has a main method
                     boolean hasMainMethod = false;
                     if (type.methods != null) {
-                        for (MethodNode method : type.methods) {
+                        for (Method method : type.methods) {
                             if ("main".equals(method.methodName)) {
                                 // Check if it has appropriate parameters
                                 // For now, accept any main method - you can refine this later
@@ -185,7 +185,7 @@ public class ProgramValidator {
     }
 
     // Helper method to get class names for error messages
-    private static String getClassNames(List<TypeNode> types) {
+    private static String getClassNames(List<Type> types) {
         if (types == null || types.isEmpty()) {
             return "(no classes)";
         }
@@ -206,10 +206,10 @@ public class ProgramValidator {
      * 1. Cannot have direct code outside methods
      * 2. Should have main() method (warning only)
      */
-    private static void validateStaticModule(ProgramNode program) {
+    private static void validateStaticModule(Program program) {
         boolean hasMain = false;
         
-        for (TypeNode type : program.unit.types) {
+        for (Type type : program.unit.types) {
             if (type.statements != null && !type.statements.isEmpty()) {
                 throw new ProgramError(
                     "Static modules cannot have direct code outside methods.\n" +
@@ -217,7 +217,7 @@ public class ProgramValidator {
                 );
             }
             if (type.methods != null) {
-                for (MethodNode method : type.methods) {
+                for (Method method : type.methods) {
                     if ("main".equals(method.methodName)) {
                         if (method.parameters == null || method.parameters.isEmpty()) {
                             hasMain = true;
@@ -242,12 +242,12 @@ public class ProgramValidator {
      * 3. Cannot have class declarations
      * 4. Cannot have field declarations
      */
-    private static void validateScript(ProgramNode program) {
+    private static void validateScript(Program program) {
         // Scripts are allowed to have imports
         // Scripts are parsed into a synthetic class with statements
         
         // Check each type (should only be the synthetic __Script__ type)
-        for (TypeNode type : program.unit.types) {
+        for (Type type : program.unit.types) {
             // Rule 2: Cannot have node declarations
             if (type.methods != null && !type.methods.isEmpty()) {
                 throw new ProgramError(

@@ -1,6 +1,6 @@
 package cod.range.formula;
 
-import cod.ast.nodes.ExprNode;
+import cod.ast.nodes.Expr;
 import cod.interpreter.Evaluator;
 import cod.interpreter.context.ExecutionContext;
 import java.util.*;
@@ -13,9 +13,9 @@ public class SequenceFormula {
     
     public static class Step {
         public final String tempVar;
-        public final ExprNode expression;
+        public final Expr expression;
         
-        public Step(String tempVar, ExprNode expression) {
+        public Step(String tempVar, Expr expression) {
             this.tempVar = tempVar;
             this.expression = expression;
         }
@@ -25,7 +25,7 @@ public class SequenceFormula {
         }
     }
     
-    public SequenceFormula(long start, long end, ExprNode formula, String indexVar) {
+    public SequenceFormula(long start, long end, Expr formula, String indexVar) {
         this.start = start;
         this.end = end;
         this.indexVar = indexVar;
@@ -108,14 +108,14 @@ public class SequenceFormula {
         }
     }
     
-    public static SequenceFormula createSimple(long start, long end, ExprNode formula, String indexVar) {
+    public static SequenceFormula createSimple(long start, long end, Expr formula, String indexVar) {
         return new SequenceFormula(start, end, formula, indexVar);
     }
     
     public static SequenceFormula createFromSequence(long start, long end, String indexVar,
                                                     List<String> tempVarNames,
-                                                    List<ExprNode> tempExpressions,
-                                                    ExprNode finalExpr) {
+                                                    List<Expr> tempExpressions,
+                                                    Expr finalExpr) {
         if (tempVarNames.size() != tempExpressions.size()) {
             throw new IllegalArgumentException("tempVarNames and tempExpressions must have same size");
         }

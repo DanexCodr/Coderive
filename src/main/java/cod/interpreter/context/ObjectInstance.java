@@ -1,15 +1,15 @@
 package cod.interpreter.context;
 
-import cod.ast.nodes.TypeNode;
+import cod.ast.nodes.Type;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class ObjectInstance {
-    public TypeNode type;
+    public Type type;
     public Map<String, Object> fields = new HashMap<String, Object>();
 
-    public ObjectInstance(TypeNode type) {
+    public ObjectInstance(Type type) {
         this.type = type;
         // fields initialized as empty HashMap by default
     }

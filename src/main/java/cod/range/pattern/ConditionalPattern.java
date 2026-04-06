@@ -4,28 +4,28 @@ import cod.ast.nodes.*;
 import java.util.*;
 
 public class ConditionalPattern {
-    public final ExprNode array;
+    public final Expr array;
     public final String indexVar;
     public final List<Branch> branches;
-    public final List<StmtNode> elseStatements;
+    public final List<Stmt> elseStatements;
     
     public static class Branch {
-        public final ExprNode condition;
-        public final List<StmtNode> statements;
+        public final Expr condition;
+        public final List<Stmt> statements;
         
-        public Branch(ExprNode condition, List<StmtNode> statements) {
+        public Branch(Expr condition, List<Stmt> statements) {
             this.condition = condition;
             this.statements = statements;
         }
     }
     
-    public ConditionalPattern(ExprNode array, String indexVar,
+    public ConditionalPattern(Expr array, String indexVar,
                              List<Branch> branches,
-                             List<StmtNode> elseStatements) {
+                             List<Stmt> elseStatements) {
         this.array = array;
         this.indexVar = indexVar;
         this.branches = branches != null ? branches : new ArrayList<Branch>();
-        this.elseStatements = elseStatements != null ? elseStatements : new ArrayList<StmtNode>();
+        this.elseStatements = elseStatements != null ? elseStatements : new ArrayList<Stmt>();
     }
     
     public boolean isOptimizable() {
@@ -33,7 +33,7 @@ public class ConditionalPattern {
                branches != null && !branches.isEmpty();
     }
     
-    public static ConditionalPattern extract(StmtIfNode ifStmt, String iterator) {
+    public static ConditionalPattern extract(StmtIf ifStmt, String iterator) {
         List<ConditionalPattern> patterns = extractAll(ifStmt, iterator);
         if (patterns.isEmpty()) {
             return null;
@@ -45,7 +45,7 @@ public class ConditionalPattern {
      * Extract one conditional pattern per target array from an if/elif/else chain.
      * @return list of patterns (one per unique target array) or an empty list when not extractable
      */
-    public static List<ConditionalPattern> extractAll(StmtIfNode ifStmt, String iterator) {
+    public static List<ConditionalPattern> extractAll(StmtIf ifStmt, String iterator) {
         if (ifStmt == null || iterator == null) {
             return new ArrayList<ConditionalPattern>();
         }
@@ -55,15 +55,15 @@ public class ConditionalPattern {
             return new ArrayList<ConditionalPattern>();
         }
         
-        List<ExprNode> targetArrays = collectTargetArrays(chain, iterator);
+        List<Expr> targetArrays = collectTargetArrays(chain, iterator);
         List<ConditionalPattern> results = new ArrayList<ConditionalPattern>();
         
-        for (ExprNode targetArray : targetArrays) {
+        for (Expr targetArray : targetArrays) {
             List<Branch> filteredBranches = new ArrayList<Branch>();
             boolean hasAnyAssignment = false;
             
             for (Branch branch : chain.branches) {
-                List<StmtNode> filtered = filterStatementsForArray(branch.statements, iterator, targetArray);
+                List<Stmt> filtered = filterStatementsForArray(branch.statements, iterator, targetArray);
                 if (!filtered.isEmpty()) {
                     filteredBranches.add(new Branch(branch.condition, filtered));
                     if (containsArrayAssignment(filtered, iterator, targetArray)) {
@@ -72,7 +72,7 @@ public class ConditionalPattern {
                 }
             }
             
-            List<StmtNode> filteredElse = filterStatementsForArray(chain.elseStatements, iterator, targetArray);
+            List<Stmt> filteredElse = filterStatementsForArray(chain.elseStatements, iterator, targetArray);
             if (containsArrayAssignment(filteredElse, iterator, targetArray)) {
                 hasAnyAssignment = true;
             }
@@ -87,23 +87,23 @@ public class ConditionalPattern {
     
     private static class ChainExtraction {
         final List<Branch> branches;
-        final List<StmtNode> elseStatements;
+        final List<Stmt> elseStatements;
         
-        ChainExtraction(List<Branch> branches, List<StmtNode> elseStatements) {
+        ChainExtraction(List<Branch> branches, List<Stmt> elseStatements) {
             this.branches = branches;
             this.elseStatements = elseStatements;
         }
     }
     
-    private static ChainExtraction flattenChain(StmtIfNode ifStmt) {
+    private static ChainExtraction flattenChain(StmtIf ifStmt) {
         List<Branch> branches = new ArrayList<Branch>();
-        List<StmtNode> elseStatements = new ArrayList<StmtNode>();
-        StmtIfNode current = ifStmt;
+        List<Stmt> elseStatements = new ArrayList<Stmt>();
+        StmtIf current = ifStmt;
         
         while (current != null) {
-            List<StmtNode> thenStatements = current.thenBlock != null && current.thenBlock.statements != null
+            List<Stmt> thenStatements = current.thenBlock != null && current.thenBlock.statements != null
                 ? current.thenBlock.statements
-                : new ArrayList<StmtNode>();
+                : new ArrayList<Stmt>();
             branches.add(new Branch(current.condition, thenStatements));
             
             if (current.elseBlock == null || current.elseBlock.statements == null ||
@@ -111,9 +111,9 @@ public class ConditionalPattern {
                 break;
             }
             
-            StmtNode firstElse = current.elseBlock.statements.get(0);
-            if (firstElse instanceof StmtIfNode) {
-                current = (StmtIfNode) firstElse;
+            Stmt firstElse = current.elseBlock.statements.get(0);
+            if (firstElse instanceof StmtIf) {
+                current = (StmtIf) firstElse;
             } else {
                 elseStatements = current.elseBlock.statements;
                 break;
@@ -123,8 +123,8 @@ public class ConditionalPattern {
         return new ChainExtraction(branches, elseStatements);
     }
     
-    private static List<ExprNode> collectTargetArrays(ChainExtraction chain, String iterator) {
-        List<ExprNode> targets = new ArrayList<ExprNode>();
+    private static List<Expr> collectTargetArrays(ChainExtraction chain, String iterator) {
+        List<Expr> targets = new ArrayList<Expr>();
         Set<String> seenTargets = new HashSet<String>();
         
         for (Branch branch : chain.branches) {
@@ -135,14 +135,14 @@ public class ConditionalPattern {
         return targets;
     }
     
-    private static void addTargetsFromStatements(List<ExprNode> targets, Set<String> seenTargets,
-                                                 List<StmtNode> statements, String iterator) {
+    private static void addTargetsFromStatements(List<Expr> targets, Set<String> seenTargets,
+                                                 List<Stmt> statements, String iterator) {
         if (statements == null) {
             return;
         }
         
-        for (StmtNode stmt : statements) {
-            ExprNode stmtArray = validateStatementTarget(stmt, iterator);
+        for (Stmt stmt : statements) {
+            Expr stmtArray = validateStatementTarget(stmt, iterator);
             if (stmtArray == null) {
                 continue;
             }
@@ -154,22 +154,22 @@ public class ConditionalPattern {
         }
     }
     
-    private static String arrayKey(ExprNode arrayExpr) {
-        if (arrayExpr instanceof IdentifierNode) {
-            return "id:" + ((IdentifierNode) arrayExpr).name;
+    private static String arrayKey(Expr arrayExpr) {
+        if (arrayExpr instanceof Identifier) {
+            return "id:" + ((Identifier) arrayExpr).name;
         }
         // Fallback key for non-identifiers; this is heuristic and based on node string form.
         return "expr:" + String.valueOf(arrayExpr);
     }
     
-    private static List<StmtNode> filterStatementsForArray(List<StmtNode> statements, String iterator, ExprNode targetArray) {
-        List<StmtNode> filtered = new ArrayList<StmtNode>();
+    private static List<Stmt> filterStatementsForArray(List<Stmt> statements, String iterator, Expr targetArray) {
+        List<Stmt> filtered = new ArrayList<Stmt>();
         if (statements == null) {
             return filtered;
         }
         
-        for (StmtNode stmt : statements) {
-            ExprNode stmtArray = validateStatementTarget(stmt, iterator);
+        for (Stmt stmt : statements) {
+            Expr stmtArray = validateStatementTarget(stmt, iterator);
             if (stmtArray == null) {
                 if (isVariableDeclaration(stmt)) {
                     filtered.add(stmt);
@@ -185,25 +185,25 @@ public class ConditionalPattern {
         return filtered;
     }
     
-    private static boolean isVariableDeclaration(StmtNode stmt) {
-        if (stmt instanceof VarNode) {
+    private static boolean isVariableDeclaration(Stmt stmt) {
+        if (stmt instanceof Var) {
             return true;
         }
         
-        if (stmt instanceof AssignmentNode) {
-            return ((AssignmentNode) stmt).isDeclaration;
+        if (stmt instanceof Assignment) {
+            return ((Assignment) stmt).isDeclaration;
         }
         
         return false;
     }
     
-    private static boolean containsArrayAssignment(List<StmtNode> statements, String iterator, ExprNode targetArray) {
+    private static boolean containsArrayAssignment(List<Stmt> statements, String iterator, Expr targetArray) {
         if (statements == null) {
             return false;
         }
         
-        for (StmtNode stmt : statements) {
-            ExprNode stmtArray = validateStatementTarget(stmt, iterator);
+        for (Stmt stmt : statements) {
+            Expr stmtArray = validateStatementTarget(stmt, iterator);
             if (stmtArray != null && isSameArray(stmtArray, targetArray)) {
                 return true;
             }
@@ -213,14 +213,14 @@ public class ConditionalPattern {
     }
     
     private static ConditionalPattern extractRecursive(
-            StmtIfNode ifStmt, String iterator, 
-            ExprNode targetArray, List<Branch> accumulatedBranches) {
+            StmtIf ifStmt, String iterator, 
+            Expr targetArray, List<Branch> accumulatedBranches) {
         
         // Extract then branch statements
-        List<StmtNode> thenStatements = ifStmt.thenBlock.statements;
+        List<Stmt> thenStatements = ifStmt.thenBlock.statements;
         
         // Validate all statements in then branch
-        ExprNode branchArray = validateBranchStatements(thenStatements, iterator, targetArray);
+        Expr branchArray = validateBranchStatements(thenStatements, iterator, targetArray);
         if (branchArray == null) return null;
         
         // Create branch
@@ -229,21 +229,21 @@ public class ConditionalPattern {
         
         // Handle else/elif
         if (ifStmt.elseBlock != null && !ifStmt.elseBlock.statements.isEmpty()) {
-            StmtNode firstElseStmt = ifStmt.elseBlock.statements.get(0);
+            Stmt firstElseStmt = ifStmt.elseBlock.statements.get(0);
             
-            if (firstElseStmt instanceof StmtIfNode) {
+            if (firstElseStmt instanceof StmtIf) {
                 // Recursively handle elif
                 return extractRecursive(
-                    (StmtIfNode) firstElseStmt, iterator, 
+                    (StmtIf) firstElseStmt, iterator, 
                     branchArray, accumulatedBranches
                 );
             } else {
                 // Final else branch
-                List<StmtNode> elseStatements = ifStmt.elseBlock.statements;
+                List<Stmt> elseStatements = ifStmt.elseBlock.statements;
                 
                 // Validate else statements all target same array
-                for (StmtNode stmt : elseStatements) {
-                    ExprNode stmtArray = validateStatementTarget(stmt, iterator);
+                for (Stmt stmt : elseStatements) {
+                    Expr stmtArray = validateStatementTarget(stmt, iterator);
                     if (stmtArray != null && !isSameArray(stmtArray, branchArray)) {
                         return null;
                     }
@@ -259,17 +259,17 @@ public class ConditionalPattern {
         // No else clause
         return new ConditionalPattern(
             branchArray, iterator, 
-            accumulatedBranches, new ArrayList<StmtNode>()
+            accumulatedBranches, new ArrayList<Stmt>()
         );
     }
     
-    private static ExprNode validateBranchStatements(
-            List<StmtNode> statements, String iterator, ExprNode expectedArray) {
+    private static Expr validateBranchStatements(
+            List<Stmt> statements, String iterator, Expr expectedArray) {
         
-        ExprNode branchArray = null;
+        Expr branchArray = null;
         
-        for (StmtNode stmt : statements) {
-            ExprNode stmtArray = validateStatementTarget(stmt, iterator);
+        for (Stmt stmt : statements) {
+            Expr stmtArray = validateStatementTarget(stmt, iterator);
             
             // Variable declarations don't have array targets - skip them
             if (stmtArray == null) continue;
@@ -288,29 +288,29 @@ public class ConditionalPattern {
         return branchArray;
     }
     
-    private static ExprNode validateStatementTarget(StmtNode stmt, String iterator) {
-        if (stmt instanceof AssignmentNode) {
-            AssignmentNode assign = (AssignmentNode) stmt;
-            if (assign.left instanceof IndexAccessNode) {
-                IndexAccessNode indexAccess = (IndexAccessNode) assign.left;
+    private static Expr validateStatementTarget(Stmt stmt, String iterator) {
+        if (stmt instanceof Assignment) {
+            Assignment assign = (Assignment) stmt;
+            if (assign.left instanceof IndexAccess) {
+                IndexAccess indexAccess = (IndexAccess) assign.left;
                 if (isIndexIterator(indexAccess.index, iterator)) {
                     return indexAccess.array;
                 }
             }
         }
-        // VarNode (variable declarations) are allowed but don't target array
+        // Var (variable declarations) are allowed but don't target array
         return null;
     }
     
-    private static boolean isIndexIterator(ExprNode index, String iterator) {
-        return index instanceof IdentifierNode && 
-               iterator.equals(((IdentifierNode) index).name);
+    private static boolean isIndexIterator(Expr index, String iterator) {
+        return index instanceof Identifier && 
+               iterator.equals(((Identifier) index).name);
     }
     
-    private static boolean isSameArray(ExprNode a, ExprNode b) {
+    private static boolean isSameArray(Expr a, Expr b) {
         if (a == null || b == null) return false;
-        if (a instanceof IdentifierNode && b instanceof IdentifierNode) {
-            return ((IdentifierNode) a).name.equals(((IdentifierNode) b).name);
+        if (a instanceof Identifier && b instanceof Identifier) {
+            return ((Identifier) a).name.equals(((Identifier) b).name);
         }
         return a.toString().equals(b.toString());
     }
