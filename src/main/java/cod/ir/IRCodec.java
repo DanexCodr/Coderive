@@ -39,6 +39,7 @@ final class IRCodec {
     private static final String NODE_PACKAGE_PREFIX = "cod.ast.nodes.";
     private static final Map<String, byte[]> STRING_BYTES_CACHE = new ConcurrentHashMap<String, byte[]>();
     private static final int STRING_BYTES_CACHE_LIMIT = 512;
+    private static final int MAX_IDENTIFIER_LIKE_STRING_LENGTH = 64;
 
     private IRCodec() {}
 
@@ -339,7 +340,7 @@ final class IRCodec {
             return cached;
         }
         byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-        if (STRING_BYTES_CACHE.size() < STRING_BYTES_CACHE_LIMIT
+        if (STRING_BYTES_CACHE.size() <= STRING_BYTES_CACHE_LIMIT
                 && (value.startsWith(NODE_PACKAGE_PREFIX) || isIdentifierLike(value))) {
             STRING_BYTES_CACHE.putIfAbsent(value, bytes);
         }
@@ -347,7 +348,7 @@ final class IRCodec {
     }
 
     private static boolean isIdentifierLike(String value) {
-        if (value.length() == 0 || value.length() > 64) {
+        if (value.length() == 0 || value.length() > MAX_IDENTIFIER_LIKE_STRING_LENGTH) {
             return false;
         }
         for (int i = 0; i < value.length(); i++) {
