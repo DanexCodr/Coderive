@@ -110,7 +110,7 @@ java -cp "$JAVA_OUT" CodBoot \
 
 ## Differential parity check
 
-Run a full JS-vs-Java parity comparison across all parity `.cod` programs (strict self-host-only mode + bootstrap parity check):
+Run a full JS-vs-Java parity comparison across all parity `.cod` programs (strict self-host-only mode + bootstrap self-check):
 
 ```bash
 experimentations/codboot/parity/compare_hosts.sh
@@ -130,7 +130,7 @@ This validates:
 - generated mixed-behavior coverage
 - differential sweep across all repository `.cod` files
 - Java repeat-run determinism/consistency checks
-- bootstrap/self-interpretation parity checks
+- bootstrap self-check parity checks
 
 Capability tracking checklist:
 - `experimentations/codboot/parity/capability-checklist.txt`

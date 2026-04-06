@@ -2,8 +2,9 @@
 
 const fs = require('fs');
 const childProcess = require('child_process');
-// This constant is needed before core semantics are parsed; fallback prefix must match core message format.
+// This constant is needed before core semantics are parsed; keep in sync with core.ce semantics_json.messages.parseEvalErrorPrefix.
 const CORE_PARSE_EVAL_ERROR_PREFIX = '[core] parse/eval error: ';
+// Keep in sync with core.ce semantics_json missing-semantics error contract.
 const CORE_MISSING_SEMANTICS_JSON_MESSAGE = '[core] missing semantics_json block';
 const DEFAULT_LINE_COMMENTS = ['#', '//'];
 

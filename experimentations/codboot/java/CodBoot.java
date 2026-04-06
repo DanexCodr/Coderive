@@ -13,14 +13,16 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public final class CodBoot {
-    // This constant is needed before core semantics are parsed; fallback prefix must match core message format.
+    // This constant is needed before core semantics are parsed; keep in sync with core.ce semantics_json.messages.parseEvalErrorPrefix.
     private static final String CORE_PARSE_EVAL_ERROR_PREFIX = "[core] parse/eval error: ";
     private static final String CORE_MISSING_SEMANTICS_KEY_PREFIX = "[core] missing semantics key: ";
+    // Keep in sync with core.ce semantics_json missing-semantics error contract.
     private static final String CORE_MISSING_SEMANTICS_JSON_MESSAGE = "[core] missing semantics_json block";
     // Matches JSON string literals and captures escaped content between quotes.
     // This one is static/precompiled because it is key-agnostic and reused directly.
     private static final Pattern JSON_STRING_ITEM_PATTERN = Pattern.compile("\"((?:\\\\.|[^\\\\\"])*)\"");
-    // Matches JSON numeric values: optional sign, integer part, optional decimal part, optional exponent.
+    // Matches JSON numeric values used by semantics payload: optional sign, integer part, optional decimal part, optional exponent.
+    // Note: this intentionally does not support non-JSON forms like leading-dot `.5` or trailing-dot `0.`.
     // Kept as a template string because the JSON key is dynamic and inserted via String.format.
     private static final String JSON_NUMBER_VALUE_REGEX = "\"%s\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)";
 
@@ -738,12 +740,16 @@ public final class CodBoot {
         }
     }
 
+    private static long truncateTowardZero(double value) {
+        return (long) (value >= 0 ? Math.floor(value) : Math.ceil(value));
+    }
+
     private static String formatNumber(double value, CoreSemantics semantics) {
         String mode = semantics.evaluatorWholeNumberMode;
         if (!"round".equals(mode) && !"trunc".equals(mode)) {
             throw new RuntimeException("invalid wholeNumberMode: " + mode);
         }
-        long whole = "trunc".equals(mode) ? (long) (value >= 0 ? Math.floor(value) : Math.ceil(value)) : Math.round(value);
+        long whole = "trunc".equals(mode) ? truncateTowardZero(value) : Math.round(value);
         if (Math.abs(value - whole) < semantics.evaluatorWholeNumberTolerance) {
             return String.valueOf(whole);
         }

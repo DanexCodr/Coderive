@@ -196,7 +196,7 @@ for program_path in "${deterministic_programs[@]}"; do
   done
 done
 
-echo "[6/7] Bootstrap/self-interpretation checks"
+echo "[6/7] Bootstrap self-checks"
 "$PARITY_DIR/compare_hosts.sh" --bootstrap-only
 
 echo "[7/7] Baseline script compatibility"
