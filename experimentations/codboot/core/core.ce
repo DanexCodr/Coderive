@@ -32,6 +32,10 @@ out("[core] entrypoint ready: " + entrypoint)
 //     "writeFileErrorPrefix": "[host] write-file error: ",
 //     "readFileErrorPrefix": "[host] read-file error: "
 //   },
+//   "evaluator": {
+//     "wholeNumberTolerance": 1e-9,
+//     "wholeNumberMode": "round"
+//   },
 //   "hostCommands": {
 //     "add": "add",
 //     "subtract": "subtract",

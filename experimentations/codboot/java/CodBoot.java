@@ -435,6 +435,7 @@ public final class CodBoot {
         private final boolean lexerAllowParentheses;
         private final boolean lexerHashCommentsEnabled;
         private final boolean lexerDoubleSlashCommentsEnabled;
+        private final double evaluatorWholeNumberTolerance;
         private final String invalidCoreFormat;
         private final String runningPrefix;
         private final String experimentalEvaluatorActive;
@@ -468,6 +469,7 @@ public final class CodBoot {
             boolean lexerAllowParentheses,
             boolean lexerHashCommentsEnabled,
             boolean lexerDoubleSlashCommentsEnabled,
+            double evaluatorWholeNumberTolerance,
             String invalidCoreFormat,
             String runningPrefix,
             String experimentalEvaluatorActive,
@@ -500,6 +502,7 @@ public final class CodBoot {
             this.lexerAllowParentheses = lexerAllowParentheses;
             this.lexerHashCommentsEnabled = lexerHashCommentsEnabled;
             this.lexerDoubleSlashCommentsEnabled = lexerDoubleSlashCommentsEnabled;
+            this.evaluatorWholeNumberTolerance = evaluatorWholeNumberTolerance;
             this.invalidCoreFormat = invalidCoreFormat;
             this.runningPrefix = runningPrefix;
             this.experimentalEvaluatorActive = experimentalEvaluatorActive;
@@ -628,6 +631,15 @@ public final class CodBoot {
         return "true".equals(matcher.group(1));
     }
 
+    private static double requireJsonNumberValue(String json, String key) {
+        Pattern pattern = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)");
+        Matcher matcher = pattern.matcher(json);
+        if (!matcher.find()) {
+            throw new RuntimeException(CORE_MISSING_SEMANTICS_KEY_PREFIX + key);
+        }
+        return Double.parseDouble(matcher.group(1));
+    }
+
     private static boolean jsonArrayContainsString(String json, String arrayKey, String value) {
         Pattern pattern = Pattern.compile("\"" + Pattern.quote(arrayKey) + "\"\\s*:\\s*\\[([\\s\\S]*?)\\]");
         Matcher matcher = pattern.matcher(json);
@@ -656,6 +668,7 @@ public final class CodBoot {
             requireJsonBooleanValue(json, "allowParentheses"),
             jsonArrayContainsString(json, "lineComments", "#"),
             jsonArrayContainsString(json, "lineComments", "//"),
+            requireJsonNumberValue(json, "wholeNumberTolerance"),
             requireJsonStringValue(json, "invalidCoreFormat"),
             requireJsonStringValue(json, "runningPrefix"),
             requireJsonStringValue(json, "experimentalEvaluatorActive"),
@@ -716,9 +729,9 @@ public final class CodBoot {
         }
     }
 
-    private static String formatNumber(double value) {
+    private static String formatNumber(double value, CoreSemantics semantics) {
         long rounded = Math.round(value);
-        if (Math.abs(value - rounded) < 1e-9) {
+        if (Math.abs(value - rounded) < semantics.evaluatorWholeNumberTolerance) {
             return String.valueOf(rounded);
         }
         return String.valueOf(value);
@@ -730,17 +743,17 @@ public final class CodBoot {
 
     private static String evaluateHost(String command, List<String> args, Host host, CoreSemantics semantics) {
         if (semantics.cmdAdd.equals(command)) {
-            return formatNumber(host.add(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))));
+            return formatNumber(host.add(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))), semantics);
         }
         if (semantics.cmdSubtract.equals(command)) {
-            return formatNumber(host.subtract(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))));
+            return formatNumber(host.subtract(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))), semantics);
         }
         if (semantics.cmdMultiply.equals(command)) {
-            return formatNumber(host.multiply(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))));
+            return formatNumber(host.multiply(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))), semantics);
         }
         if (semantics.cmdDivide.equals(command)) {
             try {
-                return formatNumber(host.divide(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))));
+                return formatNumber(host.divide(asNumber(parseAtom(readToken(args, 0))), asNumber(parseAtom(readToken(args, 1)))), semantics);
             } catch (RuntimeException e) {
                 return semantics.divideErrorPrefix + e.getMessage();
             }

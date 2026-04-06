@@ -341,8 +341,10 @@ function parseAtom(text) {
   return text;
 }
 
-function formatNumber(value) {
-  if (Math.abs(value - Math.round(value)) < 1e-9) {
+function formatNumber(value, semantics) {
+  const evaluator = semantics && semantics.evaluator ? semantics.evaluator : {};
+  const tolerance = typeof evaluator.wholeNumberTolerance === 'number' ? evaluator.wholeNumberTolerance : 1e-9;
+  if (Math.abs(value - Math.round(value)) < tolerance) {
     return String(Math.round(value));
   }
   return String(value);
@@ -353,14 +355,14 @@ function evaluateHost(command, args, host, semantics) {
   const messages = semantics.messages;
   switch (command) {
     case cmds.add:
-      return formatNumber(host.add(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
+      return formatNumber(host.add(parseAtom(args[0] || ''), parseAtom(args[1] || '')), semantics);
     case cmds.subtract:
-      return formatNumber(host.subtract(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
+      return formatNumber(host.subtract(parseAtom(args[0] || ''), parseAtom(args[1] || '')), semantics);
     case cmds.multiply:
-      return formatNumber(host.multiply(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
+      return formatNumber(host.multiply(parseAtom(args[0] || ''), parseAtom(args[1] || '')), semantics);
     case cmds.divide:
       try {
-        return formatNumber(host.divide(parseAtom(args[0] || ''), parseAtom(args[1] || '')));
+        return formatNumber(host.divide(parseAtom(args[0] || ''), parseAtom(args[1] || '')), semantics);
       } catch (err) {
         return messages.divideErrorPrefix + err.message;
       }
