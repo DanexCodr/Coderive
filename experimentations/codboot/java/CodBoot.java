@@ -441,6 +441,7 @@ public final class CodBoot {
         private final boolean lexerHashCommentsEnabled;
         private final boolean lexerDoubleSlashCommentsEnabled;
         private final double evaluatorWholeNumberTolerance;
+        private final String evaluatorWholeNumberMode;
         private final String invalidCoreFormat;
         private final String runningPrefix;
         private final String experimentalEvaluatorActive;
@@ -475,6 +476,7 @@ public final class CodBoot {
             boolean lexerHashCommentsEnabled,
             boolean lexerDoubleSlashCommentsEnabled,
             double evaluatorWholeNumberTolerance,
+            String evaluatorWholeNumberMode,
             String invalidCoreFormat,
             String runningPrefix,
             String experimentalEvaluatorActive,
@@ -508,6 +510,7 @@ public final class CodBoot {
             this.lexerHashCommentsEnabled = lexerHashCommentsEnabled;
             this.lexerDoubleSlashCommentsEnabled = lexerDoubleSlashCommentsEnabled;
             this.evaluatorWholeNumberTolerance = evaluatorWholeNumberTolerance;
+            this.evaluatorWholeNumberMode = evaluatorWholeNumberMode;
             this.invalidCoreFormat = invalidCoreFormat;
             this.runningPrefix = runningPrefix;
             this.experimentalEvaluatorActive = experimentalEvaluatorActive;
@@ -674,6 +677,7 @@ public final class CodBoot {
             jsonArrayContainsString(json, "lineComments", "#"),
             jsonArrayContainsString(json, "lineComments", "//"),
             requireJsonNumberValue(json, "wholeNumberTolerance"),
+            requireJsonStringValue(json, "wholeNumberMode"),
             requireJsonStringValue(json, "invalidCoreFormat"),
             requireJsonStringValue(json, "runningPrefix"),
             requireJsonStringValue(json, "experimentalEvaluatorActive"),
@@ -735,9 +739,13 @@ public final class CodBoot {
     }
 
     private static String formatNumber(double value, CoreSemantics semantics) {
-        long rounded = Math.round(value);
-        if (Math.abs(value - rounded) < semantics.evaluatorWholeNumberTolerance) {
-            return String.valueOf(rounded);
+        String mode = semantics.evaluatorWholeNumberMode;
+        if (!"round".equals(mode) && !"trunc".equals(mode)) {
+            throw new RuntimeException("invalid wholeNumberMode: " + mode);
+        }
+        long whole = "trunc".equals(mode) ? (long) (value >= 0 ? Math.floor(value) : Math.ceil(value)) : Math.round(value);
+        if (Math.abs(value - whole) < semantics.evaluatorWholeNumberTolerance) {
+            return String.valueOf(whole);
         }
         return String.valueOf(value);
     }

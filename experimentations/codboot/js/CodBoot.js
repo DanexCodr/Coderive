@@ -345,8 +345,13 @@ function parseAtom(text) {
 function formatNumber(value, semantics) {
   const evaluator = semantics && semantics.evaluator ? semantics.evaluator : {};
   const tolerance = typeof evaluator.wholeNumberTolerance === 'number' ? evaluator.wholeNumberTolerance : 1e-9;
-  if (Math.abs(value - Math.round(value)) < tolerance) {
-    return String(Math.round(value));
+  const mode = typeof evaluator.wholeNumberMode === 'string' ? evaluator.wholeNumberMode : 'round';
+  if (mode !== 'round' && mode !== 'trunc') {
+    throw new Error('invalid wholeNumberMode: ' + mode);
+  }
+  const whole = mode === 'trunc' ? Math.trunc(value) : Math.round(value);
+  if (Math.abs(value - whole) < tolerance) {
+    return String(whole);
   }
   return String(value);
 }
