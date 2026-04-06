@@ -1,6 +1,6 @@
 package cod.ir;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.math.AutoStackingNumber;
 
 import java.io.IOException;
@@ -95,7 +95,7 @@ final class DeserializationVisitor {
         if ("PropertyAccess".equals(nodeName)) return new PropertyAccess();
         if ("ArgumentList".equals(nodeName)) return new ArgumentList();
 
-        throw new IOException("Unknown IR node class: cod.ast.nodes." + nodeName);
+        throw new IOException("Unknown IR node class: cod.ast.node." + nodeName);
     }
 
     private static void applyNodeFields(Base node, Map<String, Object> values) {

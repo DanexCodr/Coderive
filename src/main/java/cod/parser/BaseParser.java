@@ -10,7 +10,7 @@ import cod.syntax.Keyword;
 import static cod.syntax.Keyword.*;
 import cod.syntax.Symbol;
 import static cod.syntax.Symbol.*;
-import cod.util.ObjectChecker;
+import cod.semantic.ObjectValidator;
 
 import java.util.List;
 
@@ -37,23 +37,23 @@ public abstract class BaseParser {
   }
   
   protected boolean is(Token tk, Symbol... sb) {
-    return ObjectChecker.is(tk, sb);
+    return ObjectValidator.is(tk, sb);
   }
   
   protected boolean is(Token tk, Keyword... kw) {
-    return ObjectChecker.is(tk, kw);
+    return ObjectValidator.is(tk, kw);
   }
 
   protected boolean is(Token tk, TokenType... type) {
-    return ObjectChecker.is(tk, type);
+    return ObjectValidator.is(tk, type);
   }
   
   protected boolean any(boolean... values) {
-    return ObjectChecker.any(values);
+    return ObjectValidator.any(values);
   }
 
   protected boolean nil(Object... obj) {
-    return ObjectChecker.nil(obj);
+    return ObjectValidator.nil(obj);
   }
   
   // Fast token text access - zero allocation for comparisons

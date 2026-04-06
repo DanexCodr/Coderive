@@ -1,6 +1,6 @@
 package cod.runner;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.ir.IRManager;
 import cod.ir.IRReader;
 import cod.ir.IRWriter;
@@ -48,7 +48,7 @@ public class IRValidationRunner extends BaseRunner {
             assertTrue(ob == lb, "First method body size mismatch");
         }
 
-        String projectRoot = cod.util.Index.getProjectRoot();
+        String projectRoot = cod.interpreter.Index.getProjectRoot();
         if (projectRoot != null) {
             IRManager manager = new IRManager(projectRoot);
             manager.save(program.unit.name, original);

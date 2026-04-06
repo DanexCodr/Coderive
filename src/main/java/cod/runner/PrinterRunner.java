@@ -1,7 +1,7 @@
 package cod.runner;
 
 import cod.runner.BaseRunner;
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.debug.DebugSystem;
 import cod.ast.ASTPrinter;
 import cod.interpreter.Interpreter;

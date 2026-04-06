@@ -1,7 +1,7 @@
 // ArrayTracker.java
 package cod.range;
 
-import cod.ast.nodes.For;
+import cod.ast.node.For;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 

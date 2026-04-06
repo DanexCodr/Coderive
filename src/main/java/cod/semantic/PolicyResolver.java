@@ -1,6 +1,6 @@
 package cod.semantic;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.debug.DebugSystem;
 import cod.error.InternalError;
 import cod.error.ProgramError;

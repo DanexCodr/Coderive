@@ -1,10 +1,10 @@
 package cod.runner;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.debug.DebugSystem;
 import cod.interpreter.Interpreter;
 import cod.semantic.ImportResolver;
-import cod.util.Index;
+import cod.interpreter.Index;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;

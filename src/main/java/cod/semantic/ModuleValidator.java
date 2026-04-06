@@ -1,6 +1,6 @@
 package cod.semantic;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.error.ParseError;
 import cod.interpreter.Interpreter;
 import cod.lexer.Token;
@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static cod.util.ObjectChecker.nil;
+import static cod.semantic.ObjectValidator.nil;
 
 public final class ModuleValidator {
 

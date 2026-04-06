@@ -1,6 +1,6 @@
 package cod.range.pattern;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import java.util.ArrayList;
 import java.util.List;
 

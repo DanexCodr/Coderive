@@ -1,7 +1,7 @@
 package cod.debug;
 
 import cod.semantic.NamingValidator;
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;

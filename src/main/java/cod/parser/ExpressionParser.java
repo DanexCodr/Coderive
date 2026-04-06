@@ -2,7 +2,7 @@ package cod.parser;
 
 import cod.ast.ASTFactory;
 import cod.error.ParseError;
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.interpreter.registry.GlobalRegistry;
 import cod.lexer.Token;
 import static cod.lexer.TokenType.*;

@@ -1,7 +1,7 @@
 package cod.ir;
 
 import cod.ast.VisitorImpl;
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 
 import java.io.DataOutput;
 import java.io.IOException;
@@ -323,7 +323,7 @@ final class SerializationVisitor implements VisitorImpl<Void> {
     }
 
     @Override
-    public Void visit(cod.ast.nodes.Array n) {
+    public Void visit(cod.ast.node.Array n) {
         writeNodeStart("Array", 2);
         writeNodeField("elements", n.elements);
         writeNodeField("elementType", n.elementType);

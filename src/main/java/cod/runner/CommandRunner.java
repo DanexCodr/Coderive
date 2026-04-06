@@ -2,10 +2,10 @@
 package cod.runner;
 
 import cod.runner.BaseRunner;
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.debug.DebugSystem;
 import cod.interpreter.Interpreter;
-import cod.util.Index;
+import cod.interpreter.Index;
 import cod.ir.IRManager;
 
 public class CommandRunner extends BaseRunner {

@@ -1,7 +1,7 @@
 package cod.interpreter.context;
 
-import cod.ast.nodes.Lambda;
-import cod.ast.nodes.Type;
+import cod.ast.node.Lambda;
+import cod.ast.node.Type;
 import java.util.HashMap;
 import java.util.Map;
 

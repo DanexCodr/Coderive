@@ -1,6 +1,6 @@
 package cod.ast;
 
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.syntax.Keyword;
 import cod.lexer.Token;
 import java.util.*;

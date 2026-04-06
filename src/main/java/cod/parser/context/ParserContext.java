@@ -4,8 +4,8 @@ import cod.lexer.Token;
 import cod.lexer.TokenType;
 import cod.error.ParseError;
 import cod.syntax.*;
-import static cod.util.ObjectChecker.is;
-import static cod.util.ObjectChecker.nil;
+import static cod.semantic.ObjectValidator.is;
+import static cod.semantic.ObjectValidator.nil;
 
 import java.util.List;
 import java.util.Stack;

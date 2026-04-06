@@ -1,7 +1,7 @@
 package cod.parser;
 
 import cod.ast.ASTFactory;
-import cod.ast.nodes.*;
+import cod.ast.node.*;
 import cod.error.ParseError;
 import cod.parser.context.*;
 import cod.semantic.ImportResolver;
