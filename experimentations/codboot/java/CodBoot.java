@@ -197,266 +197,6 @@ public final class CodBoot {
         }
     }
 
-    private static final class Token {
-        private final String type;
-        private final String value;
-        private final int line;
-        private final int column;
-
-        private Token(String type, String value, int line, int column) {
-            this.type = type;
-            this.value = value;
-            this.line = line;
-            this.column = column;
-        }
-    }
-
-    private static final class Lexer {
-        private final String source;
-        private final boolean allowParentheses;
-        private final boolean hashCommentsEnabled;
-        private final boolean doubleSlashCommentsEnabled;
-        private int index;
-        private int line;
-        private int column;
-
-        private Lexer(String source, CoreSemantics semantics) {
-            this.source = source;
-            this.allowParentheses = semantics.lexerAllowParentheses;
-            this.hashCommentsEnabled = semantics.lexerHashCommentsEnabled;
-            this.doubleSlashCommentsEnabled = semantics.lexerDoubleSlashCommentsEnabled;
-            this.index = 0;
-            this.line = 1;
-            this.column = 1;
-        }
-
-        private char currentChar() {
-            if (index >= source.length()) {
-                return '\0';
-            }
-            return source.charAt(index);
-        }
-
-        private void advance() {
-            char ch = currentChar();
-            if (ch == '\n') {
-                line += 1;
-                column = 1;
-            } else {
-                column += 1;
-            }
-            index += 1;
-        }
-
-        private Token readString(int startLine, int startColumn) {
-            StringBuilder result = new StringBuilder();
-            advance();
-            while (index < source.length()) {
-                char ch = currentChar();
-                if (ch == '"') {
-                    advance();
-                    return new Token("STRING", result.toString(), startLine, startColumn);
-                }
-                if (ch == '\\') {
-                    advance();
-                    char esc = currentChar();
-                    if (esc == 'n') {
-                        result.append('\n');
-                    } else if (esc == 't') {
-                        result.append('\t');
-                    } else if (esc == '"') {
-                        result.append('"');
-                    } else if (esc == '\\') {
-                        result.append('\\');
-                    } else {
-                        result.append(esc);
-                    }
-                    advance();
-                } else {
-                    result.append(ch);
-                    advance();
-                }
-            }
-            throw new RuntimeException("Unterminated string at line " + startLine + ", column " + startColumn);
-        }
-
-        private Token readWord(int startLine, int startColumn) {
-            StringBuilder result = new StringBuilder();
-            while (index < source.length()) {
-                char ch = currentChar();
-                boolean isParenDelimiter = allowParentheses && (ch == '(' || ch == ')');
-                boolean isHashDelimiter = hashCommentsEnabled && ch == '#';
-                if (ch == '\0' || ch == '\n' || ch == ' ' || ch == '\t' || ch == '\r' || isParenDelimiter || isHashDelimiter) {
-                    break;
-                }
-                result.append(ch);
-                advance();
-            }
-            return new Token("WORD", result.toString(), startLine, startColumn);
-        }
-
-        private List<Token> tokenize() {
-            List<Token> tokens = new ArrayList<Token>();
-            while (index < source.length()) {
-                char ch = currentChar();
-                if (ch == ' ' || ch == '\t' || ch == '\r') {
-                    advance();
-                    continue;
-                }
-                if (ch == '\n') {
-                    tokens.add(new Token("NEWLINE", "\\n", line, column));
-                    advance();
-                    continue;
-                }
-                if (hashCommentsEnabled && ch == '#') {
-                    while (index < source.length() && currentChar() != '\n') {
-                        advance();
-                    }
-                    continue;
-                }
-                if (doubleSlashCommentsEnabled && ch == '/' && index + 1 < source.length() && source.charAt(index + 1) == '/') {
-                    while (index < source.length() && currentChar() != '\n') {
-                        advance();
-                    }
-                    continue;
-                }
-                if (allowParentheses && ch == '(') {
-                    tokens.add(new Token("LPAREN", "(", line, column));
-                    advance();
-                    continue;
-                }
-                if (allowParentheses && ch == ')') {
-                    tokens.add(new Token("RPAREN", ")", line, column));
-                    advance();
-                    continue;
-                }
-                if (ch == '"') {
-                    tokens.add(readString(line, column));
-                    continue;
-                }
-                tokens.add(readWord(line, column));
-            }
-            tokens.add(new Token("EOF", "", line, column));
-            return tokens;
-        }
-    }
-
-    private static final class Statement {
-        private final String type;
-        private final String text;
-        private final String command;
-        private final List<String> args;
-
-        private Statement(String type, String text, String command, List<String> args) {
-            this.type = type;
-            this.text = text;
-            this.command = command;
-            this.args = args;
-        }
-    }
-
-    private static final class Program {
-        private final List<Statement> statements;
-
-        private Program(List<Statement> statements) {
-            this.statements = statements;
-        }
-    }
-
-    private static final class Parser {
-        private final List<Token> tokens;
-        private final CoreSemantics semantics;
-        private int index;
-
-        private Parser(List<Token> tokens, CoreSemantics semantics) {
-            this.tokens = tokens;
-            this.semantics = semantics;
-            this.index = 0;
-        }
-
-        private Token peek() {
-            return tokens.get(index);
-        }
-
-        private Token advance() {
-            Token token = peek();
-            index += 1;
-            return token;
-        }
-
-        private boolean match(String type, String value) {
-            Token token = peek();
-            if (!type.equals(token.type)) {
-                return false;
-            }
-            if (value != null && !value.equals(token.value)) {
-                return false;
-            }
-            advance();
-            return true;
-        }
-
-        private Token expect(String type, String value) {
-            Token token = peek();
-            if (!match(type, value)) {
-                throw new RuntimeException("Parse error at line " + token.line + ", column " + token.column + ": expected " + type + (value == null ? "" : " " + value));
-            }
-            return tokens.get(index - 1);
-        }
-
-        private void skipNewlines() {
-            while (match("NEWLINE", null)) {
-                // noop
-            }
-        }
-
-        private Program parseProgram() {
-            List<Statement> statements = new ArrayList<Statement>();
-            skipNewlines();
-            while (!"EOF".equals(peek().type)) {
-                statements.add(parseStatement());
-                skipNewlines();
-            }
-            return new Program(statements);
-        }
-
-        private Statement parseStatement() {
-            Token token = expect("WORD", null);
-            if (semantics.keywordOut.equals(token.value)) {
-                String text = "";
-                if (match("LPAREN", "(")) {
-                    while (!"RPAREN".equals(peek().type) && !"NEWLINE".equals(peek().type) && !"EOF".equals(peek().type)) {
-                        Token next = advance();
-                        if ("STRING".equals(next.type) && text.length() == 0) {
-                            text = next.value;
-                        }
-                    }
-                    match("RPAREN", ")");
-                } else {
-                    while (!"NEWLINE".equals(peek().type) && !"EOF".equals(peek().type)) {
-                        advance();
-                    }
-                }
-                return new Statement("OutStatement", text, null, null);
-            }
-            if (semantics.keywordHost.equals(token.value)) {
-                String command = expect("WORD", null).value;
-                List<String> args = new ArrayList<String>();
-                while (!"NEWLINE".equals(peek().type) && !"EOF".equals(peek().type)) {
-                    Token next = peek();
-                    if (!"WORD".equals(next.type) && !"STRING".equals(next.type)) {
-                        throw new RuntimeException("Parse error at line " + next.line + ", column " + next.column + ": expected host argument");
-                    }
-                    args.add(advance().value);
-                }
-                return new Statement("HostStatement", null, command, args);
-            }
-            while (!"NEWLINE".equals(peek().type) && !"EOF".equals(peek().type)) {
-                advance();
-            }
-            return new Statement("IgnoredStatement", null, null, null);
-        }
-    }
 
     private static final class RunResult {
         private final int exitCode;
@@ -863,18 +603,6 @@ public final class CodBoot {
         return semantics.unknownDirectivePrefix + command;
     }
 
-    private static List<String> evaluateProgram(Program program, Host host, CoreSemantics semantics) {
-        List<String> output = new ArrayList<String>();
-        for (int i = 0; i < program.statements.size(); i++) {
-            Statement stmt = program.statements.get(i);
-            if ("OutStatement".equals(stmt.type)) {
-                output.add(stmt.text);
-            } else if ("HostStatement".equals(stmt.type)) {
-                output.add(evaluateHost(stmt.command, stmt.args, host, semantics));
-            }
-        }
-        return output;
-    }
 
     private static RunResult runCore(String coreSource, String corePath, String programPath, Host host, CoreSemantics semantics) throws IOException {
         if (!hasCoreEntrypoint(coreSource)) {
@@ -1038,22 +766,119 @@ public final class CodBoot {
         return true;
     }
 
-    private static String parseLegacyOutText(String line) {
-        if (!line.startsWith("out(\"") || !line.endsWith("\")")) {
-            throw new RuntimeException("Invalid out statement: " + line);
+    private static String parseLegacyStringLiteral(String text) {
+        if (text == null || text.length() < 2 || text.charAt(0) != '"' || text.charAt(text.length() - 1) != '"') {
+            throw new RuntimeException("Invalid out statement: " + text);
         }
-        String text = line.substring(5, line.length() - 2);
-        text = text.replace("\\n", "\n");
-        text = text.replace("\\t", "\t");
-        text = text.replace("\\\"", "\"");
-        text = text.replace("\\\\", "\\");
-        return text;
+        StringBuilder out = new StringBuilder();
+        for (int i = 1; i < text.length() - 1; i++) {
+            char ch = text.charAt(i);
+            if (ch == '\\') {
+                if (i + 1 >= text.length() - 1) {
+                    throw new RuntimeException("Unterminated string literal in legacy CodBoot statement");
+                }
+                char esc = text.charAt(i + 1);
+                if (esc == 'n') {
+                    out.append('\n');
+                } else if (esc == 't') {
+                    out.append('\t');
+                } else if (esc == '"' || esc == '\\') {
+                    out.append(esc);
+                } else {
+                    out.append(esc);
+                }
+                i += 1;
+            } else {
+                out.append(ch);
+            }
+        }
+        return out.toString();
+    }
+
+    private static List<String> splitLegacyHostArgs(String text) {
+        List<String> args = new ArrayList<String>();
+        int i = 0;
+        while (i < text.length()) {
+            while (i < text.length() && Character.isWhitespace(text.charAt(i))) {
+                i++;
+            }
+            if (i >= text.length()) {
+                break;
+            }
+            if (text.charAt(i) == '"') {
+                StringBuilder token = new StringBuilder();
+                token.append('"');
+                i++;
+                boolean closed = false;
+                while (i < text.length()) {
+                    char ch = text.charAt(i);
+                    token.append(ch);
+                    if (ch == '\\') {
+                        i++;
+                        if (i < text.length()) {
+                            token.append(text.charAt(i));
+                        }
+                    } else if (ch == '"') {
+                        closed = true;
+                        i++;
+                        break;
+                    }
+                    i++;
+                }
+                if (!closed) {
+                    throw new RuntimeException("Unterminated string literal in host statement");
+                }
+                args.add(parseLegacyStringLiteral(token.toString()));
+                continue;
+            }
+            int start = i;
+            while (i < text.length() && !Character.isWhitespace(text.charAt(i))) {
+                i++;
+            }
+            args.add(text.substring(start, i));
+        }
+        return args;
     }
 
     private static List<String> runLegacyCodBoot(String source, Host host, CoreSemantics semantics) {
-        List<Token> tokens = new Lexer(source, semantics).tokenize();
-        Program program = new Parser(tokens, semantics).parseProgram();
-        return evaluateProgram(program, host, semantics);
+        List<String> out = new ArrayList<String>();
+        String[] lines = source.split("\\r?\\n");
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+            if (line.length() == 0 || line.startsWith("#") || line.startsWith("//")) {
+                continue;
+            }
+            if (line.startsWith(semantics.keywordOut + "(")) {
+                if (!line.endsWith(")")) {
+                    throw new RuntimeException("Invalid out statement: " + line);
+                }
+                String payload = line.substring(semantics.keywordOut.length() + 1, line.length() - 1).trim();
+                out.add(parseLegacyStringLiteral(payload));
+                continue;
+            }
+            if (line.startsWith(semantics.keywordHost + " ")) {
+                String body = line.substring((semantics.keywordHost + " ").length());
+                int splitAt = -1;
+                for (int idx = 0; idx < body.length(); idx++) {
+                    if (Character.isWhitespace(body.charAt(idx))) {
+                        splitAt = idx;
+                        break;
+                    }
+                }
+                String command;
+                List<String> args;
+                if (splitAt < 0) {
+                    command = body;
+                    args = new ArrayList<String>();
+                } else {
+                    command = body.substring(0, splitAt);
+                    args = splitLegacyHostArgs(body.substring(splitAt + 1));
+                }
+                out.add(evaluateHost(command, args, host, semantics));
+                continue;
+            }
+        }
+        return out;
     }
 
     private static boolean isParseEvalError(RunResult result, CoreSemantics semantics) {

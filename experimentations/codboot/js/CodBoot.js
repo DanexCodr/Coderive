@@ -7,7 +7,6 @@ const childProcess = require('child_process');
 const CORE_PARSE_EVAL_ERROR_PREFIX = '[core] parse/eval error: ';
 // Keep in sync with core.ce semantics_json missing-semantics error contract.
 const CORE_MISSING_SEMANTICS_JSON_MESSAGE = '[core] missing semantics_json block';
-const DEFAULT_LINE_COMMENTS = ['#', '//'];
 
 function containsUnsafeShellChar(value) {
   for (let i = 0; i < value.length; i += 1) {
@@ -205,238 +204,110 @@ function isLegacyCodBootProgram(programSource, semantics) {
   return true;
 }
 
-function parseLegacyOutText(line) {
-  const match = line.match(/^out\("(.*)"\)\s*$/);
-  if (!match) {
-    throw new Error('Invalid out statement: ' + line);
+function parseLegacyStringLiteral(text) {
+  if (!text || text.charAt(0) !== '"' || text.charAt(text.length - 1) !== '"') {
+    throw new Error('Invalid out statement: ' + text);
   }
-  return match[1]
-    .replace(/\\n/g, '\n')
-    .replace(/\\t/g, '\t')
-    .replace(/\\"/g, '"')
-    .replace(/\\\\/g, '\\');
+  let out = '';
+  for (let i = 1; i < text.length - 1; i += 1) {
+    const ch = text.charAt(i);
+    if (ch === '\\') {
+      if (i + 1 >= text.length - 1) {
+        throw new Error('Unterminated string literal in legacy CodBoot statement');
+      }
+      const esc = text.charAt(i + 1);
+      if (esc === 'n') {
+        out += '\n';
+      } else if (esc === 't') {
+        out += '\t';
+      } else if (esc === '"' || esc === '\\') {
+        out += esc;
+      } else {
+        out += esc;
+      }
+      i += 1;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+function splitLegacyHostArgs(text) {
+  const args = [];
+  let i = 0;
+  while (i < text.length) {
+    while (i < text.length && /\s/.test(text.charAt(i))) {
+      i += 1;
+    }
+    if (i >= text.length) {
+      break;
+    }
+    if (text.charAt(i) === '"') {
+      let token = '"';
+      i += 1;
+      let closed = false;
+      while (i < text.length) {
+        const ch = text.charAt(i);
+        token += ch;
+        if (ch === '\\') {
+          i += 1;
+          if (i < text.length) {
+            token += text.charAt(i);
+          }
+        } else if (ch === '"') {
+          closed = true;
+          i += 1;
+          break;
+        }
+        i += 1;
+      }
+      if (!closed) {
+        throw new Error('Unterminated string literal in host statement');
+      }
+      args.push(parseLegacyStringLiteral(token));
+      continue;
+    }
+    const start = i;
+    while (i < text.length && !/\s/.test(text.charAt(i))) {
+      i += 1;
+    }
+    args.push(text.substring(start, i));
+  }
+  return args;
 }
 
 function runLegacyCodBoot(programSource, host, semantics) {
-  const tokens = new Lexer(programSource, semantics).tokenize();
-  const program = new Parser(tokens, semantics).parseProgram();
-  return evaluateProgram(program, host, semantics);
+  const output = [];
+  const lines = programSource.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    const raw = lines[i];
+    const line = raw.trim();
+    if (line.length === 0 || line.charAt(0) === '#') {
+      continue;
+    }
+    if (line.length > 1 && line.charAt(0) === '/' && line.charAt(1) === '/') {
+      continue;
+    }
+    if (line.indexOf(semantics.keywords.out + '(') === 0) {
+      if (line.charAt(line.length - 1) !== ')') {
+        throw new Error('Invalid out statement: ' + line);
+      }
+      const payload = line.substring(semantics.keywords.out.length + 1, line.length - 1).trim();
+      output.push(parseLegacyStringLiteral(payload));
+      continue;
+    }
+    if (line.indexOf(semantics.keywords.host + ' ') === 0) {
+      const body = line.substring((semantics.keywords.host + ' ').length);
+      const firstSpace = body.search(/\s/);
+      const command = firstSpace < 0 ? body : body.substring(0, firstSpace);
+      const args = firstSpace < 0 ? [] : splitLegacyHostArgs(body.substring(firstSpace + 1));
+      output.push(evaluateHost(command, args, host, semantics));
+      continue;
+    }
+  }
+  return output;
 }
-
-function Token(type, value, line, column) {
-  this.type = type;
-  this.value = value;
-  this.line = line;
-  this.column = column;
-}
-
-function Lexer(source, semantics) {
-  this.source = source;
-  this.index = 0;
-  this.line = 1;
-  this.column = 1;
-  const lexerSemantics = semantics && semantics.lexer ? semantics.lexer : {};
-  const lineComments = Array.isArray(lexerSemantics.lineComments) ? lexerSemantics.lineComments : DEFAULT_LINE_COMMENTS;
-  this.allowParentheses = typeof lexerSemantics.allowParentheses === 'boolean' ? lexerSemantics.allowParentheses : true;
-  this.hashCommentsEnabled = lineComments.indexOf('#') >= 0;
-  this.doubleSlashCommentsEnabled = lineComments.indexOf('//') >= 0;
-}
-
-Lexer.prototype.currentChar = function() {
-  return this.index < this.source.length ? this.source.charAt(this.index) : '';
-};
-
-Lexer.prototype.advance = function() {
-  const ch = this.currentChar();
-  if (ch === '\n') {
-    this.line += 1;
-    this.column = 1;
-  } else {
-    this.column += 1;
-  }
-  this.index += 1;
-};
-
-Lexer.prototype.readString = function(line, column) {
-  let result = '';
-  this.advance();
-  while (this.index < this.source.length) {
-    const ch = this.currentChar();
-    if (ch === '"') {
-      this.advance();
-      return new Token('STRING', result, line, column);
-    }
-    if (ch === '\\') {
-      this.advance();
-      const esc = this.currentChar();
-      if (esc === 'n') {
-        result += '\n';
-      } else if (esc === 't') {
-        result += '\t';
-      } else if (esc === '"') {
-        result += '"';
-      } else if (esc === '\\') {
-        result += '\\';
-      } else {
-        result += esc;
-      }
-      this.advance();
-    } else {
-      result += ch;
-      this.advance();
-    }
-  }
-  throw new Error('Unterminated string at line ' + line + ', column ' + column);
-};
-
-Lexer.prototype.readWord = function(line, column) {
-  let result = '';
-  while (this.index < this.source.length) {
-    const ch = this.currentChar();
-    const isParenDelimiter = this.allowParentheses && (ch === '(' || ch === ')');
-    const isHashDelimiter = this.hashCommentsEnabled && ch === '#';
-    if (ch === '' || ch === '\n' || ch === ' ' || ch === '\t' || ch === '\r' || isParenDelimiter || isHashDelimiter) {
-      break;
-    }
-    result += ch;
-    this.advance();
-  }
-  return new Token('WORD', result, line, column);
-};
-
-Lexer.prototype.tokenize = function() {
-  const tokens = [];
-  while (this.index < this.source.length) {
-    const ch = this.currentChar();
-    if (ch === ' ' || ch === '\t' || ch === '\r') {
-      this.advance();
-      continue;
-    }
-    if (ch === '\n') {
-      tokens.push(new Token('NEWLINE', '\n', this.line, this.column));
-      this.advance();
-      continue;
-    }
-    if (this.hashCommentsEnabled && ch === '#') {
-      while (this.index < this.source.length && this.currentChar() !== '\n') {
-        this.advance();
-      }
-      continue;
-    }
-    if (this.doubleSlashCommentsEnabled && ch === '/' && this.index + 1 < this.source.length && this.source.charAt(this.index + 1) === '/') {
-      while (this.index < this.source.length && this.currentChar() !== '\n') {
-        this.advance();
-      }
-      continue;
-    }
-    if (this.allowParentheses && ch === '(') {
-      tokens.push(new Token('LPAREN', '(', this.line, this.column));
-      this.advance();
-      continue;
-    }
-    if (this.allowParentheses && ch === ')') {
-      tokens.push(new Token('RPAREN', ')', this.line, this.column));
-      this.advance();
-      continue;
-    }
-    if (ch === '"') {
-      tokens.push(this.readString(this.line, this.column));
-      continue;
-    }
-    tokens.push(this.readWord(this.line, this.column));
-  }
-  tokens.push(new Token('EOF', '', this.line, this.column));
-  return tokens;
-};
-
-function Parser(tokens, semantics) {
-  this.tokens = tokens;
-  this.semantics = semantics;
-  this.index = 0;
-}
-
-Parser.prototype.peek = function() {
-  return this.tokens[this.index];
-};
-
-Parser.prototype.advance = function() {
-  const token = this.peek();
-  this.index += 1;
-  return token;
-};
-
-Parser.prototype.match = function(type, value) {
-  const token = this.peek();
-  if (!token || token.type !== type) {
-    return false;
-  }
-  if (typeof value !== 'undefined' && token.value !== value) {
-    return false;
-  }
-  this.advance();
-  return true;
-};
-
-Parser.prototype.expect = function(type, value) {
-  const token = this.peek();
-  if (!this.match(type, value)) {
-    throw new Error('Parse error at line ' + token.line + ', column ' + token.column + ': expected ' + type + (typeof value !== 'undefined' ? ' ' + value : ''));
-  }
-  return this.tokens[this.index - 1];
-};
-
-Parser.prototype.skipNewlines = function() {
-  while (this.match('NEWLINE')) {
-    // noop
-  }
-};
-
-Parser.prototype.parseProgram = function() {
-  const statements = [];
-  this.skipNewlines();
-  while (this.peek().type !== 'EOF') {
-    statements.push(this.parseStatement());
-    this.skipNewlines();
-  }
-  return { type: 'Program', statements: statements };
-};
-
-Parser.prototype.parseStatement = function() {
-  const token = this.expect('WORD');
-  if (token.value === this.semantics.keywords.out) {
-    let text = '';
-    if (this.match('LPAREN')) {
-      while (this.peek().type !== 'RPAREN' && this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
-        const next = this.advance();
-        if (next.type === 'STRING' && text.length === 0) {
-          text = next.value;
-        }
-      }
-      this.match('RPAREN');
-    } else {
-      while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
-        this.advance();
-      }
-    }
-    return { type: 'OutStatement', text: text };
-  }
-  if (token.value === this.semantics.keywords.host) {
-    const command = this.expect('WORD').value;
-    const args = [];
-    while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
-      const next = this.peek();
-      if (next.type !== 'WORD' && next.type !== 'STRING') {
-        throw new Error('Parse error at line ' + next.line + ', column ' + next.column + ': expected host argument');
-      }
-      args.push(this.advance().value);
-    }
-    return { type: 'HostStatement', command: command, args: args };
-  }
-  while (this.peek().type !== 'NEWLINE' && this.peek().type !== 'EOF') {
-    this.advance();
-  }
-  return { type: 'IgnoredStatement' };
-};
 
 function parseAtom(text) {
   if (/^-?\d+(\.\d+)?$/.test(text)) {
@@ -509,18 +380,6 @@ function evaluateHost(command, args, host, semantics) {
   }
 }
 
-function evaluateProgram(program, host, semantics) {
-  const output = [];
-  for (let i = 0; i < program.statements.length; i += 1) {
-    const stmt = program.statements[i];
-    if (stmt.type === 'OutStatement') {
-      output.push(stmt.text);
-    } else if (stmt.type === 'HostStatement') {
-      output.push(evaluateHost(stmt.command, stmt.args, host, semantics));
-    }
-  }
-  return output;
-}
 
 function extractSemanticsJson(coreSource) {
   const triple = coreSource.match(/semantics_json\s*:=\s*"""\s*([\s\S]*?)\s*"""/);
