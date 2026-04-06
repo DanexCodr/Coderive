@@ -15,6 +15,8 @@ import java.util.regex.Matcher;
 public final class CodBoot {
     // This constant is needed before core semantics are parsed; fallback prefix must match core message format.
     private static final String CORE_PARSE_EVAL_ERROR_PREFIX = "[core] parse/eval error: ";
+    private static final String CORE_MISSING_SEMANTICS_KEY_PREFIX = "[core] missing semantics key: ";
+    private static final String CORE_MISSING_SEMANTICS_JSON_MESSAGE = "[core] missing semantics_json block";
 
     private interface Host {
         String readFile(String path) throws IOException;
@@ -594,7 +596,7 @@ public final class CodBoot {
         Pattern pattern = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"((?:\\\\.|[^\\\\\"])*)\"");
         Matcher matcher = pattern.matcher(json);
         if (!matcher.find()) {
-            throw new RuntimeException("[core] missing semantics key: " + key);
+            throw new RuntimeException(CORE_MISSING_SEMANTICS_KEY_PREFIX + key);
         }
         return unescapeJsonString(matcher.group(1));
     }
@@ -602,7 +604,7 @@ public final class CodBoot {
     private static CoreSemantics parseCoreSemantics(String coreSource) {
         String json = extractSemanticsJson(coreSource);
         if (json.length() == 0) {
-            throw new RuntimeException("[core] missing semantics_json block");
+            throw new RuntimeException(CORE_MISSING_SEMANTICS_JSON_MESSAGE);
         }
         return new CoreSemantics(
             requireJsonStringValue(json, "out"),
