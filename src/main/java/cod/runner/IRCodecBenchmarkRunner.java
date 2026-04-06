@@ -8,7 +8,6 @@ import cod.syntax.Keyword;
 
 import java.io.File;
 import java.io.IOException;
-import cod.ast.nodes.Field;
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
