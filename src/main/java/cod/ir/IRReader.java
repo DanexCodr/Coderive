@@ -48,15 +48,15 @@ public final class IRReader {
             }
 
             // Legacy IR path for backward compatibility
-            if (magic != IRCodec.MAGIC || version != IRCodec.VERSION) {
-                throw new IOException("Invalid IR header");
+            if (magic == IRCodec.MAGIC && version == IRCodec.VERSION) {
+                Object value = IRCodec.readValue(in, 0);
+                if (!(value instanceof Type)) {
+                    throw new IOException("IR root is not a Type: " + (value == null ? "null" : value.getClass().getName()));
+                }
+                return (Type) value;
             }
 
-            Object value = IRCodec.readValue(in, 0);
-            if (!(value instanceof Type)) {
-                throw new IOException("IR root is not a Type: " + (value == null ? "null" : value.getClass().getName()));
-            }
-            return (Type) value;
+            throw new IOException("Invalid IR header");
         } finally {
             if (in != null) {
                 try {
