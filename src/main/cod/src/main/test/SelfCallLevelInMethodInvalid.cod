@@ -1,6 +1,6 @@
 unit test
 
-share SelfCallMethodLevelInMethodInvalid {
+share SelfCallLevelInMethodInvalid {
     local bad(n: int) :: result: int {
         if n < 2 {
             ~> result: 1

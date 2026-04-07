@@ -1728,13 +1728,13 @@ public Object visit(TextLiteral node) {
         }
     }
 
-    @SuppressWarnings("unchecked")
     /**
      * Self-call resolution rules:
      * - <~N(...) (explicit level): current lambda level N (0=self, 1=parent, 2=grandparent, ...).
      * - <~(...) (no level): innermost callable (current lambda if present, otherwise current method).
      */
     @Override
+    @SuppressWarnings("unchecked")
     public Object visit(MethodCall node) {
     if (node == null) {
         throw new InternalError("visit(MethodCall) called with null node");
