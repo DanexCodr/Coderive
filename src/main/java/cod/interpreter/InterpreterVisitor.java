@@ -274,8 +274,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         try {
             for (Stmt stmt : node.statements) {
                 dispatch(stmt);
-                // Without this, a nested block can keep executing after ~> assigned all required slots,
-                // so recursive self-calls may ignore their base-case return and continue deeper.
+                // Early return check: stop executing nested block statements once all required slots
+                // are assigned, preventing recursive self-calls from ignoring base-case returns.
                 if (!ctx.slotsInCurrentPath.isEmpty()
                     && interpreter.shouldReturnEarly(ctx.getSlotValues(), ctx.slotsInCurrentPath)) {
                     break;
@@ -1729,6 +1729,11 @@ public Object visit(TextLiteral node) {
 
     @SuppressWarnings("unchecked")
     @Override
+    /**
+     * Self-call resolution rules:
+     * - <~N(...) (explicit level): current lambda level N (0=self, 1=parent, 2=grandparent, ...).
+     * - <~(...) (no level): innermost callable (current lambda if present, otherwise current method).
+     */
     public Object visit(MethodCall node) {
     if (node == null) {
         throw new InternalError("visit(MethodCall) called with null node");
@@ -1755,8 +1760,6 @@ public Object visit(TextLiteral node) {
                     }
                     return invokeLambdaCallback(targetClosure, evaluatedArgs, ctx, SELF_CALL_LAMBDA_OWNER);
                 }
-                // Without an explicit level, <~(...) resolves to the innermost callable:
-                // current lambda first, then containing method; explicit <~N(...) uses parent lambda levels.
                 if (ctx.currentLambdaClosure != null) {
                     List<Object> evaluatedArgs = new ArrayList<Object>();
                     for (Expr arg : node.arguments) {
