@@ -42,6 +42,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             return new TailCallSignal(null, lambdaClosure, arguments);
         }
     }
+    // Tail-call trampolining intentionally uses this internal signal to unwind Java frames
+    // without allocating wrapper result objects through every visitor return path.
 
     enum PatternType {
         CONDITIONAL,
@@ -1843,19 +1845,11 @@ public Object visit(TextLiteral node) {
                 Integer requestedLevel = node.selfCallLevel;
                 if (requestedLevel != null) {
                     LambdaClosure targetClosure = resolveSelfCallClosure(ctx, requestedLevel.intValue());
-                    List<Object> evaluatedArgs = new ArrayList<Object>();
-                    for (Expr arg : node.arguments) {
-                        Object argValue = dispatch(arg);
-                        evaluatedArgs.add(typeSystem.unwrap(argValue));
-                    }
+                    List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
                     return invokeLambdaCallback(targetClosure, evaluatedArgs, ctx, SELF_CALL_LAMBDA_OWNER);
                 }
                 if (ctx.currentLambdaClosure != null) {
-                    List<Object> evaluatedArgs = new ArrayList<Object>();
-                    for (Expr arg : node.arguments) {
-                        Object argValue = dispatch(arg);
-                        evaluatedArgs.add(typeSystem.unwrap(argValue));
-                    }
+                    List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
                     return invokeLambdaCallback(ctx.currentLambdaClosure, evaluatedArgs, ctx, SELF_CALL_LAMBDA_OWNER);
                 }
                 if (ctx.currentMethodName != null && !ctx.currentMethodName.isEmpty()) {
@@ -1875,22 +1869,14 @@ public Object visit(TextLiteral node) {
                     Object receiverValue = ctx.getVariable(receiverName);
                     receiverValue = typeSystem.unwrap(receiverValue);
                     if (literalRegistry.hasMethod(receiverValue, methodName)) {
-                        List<Object> evaluatedArgs = new ArrayList<Object>();
-                        for (Expr arg : node.arguments) {
-                            Object argValue = dispatch(arg);
-                            evaluatedArgs.add(typeSystem.unwrap(argValue));
-                        }
+                        List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
                         return literalRegistry.handleMethod(receiverValue, methodName, evaluatedArgs, ctx);
                     }
                 }
             }
             
             // Evaluate all arguments first
-            List<Object> evaluatedArgs = new ArrayList<Object>();
-            for (Expr arg : node.arguments) {
-                Object argValue = dispatch(arg);
-                evaluatedArgs.add(typeSystem.unwrap(argValue));
-            }
+            List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
         
         // ========== CHECK GLOBAL FUNCTIONS FIRST ==========
         // This must come BEFORE any other resolution to ensure out(), in(), etc.
@@ -2160,7 +2146,8 @@ public Object visit(TextLiteral node) {
 }
 
     private LambdaClosure resolveSelfCallClosure(ExecutionContext ctx, int level) {
-        // Keep runtime validation for non-parser entry paths (e.g. deserialized/constructed ASTs).
+        // Parser-level checks reject negative literals, but runtime validation is still required
+        // for non-parser entry paths (deserialized/constructed ASTs).
         if (level < 0) {
             throw new ProgramError("Self-call level cannot be negative: " + level);
         }
