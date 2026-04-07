@@ -7,6 +7,9 @@ import cod.interpreter.Interpreter;
 import cod.debug.Linter;
 import cod.interpreter.Index;
 import cod.ir.IRManager;
+import cod.ptac.CodPTACArtifact;
+import cod.ptac.CodPTACExecutor;
+import cod.ptac.CodPTACOptions;
 
 import java.io.File;
 import java.util.List;
@@ -24,14 +27,18 @@ public class TestRunner extends BaseRunner {
     private final String androidPath = "/storage/emulated/0";
     private final String definedFilePath =
         "/JavaNIDE/Programming-Language/Coderive/app/src/main/cod/src/main/test/" + TEST_FILE + ".cod";
+    private final String consoleRelativePath =
+        "src/main/cod/src/main/test/" + TEST_FILE + ".cod";
     private final String NAME = "TEST";
     private final DebugSystem.Level level = DebugSystem.Level.OFF;
 
     private final Interpreter interpreter;
     private IRManager irManager;
+    private final CodPTACOptions ptacOptions;
 
     public TestRunner() {
         this.interpreter = new Interpreter();
+        this.ptacOptions = CodPTACOptions.current();
     }
 
     @Override
@@ -131,19 +138,32 @@ public class TestRunner extends BaseRunner {
             return inputFileFromArgs;
         }
 
+        String defaultFilename = androidPath + definedFilePath;
+        String consoleFilename =
+            new File(System.getProperty("user.dir"), consoleRelativePath).getAbsolutePath();
+        File consoleFile = new File(consoleFilename);
+
+        // Prefer local console default if it exists
+        if (consoleFile.exists() && consoleFile.isFile()) {
+            out("Using console default file: " + consoleFilename);
+            return consoleFilename;
+        }
+
         // Otherwise, ask user interactively
         Scanner scanner = new Scanner(System.in);
-        String defaultFilename = androidPath + definedFilePath;
 
-        out("Enter file path or press Enter for default [" + defaultFilename + "]:");
+        out("Enter file path or press Enter for default [" + defaultFilename + "]");
+        out("Or type 'console' to use local default [" + consoleFilename + "]");
         System.out.print("> ");
 
         String userInput = scanner.nextLine().trim();
-        scanner.close();
 
         if (userInput.isEmpty()) {
             System.out.println("Using default file: " + defaultFilename);
             return defaultFilename;
+        } else if ("console".equalsIgnoreCase(userInput)) {
+            System.out.println("Using console file: " + consoleFilename);
+            return consoleFilename;
         } else {
             out("Using user provided file: " + userInput);
             return userInput;
@@ -238,6 +258,24 @@ public class TestRunner extends BaseRunner {
         }
         
         DebugSystem.startTimer("interpretation");
+        if (ptacOptions.isCompileExecuteEnabled() && irManager != null && ast != null && ast.unit != null) {
+            Type entryType = findMainType(ast);
+            if (entryType != null) {
+                CodPTACArtifact artifact = irManager.loadArtifact(ast.unit.name, entryType.name);
+                if (artifact == null) {
+                    irManager.save(ast.unit.name, entryType);
+                    artifact = irManager.loadArtifact(ast.unit.name, entryType.name);
+                }
+                if (artifact != null) {
+                    DebugSystem.info(NAME + LOG_TAG, "Executing using CodP-TAC executor");
+                    new CodPTACExecutor(ptacOptions).execute(artifact, interpreter);
+                    double duration = DebugSystem.stopTimer("interpretation");
+                    DebugSystem.info(NAME + LOG_TAG, String.format("Interpretation completed in %.3f ms", duration));
+                    return;
+                }
+            }
+        }
+
         interpreter.run(ast);
         double duration = DebugSystem.stopTimer("interpretation");
         
@@ -313,10 +351,27 @@ public class TestRunner extends BaseRunner {
             outE("Usage: TestRunner [filename] [options]");
             outE("Options:");
             outE("  -o <file>      Output file");
+            outE("Environment flags:");
+            outE("  COD_PTAC_MODE=legacy|compile-only|compile-execute");
+            outE("  COD_PTAC_FALLBACK=true|false");
             outE();
             outE("Example:");
             outE("  TestRunner myprogram.cod");
             outE();
         }
+    }
+
+    private Type findMainType(Program ast) {
+        if (ast == null || ast.unit == null || ast.unit.types == null) return null;
+        for (Type type : ast.unit.types) {
+            if (type == null || type.methods == null) continue;
+            for (Method method : type.methods) {
+                if (method != null && "main".equals(method.methodName)
+                    && (method.parameters == null || method.parameters.isEmpty())) {
+                    return type;
+                }
+            }
+        }
+        return !ast.unit.types.isEmpty() ? ast.unit.types.get(0) : null;
     }
 }
