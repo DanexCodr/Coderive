@@ -5,6 +5,7 @@ import cod.ir.IRManager;
 import cod.ir.IRReader;
 import cod.ir.IRWriter;
 import cod.interpreter.Interpreter;
+import cod.ptac.CodPTACArtifact;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -31,7 +32,8 @@ public class IRValidationRunner extends BaseRunner {
         IRWriter writer = new IRWriter();
         IRReader reader = new IRReader();
         writer.write(tmp, original);
-        Type loaded = reader.read(tmp);
+        CodPTACArtifact artifact = reader.readArtifact(tmp);
+        Type loaded = artifact != null ? artifact.typeSnapshot : null;
 
         assertTrue(loaded != null, "Loaded type is null");
         assertTrue(equalsSafe(original.name, loaded.name), "Type name mismatch");
@@ -55,6 +57,9 @@ public class IRValidationRunner extends BaseRunner {
             Type managerLoaded = manager.load(program.unit.name, original.name);
             assertTrue(managerLoaded != null, "IRManager failed to load saved class");
             assertTrue(equalsSafe(original.name, managerLoaded.name), "IRManager loaded wrong class");
+            CodPTACArtifact managerArtifact = manager.loadArtifact(program.unit.name, original.name);
+            assertTrue(managerArtifact != null, "IRManager failed to load saved CodP-TAC artifact");
+            assertTrue(managerArtifact.unit != null, "CodP-TAC unit missing from artifact");
         }
 
         System.out.println("IR validation passed");

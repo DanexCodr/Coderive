@@ -1,6 +1,9 @@
 package cod.ir;
 
 import cod.ast.node.Type;
+import cod.ptac.CodPTACArtifact;
+import cod.ptac.CodPTACCompiler;
+import cod.ptac.CodPTACUnit;
 
 import java.io.File;
 import java.io.IOException;
@@ -15,12 +18,16 @@ public class IRManager {
     private final IRWriter writer;
     private final IRReader reader;
     private final Map<String, Map<String, Type>> cache;
+    private final Map<String, Map<String, CodPTACArtifact>> artifactCache;
+    private final CodPTACCompiler compiler;
 
     public IRManager(String projectRoot) {
         this.projectRoot = projectRoot;
         this.writer = new IRWriter();
         this.reader = new IRReader();
         this.cache = new HashMap<String, Map<String, Type>>();
+        this.artifactCache = new HashMap<String, Map<String, CodPTACArtifact>>();
+        this.compiler = new CodPTACCompiler();
     }
 
     public Type load(String unit, String className) {
@@ -42,9 +49,16 @@ public class IRManager {
         }
 
         try {
-            Type type = reader.read(file);
-            putCache(unit, className, type);
-            return type;
+            CodPTACArtifact artifact = reader.readArtifact(file);
+            if (artifact != null) {
+                putArtifactCache(unit, className, artifact);
+                Type type = artifact.typeSnapshot;
+                if (type != null) {
+                    putCache(unit, className, type);
+                }
+                return type;
+            }
+            return null;
         } catch (IOException e) {
             return null;
         }
@@ -56,13 +70,62 @@ public class IRManager {
         }
         File file = getIRFile(unit, type.name);
         try {
-            writer.write(file, type);
+            CodPTACArtifact artifact = compiler.compile(unit, type);
+            writer.writeArtifact(file, artifact);
             putCache(unit, type.name, type);
+            putArtifactCache(unit, type.name, artifact);
+        } catch (IOException ignored) {}
+    }
+
+    public CodPTACArtifact loadArtifact(String unit, String className) {
+        if (unit == null || className == null) {
+            return null;
+        }
+
+        Map<String, CodPTACArtifact> unitCache = artifactCache.get(unit);
+        if (unitCache != null && unitCache.containsKey(className)) {
+            return unitCache.get(className);
+        }
+
+        File file = getIRFile(unit, className);
+        if (!file.exists()) {
+            return null;
+        }
+
+        try {
+            CodPTACArtifact artifact = reader.readArtifact(file);
+            if (artifact != null) {
+                putArtifactCache(unit, className, artifact);
+                if (artifact.typeSnapshot != null) {
+                    putCache(unit, className, artifact.typeSnapshot);
+                }
+            }
+            return artifact;
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    public CodPTACUnit loadCodPTACUnit(String unit, String className) {
+        CodPTACArtifact artifact = loadArtifact(unit, className);
+        return artifact != null ? artifact.unit : null;
+    }
+
+    public void saveArtifact(String unit, CodPTACArtifact artifact) {
+        if (artifact == null || unit == null || artifact.className == null) return;
+        File file = getIRFile(unit, artifact.className);
+        try {
+            writer.writeArtifact(file, artifact);
+            putArtifactCache(unit, artifact.className, artifact);
+            if (artifact.typeSnapshot != null) {
+                putCache(unit, artifact.className, artifact.typeSnapshot);
+            }
         } catch (IOException ignored) {}
     }
 
     public void clearCache() {
         cache.clear();
+        artifactCache.clear();
     }
 
     public Map<String, Object> getCacheStats() {
@@ -73,6 +136,11 @@ public class IRManager {
         }
         stats.put("units", cache.size());
         stats.put("classes", total);
+        int artifacts = 0;
+        for (Map<String, CodPTACArtifact> unitArtifacts : artifactCache.values()) {
+            artifacts += unitArtifacts.size();
+        }
+        stats.put("artifacts", artifacts);
         return stats;
     }
 
@@ -83,6 +151,15 @@ public class IRManager {
             cache.put(unit, unitCache);
         }
         unitCache.put(className, type);
+    }
+
+    private void putArtifactCache(String unit, String className, CodPTACArtifact artifact) {
+        Map<String, CodPTACArtifact> unitCache = artifactCache.get(unit);
+        if (unitCache == null) {
+            unitCache = new HashMap<String, CodPTACArtifact>();
+            artifactCache.put(unit, unitCache);
+        }
+        unitCache.put(className, artifact);
     }
 
     private File getIRFile(String unit, String className) {
