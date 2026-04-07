@@ -2,6 +2,15 @@
 
 All notable changes to Coderive are documented in this file.
 
+## [v0.8.0] - Fancy Machine - April 07, 2026
+
+### ✨ Major Updates
+- **Version bump to v0.8.0** — Updated repository and documentation versioning for the Fancy Machine release.
+- **Comprehensive language specification** — Added detailed documentation coverage for keywords, symbols/operators, syntax forms, and runtime behavior.
+- **Documentation page upgrades** — Added a specification-focused section and integrated client-side documentation search.
+- **Custom spec branding asset** — Added a custom spec logo generated via Python for the Documentation page.
+- **Wiki/discussion publication prep** — Added wiki-ready specification markdown and discussion announcement draft files for direct publishing.
+
 ## [v0.7.4] - Be Structured - April 01, 2026
 
 ### ✨ Major Updates Since v0.7.0
