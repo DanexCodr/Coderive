@@ -1,0 +1,8 @@
+unit test
+
+share ConstantRequiresInitializerInvalid {
+    share main() {
+        LIMIT: int
+        out(LIMIT)
+    }
+}

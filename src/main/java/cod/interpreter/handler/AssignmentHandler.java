@@ -9,6 +9,7 @@ import cod.range.RangeSpec;
 import cod.interpreter.context.ExecutionContext;
 import cod.interpreter.*;
 import cod.semantic.ConstructorResolver;
+import cod.semantic.NamingValidator;
 
 import java.util.*;
 
@@ -370,11 +371,14 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
         return assignToVariableScoped(varName, value, ctx);
     }
     
-    public Object assignToVariableScoped(String varName, Object newValue, ExecutionContext ctx) {
+public Object assignToVariableScoped(String varName, Object newValue, ExecutionContext ctx) {
     // First check all scopes for existing variable
     for (int i = ctx.getScopeDepth() - 1; i >= 0; i--) {
         Map<String, Object> scope = ctx.getLocalsStack().get(i);
         if (scope.containsKey(varName)) {
+            if (NamingValidator.isAllCaps(varName)) {
+                throw new ProgramError("Cannot reassign constant '" + varName + "'");
+            }
             return updateVariableInScope(varName, newValue, scope, i, ctx);
         }
     }
@@ -384,6 +388,9 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
         Object fieldValue = interpreter.getConstructorResolver()
             .getFieldFromHierarchy(ctx.objectInstance.type, varName, ctx);
         if (fieldValue != null) {
+            if (NamingValidator.isAllCaps(varName)) {
+                throw new ProgramError("Cannot reassign constant field '" + varName + "'");
+            }
             ctx.objectInstance.fields.put(varName, newValue);
             return newValue;
         }
@@ -422,6 +429,9 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
             Object existingField = interpreter.getConstructorResolver()
                 .getFieldFromHierarchy(ctx.objectInstance.type, fieldName, ctx);
             if (existingField != null) {
+                if (NamingValidator.isAllCaps(fieldName)) {
+                    throw new ProgramError("Cannot reassign constant field '" + fieldName + "'");
+                }
                 ctx.objectInstance.fields.put(fieldName, newValue);
                 return newValue;
             } else {
@@ -453,6 +463,9 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
             
             boolean fieldDeclared = isFieldDeclaredInTypeHierarchy(parentType, fieldName, ctx);
             if (fieldDeclared) {
+                if (NamingValidator.isAllCaps(fieldName)) {
+                    throw new ProgramError("Cannot reassign constant field '" + fieldName + "'");
+                }
                 ctx.objectInstance.fields.put(fieldName, newValue);
                 return newValue;
             }

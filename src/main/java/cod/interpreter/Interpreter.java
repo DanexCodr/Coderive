@@ -1095,6 +1095,7 @@ public void run(Object entryPoint) {
     }
 
     ExecutionContext ctx = new ExecutionContext(obj, methodLocals, slotValues, slotTypes, typeSystem);
+    ctx.currentMethodName = call.name;
     
     for (Map.Entry<String, String> entry : methodLocalTypes.entrySet()) {
         ctx.setVariableType(entry.getKey(), entry.getValue());

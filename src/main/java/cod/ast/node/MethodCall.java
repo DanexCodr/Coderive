@@ -16,6 +16,9 @@ public class MethodCall extends Expr {
     
     // NEW: Flag to indicate this method call should return a single slot value directly
     public boolean isSingleSlotCall;
+    public boolean isSelfCall;
+    public Integer selfCallLevel;
+    public String selfCallLevelConstantName;
 
     public MethodCall() {
         this.arguments = new ArrayList<Expr>();
@@ -24,6 +27,9 @@ public class MethodCall extends Expr {
         this.isSuperCall = false;
         this.isGlobal = false;
         this.isSingleSlotCall = false;
+        this.isSelfCall = false;
+        this.selfCallLevel = null;
+        this.selfCallLevelConstantName = null;
     }
     
     @Override

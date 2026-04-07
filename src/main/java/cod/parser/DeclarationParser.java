@@ -652,6 +652,10 @@ public class DeclarationParser extends BaseParser {
       field.value = statementParser.expressionParser.parseExpr();
     }
 
+    if (NamingValidator.isAllCaps(fieldName) && field.value == null) {
+      throw error("Constant field '" + fieldName + "' must have an initial value", fieldNameToken);
+    }
+
     return field;
   }
 

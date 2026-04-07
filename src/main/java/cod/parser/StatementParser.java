@@ -330,6 +330,9 @@ public class StatementParser extends BaseParser {
 
     if (!nil(varName)) {
       NamingValidator.validateVariableOrConstantName(varName, startToken);
+      if (NamingValidator.isAllCaps(varName) && value == null) {
+        throw error("Constant '" + varName + "' must have an initial value", startToken);
+      }
     }
 
     Var varNode = ASTFactory.createVar(varName, value, startToken);
@@ -426,6 +429,9 @@ public class StatementParser extends BaseParser {
     Token forToken = expect(FOR);
     Token iteratorToken = now();
     String iterator = expect(ID).getText();
+    if (NamingValidator.isAllCaps(iterator)) {
+      throw error("Loop iterator '" + iterator + "' cannot use ALL_CAPS (reserved for constants)", iteratorToken);
+    }
     
     // Expect 'of' for both array iteration and range loops
     expect(OF);

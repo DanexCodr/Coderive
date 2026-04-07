@@ -5,6 +5,7 @@ import cod.error.ParseError;
 import cod.ast.node.*;
 import cod.interpreter.registry.GlobalRegistry;
 import cod.lexer.Token;
+import cod.semantic.NamingValidator;
 import static cod.lexer.TokenType.*;
 import cod.math.AutoStackingNumber;
 import cod.parser.context.*;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Set;
 
 public class ExpressionParser extends BaseParser {
+    private static final String SELF_CALL_PLACEHOLDER = "<~";
     
     private static final int PREC_ASSIGNMENT = 10;
     private static final int PREC_EQUALITY = 50;
@@ -1332,6 +1334,13 @@ public class ExpressionParser extends BaseParser {
         if (current == null) {
             throw error("Unexpected end of input in prefix expression");
         }
+
+        if (is(current, LT)) {
+            Token markerToken = next(1);
+            if (markerToken != null && is(markerToken, TILDE_ARROW)) {
+                return parseSelfCall();
+            }
+        }
         
         if (is(BANG, PLUS, MINUS)) {
             Token opToken = consume();
@@ -1340,6 +1349,57 @@ public class ExpressionParser extends BaseParser {
         }
         
         return parsePrimaryExpr();
+    }
+
+    private MethodCall parseSelfCall() {
+        Token ltToken = expect(LT);
+        Token selfToken = expect(TILDE_ARROW);
+        Integer selfCallLevel = null;
+        String selfCallLevelConstantName = null;
+        if (is(INT_LIT)) {
+            Token levelToken = expect(INT_LIT);
+            try {
+                selfCallLevel = Integer.valueOf(levelToken.getText());
+            } catch (NumberFormatException e) {
+                throw error("Invalid self-call level after '<~': " + levelToken.getText(), levelToken);
+            }
+        } else if (is(ID)) {
+            Token levelToken = expect(ID);
+            String levelName = levelToken.getText();
+            if (!NamingValidator.isAllCaps(levelName)) {
+                throw error(
+                    "Self-call level after '<~' must be an integer literal or ALL_CAPS constant name: " + levelName,
+                    levelToken);
+            }
+            // Name-only parse by design; parser has no scope/value table for closure-captured constants.
+            // Constant resolution/type checking therefore happens at runtime.
+            selfCallLevelConstantName = levelName;
+        }
+        if (!is(LPAREN)) {
+            throw error("'<~' cannot be used without '()'. Use '<~(...)' for self-calls.", selfToken);
+        }
+
+        MethodCall call =
+            ASTFactory.createMethodCall(SELF_CALL_PLACEHOLDER, SELF_CALL_PLACEHOLDER, ltToken);
+        call.isSelfCall = true;
+        call.selfCallLevel = selfCallLevel;
+        call.selfCallLevelConstantName = selfCallLevelConstantName;
+
+        expect(LPAREN);
+        if (!is(RPAREN)) {
+            if (isNamedArgument()) {
+                parseNamedArgumentList(call.arguments, call.argNames);
+            } else {
+                call.arguments.add(parseExpr());
+                call.argNames.add(null);
+                while (consume(COMMA)) {
+                    call.arguments.add(parseExpr());
+                    call.argNames.add(null);
+                }
+            }
+        }
+        expect(RPAREN);
+        return call;
     }
 
     private Expr parseBooleanChain() {
