@@ -1326,7 +1326,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 lambdaLocals,
                 parentCtx.objectInstance,
                 parentCtx.currentClass,
-                parentCtx.currentLambdaClosure);
+                parentCtx.currentLambdaClosure,
+                Collections.<Object>emptyList());
         
         pushContext(lambdaCtx);
         try {
@@ -2360,7 +2361,13 @@ public Object visit(ChainedComparison node) {
             }
         }
         
-        return new LambdaClosure(node, captured, ctx.objectInstance, ctx.currentClass, ctx.currentLambdaClosure);
+        return new LambdaClosure(
+            node,
+            captured,
+            ctx.objectInstance,
+            ctx.currentClass,
+            ctx.currentLambdaClosure,
+            Collections.<Object>emptyList());
     }
     
     private Object invokeLambdaCallback(
@@ -2380,7 +2387,8 @@ public Object visit(ChainedComparison node) {
                     parentCtx.locals(),
                     parentCtx.objectInstance,
                     parentCtx.currentClass,
-                    parentCtx.currentLambdaClosure);
+                    parentCtx.currentLambdaClosure,
+                    Collections.<Object>emptyList());
         } else {
             String actualType = callback == null ? "null" : callback.getClass().getSimpleName();
             throw new ProgramError(ownerMethod + " expects a lambda callback, got: " + actualType);
@@ -2388,7 +2396,16 @@ public Object visit(ChainedComparison node) {
         
         Lambda lambda = closure.lambda;
         List<Param> params = resolveLambdaParameters(lambda);
-        List<Object> values = args != null ? args : Collections.<Object>emptyList();
+        List<Object> incomingValues = args != null ? args : Collections.<Object>emptyList();
+        List<Object> combinedValues = combineLambdaArgs(closure.boundArguments, incomingValues);
+
+        if (shouldAutoCurry(params, combinedValues)) {
+            return createCurriedLambdaClosure(closure, combinedValues);
+        }
+
+        int consumedArgCount = Math.min(params.size(), combinedValues.size());
+        List<Object> values = combinedValues.subList(0, consumedArgCount);
+        List<Object> leftoverValues = combinedValues.subList(consumedArgCount, combinedValues.size());
 
         Map<String, Object> lambdaLocals =
             bindLambdaArguments(params, values, closure, ownerMethod);
@@ -2396,10 +2413,19 @@ public Object visit(ChainedComparison node) {
             bindPositionalInferredPlaceholderAliases(lambdaLocals, values);
         }
 
+        Object result;
         if (lambda.expressionBody != null) {
-            return evaluateLambdaExpressionBody(lambda, closure, lambdaLocals);
+            result = evaluateLambdaExpressionBody(lambda, closure, lambdaLocals);
+        } else {
+            result = evaluateLambdaBlockBody(lambda, closure, lambdaLocals);
         }
-        return evaluateLambdaBlockBody(lambda, closure, lambdaLocals);
+
+        if (!leftoverValues.isEmpty()) {
+            if (result instanceof LambdaClosure || result instanceof Lambda) {
+                return invokeLambdaCallback(result, leftoverValues, parentCtx, ownerMethod);
+            }
+        }
+        return result;
     }
 
     private List<Param> resolveLambdaParameters(Lambda lambda) {
@@ -2417,6 +2443,45 @@ public Object visit(ChainedComparison node) {
 
         List<Param> inferred = inferLambdaParamsFromPlaceholders(lambda);
         return inferred;
+    }
+
+    private List<Object> combineLambdaArgs(List<Object> boundArgs, List<Object> incomingArgs) {
+        if ((boundArgs == null || boundArgs.isEmpty()) && (incomingArgs == null || incomingArgs.isEmpty())) {
+            return Collections.<Object>emptyList();
+        }
+        List<Object> combined = new ArrayList<Object>();
+        if (boundArgs != null && !boundArgs.isEmpty()) {
+            combined.addAll(boundArgs);
+        }
+        if (incomingArgs != null && !incomingArgs.isEmpty()) {
+            combined.addAll(incomingArgs);
+        }
+        return combined;
+    }
+
+    private boolean shouldAutoCurry(List<Param> params, List<Object> values) {
+        if (params == null || params.isEmpty()) return false;
+        int requiredCount = 0;
+        for (Param param : params) {
+            if (param == null) continue;
+            if (!param.hasDefaultValue) {
+                requiredCount++;
+            }
+        }
+        return values.size() < requiredCount;
+    }
+
+    private LambdaClosure createCurriedLambdaClosure(
+        LambdaClosure closure,
+        List<Object> boundArgs) {
+
+        return new LambdaClosure(
+            closure.lambda,
+            closure.capturedLocals,
+            closure.objectInstance,
+            closure.currentClass,
+            closure.parentClosure,
+            boundArgs);
     }
 
     private Map<String, Object> bindLambdaArguments(
