@@ -19,6 +19,7 @@ import static cod.syntax.Keyword.*;
 import cod.semantic.ConstructorResolver;
 
 public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator {
+    private static final String SELF_CALL_OWNER = "<~";
 
     enum PatternType {
         CONDITIONAL,
@@ -1742,14 +1743,14 @@ public Object visit(TextLiteral node) {
                         Object argValue = dispatch(arg);
                         evaluatedArgs.add(typeSystem.unwrap(argValue));
                     }
-                    return invokeLambdaCallback(ctx.currentLambdaClosure, evaluatedArgs, ctx, "<~");
+                    return invokeLambdaCallback(ctx.currentLambdaClosure, evaluatedArgs, ctx, SELF_CALL_OWNER);
                 }
                 if (ctx.currentMethodName != null && !ctx.currentMethodName.isEmpty()) {
                     callName = ctx.currentMethodName;
                     callQualifiedName = ctx.currentMethodName;
                 } else {
                     throw new ProgramError(
-                        "'<~(...)' can only be used inside a method or lambda body");
+                        "'<~(...)' can only be used inside a method or lambda body.");
                 }
             }
 

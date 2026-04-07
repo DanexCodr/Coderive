@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Set;
 
 public class ExpressionParser extends BaseParser {
+    private static final String SELF_CALL_PLACEHOLDER = "<~";
     
     private static final int PREC_ASSIGNMENT = 10;
     private static final int PREC_EQUALITY = 50;
@@ -1353,7 +1354,8 @@ public class ExpressionParser extends BaseParser {
             throw error("'<~' cannot be used without '()'. Use '<~(...)' for self-calls.", selfToken);
         }
 
-        MethodCall call = ASTFactory.createMethodCall("<~", "<~", ltToken);
+        MethodCall call =
+            ASTFactory.createMethodCall(SELF_CALL_PLACEHOLDER, SELF_CALL_PLACEHOLDER, ltToken);
         call.isSelfCall = true;
 
         expect(LPAREN);
