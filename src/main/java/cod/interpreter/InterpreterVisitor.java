@@ -22,6 +22,27 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     private static final String SELF_CALL_PLACEHOLDER = "<~";
     private static final String SELF_CALL_LAMBDA_OWNER = "self-call lambda";
 
+    private static final class TailCallSignal extends RuntimeException {
+        public final String methodName;
+        public final LambdaClosure lambdaClosure;
+        public final List<Object> arguments;
+
+        private TailCallSignal(String methodName, LambdaClosure lambdaClosure, List<Object> arguments) {
+            this.methodName = methodName;
+            this.lambdaClosure = lambdaClosure;
+            this.arguments =
+                arguments != null ? new ArrayList<Object>(arguments) : Collections.<Object>emptyList();
+        }
+
+        static TailCallSignal forMethod(String methodName, List<Object> arguments) {
+            return new TailCallSignal(methodName, null, arguments);
+        }
+
+        static TailCallSignal forLambda(LambdaClosure lambdaClosure, List<Object> arguments) {
+            return new TailCallSignal(null, lambdaClosure, arguments);
+        }
+    }
+
     enum PatternType {
         CONDITIONAL,
         SEQUENCE,
@@ -281,6 +302,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                     break;
                 }
             }
+        } catch (TailCallSignal e) {
+            throw e;
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -431,6 +454,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             throw e;
         } catch (BreakLoopException e) {
             throw e;
+        } catch (TailCallSignal e) {
+            throw e;
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -509,6 +534,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             throw new ProgramError("Invalid for loop: neither range nor array source specified");
             
         } catch (ProgramError e) {
+            throw e;
+        } catch (TailCallSignal e) {
             throw e;
         } catch (Exception e) {
             throw new InternalError("For loop execution failed", e);
@@ -1265,29 +1292,22 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 "Number of assigned variables (" + node.variableNames.size()
                     + ") does not match lambda return slots (" + lambdaSlots.size() + ")");
         }
-        
-        Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
-        Map<String, String> slotTypes = new LinkedHashMap<String, String>();
-        
-        for (Slot slot : lambdaSlots) {
-            slotValues.put(slot.name, null);
-            slotTypes.put(slot.name, slot.type);
-        }
-        
-        Map<String, Object> lambdaLocals = new HashMap<String, Object>(allLocals);
+
+        Map<String, Object> initialLambdaLocals = new HashMap<String, Object>(allLocals);
+        List<Object> activeParamValues = new ArrayList<Object>();
         for (Param param : params) {
             if (param == null || param.name == null) continue;
             
             Object boundValue = null;
             boolean found = false;
             
-            if (lambdaLocals.containsKey(param.name)) {
-                boundValue = lambdaLocals.get(param.name);
+            if (initialLambdaLocals.containsKey(param.name)) {
+                boundValue = initialLambdaLocals.get(param.name);
                 found = true;
             } else if (param.hasDefaultValue && param.defaultValue != null) {
                 ExecutionContext defaultCtx = new ExecutionContext(
                     parentCtx.objectInstance,
-                    lambdaLocals,
+                    initialLambdaLocals,
                     null,
                     null,
                     typeSystem
@@ -1313,46 +1333,79 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                         + param.type + ", got: " + typeSystem.getConcreteType(boundValue));
             }
             
-            lambdaLocals.put(param.name, boundValue);
+            initialLambdaLocals.put(param.name, boundValue);
+            activeParamValues.add(boundValue);
         }
-        
-        ExecutionContext lambdaCtx =
-            new ExecutionContext(parentCtx.objectInstance, lambdaLocals, slotValues, slotTypes, typeSystem);
-        lambdaCtx.currentClass = parentCtx.currentClass;
-        lambdaCtx.currentMethodName = parentCtx.currentMethodName;
-        lambdaCtx.currentLambdaClosure =
-            new LambdaClosure(
-                lambda,
-                lambdaLocals,
-                parentCtx.objectInstance,
-                parentCtx.currentClass,
-                parentCtx.currentLambdaClosure,
-                Collections.<Object>emptyList());
-        
-        pushContext(lambdaCtx);
-        try {
-            if (lambda.body != null) {
-                visit((Base) lambda.body);
+
+        while (true) {
+            Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
+            Map<String, String> slotTypes = new LinkedHashMap<String, String>();
+            for (Slot slot : lambdaSlots) {
+                slotValues.put(slot.name, null);
+                slotTypes.put(slot.name, slot.type);
             }
-        } catch (EarlyExitException e) {
-            // normal lambda early exit
-        } finally {
-            popContext();
-        }
-        
-        Object result = slotValues;
-        for (int i = 0; i < node.variableNames.size(); i++) {
-            String varName = node.variableNames.get(i);
-            if ("_".equals(varName)) continue;
-            
-            String slotName = lambdaSlots.get(i).name;
-            if (!slotValues.containsKey(slotName)) {
-                throw new ProgramError("Missing slot: " + slotName);
+
+            Map<String, Object> lambdaLocals = new HashMap<String, Object>(allLocals);
+            for (int i = 0; i < params.size(); i++) {
+                Param param = params.get(i);
+                if (param == null || param.name == null) continue;
+                Object paramValue = i < activeParamValues.size() ? activeParamValues.get(i) : null;
+                lambdaLocals.put(param.name, paramValue);
             }
-            parentCtx.setVariable(varName, slotValues.get(slotName));
+
+            LambdaClosure lambdaClosure =
+                new LambdaClosure(
+                    lambda,
+                    lambdaLocals,
+                    parentCtx.objectInstance,
+                    parentCtx.currentClass,
+                    parentCtx.currentLambdaClosure,
+                    Collections.<Object>emptyList());
+
+            ExecutionContext lambdaCtx =
+                new ExecutionContext(parentCtx.objectInstance, lambdaLocals, slotValues, slotTypes, typeSystem);
+            lambdaCtx.currentClass = parentCtx.currentClass;
+            lambdaCtx.currentMethodName = parentCtx.currentMethodName;
+            lambdaCtx.currentLambdaClosure = lambdaClosure;
+
+            List<Object> nextTailArgs = null;
+
+            pushContext(lambdaCtx);
+            try {
+                if (lambda.body != null) {
+                    visit((Base) lambda.body);
+                }
+            } catch (TailCallSignal tailCallSignal) {
+                if (tailCallSignal.lambdaClosure != null && tailCallSignal.lambdaClosure == lambdaClosure) {
+                    nextTailArgs = tailCallSignal.arguments;
+                } else {
+                    throw tailCallSignal;
+                }
+            } catch (EarlyExitException e) {
+                // normal lambda early exit
+            } finally {
+                popContext();
+            }
+
+            if (nextTailArgs != null) {
+                activeParamValues = new ArrayList<Object>(nextTailArgs);
+                continue;
+            }
+
+            Object result = slotValues;
+            for (int i = 0; i < node.variableNames.size(); i++) {
+                String varName = node.variableNames.get(i);
+                if ("_".equals(varName)) continue;
+
+                String slotName = lambdaSlots.get(i).name;
+                if (!slotValues.containsKey(slotName)) {
+                    throw new ProgramError("Missing slot: " + slotName);
+                }
+                parentCtx.setVariable(varName, slotValues.get(slotName));
+            }
+
+            return result;
         }
-        
-        return result;
     }
 
     @Override
@@ -1361,8 +1414,14 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             throw new InternalError("visit(SlotAssignment) called with null node");
         }
         
+        ExecutionContext ctx = getCurrentContext();
+        TailCallSignal tailCallSignal = buildTailCallSignalForSlotAssignment(node, ctx);
+        if (tailCallSignal != null) {
+            throw tailCallSignal;
+        }
+
         try {
-            return assignmentHandler.handleSlotAssignment(node, getCurrentContext());
+            return assignmentHandler.handleSlotAssignment(node, ctx);
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -1388,6 +1447,41 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         } catch (Exception e) {
             throw new InternalError("Multiple slot assignment failed", e);
         }
+    }
+
+    private TailCallSignal buildTailCallSignalForSlotAssignment(SlotAssignment node, ExecutionContext ctx) {
+        if (node == null || ctx == null || !(node.value instanceof MethodCall)) return null;
+        MethodCall methodCall = (MethodCall) node.value;
+        if (!methodCall.isSelfCall) return null;
+
+        List<Object> evaluatedArgs = evaluateMethodCallArguments(methodCall);
+
+        if (ctx.currentLambdaClosure != null) {
+            if (methodCall.selfCallLevel != null && methodCall.selfCallLevel.intValue() != 0) {
+                return null;
+            }
+            return TailCallSignal.forLambda(ctx.currentLambdaClosure, evaluatedArgs);
+        }
+
+        if (methodCall.selfCallLevel != null) {
+            return null;
+        }
+        if (ctx.currentMethodName == null || ctx.currentMethodName.isEmpty()) {
+            return null;
+        }
+        return TailCallSignal.forMethod(ctx.currentMethodName, evaluatedArgs);
+    }
+
+    private List<Object> evaluateMethodCallArguments(MethodCall methodCall) {
+        List<Object> evaluatedArgs = new ArrayList<Object>();
+        if (methodCall == null || methodCall.arguments == null) {
+            return evaluatedArgs;
+        }
+        for (Expr arg : methodCall.arguments) {
+            Object argValue = dispatch(arg);
+            evaluatedArgs.add(typeSystem.unwrap(argValue));
+        }
+        return evaluatedArgs;
     }
 
     @Override
@@ -1878,169 +1972,185 @@ public Object visit(TextLiteral node) {
             return interpreter.handleBuiltinMethod(method, evaluatedCall);
         }
 
-        // Prepare method locals with parameter values
-        Map<String, Object> methodLocals = new HashMap<String, Object>();
-        Map<String, String> methodLocalTypes = new HashMap<String, String>();
-
-        int argCount = evaluatedArgs.size();
-        int paramCount = method.parameters != null ? method.parameters.size() : 0;
-
-        for (int i = 0; i < paramCount; i++) {
-            Param param = method.parameters.get(i);
-            Object argValue = null;
-
-            if (i < argCount) {
-                argValue = evaluatedArgs.get(i);
-            } else {
-                if (param.hasDefaultValue) {
-                    ExecutionContext defaultCtx = new ExecutionContext(
-                        ctx.objectInstance, 
-                        new HashMap<String, Object>(), 
-                        null, 
-                        null, 
-                        typeSystem
-                    );
-                    defaultCtx.currentMethodName = callName;
-                    pushContext(defaultCtx);
-                    try {
-                        argValue = dispatch(param.defaultValue);
-                    } finally {
-                        popContext();
-                    }
-                } else {
-                    throw new ProgramError(
-                        "Missing argument for parameter '" + param.name + 
-                        "'. Expected " + paramCount + " arguments, got " + argCount);
-                }
-            }
-
-            String paramType = param.type;
-
-            if (!typeSystem.validateType(paramType, argValue)) {
-                if (paramType.equals(TEXT.toString())) {
-                    argValue = typeSystem.convertType(argValue, paramType);
-                } else {
-                    throw new ProgramError(
-                        "Argument type mismatch for parameter " + param.name + 
-                        ". Expected " + paramType + ", got: " + 
-                        typeSystem.getConcreteType(argValue));
-                }
-            }
-
-            if (paramType.contains("|")) {
-                String activeType = typeSystem.getConcreteType(typeSystem.unwrap(argValue));
-                argValue = new TypeHandler.Value(argValue, activeType, paramType);
-            }
-
-            methodLocals.put(param.name, argValue);
-            methodLocalTypes.put(param.name, paramType);
-        }
-
-        if (argCount > paramCount) {
-            throw new ProgramError(
-                "Too many arguments: expected " + paramCount + ", got " + argCount);
-        }
-
-        // Setup slot values for method return
-        Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
-        Map<String, String> slotTypes = new LinkedHashMap<String, String>();
-        if (method.returnSlots != null) {
-            for (Slot s : method.returnSlots) {
-                slotValues.put(s.name, null);
-                slotTypes.put(s.name, s.type);
-            }
-        }
-
-        // Create method execution context
-        ExecutionContext methodCtx = new ExecutionContext(
-            ctx.objectInstance, 
-            methodLocals, 
-            slotValues, 
-            slotTypes, 
-            typeSystem
-        );
-        
-        for (Map.Entry<String, String> entry : methodLocalTypes.entrySet()) {
-            methodCtx.setVariableType(entry.getKey(), entry.getValue());
-        }
-        
-        methodCtx.objectInstance = ctx.objectInstance;
-        
-        if (method.associatedClass != null) {
-            Type classType = findTypeByName(method.associatedClass);
-            if (classType != null) {
-                methodCtx.currentClass = classType;
-            }
-        }
-        
-        if (ctx.objectInstance != null && ctx.objectInstance.type != null && 
-            methodCtx.currentClass == null) {
-            Type classType = findTypeByName(ctx.objectInstance.type.name);
-            if (classType != null) {
-                methodCtx.currentClass = classType;
-            }
-        }
-        methodCtx.currentMethodName = callName;
-        methodCtx.currentLambdaClosure = null;
-
-        // Execute method body
-        pushContext(methodCtx);
         boolean calledMethodHasSlots = method.returnSlots != null && !method.returnSlots.isEmpty();
-        Object methodResult = null;
+        List<Object> activeMethodArgs = new ArrayList<Object>(evaluatedArgs);
 
-        try {
-            if (method.body != null) {
-                for (Stmt stmt : method.body) {
-                    visit(stmt);
-                    
-                    if (calledMethodHasSlots && 
-                        interpreter.shouldReturnEarly(slotValues, methodCtx.slotsInCurrentPath)) {
-                        break;
-                    }
-                }
-            }
-        } catch (EarlyExitException e) {
-            // Normal exit - method completed
-        } catch (ProgramError e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InternalError("Method call execution failed: " + callName, e);
-        } finally {
-            popContext();
-        }
+        while (true) {
+            // Prepare method locals with parameter values
+            Map<String, Object> methodLocals = new HashMap<String, Object>();
+            Map<String, String> methodLocalTypes = new HashMap<String, String>();
 
-        // Handle return value based on call type
-        if (node.slotNames != null && !node.slotNames.isEmpty()) {
-            if (!(methodResult instanceof Map) && calledMethodHasSlots) {
-                methodResult = slotValues;
-            }
-            
-            if (methodResult instanceof Map) {
-                Map<String, Object> map = (Map<String, Object>) methodResult;
-                String requestedSlot = node.slotNames.get(0);
+            int argCount = activeMethodArgs.size();
+            int paramCount = method.parameters != null ? method.parameters.size() : 0;
 
-                if (!map.containsKey(requestedSlot) && method != null && method.returnSlots != null) {
-                    try {
-                        int index = Integer.parseInt(requestedSlot);
-                        if (index >= 0 && index < method.returnSlots.size()) {
-                            requestedSlot = method.returnSlots.get(index).name;
+            for (int i = 0; i < paramCount; i++) {
+                Param param = method.parameters.get(i);
+                Object argValue = null;
+
+                if (i < argCount) {
+                    argValue = activeMethodArgs.get(i);
+                } else {
+                    if (param.hasDefaultValue) {
+                        ExecutionContext defaultCtx = new ExecutionContext(
+                            ctx.objectInstance,
+                            new HashMap<String, Object>(),
+                            null,
+                            null,
+                            typeSystem
+                        );
+                        defaultCtx.currentMethodName = callName;
+                        pushContext(defaultCtx);
+                        try {
+                            argValue = dispatch(param.defaultValue);
+                        } finally {
+                            popContext();
                         }
-                    } catch (NumberFormatException e) {
-                        // Not an index, keep original slot name
+                    } else {
+                        throw new ProgramError(
+                            "Missing argument for parameter '" + param.name
+                                + "'. Expected " + paramCount + " arguments, got " + argCount);
                     }
                 }
 
-                if (map.containsKey(requestedSlot)) {
-                    return map.get(requestedSlot);
-                }
-                throw new ProgramError("Undefined method slot: " + requestedSlot);
-            } else if (calledMethodHasSlots) {
-                return slotValues;
-            }
-        }
+                String paramType = param.type;
 
-        // Default: return whatever the method produced
-        return methodResult != null ? methodResult : slotValues;
+                if (!typeSystem.validateType(paramType, argValue)) {
+                    if (paramType.equals(TEXT.toString())) {
+                        argValue = typeSystem.convertType(argValue, paramType);
+                    } else {
+                        throw new ProgramError(
+                            "Argument type mismatch for parameter " + param.name
+                                + ". Expected " + paramType + ", got: "
+                                + typeSystem.getConcreteType(argValue));
+                    }
+                }
+
+                if (paramType.contains("|")) {
+                    String activeType = typeSystem.getConcreteType(typeSystem.unwrap(argValue));
+                    argValue = new TypeHandler.Value(argValue, activeType, paramType);
+                }
+
+                methodLocals.put(param.name, argValue);
+                methodLocalTypes.put(param.name, paramType);
+            }
+
+            if (argCount > paramCount) {
+                throw new ProgramError(
+                    "Too many arguments: expected " + paramCount + ", got " + argCount);
+            }
+
+            // Setup slot values for method return
+            Map<String, Object> slotValues = new LinkedHashMap<String, Object>();
+            Map<String, String> slotTypes = new LinkedHashMap<String, String>();
+            if (method.returnSlots != null) {
+                for (Slot s : method.returnSlots) {
+                    slotValues.put(s.name, null);
+                    slotTypes.put(s.name, s.type);
+                }
+            }
+
+            // Create method execution context
+            ExecutionContext methodCtx = new ExecutionContext(
+                ctx.objectInstance,
+                methodLocals,
+                slotValues,
+                slotTypes,
+                typeSystem
+            );
+
+            for (Map.Entry<String, String> entry : methodLocalTypes.entrySet()) {
+                methodCtx.setVariableType(entry.getKey(), entry.getValue());
+            }
+
+            methodCtx.objectInstance = ctx.objectInstance;
+
+            if (method.associatedClass != null) {
+                Type classType = findTypeByName(method.associatedClass);
+                if (classType != null) {
+                    methodCtx.currentClass = classType;
+                }
+            }
+
+            if (ctx.objectInstance != null && ctx.objectInstance.type != null
+                && methodCtx.currentClass == null) {
+                Type classType = findTypeByName(ctx.objectInstance.type.name);
+                if (classType != null) {
+                    methodCtx.currentClass = classType;
+                }
+            }
+            methodCtx.currentMethodName = callName;
+            methodCtx.currentLambdaClosure = null;
+
+            // Execute method body
+            pushContext(methodCtx);
+            Object methodResult = null;
+            List<Object> nextTailArgs = null;
+
+            try {
+                if (method.body != null) {
+                    for (Stmt stmt : method.body) {
+                        visit(stmt);
+
+                        if (calledMethodHasSlots
+                            && interpreter.shouldReturnEarly(slotValues, methodCtx.slotsInCurrentPath)) {
+                            break;
+                        }
+                    }
+                }
+            } catch (TailCallSignal tailCallSignal) {
+                if (tailCallSignal.methodName != null && tailCallSignal.methodName.equals(callName)) {
+                    nextTailArgs = tailCallSignal.arguments;
+                } else {
+                    throw tailCallSignal;
+                }
+            } catch (EarlyExitException e) {
+                // Normal exit - method completed
+            } catch (ProgramError e) {
+                throw e;
+            } catch (Exception e) {
+                throw new InternalError("Method call execution failed: " + callName, e);
+            } finally {
+                popContext();
+            }
+
+            if (nextTailArgs != null) {
+                activeMethodArgs = nextTailArgs;
+                continue;
+            }
+
+            // Handle return value based on call type
+            if (node.slotNames != null && !node.slotNames.isEmpty()) {
+                if (!(methodResult instanceof Map) && calledMethodHasSlots) {
+                    methodResult = slotValues;
+                }
+
+                if (methodResult instanceof Map) {
+                    Map<String, Object> map = (Map<String, Object>) methodResult;
+                    String requestedSlot = node.slotNames.get(0);
+
+                    if (!map.containsKey(requestedSlot) && method != null && method.returnSlots != null) {
+                        try {
+                            int index = Integer.parseInt(requestedSlot);
+                            if (index >= 0 && index < method.returnSlots.size()) {
+                                requestedSlot = method.returnSlots.get(index).name;
+                            }
+                        } catch (NumberFormatException e) {
+                            // Not an index, keep original slot name
+                        }
+                    }
+
+                    if (map.containsKey(requestedSlot)) {
+                        return map.get(requestedSlot);
+                    }
+                    throw new ProgramError("Undefined method slot: " + requestedSlot);
+                } else if (calledMethodHasSlots) {
+                    return slotValues;
+                }
+            }
+
+            // Default: return whatever the method produced
+            return methodResult != null ? methodResult : slotValues;
+        }
         
     } catch (ProgramError e) {
         throw e;
@@ -2388,40 +2498,52 @@ public Object visit(ChainedComparison node) {
             String actualType = callback == null ? "null" : callback.getClass().getSimpleName();
             throw new ProgramError(ownerMethod + " expects a lambda callback, got: " + actualType);
         }
-        
-        Lambda lambda = closure.lambda;
-        List<Param> params = resolveLambdaParameters(lambda);
-        List<Object> incomingValues = args != null ? args : Collections.<Object>emptyList();
-        List<Object> combinedValues = combineLambdaArgs(closure.boundArguments, incomingValues);
 
-        if (shouldAutoCurry(params, combinedValues)) {
-            return createCurriedLambdaClosure(closure, combinedValues);
-        }
+        LambdaClosure activeClosure = closure;
+        List<Object> activeIncomingValues = args != null ? args : Collections.<Object>emptyList();
 
-        int consumedArgCount = Math.min(params.size(), combinedValues.size());
-        List<Object> values = new ArrayList<Object>(combinedValues.subList(0, consumedArgCount));
-        List<Object> leftoverValues =
-            new ArrayList<Object>(combinedValues.subList(consumedArgCount, combinedValues.size()));
+        while (true) {
+            Lambda lambda = activeClosure.lambda;
+            List<Param> params = resolveLambdaParameters(lambda);
+            List<Object> combinedValues = combineLambdaArgs(activeClosure.boundArguments, activeIncomingValues);
 
-        Map<String, Object> lambdaLocals =
-            bindLambdaArguments(params, values, closure, ownerMethod);
-        if (lambda.inferParameters && params.isEmpty()) {
-            bindPositionalInferredPlaceholderAliases(lambdaLocals, values);
-        }
+            if (shouldAutoCurry(params, combinedValues)) {
+                return createCurriedLambdaClosure(activeClosure, combinedValues);
+            }
 
-        Object result;
-        if (lambda.expressionBody != null) {
-            result = evaluateLambdaExpressionBody(lambda, closure, lambdaLocals);
-        } else {
-            result = evaluateLambdaBlockBody(lambda, closure, lambdaLocals);
-        }
+            int consumedArgCount = Math.min(params.size(), combinedValues.size());
+            List<Object> values = new ArrayList<Object>(combinedValues.subList(0, consumedArgCount));
+            List<Object> leftoverValues =
+                new ArrayList<Object>(combinedValues.subList(consumedArgCount, combinedValues.size()));
 
-        if (!leftoverValues.isEmpty()) {
-            if (result instanceof LambdaClosure || result instanceof Lambda) {
+            Map<String, Object> lambdaLocals =
+                bindLambdaArguments(params, values, activeClosure, ownerMethod);
+            if (lambda.inferParameters && params.isEmpty()) {
+                bindPositionalInferredPlaceholderAliases(lambdaLocals, values);
+            }
+
+            Object result;
+            try {
+                if (lambda.expressionBody != null) {
+                    result = evaluateLambdaExpressionBody(lambda, activeClosure, lambdaLocals);
+                } else {
+                    result = evaluateLambdaBlockBody(lambda, activeClosure, lambdaLocals);
+                }
+            } catch (TailCallSignal tailCallSignal) {
+                if (tailCallSignal.lambdaClosure != null
+                    && tailCallSignal.lambdaClosure == activeClosure) {
+                    activeClosure = tailCallSignal.lambdaClosure;
+                    activeIncomingValues = tailCallSignal.arguments;
+                    continue;
+                }
+                throw tailCallSignal;
+            }
+
+            if (!leftoverValues.isEmpty() && (result instanceof LambdaClosure || result instanceof Lambda)) {
                 return invokeLambdaCallback(result, leftoverValues, parentCtx, ownerMethod);
             }
+            return result;
         }
-        return result;
     }
 
     private List<Param> resolveLambdaParameters(Lambda lambda) {
