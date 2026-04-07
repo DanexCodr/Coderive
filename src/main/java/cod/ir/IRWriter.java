@@ -10,8 +10,8 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 
 public final class IRWriter {
-    static final int STREAM_MAGIC = 0xAC0D1EB2;
-    static final int STREAM_VERSION = 1;
+    static final int IR_STREAM_MAGIC = 0xAC0D1EB2;
+    static final int IR_STREAM_VERSION = 1;
 
     public void write(File file, Type type) throws IOException {
         if (file == null) {
@@ -32,8 +32,8 @@ public final class IRWriter {
         try {
             buffered = new BufferedOutputStream(new FileOutputStream(file));
             headerOut = new DataOutputStream(buffered);
-            headerOut.writeInt(STREAM_MAGIC);
-            headerOut.writeInt(STREAM_VERSION);
+            headerOut.writeInt(IR_STREAM_MAGIC);
+            headerOut.writeInt(IR_STREAM_VERSION);
             headerOut.flush();
 
             objectOut = new ObjectOutputStream(buffered);

@@ -24,13 +24,12 @@ public final class IRReader {
             int version = in.readInt();
 
             // New direct object-stream IR path (Load -> Execute)
-            if (magic == IRWriter.STREAM_MAGIC) {
-                if (version != IRWriter.STREAM_VERSION) {
+            if (magic == IRWriter.IR_STREAM_MAGIC) {
+                if (version != IRWriter.IR_STREAM_VERSION) {
                     throw new IOException("Unsupported IR stream version: " + version);
                 }
-                ObjectInputStream objectIn = null;
                 try {
-                    objectIn = new ObjectInputStream(in);
+                    ObjectInputStream objectIn = new ObjectInputStream(in);
                     Object value = objectIn.readObject();
                     if (!(value instanceof Type)) {
                         throw new IOException("IR root is not a Type: " + (value == null ? "null" : value.getClass().getName()));
@@ -38,12 +37,6 @@ public final class IRReader {
                     return (Type) value;
                 } catch (ClassNotFoundException e) {
                     throw new IOException("Failed to load IR object graph", e);
-                } finally {
-                    if (objectIn != null) {
-                        try {
-                            objectIn.close();
-                        } catch (IOException ignored) {}
-                    }
                 }
             }
 
