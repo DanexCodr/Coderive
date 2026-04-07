@@ -272,6 +272,10 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         try {
             for (Stmt stmt : node.statements) {
                 dispatch(stmt);
+                if (!ctx.slotsInCurrentPath.isEmpty()
+                    && interpreter.shouldReturnEarly(ctx.getSlotValues(), ctx.slotsInCurrentPath)) {
+                    break;
+                }
             }
         } catch (ProgramError e) {
             throw e;
