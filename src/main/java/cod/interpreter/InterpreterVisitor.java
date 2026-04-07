@@ -1466,6 +1466,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
 
         if (methodCall.selfCallLevel != null) {
+            // <~N(...) levels are lambda-only; method contexts are validated in method-call resolution.
             return null;
         }
         if (ctx.currentMethodName == null || ctx.currentMethodName.isEmpty()) {
@@ -2493,16 +2494,17 @@ public Object visit(ChainedComparison node) {
         while (true) {
             Lambda lambda = activeClosure.lambda;
             List<Param> params = resolveLambdaParameters(lambda);
-            List<Object> combinedValues = combineLambdaArgs(activeClosure.boundArguments, activeIncomingValues);
+            List<Object> combinedValues =
+                mergeBoundAndIncomingLambdaArgs(activeClosure.boundArguments, activeIncomingValues);
 
             if (shouldAutoCurry(params, combinedValues)) {
                 return createCurriedLambdaClosure(activeClosure, combinedValues);
             }
 
-            int consumedArgCount = Math.min(params.size(), combinedValues.size());
-            List<Object> values = new ArrayList<Object>(combinedValues.subList(0, consumedArgCount));
+            int parameterBindCount = Math.min(params.size(), combinedValues.size());
+            List<Object> values = new ArrayList<Object>(combinedValues.subList(0, parameterBindCount));
             List<Object> leftoverValues =
-                new ArrayList<Object>(combinedValues.subList(consumedArgCount, combinedValues.size()));
+                new ArrayList<Object>(combinedValues.subList(parameterBindCount, combinedValues.size()));
 
             Map<String, Object> lambdaLocals =
                 bindLambdaArguments(params, values, activeClosure, ownerMethod);
@@ -2551,7 +2553,7 @@ public Object visit(ChainedComparison node) {
         return inferred;
     }
 
-    private List<Object> combineLambdaArgs(List<Object> boundArgs, List<Object> incomingArgs) {
+    private List<Object> mergeBoundAndIncomingLambdaArgs(List<Object> boundArgs, List<Object> incomingArgs) {
         if ((boundArgs == null || boundArgs.isEmpty()) && (incomingArgs == null || incomingArgs.isEmpty())) {
             return Collections.<Object>emptyList();
         }
