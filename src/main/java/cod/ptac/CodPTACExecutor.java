@@ -2,6 +2,7 @@ package cod.ptac;
 
 import cod.error.ProgramError;
 import cod.interpreter.Interpreter;
+import cod.ast.node.Program;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -182,9 +183,16 @@ public final class CodPTACExecutor {
         if (!options.isFallbackEnabled()) {
             throw new ProgramError("CodP-TAC execution failed without fallback: " + reason);
         }
-        if (fallbackInterpreter != null && artifact != null && artifact.typeSnapshot != null) {
-            fallbackInterpreter.runType(artifact.typeSnapshot);
-            return null;
+        if (fallbackInterpreter != null) {
+            Program currentProgram = fallbackInterpreter.getCurrentProgram();
+            if (currentProgram != null) {
+                fallbackInterpreter.run(currentProgram);
+                return null;
+            }
+            if (artifact != null && artifact.typeSnapshot != null) {
+                fallbackInterpreter.runType(artifact.typeSnapshot);
+                return null;
+            }
         }
         throw new ProgramError("CodP-TAC fallback unavailable: " + reason);
     }

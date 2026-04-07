@@ -151,6 +151,7 @@ public final class CodPTACParityRunner extends BaseRunner {
         Interpreter interpreter = new Interpreter();
         interpreter.setFilePath(file);
         Program ast = parse(file, interpreter);
+        interpreter.setCurrentProgram(ast);
         
         if (ast == null || ast.unit == null || ast.unit.types == null || ast.unit.types.isEmpty()) {
             return captureOutput(interpreter, ast);
