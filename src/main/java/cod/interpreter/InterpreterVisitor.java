@@ -295,8 +295,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         try {
             for (Stmt stmt : node.statements) {
                 dispatch(stmt);
-                // Early return check: stop executing nested block statements once all required slots
-                // are assigned, preventing recursive self-calls from ignoring base-case returns.
+                // Early return check: stop executing nested block statements once required
+                // return slots for the current path are assigned.
                 if (!ctx.slotsInCurrentPath.isEmpty()
                     && interpreter.shouldReturnEarly(ctx.getSlotValues(), ctx.slotsInCurrentPath)) {
                     break;
@@ -1822,8 +1822,8 @@ public Object visit(TextLiteral node) {
         }
     }
 
-    @Override
     @SuppressWarnings("unchecked")
+    @Override
     public Object visit(MethodCall node) {
     if (node == null) {
         throw new InternalError("visit(MethodCall) called with null node");
@@ -2160,6 +2160,7 @@ public Object visit(TextLiteral node) {
 }
 
     private LambdaClosure resolveSelfCallClosure(ExecutionContext ctx, int level) {
+        // Keep runtime validation for non-parser entry paths (e.g. deserialized/constructed ASTs).
         if (level < 0) {
             throw new ProgramError("Self-call level cannot be negative: " + level);
         }
