@@ -22,6 +22,7 @@ import cod.semantic.NamingValidator;
 public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator {
     private static final String SELF_CALL_PLACEHOLDER = "<~";
     private static final String SELF_CALL_LAMBDA_OWNER = "self-call lambda";
+    private static final double SELF_CALL_LEVEL_FLOAT_EPSILON = 1e-12d;
 
     private static final class TailCallSignal extends RuntimeException {
         public final String methodName;
@@ -45,6 +46,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
     // Tail-call trampolining intentionally uses this internal signal to unwind Java frames
     // without allocating wrapper result objects through every visitor return path.
+    // This favors lower allocation overhead over exception cost in non-tail paths.
 
     enum PatternType {
         CONDITIONAL,
@@ -2229,7 +2231,8 @@ public Object visit(TextLiteral node) {
                 if (unwrapped instanceof Double || unwrapped instanceof Float) {
                     double numeric = ((Number) unwrapped).doubleValue();
                     double fractional = Math.abs(numeric % 1.0d);
-                    if (fractional > 1e-12d && Math.abs(fractional - 1.0d) > 1e-12d) {
+                    if (fractional > SELF_CALL_LEVEL_FLOAT_EPSILON
+                        && Math.abs(fractional - 1.0d) > SELF_CALL_LEVEL_FLOAT_EPSILON) {
                         throw new ProgramError(
                             "Self-call level constant '" + constantName + "' must be an integer value");
                     }
