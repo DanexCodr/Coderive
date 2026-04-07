@@ -491,9 +491,8 @@ public class StatementParser extends BaseParser {
         Expr operand = expressionParser.parsePrimaryExpr();
         if (is(operatorToken, PLUS)) {
           return operand;
-        } else {
-          return ASTFactory.createUnaryOp("-", operand, operatorToken);
         }
+        return ASTFactory.createUnaryOp("-", operand, operatorToken);
       } else {
         return expressionParser.parseExpr();
       }
@@ -541,27 +540,26 @@ public class StatementParser extends BaseParser {
         ReturnSlotAssignment assignment =
             ASTFactory.createReturnSlotAsmt(varNames, lambda, assignToken);
         return assignment;
-    } else {
-        // Existing method call handling
-        MethodCall methodCall = expressionParser.parseMethodCall();
-        methodCall.slotNames = slotNames;
-
-        for (String varName : varNames) {
-            if ("_".equals(varName)) {
-                continue;
-            }
-        }
-
-        if (varNames.size() != slotNames.size()) {
-            throw error(
-                "Number of variables (" + varNames.size() + 
-                ") does not match number of slots (" + slotNames.size() + ")");
-        }
-
-        ReturnSlotAssignment assignment =
-            ASTFactory.createReturnSlotAsmt(varNames, methodCall, assignToken);
-        return assignment;
     }
+    // Existing method call handling
+    MethodCall methodCall = expressionParser.parseMethodCall();
+    methodCall.slotNames = slotNames;
+
+    for (String varName : varNames) {
+        if ("_".equals(varName)) {
+            continue;
+        }
+    }
+
+    if (varNames.size() != slotNames.size()) {
+        throw error(
+            "Number of variables (" + varNames.size() + 
+            ") does not match number of slots (" + slotNames.size() + ")");
+    }
+
+    ReturnSlotAssignment assignment =
+        ASTFactory.createReturnSlotAsmt(varNames, methodCall, assignToken);
+    return assignment;
   }
 
   private Stmt parseIndexAssignment() {
@@ -589,10 +587,9 @@ public class StatementParser extends BaseParser {
         MethodCall methodCall = expressionParser.parseMethodCall();
         methodCall.slotNames = slotNames;
         return methodCall;
-    } else {
-        MethodCall methodCall = expressionParser.parseMethodCall();
-        return methodCall;
     }
+    MethodCall methodCall = expressionParser.parseMethodCall();
+    return methodCall;
   }
 
   private Stmt parseExprStmt() {

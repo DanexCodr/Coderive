@@ -85,9 +85,8 @@ public final class ModuleValidator {
         if (hasUnit) {
             if (isSelfBroadcast) {
                 return ProgramType.SCRIPT;
-            } else {
-                return ProgramType.STATIC_MODULE;
             }
+            return ProgramType.STATIC_MODULE;
         }
 
         return ProgramType.SCRIPT;

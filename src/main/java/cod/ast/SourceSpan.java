@@ -88,11 +88,11 @@ public class SourceSpan {
         
         if (startLine == endLine && startColumn == endColumn) {
             return filePrefix + startLine + ":" + startColumn;
-        } else if (startLine == endLine) {
-            return filePrefix + startLine + ":" + startColumn + "-" + endColumn;
-        } else {
-            return filePrefix + startLine + ":" + startColumn + " to " + endLine + ":" + endColumn;
         }
+        if (startLine == endLine) {
+            return filePrefix + startLine + ":" + startColumn + "-" + endColumn;
+        }
+        return filePrefix + startLine + ":" + startColumn + " to " + endLine + ":" + endColumn;
     }
     
     public String format() {

@@ -140,9 +140,8 @@ public class SlotParser {
         
         if (assignments.size() == 1) {
             return assignments.get(0);
-        } else {
-            return ASTFactory.createMultipleSlotAsmt(assignments, tildeArrowToken);
         }
+        return ASTFactory.createMultipleSlotAsmt(assignments, tildeArrowToken);
     }
     
     /**

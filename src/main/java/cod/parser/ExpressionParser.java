@@ -76,9 +76,8 @@ public class ExpressionParser extends BaseParser {
                     Token nextToken = next();
                     if (is(nextToken, LPAREN)) {
                         return parseMethodCall();
-                    } else {
-                        return parseBooleanChain();
                     }
+                    return parseBooleanChain();
                 }
                 return parsePrecedence(PREC_ASSIGNMENT);
             }
@@ -324,9 +323,8 @@ public class ExpressionParser extends BaseParser {
         
         if (ranges.size() == 1) {
             return ranges.get(0);
-        } else {
-            return ASTFactory.createMultiRangeIndex(ranges, null);
         }
+        return ASTFactory.createMultiRangeIndex(ranges, null);
     }
 
     private RangeIndex parseSingleRangeIndex() {

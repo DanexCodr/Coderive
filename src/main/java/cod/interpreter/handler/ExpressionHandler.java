@@ -452,12 +452,11 @@ public Object handleChainedComparison(ChainedComparison node, ExecutionContext c
         try {
             if (range.step != null) {
                 return toLongIndex(range.step);
-            } else {
-                long start = toLongIndex(range.start);
-                long end = toLongIndex(range.end);
-                if (start == end) return 1L;
-                return (start < end) ? 1L : -1L;
             }
+            long start = toLongIndex(range.start);
+            long end = toLongIndex(range.end);
+            if (start == end) return 1L;
+            return (start < end) ? 1L : -1L;
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {

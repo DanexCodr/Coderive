@@ -396,9 +396,8 @@ public class ConstructorResolver {
         try {
             if (call.argNames != null && !call.argNames.isEmpty() && call.argNames.get(0) != null) {
                 return tryMatchNamedConstructor(constructor, call, ctx);
-            } else {
-                return tryMatchPositionalConstructor(constructor, call, ctx);
             }
+            return tryMatchPositionalConstructor(constructor, call, ctx);
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
