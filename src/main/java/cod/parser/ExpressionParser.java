@@ -1332,6 +1332,10 @@ public class ExpressionParser extends BaseParser {
         if (current == null) {
             throw error("Unexpected end of input in prefix expression");
         }
+
+        if (is(LT) && is(next(), TILDE_ARROW)) {
+            return parseSelfCall();
+        }
         
         if (is(BANG, PLUS, MINUS)) {
             Token opToken = consume();
@@ -1340,6 +1344,33 @@ public class ExpressionParser extends BaseParser {
         }
         
         return parsePrimaryExpr();
+    }
+
+    private MethodCall parseSelfCall() {
+        Token ltToken = expect(LT);
+        Token selfToken = expect(TILDE_ARROW);
+        if (!is(LPAREN)) {
+            throw error("'<~' cannot be used without '()'. Use '<~(...)' for self-calls.", selfToken);
+        }
+
+        MethodCall call = ASTFactory.createMethodCall("<~", "<~", ltToken);
+        call.isSelfCall = true;
+
+        expect(LPAREN);
+        if (!is(RPAREN)) {
+            if (isNamedArgument()) {
+                parseNamedArgumentList(call.arguments, call.argNames);
+            } else {
+                call.arguments.add(parseExpr());
+                call.argNames.add(null);
+                while (consume(COMMA)) {
+                    call.arguments.add(parseExpr());
+                    call.argNames.add(null);
+                }
+            }
+        }
+        expect(RPAREN);
+        return call;
     }
 
     private Expr parseBooleanChain() {

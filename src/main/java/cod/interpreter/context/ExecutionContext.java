@@ -9,6 +9,8 @@ public class ExecutionContext {
     
     public ObjectInstance objectInstance;
     public Type currentClass;
+    public String currentMethodName;
+    public LambdaClosure currentLambdaClosure;
     
     // Locals with scope stacking
     private List<Map<String, Object>> localsStack;
@@ -122,6 +124,8 @@ public Map<String, Object> getLocalsMap() {
         
         this.objectInstance = obj;
         this.currentClass = null;
+        this.currentMethodName = null;
+        this.currentLambdaClosure = null;
         this.typeHandler = typeHandler;
         
         // Initialize locals

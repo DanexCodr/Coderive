@@ -1311,6 +1311,9 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         ExecutionContext lambdaCtx =
             new ExecutionContext(parentCtx.objectInstance, lambdaLocals, slotValues, slotTypes, typeSystem);
         lambdaCtx.currentClass = parentCtx.currentClass;
+        lambdaCtx.currentMethodName = parentCtx.currentMethodName;
+        lambdaCtx.currentLambdaClosure =
+            new LambdaClosure(lambda, lambdaLocals, parentCtx.objectInstance, parentCtx.currentClass);
         
         pushContext(lambdaCtx);
         try {
@@ -1725,8 +1728,29 @@ public Object visit(TextLiteral node) {
             }
             
             ExecutionContext ctx = getCurrentContext();
-            if (ctx != null && node.qualifiedName != null && node.qualifiedName.contains(".")) {
-                String[] parts = node.qualifiedName.split("\\.");
+            String callName = node.name;
+            String callQualifiedName = node.qualifiedName;
+
+            if (node.isSelfCall) {
+                if (ctx.currentLambdaClosure != null) {
+                    List<Object> evaluatedArgs = new ArrayList<Object>();
+                    for (Expr arg : node.arguments) {
+                        Object argValue = dispatch(arg);
+                        evaluatedArgs.add(typeSystem.unwrap(argValue));
+                    }
+                    return invokeLambdaCallback(ctx.currentLambdaClosure, evaluatedArgs, ctx, "<~");
+                }
+                if (ctx.currentMethodName != null && !ctx.currentMethodName.isEmpty()) {
+                    callName = ctx.currentMethodName;
+                    callQualifiedName = ctx.currentMethodName;
+                } else {
+                    throw new ProgramError(
+                        "'<~(...)' can only be used inside a method or lambda body");
+                }
+            }
+
+            if (ctx != null && callQualifiedName != null && callQualifiedName.contains(".")) {
+                String[] parts = callQualifiedName.split("\\.");
                 if (parts.length == 2) {
                     String receiverName = parts[0];
                     String methodName = parts[1];
@@ -1754,10 +1778,10 @@ public Object visit(TextLiteral node) {
         // This must come BEFORE any other resolution to ensure out(), in(), etc.
         // work correctly from any context (scripts, methods, imported modules)
         GlobalRegistry globalRegistry = interpreter.getGlobalRegistry();
-        if (globalRegistry != null && globalRegistry.isGlobal(node.name)) {
-            DebugSystem.debug("GLOBAL", "Executing global function: " + node.name + 
+        if (globalRegistry != null && globalRegistry.isGlobal(callName)) {
+            DebugSystem.debug("GLOBAL", "Executing global function: " + callName + 
                               " with args: " + evaluatedArgs);
-            return globalRegistry.executeGlobal(node.name, evaluatedArgs);
+            return globalRegistry.executeGlobal(callName, evaluatedArgs);
         }
         // ========== END GLOBAL CHECK ==========
         
@@ -1766,19 +1790,19 @@ public Object visit(TextLiteral node) {
         if (ctx.currentClass != null) {
             method = interpreter
                 .getConstructorResolver()
-                .findMethodInHierarchy(ctx.currentClass, node.name, ctx);
+                .findMethodInHierarchy(ctx.currentClass, callName, ctx);
         }
 
         // If not found, try from object instance
         if (method == null && ctx.objectInstance != null && ctx.objectInstance.type != null) {
             method = interpreter
                 .getConstructorResolver()
-                .findMethodInHierarchy(ctx.objectInstance.type, node.name, ctx);
+                .findMethodInHierarchy(ctx.objectInstance.type, callName, ctx);
         }
 
         // If still not found, try imported methods
         if (method == null) {
-            String qName = node.qualifiedName;
+            String qName = callQualifiedName;
             if (qName != null && qName.contains(".")) {
                 String[] parts = qName.split("\\.");
                 if (parts.length == 2) {
@@ -1795,13 +1819,13 @@ public Object visit(TextLiteral node) {
                     }
                 }
             }
-            if (qName == null) qName = node.name;
+            if (qName == null) qName = callName;
             method = interpreter.getImportResolver().findMethod(qName);
         }
 
         // If method not found after all attempts, throw error
         if (method == null) {
-            throw new ProgramError("Method not found: " + node.name);
+            throw new ProgramError("Method not found: " + callName);
         }
 
         // Check if this is a single-slot call
@@ -1814,16 +1838,17 @@ public Object visit(TextLiteral node) {
         // Handle builtin methods
         if (method.isBuiltin) {
             MethodCall evaluatedCall = new MethodCall();
-            evaluatedCall.name = node.name;
+            evaluatedCall.name = callName;
             evaluatedCall.arguments = new ArrayList<Expr>();
             for (Object val : evaluatedArgs) {
                 evaluatedCall.arguments.add(new ValueExpr(val));
             }
             evaluatedCall.slotNames = node.slotNames;
-            evaluatedCall.qualifiedName = node.qualifiedName;
+            evaluatedCall.qualifiedName = callQualifiedName;
             evaluatedCall.target = node.target;
             evaluatedCall.isSuperCall = node.isSuperCall;
             evaluatedCall.isSingleSlotCall = node.isSingleSlotCall;
+            evaluatedCall.isSelfCall = node.isSelfCall;
             
             return interpreter.handleBuiltinMethod(method, evaluatedCall);
         }
@@ -1850,6 +1875,7 @@ public Object visit(TextLiteral node) {
                         null, 
                         typeSystem
                     );
+                    defaultCtx.currentMethodName = callName;
                     pushContext(defaultCtx);
                     try {
                         argValue = dispatch(param.defaultValue);
@@ -1929,6 +1955,8 @@ public Object visit(TextLiteral node) {
                 methodCtx.currentClass = classType;
             }
         }
+        methodCtx.currentMethodName = callName;
+        methodCtx.currentLambdaClosure = null;
 
         // Execute method body
         pushContext(methodCtx);
@@ -1951,7 +1979,7 @@ public Object visit(TextLiteral node) {
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
-            throw new InternalError("Method call execution failed: " + node.name, e);
+            throw new InternalError("Method call execution failed: " + callName, e);
         } finally {
             popContext();
         }
@@ -2380,6 +2408,7 @@ public Object visit(ChainedComparison node) {
         ExecutionContext defaultCtx =
             new ExecutionContext(closure.objectInstance, lambdaLocals, null, null, typeSystem);
         defaultCtx.currentClass = closure.currentClass;
+        defaultCtx.currentLambdaClosure = closure;
         pushContext(defaultCtx);
         try {
             return visit((Base) param.defaultValue);
@@ -2404,6 +2433,7 @@ public Object visit(ChainedComparison node) {
         ExecutionContext exprCtx =
             new ExecutionContext(closure.objectInstance, lambdaLocals, null, null, typeSystem);
         exprCtx.currentClass = closure.currentClass;
+        exprCtx.currentLambdaClosure = closure;
         pushContext(exprCtx);
         try {
             return dispatch(lambda.expressionBody);
@@ -2465,6 +2495,7 @@ public Object visit(ChainedComparison node) {
         ExecutionContext lambdaCtx =
             new ExecutionContext(closure.objectInstance, lambdaLocals, slotValues, slotTypes, typeSystem);
         lambdaCtx.currentClass = closure.currentClass;
+        lambdaCtx.currentLambdaClosure = closure;
         pushContext(lambdaCtx);
         try {
             if (lambda.body != null) {

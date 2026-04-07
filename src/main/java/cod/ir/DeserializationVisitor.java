@@ -328,6 +328,7 @@ final class DeserializationVisitor {
             if (values.containsKey("isGlobal")) n.isGlobal = asBoolean(values.get("isGlobal"));
             if (values.containsKey("target")) n.target = (Expr) values.get("target");
             if (values.containsKey("isSingleSlotCall")) n.isSingleSlotCall = asBoolean(values.get("isSingleSlotCall"));
+            if (values.containsKey("isSelfCall")) n.isSelfCall = asBoolean(values.get("isSelfCall"));
             return;
         }
 

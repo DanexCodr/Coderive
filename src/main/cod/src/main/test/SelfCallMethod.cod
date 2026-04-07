@@ -1,0 +1,23 @@
+unit test
+
+share SelfCallMethod {
+    local factorialByName(n: int) :: result: int {
+        if n <= 1 {
+            ~> result: 1
+        }
+        ~> result: n * [result]:factorialByName(n - 1)
+    }
+
+    local factorialBySelf(n: int) :: result: int {
+        if n <= 1 {
+            ~> result: 1
+        }
+        ~> result: n * <~(n - 1)
+    }
+
+    share main() {
+        out("name=" + [result]:factorialByName(6))
+        out("self=" + [result]:factorialBySelf(6))
+        out("base=" + [result]:factorialBySelf(1))
+    }
+}

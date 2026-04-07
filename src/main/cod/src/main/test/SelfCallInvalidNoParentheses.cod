@@ -1,0 +1,11 @@
+unit test
+
+share SelfCallInvalidNoParentheses {
+    local bad(n: int) :: result: int {
+        ~> result: <~ + n
+    }
+
+    share main() {
+        out([result]:bad(1))
+    }
+}
