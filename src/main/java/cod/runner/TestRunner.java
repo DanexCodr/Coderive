@@ -19,7 +19,7 @@ For production use CommandRunner.
 
 public class TestRunner extends BaseRunner {
 
-    private final String TEST_FILE = "ParamSkip";
+    private final String TEST_FILE = "HelloWorldModule";
     
     private final String androidPath = "/storage/emulated/0";
     private final String definedFilePath =
@@ -58,6 +58,8 @@ public class TestRunner extends BaseRunner {
         DebugSystem.info(
             NAME + LOG_TAG, 
             "Starting interpreter execution...\nInput file: " + config.inputFilename);
+            
+        DebugSystem.startTimer("exec");
 
         // Set file path on interpreter BEFORE parsing
         interpreter.setFilePath(config.inputFilename);
@@ -76,7 +78,6 @@ public class TestRunner extends BaseRunner {
 
         // Only run interpreter if linting completed successfully
         if (lintingCompleted) {
-            Thread.sleep(50);
             executeWithManualInterpreter(ast);
         } else {
             DebugSystem.error(
@@ -84,6 +85,8 @@ public class TestRunner extends BaseRunner {
                 "Linting did not complete successfully. Interpreter execution aborted.");
             throw new RuntimeException("Linting phase failed to complete");
         }
+        System.out.println("\n" + "-----------------------------");
+        System.out.println("Execution completed! Duration: " + DebugSystem.stopTimer("exec") + "ms");
     }
 
     /**
