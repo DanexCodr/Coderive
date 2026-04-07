@@ -1,6 +1,6 @@
-# Coderive Language Specification (v0.8.0 — Fancy Machine)
+# Coderive Language Specification
 
-This page is the wiki-ready **literate specification** for Coderive v0.8.0.
+This page is the wiki-ready **literate specification** for the Coderive language.
 Each section explains both **what a feature is** and **how it is used**.
 
 ## 1) Lexical Categories
@@ -186,6 +186,6 @@ Runtime semantics that affect correctness and performance.
 - Tail-recursive self-calls in return-slot positions use optimized execution paths.
 - Boolean composition is quantifier-first with `all[...]` and `any[...]`.
 
-## 11) Version
+## 11) Scope
 
-This specification targets **Coderive v0.8.0 (Fancy Machine)**.
+This specification is intended as a full-language reference for Coderive, not only a release-delta summary.
