@@ -1371,6 +1371,8 @@ public class ExpressionParser extends BaseParser {
                     "Self-call level after '<~' must be an integer literal or ALL_CAPS constant name: " + levelName,
                     levelToken);
             }
+            // Name-only parse by design; constant resolution/type checking happens at runtime so
+            // closure-scoped constants and captured values remain valid sources for self-call levels.
             selfCallLevelConstantName = levelName;
         }
         if (!is(LPAREN)) {

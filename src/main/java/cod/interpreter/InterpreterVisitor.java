@@ -1483,6 +1483,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
 
         if (ctx.currentLambdaClosure != null) {
             if (resolvedLevel != null && resolvedLevel.intValue() != 0) {
+                // Tail-call trampoline only applies to same-closure self calls.
+                // Parent/grandparent calls switch closure targets, so they are not TCO-safe here.
                 return null;
             }
             return TailCallSignal.forLambda(ctx.currentLambdaClosure, evaluatedArgs);
@@ -2220,6 +2222,8 @@ public Object visit(TextLiteral node) {
         long levelLong;
         try {
             if (unwrapped instanceof AutoStackingNumber) {
+                // Level constants are expected to be small integers in normal usage.
+                // longValue() also enforces integer-only semantics (fails on fractional values).
                 levelLong = ((AutoStackingNumber) unwrapped).longValue();
             } else if (unwrapped instanceof Number) {
                 if (unwrapped instanceof Double || unwrapped instanceof Float) {
@@ -2240,7 +2244,12 @@ public Object visit(TextLiteral node) {
                 "Self-call level constant '" + constantName + "' must be an integer value");
         }
 
-        if (levelLong < Integer.MIN_VALUE || levelLong > Integer.MAX_VALUE) {
+        if (levelLong < 0) {
+            throw new ProgramError(
+                "Self-call level constant '" + constantName + "' cannot be negative: " + levelLong);
+        }
+
+        if (levelLong > Integer.MAX_VALUE) {
             throw new ProgramError(
                 "Self-call level constant '" + constantName + "' is out of supported range: " + levelLong);
         }
