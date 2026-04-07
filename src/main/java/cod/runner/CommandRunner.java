@@ -78,23 +78,29 @@ public class CommandRunner extends BaseRunner {
                 "No input file specified. Usage: CommandRunner <filename> [options]");
         }
 
-        // Set file path on interpreter BEFORE parsing
-        interpreter.setFilePath(config.inputFilename);
+        DebugSystem.startTimer("exec");
+        try {
+            // Set file path on interpreter BEFORE parsing
+            interpreter.setFilePath(config.inputFilename);
 
-        DebugSystem.startTimer("parsing");
-        Program ast = parse(config.inputFilename, interpreter);
-        if (ast == null) {
-            throw new RuntimeException("Parsing failed, AST is null.");
+            DebugSystem.startTimer("parsing");
+            Program ast = parse(config.inputFilename, interpreter);
+            if (ast == null) {
+                throw new RuntimeException("Parsing failed, AST is null.");
+            }
+            DebugSystem.stopTimer("parsing");
+            DebugSystem.info(NAME + LOG_TAG, "AST built successfully");
+            
+            // Initialize IR manager
+            initializeIRManager();
+
+            executeInterpretation(ast);
+
+            DebugSystem.info(NAME + LOG_TAG, "CommandRunner execution completed");
+        } finally {
+            System.out.println("\n-----------------------------");
+            System.out.println("Execution completed! Duration: " + DebugSystem.stopTimer("exec") + "ms");
         }
-        DebugSystem.stopTimer("parsing");
-        DebugSystem.info(NAME + LOG_TAG, "AST built successfully");
-        
-        // Initialize IR manager
-        initializeIRManager();
-
-        executeInterpretation(ast);
-
-        DebugSystem.info(NAME + LOG_TAG, "CommandRunner execution completed");
     }
     
     /**
