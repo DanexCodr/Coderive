@@ -527,9 +527,7 @@ public void run(Object entryPoint) {
     DebugSystem.debug("BROADCAST", "Main class to use: " + mainClassNameToUse);
     DebugSystem.debug("BROADCAST", "Is imported broadcast: " + useImportedBroadcast);
     
-    boolean mainExecuted = false;
-    
-    if (!mainExecuted && mainClassNameToUse != null) {
+    if (mainClassNameToUse != null) {
         DebugSystem.info("INTERPRETER", "Running " + 
             (useImportedBroadcast ? "imported" : "local") + 
             " broadcasted main class: " + mainClassNameToUse);
@@ -595,7 +593,7 @@ public void run(Object entryPoint) {
                 broadcastedMainMethod,
                 "main (broadcast)",
                 "Failed to execute broadcasted main()");
-            mainExecuted = true;
+            return;
         } else {
             String source = useImportedBroadcast ? "imported broadcast" : "local broadcast";
             String errorMsg = source + " main class '" + mainClassNameToUse + 
@@ -614,7 +612,7 @@ public void run(Object entryPoint) {
         }
     }
     
-    if (!mainExecuted) {
+    if (mainClassNameToUse == null) {
         String errorMessage = "No executable main() found in package '" + unit.name + "'\n\n" +
             "This file has no main() method and no local broadcast.\n" +
             "Options:\n" +
