@@ -164,15 +164,24 @@ public class CommandRunner extends BaseRunner {
 
     private void executeInterpretation(Program ast) {
         DebugSystem.info(NAME + LOG_TAG, "Starting program interpretation");
-        
-        // Generate indexes before execution for O(1) import resolution
-        DebugSystem.info(NAME + LOG_TAG, "Generating indexes...");
-        generateIndexes(ast, interpreter);
-        
-        // Compile to IR after index generation
-        if (irManager != null && ast != null && ast.unit != null) {
-            DebugSystem.info(NAME + LOG_TAG, "Generating IR...");
-            compileToBytecode(ast);
+
+        boolean hasImports =
+            ast != null
+                && ast.unit != null
+                && ast.unit.imports != null
+                && ast.unit.imports.imports != null
+                && !ast.unit.imports.imports.isEmpty();
+
+        if (hasImports) {
+            DebugSystem.info(NAME + LOG_TAG, "Generating indexes...");
+            generateIndexes(ast, interpreter);
+
+            if (irManager != null) {
+                DebugSystem.info(NAME + LOG_TAG, "Generating IR...");
+                compileToBytecode(ast);
+            }
+        } else {
+            DebugSystem.debug(NAME + LOG_TAG, "Skipping index/IR generation (no imports)");
         }
         
         interpreter.run(ast);
