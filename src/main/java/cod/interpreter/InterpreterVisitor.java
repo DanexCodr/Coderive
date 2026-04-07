@@ -2228,7 +2228,8 @@ public Object visit(TextLiteral node) {
             } else if (unwrapped instanceof Number) {
                 if (unwrapped instanceof Double || unwrapped instanceof Float) {
                     double numeric = ((Number) unwrapped).doubleValue();
-                    if (Math.floor(numeric) != numeric) {
+                    double fractional = Math.abs(numeric % 1.0d);
+                    if (fractional > 1e-12d && Math.abs(fractional - 1.0d) > 1e-12d) {
                         throw new ProgramError(
                             "Self-call level constant '" + constantName + "' must be an integer value");
                     }
