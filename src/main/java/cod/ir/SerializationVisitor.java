@@ -309,7 +309,7 @@ final class SerializationVisitor implements VisitorImpl<Void> {
 
     @Override
     public Void visit(MethodCall n) {
-        writeNodeStart("MethodCall", 10);
+        writeNodeStart("MethodCall", 11);
         writeNodeField("name", n.name);
         writeNodeField("qualifiedName", n.qualifiedName);
         writeNodeField("arguments", n.arguments);
@@ -320,6 +320,7 @@ final class SerializationVisitor implements VisitorImpl<Void> {
         writeNodeField("target", n.target);
         writeNodeField("isSingleSlotCall", Boolean.valueOf(n.isSingleSlotCall));
         writeNodeField("isSelfCall", Boolean.valueOf(n.isSelfCall));
+        writeNodeField("selfCallLevel", n.selfCallLevel);
         return null;
     }
 

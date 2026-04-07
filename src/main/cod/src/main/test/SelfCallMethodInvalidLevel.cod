@@ -1,0 +1,14 @@
+unit test
+
+share SelfCallMethodInvalidLevel {
+    local bad(n: int) :: result: int {
+        if n < 2 {
+            ~> result: 1
+        }
+        ~> result: n * <~0(n - 1)
+    }
+
+    share main() {
+        out([result]:bad(4))
+    }
+}

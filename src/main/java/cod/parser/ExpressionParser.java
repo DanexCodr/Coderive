@@ -1353,6 +1353,15 @@ public class ExpressionParser extends BaseParser {
     private MethodCall parseSelfCall() {
         Token ltToken = expect(LT);
         Token selfToken = expect(TILDE_ARROW);
+        Integer selfCallLevel = null;
+        if (is(INT_LIT)) {
+            Token levelToken = expect(INT_LIT);
+            try {
+                selfCallLevel = Integer.valueOf(levelToken.getText());
+            } catch (NumberFormatException e) {
+                throw error("Invalid self-call level after '<~': " + levelToken.getText(), levelToken);
+            }
+        }
         if (!is(LPAREN)) {
             throw error("'<~' cannot be used without '()'. Use '<~(...)' for self-calls.", selfToken);
         }
@@ -1360,6 +1369,7 @@ public class ExpressionParser extends BaseParser {
         MethodCall call =
             ASTFactory.createMethodCall(SELF_CALL_PLACEHOLDER, SELF_CALL_PLACEHOLDER, ltToken);
         call.isSelfCall = true;
+        call.selfCallLevel = selfCallLevel;
 
         expect(LPAREN);
         if (!is(RPAREN)) {

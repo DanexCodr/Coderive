@@ -329,6 +329,7 @@ final class DeserializationVisitor {
             if (values.containsKey("target")) n.target = (Expr) values.get("target");
             if (values.containsKey("isSingleSlotCall")) n.isSingleSlotCall = asBoolean(values.get("isSingleSlotCall"));
             if (values.containsKey("isSelfCall")) n.isSelfCall = asBoolean(values.get("isSelfCall"));
+            if (values.containsKey("selfCallLevel")) n.selfCallLevel = asInteger(values.get("selfCallLevel"));
             return;
         }
 
@@ -408,6 +409,10 @@ final class DeserializationVisitor {
 
     private static boolean asBoolean(Object value) {
         return value != null && ((Boolean) value).booleanValue();
+    }
+
+    private static Integer asInteger(Object value) {
+        return value != null ? Integer.valueOf(((Number) value).intValue()) : null;
     }
 
     @SuppressWarnings("unchecked")

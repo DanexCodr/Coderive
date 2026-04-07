@@ -1318,7 +1318,12 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         lambdaCtx.currentClass = parentCtx.currentClass;
         lambdaCtx.currentMethodName = parentCtx.currentMethodName;
         lambdaCtx.currentLambdaClosure =
-            new LambdaClosure(lambda, lambdaLocals, parentCtx.objectInstance, parentCtx.currentClass);
+            new LambdaClosure(
+                lambda,
+                lambdaLocals,
+                parentCtx.objectInstance,
+                parentCtx.currentClass,
+                parentCtx.currentLambdaClosure);
         
         pushContext(lambdaCtx);
         try {
@@ -1737,6 +1742,16 @@ public Object visit(TextLiteral node) {
             String callQualifiedName = node.qualifiedName;
 
             if (node.isSelfCall) {
+                Integer requestedLevel = node.selfCallLevel;
+                if (requestedLevel != null) {
+                    LambdaClosure targetClosure = resolveSelfCallClosure(ctx, requestedLevel.intValue());
+                    List<Object> evaluatedArgs = new ArrayList<Object>();
+                    for (Expr arg : node.arguments) {
+                        Object argValue = dispatch(arg);
+                        evaluatedArgs.add(typeSystem.unwrap(argValue));
+                    }
+                    return invokeLambdaCallback(targetClosure, evaluatedArgs, ctx, SELF_CALL_PLACEHOLDER);
+                }
                 // When both are present (lambda nested in method), self-call targets the innermost callable.
                 if (ctx.currentLambdaClosure != null) {
                     List<Object> evaluatedArgs = new ArrayList<Object>();
@@ -1855,6 +1870,7 @@ public Object visit(TextLiteral node) {
             evaluatedCall.isSuperCall = node.isSuperCall;
             evaluatedCall.isSingleSlotCall = node.isSingleSlotCall;
             evaluatedCall.isSelfCall = node.isSelfCall;
+            evaluatedCall.selfCallLevel = node.selfCallLevel;
             
             return interpreter.handleBuiltinMethod(method, evaluatedCall);
         }
@@ -2029,6 +2045,26 @@ public Object visit(TextLiteral node) {
         throw new InternalError("Method call failed: " + node.name, e);
     }
 }
+
+    private LambdaClosure resolveSelfCallClosure(ExecutionContext ctx, int level) {
+        if (level < 0) {
+            throw new ProgramError("Self-call level cannot be negative: " + level);
+        }
+        if (ctx.currentLambdaClosure == null) {
+            throw new ProgramError(
+                "'<~" + level + "(...)' is only valid inside lambda bodies.");
+        }
+
+        LambdaClosure closure = ctx.currentLambdaClosure;
+        for (int i = 0; i < level; i++) {
+            closure = closure.parentClosure;
+            if (closure == null) {
+                throw new ProgramError(
+                    "Lambda self-call level '<~" + level + "(...)' is out of range for current nesting.");
+            }
+        }
+        return closure;
+    }
 
     private Type findTypeByName(String className) {
         Program currentProgram = interpreter.getCurrentProgram();
@@ -2317,7 +2353,7 @@ public Object visit(ChainedComparison node) {
             }
         }
         
-        return new LambdaClosure(node, captured, ctx.objectInstance, ctx.currentClass);
+        return new LambdaClosure(node, captured, ctx.objectInstance, ctx.currentClass, ctx.currentLambdaClosure);
     }
     
     private Object invokeLambdaCallback(
@@ -2331,7 +2367,13 @@ public Object visit(ChainedComparison node) {
         if (callback instanceof LambdaClosure) {
             closure = (LambdaClosure) callback;
         } else if (callback instanceof Lambda) {
-            closure = new LambdaClosure((Lambda) callback, parentCtx.locals(), parentCtx.objectInstance, parentCtx.currentClass);
+            closure =
+                new LambdaClosure(
+                    (Lambda) callback,
+                    parentCtx.locals(),
+                    parentCtx.objectInstance,
+                    parentCtx.currentClass,
+                    parentCtx.currentLambdaClosure);
         } else {
             String actualType = callback == null ? "null" : callback.getClass().getSimpleName();
             throw new ProgramError(ownerMethod + " expects a lambda callback, got: " + actualType);
