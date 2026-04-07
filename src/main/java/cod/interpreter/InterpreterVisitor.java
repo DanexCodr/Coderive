@@ -1737,6 +1737,7 @@ public Object visit(TextLiteral node) {
             String callQualifiedName = node.qualifiedName;
 
             if (node.isSelfCall) {
+                // When both are present (lambda nested in method), self-call targets the innermost callable.
                 if (ctx.currentLambdaClosure != null) {
                     List<Object> evaluatedArgs = new ArrayList<Object>();
                     for (Expr arg : node.arguments) {
