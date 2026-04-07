@@ -330,6 +330,7 @@ final class DeserializationVisitor {
             if (values.containsKey("isSingleSlotCall")) n.isSingleSlotCall = asBoolean(values.get("isSingleSlotCall"));
             if (values.containsKey("isSelfCall")) n.isSelfCall = asBoolean(values.get("isSelfCall"));
             if (values.containsKey("selfCallLevel")) n.selfCallLevel = asInteger(values.get("selfCallLevel"));
+            if (values.containsKey("selfCallLevelConstantName")) n.selfCallLevelConstantName = (String) values.get("selfCallLevelConstantName");
             return;
         }
 

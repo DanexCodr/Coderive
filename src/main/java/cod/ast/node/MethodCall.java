@@ -18,6 +18,7 @@ public class MethodCall extends Expr {
     public boolean isSingleSlotCall;
     public boolean isSelfCall;
     public Integer selfCallLevel;
+    public String selfCallLevelConstantName;
 
     public MethodCall() {
         this.arguments = new ArrayList<Expr>();
@@ -28,6 +29,7 @@ public class MethodCall extends Expr {
         this.isSingleSlotCall = false;
         this.isSelfCall = false;
         this.selfCallLevel = null;
+        this.selfCallLevelConstantName = null;
     }
     
     @Override

@@ -5,6 +5,7 @@ import cod.error.ParseError;
 import cod.ast.node.*;
 import cod.interpreter.registry.GlobalRegistry;
 import cod.lexer.Token;
+import cod.semantic.NamingValidator;
 import static cod.lexer.TokenType.*;
 import cod.math.AutoStackingNumber;
 import cod.parser.context.*;
@@ -1354,6 +1355,7 @@ public class ExpressionParser extends BaseParser {
         Token ltToken = expect(LT);
         Token selfToken = expect(TILDE_ARROW);
         Integer selfCallLevel = null;
+        String selfCallLevelConstantName = null;
         if (is(INT_LIT)) {
             Token levelToken = expect(INT_LIT);
             try {
@@ -1361,6 +1363,15 @@ public class ExpressionParser extends BaseParser {
             } catch (NumberFormatException e) {
                 throw error("Invalid self-call level after '<~': " + levelToken.getText(), levelToken);
             }
+        } else if (is(ID)) {
+            Token levelToken = expect(ID);
+            String levelName = levelToken.getText();
+            if (!NamingValidator.isAllCaps(levelName)) {
+                throw error(
+                    "Self-call level after '<~' must be an integer literal or ALL_CAPS constant name: " + levelName,
+                    levelToken);
+            }
+            selfCallLevelConstantName = levelName;
         }
         if (!is(LPAREN)) {
             throw error("'<~' cannot be used without '()'. Use '<~(...)' for self-calls.", selfToken);
@@ -1370,6 +1381,7 @@ public class ExpressionParser extends BaseParser {
             ASTFactory.createMethodCall(SELF_CALL_PLACEHOLDER, SELF_CALL_PLACEHOLDER, ltToken);
         call.isSelfCall = true;
         call.selfCallLevel = selfCallLevel;
+        call.selfCallLevelConstantName = selfCallLevelConstantName;
 
         expect(LPAREN);
         if (!is(RPAREN)) {

@@ -17,6 +17,7 @@ import cod.interpreter.handler.*;
 import java.util.*;
 import static cod.syntax.Keyword.*;
 import cod.semantic.ConstructorResolver;
+import cod.semantic.NamingValidator;
 
 public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator {
     private static final String SELF_CALL_PLACEHOLDER = "<~";
@@ -339,9 +340,17 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
         
         try {
-            Object val = node.value != null ? dispatch(node.value) : null;
-            
             ExecutionContext ctx = getCurrentContext();
+            if (NamingValidator.isAllCaps(node.name)) {
+                if (node.value == null) {
+                    throw new ProgramError("Constant '" + node.name + "' must have an initial value");
+                }
+                if (isVariableDeclaredInAnyScope(ctx, node.name)) {
+                    throw new ProgramError("Cannot reassign constant '" + node.name + "'");
+                }
+            }
+
+            Object val = node.value != null ? dispatch(node.value) : null;
             
             // Handle array type conversion for [text] = [int range]
             if (node.explicitType != null && node.explicitType.startsWith("[") && 
@@ -421,6 +430,19 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private boolean isVariableDeclaredInAnyScope(ExecutionContext ctx, String name) {
+        if (ctx == null || name == null) return false;
+        List<Map<String, Object>> localsStack = ctx.getLocalsStack();
+        if (localsStack == null) return false;
+        for (int i = localsStack.size() - 1; i >= 0; i--) {
+            Map<String, Object> scope = localsStack.get(i);
+            if (scope != null && scope.containsKey(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -1457,15 +1479,16 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         if (!methodCall.isSelfCall) return null;
 
         List<Object> evaluatedArgs = evaluateMethodCallArguments(methodCall);
+        Integer resolvedLevel = resolveSelfCallLevelValue(methodCall, ctx);
 
         if (ctx.currentLambdaClosure != null) {
-            if (methodCall.selfCallLevel != null && methodCall.selfCallLevel.intValue() != 0) {
+            if (resolvedLevel != null && resolvedLevel.intValue() != 0) {
                 return null;
             }
             return TailCallSignal.forLambda(ctx.currentLambdaClosure, evaluatedArgs);
         }
 
-        if (methodCall.selfCallLevel != null) {
+        if (resolvedLevel != null) {
             // <~N(...) levels are lambda-only; method contexts are validated in method-call resolution.
             return null;
         }
@@ -1843,7 +1866,7 @@ public Object visit(TextLiteral node) {
             String callQualifiedName = node.qualifiedName;
 
             if (node.isSelfCall) {
-                Integer requestedLevel = node.selfCallLevel;
+                Integer requestedLevel = resolveSelfCallLevelValue(node, ctx);
                 if (requestedLevel != null) {
                     LambdaClosure targetClosure = resolveSelfCallClosure(ctx, requestedLevel.intValue());
                     List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
@@ -1955,6 +1978,7 @@ public Object visit(TextLiteral node) {
             evaluatedCall.isSingleSlotCall = node.isSingleSlotCall;
             evaluatedCall.isSelfCall = node.isSelfCall;
             evaluatedCall.selfCallLevel = node.selfCallLevel;
+            evaluatedCall.selfCallLevelConstantName = node.selfCallLevelConstantName;
             
             return interpreter.handleBuiltinMethod(method, evaluatedCall);
         }
@@ -2166,6 +2190,62 @@ public Object visit(TextLiteral node) {
             }
         }
         return closure;
+    }
+
+    private Integer resolveSelfCallLevelValue(MethodCall node, ExecutionContext ctx) {
+        if (node == null) return null;
+        if (node.selfCallLevel != null) return node.selfCallLevel;
+        if (node.selfCallLevelConstantName == null) return null;
+
+        String constantName = node.selfCallLevelConstantName;
+        Object levelValue = ctx != null ? ctx.getVariable(constantName) : null;
+
+        if (levelValue == null && ctx != null && ctx.getSlotValues() != null
+            && ctx.getSlotValues().containsKey(constantName)) {
+            levelValue = ctx.getSlotValues().get(constantName);
+        }
+
+        if (levelValue == null && ctx != null && ctx.objectInstance != null && ctx.objectInstance.type != null) {
+            levelValue =
+                interpreter
+                    .getConstructorResolver()
+                    .getFieldFromHierarchy(ctx.objectInstance.type, constantName, ctx);
+        }
+
+        if (levelValue == null) {
+            throw new ProgramError("Undefined self-call level constant: " + constantName);
+        }
+
+        Object unwrapped = typeSystem.unwrap(levelValue);
+        long levelLong;
+        try {
+            if (unwrapped instanceof AutoStackingNumber) {
+                levelLong = ((AutoStackingNumber) unwrapped).longValue();
+            } else if (unwrapped instanceof Number) {
+                if (unwrapped instanceof Double || unwrapped instanceof Float) {
+                    double numeric = ((Number) unwrapped).doubleValue();
+                    if (Math.floor(numeric) != numeric) {
+                        throw new ProgramError(
+                            "Self-call level constant '" + constantName + "' must be an integer value");
+                    }
+                }
+                levelLong = ((Number) unwrapped).longValue();
+            } else {
+                throw new ProgramError(
+                    "Self-call level constant '" + constantName + "' must be int, got: "
+                        + typeSystem.getConcreteType(unwrapped));
+            }
+        } catch (ArithmeticException e) {
+            throw new ProgramError(
+                "Self-call level constant '" + constantName + "' must be an integer value");
+        }
+
+        if (levelLong < Integer.MIN_VALUE || levelLong > Integer.MAX_VALUE) {
+            throw new ProgramError(
+                "Self-call level constant '" + constantName + "' is out of supported range: " + levelLong);
+        }
+
+        return Integer.valueOf((int) levelLong);
     }
 
     private Type findTypeByName(String className) {
