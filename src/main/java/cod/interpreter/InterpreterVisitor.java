@@ -273,6 +273,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         try {
             for (Stmt stmt : node.statements) {
                 dispatch(stmt);
+                // Required for recursive lambdas/methods that return via slot assignment inside nested blocks.
                 if (!ctx.slotsInCurrentPath.isEmpty()
                     && interpreter.shouldReturnEarly(ctx.getSlotValues(), ctx.slotsInCurrentPath)) {
                     break;
@@ -1752,7 +1753,8 @@ public Object visit(TextLiteral node) {
                     }
                     return invokeLambdaCallback(targetClosure, evaluatedArgs, ctx, SELF_CALL_PLACEHOLDER);
                 }
-                // When both are present (lambda nested in method), self-call targets the innermost callable.
+                // Without an explicit level, <~(...) resolves to the innermost callable:
+                // current lambda first, then containing method; explicit <~N(...) uses parent lambda levels.
                 if (ctx.currentLambdaClosure != null) {
                     List<Object> evaluatedArgs = new ArrayList<Object>();
                     for (Expr arg : node.arguments) {
