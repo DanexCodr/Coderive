@@ -82,15 +82,13 @@ public Object handleSlotAssignment(SlotAssignment node, ExecutionContext ctx) {
         
         if (varName != null && !varName.isEmpty() && !"_".equals(varName)) {
             return assignToSlot(varName, value, ctx);
-        } else {
-            // Implicit slot - use first available slot
-            if (ctx.getSlotCount() > 0) {
-                String slotTarget = ctx.getSlotName(0); // O(1) with new optimization
-                return assignToSlot(slotTarget, value, ctx);
-            } else {
-                return handleRegularAssignment(varName, value, ctx);
-            }
         }
+        // Implicit slot - use first available slot
+        if (ctx.getSlotCount() > 0) {
+            String slotTarget = ctx.getSlotName(0); // O(1) with new optimization
+            return assignToSlot(slotTarget, value, ctx);
+        }
+        return handleRegularAssignment(varName, value, ctx);
     } catch (ProgramError e) {
         throw e;
     } catch (Exception e) {
@@ -132,14 +130,12 @@ private String determineTargetOptimized(SlotAssignment assign, ExecutionContext 
     
     if (varName != null && !varName.isEmpty() && !"_".equals(varName)) {
         return varName;
-    } else {
-        if (slotIndex < ctx.getSlotCount()) {
-            return ctx.getSlotName(slotIndex); // O(1)
-        } else {
-            throw new ProgramError("Too many positional slot assignments. Expected at most " + 
-                ctx.getSlotCount() + ", got " + (slotIndex + 1));
-        }
     }
+    if (slotIndex < ctx.getSlotCount()) {
+        return ctx.getSlotName(slotIndex); // O(1)
+    }
+    throw new ProgramError("Too many positional slot assignments. Expected at most " + 
+        ctx.getSlotCount() + ", got " + (slotIndex + 1));
 }
 
 // NEW: O(1) slot assignment
@@ -154,9 +150,8 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
             ctx.setSlotValue(slotTarget, value); // O(1)
             ctx.markSlotAssigned(slotTarget); // O(1)
             return value;
-        } else {
-            throw new ProgramError("Assignment to slot '" + slotTarget + "' failed: slot not declared");
         }
+        throw new ProgramError("Assignment to slot '" + slotTarget + "' failed: slot not declared");
     } catch (ProgramError e) {
         throw e;
     } catch (Exception e) {

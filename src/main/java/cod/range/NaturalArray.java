@@ -157,9 +157,8 @@ public class NaturalArray {
             
             if (step > 0) {
                 return ((end - start) / step) + 1;
-            } else {
-                return ((start - end) / Math.abs(step)) + 1;
             }
+            return ((start - end) / Math.abs(step)) + 1;
         }
         
         public long indexAt(long offset) {
@@ -168,9 +167,8 @@ public class NaturalArray {
             
             if (step > 0) {
                 return start + (offset * step);
-            } else {
-                return start - (offset * Math.abs(step));
             }
+            return start - (offset * Math.abs(step));
         }
         
         public boolean isAdjacent(ProcessedRange other) {
@@ -179,9 +177,8 @@ public class NaturalArray {
             
             if (step > 0) {
                 return end + step == other.start;
-            } else {
-                return end + step == other.start; // For negative step, end < start
             }
+            return end + step == other.start; // For negative step, end < start
         }
         
         public ProcessedRange merge(ProcessedRange other) {

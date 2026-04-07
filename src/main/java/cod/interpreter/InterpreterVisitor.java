@@ -440,9 +440,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             Object condValue = dispatch(node.condition);
             if (typeSystem.isTruthy(typeSystem.unwrap(condValue))) {
                 return dispatch(node.thenExpr);
-            } else {
-                return dispatch(node.elseExpr);
             }
+            return dispatch(node.elseExpr);
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -1979,13 +1978,9 @@ public Object visit(TextLiteral node) {
                 }
 
                 if (map.containsKey(requestedSlot)) {
-                    if (node.isSingleSlotCall) {
-                        return map.get(requestedSlot);
-                    }
                     return map.get(requestedSlot);
-                } else {
-                    throw new ProgramError("Undefined method slot: " + requestedSlot);
                 }
+                throw new ProgramError("Undefined method slot: " + requestedSlot);
             } else if (calledMethodHasSlots) {
                 return slotValues;
             }
@@ -2152,9 +2147,8 @@ public Object visit(TextLiteral node) {
                 
                 if (natural.needsConversion()) {
                     return natural.get(index, true);
-                } else {
-                    return natural.get(index);
                 }
+                return natural.get(index);
             }
 
             if (arrayObj instanceof List) {
@@ -2719,9 +2713,8 @@ public Object visit(ChainedComparison node) {
 
                 if (map.containsKey(requestedSlot)) {
                     return map.get(requestedSlot);
-                } else {
-                    throw new ProgramError("Undefined method slot: " + requestedSlot);
                 }
+                throw new ProgramError("Undefined method slot: " + requestedSlot);
             }
 
             return result;
