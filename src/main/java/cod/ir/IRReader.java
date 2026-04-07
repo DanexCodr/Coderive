@@ -2,10 +2,10 @@ package cod.ir;
 
 import cod.ast.node.Type;
 
-import java.io.BufferedInputStream;
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
 import java.io.ObjectInputStream;
 
 public final class IRReader {
@@ -17,39 +17,16 @@ public final class IRReader {
             throw new IOException("IR source file not found: " + file.getAbsolutePath());
         }
 
-        DataInputStream in = null;
+        ObjectInputStream in = null;
         try {
-            in = new DataInputStream(new BufferedInputStream(new java.io.FileInputStream(file)));
-            int magic = in.readInt();
-            int version = in.readInt();
-
-            // New direct object-stream IR path (Load -> Execute)
-            if (magic == IRWriter.IR_STREAM_MAGIC) {
-                if (version != IRWriter.IR_STREAM_VERSION) {
-                    throw new IOException("Unsupported IR stream version: " + version);
-                }
-                try {
-                    ObjectInputStream objectIn = new ObjectInputStream(in);
-                    Object value = objectIn.readObject();
-                    if (!(value instanceof Type)) {
-                        throw new IOException("IR root is not a Type: " + (value == null ? "null" : value.getClass().getName()));
-                    }
-                    return (Type) value;
-                } catch (ClassNotFoundException e) {
-                    throw new IOException("Failed to load IR object graph", e);
-                }
+            in = new ObjectInputStream(new BufferedInputStream(new FileInputStream(file)));
+            Object value = in.readObject();
+            if (!(value instanceof Type)) {
+                throw new IOException("IR root is not a Type: " + (value == null ? "null" : value.getClass().getName()));
             }
-
-            // Legacy IR path for backward compatibility
-            if (magic == IRCodec.MAGIC && version == IRCodec.VERSION) {
-                Object value = IRCodec.readValue(in, 0);
-                if (!(value instanceof Type)) {
-                    throw new IOException("IR root is not a Type: " + (value == null ? "null" : value.getClass().getName()));
-                }
-                return (Type) value;
-            }
-
-            throw new IOException("Invalid IR header");
+            return (Type) value;
+        } catch (ClassNotFoundException e) {
+            throw new IOException("Failed to load IR object graph", e);
         } finally {
             if (in != null) {
                 try {
