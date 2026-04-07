@@ -1,6 +1,7 @@
 package cod.ir;
 
 import cod.ast.node.Type;
+import cod.ptac.CodPTACArtifact;
 
 import java.io.File;
 import java.io.IOException;
@@ -10,6 +11,14 @@ import java.io.ObjectInputStream;
 
 public final class IRReader {
     public Type read(File file) throws IOException {
+        CodPTACArtifact artifact = readArtifact(file);
+        if (artifact == null) {
+            return null;
+        }
+        return artifact.typeSnapshot;
+    }
+
+    public CodPTACArtifact readArtifact(File file) throws IOException {
         if (file == null) {
             throw new IOException("IR source file is null");
         }
@@ -21,10 +30,17 @@ public final class IRReader {
         try {
             in = new ObjectInputStream(new BufferedInputStream(new FileInputStream(file)));
             Object value = in.readObject();
-            if (!(value instanceof Type)) {
-                throw new IOException("IR root is not a Type: " + (value == null ? "null" : value.getClass().getName()));
+            if (value instanceof CodPTACArtifact) {
+                return (CodPTACArtifact) value;
             }
-            return (Type) value;
+            if (value instanceof Type) {
+                CodPTACArtifact legacy = new CodPTACArtifact();
+                legacy.className = ((Type) value).name;
+                legacy.typeSnapshot = (Type) value;
+                return legacy;
+            }
+            throw new IOException("IR root is not a CodPTACArtifact/Type: "
+                + (value == null ? "null" : value.getClass().getName()));
         } catch (ClassNotFoundException e) {
             throw new IOException("Failed to load IR object graph", e);
         } finally {

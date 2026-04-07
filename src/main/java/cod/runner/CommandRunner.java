@@ -7,16 +7,21 @@ import cod.debug.DebugSystem;
 import cod.interpreter.Interpreter;
 import cod.interpreter.Index;
 import cod.ir.IRManager;
+import cod.ptac.CodPTACArtifact;
+import cod.ptac.CodPTACExecutor;
+import cod.ptac.CodPTACOptions;
 
 public class CommandRunner extends BaseRunner {
 
     private final Interpreter interpreter;
     private IRManager irManager;
+    private final CodPTACOptions ptacOptions;
 
     private static final String NAME = "COMMAND";
 
     public CommandRunner() {
         this.interpreter = new Interpreter();
+        this.ptacOptions = CodPTACOptions.current();
     }
 
     @Override
@@ -135,7 +140,7 @@ public class CommandRunner extends BaseRunner {
                 int compiled = 0;
                 for (Type type : ast.unit.types) {
                     bm.save(ast.unit.name, type);
-                    System.out.println("Compiled: " + type.name + " → " + type.name + ".codb");
+                    System.out.println("Compiled (CodP-TAC artifact): " + type.name + " → " + type.name + ".codb");
                     compiled++;
                 }
                 
@@ -184,6 +189,23 @@ public class CommandRunner extends BaseRunner {
             DebugSystem.debug(NAME + LOG_TAG, "Skipping index/IR generation (no imports)");
         }
         
+        if (ptacOptions.isCompileExecuteEnabled() && irManager != null && ast != null && ast.unit != null) {
+            Type entryType = findMainType(ast);
+            if (entryType != null) {
+                CodPTACArtifact artifact = irManager.loadArtifact(ast.unit.name, entryType.name);
+                if (artifact == null) {
+                    irManager.save(ast.unit.name, entryType);
+                    artifact = irManager.loadArtifact(ast.unit.name, entryType.name);
+                }
+                if (artifact != null) {
+                    DebugSystem.info(NAME + LOG_TAG, "Executing using CodP-TAC executor");
+                    new CodPTACExecutor(ptacOptions).execute(artifact, interpreter);
+                    DebugSystem.info(NAME + LOG_TAG, "Program interpretation completed");
+                    return;
+                }
+            }
+        }
+
         interpreter.run(ast);
         DebugSystem.info(NAME + LOG_TAG, "Program interpretation completed");
     }
@@ -206,7 +228,7 @@ public class CommandRunner extends BaseRunner {
             try {
                 irManager.save(unitName, type);
                 compiled++;
-                DebugSystem.debug(NAME + LOG_TAG, "Compiled: " + type.name + " → " + type.name + ".codb");
+                DebugSystem.debug(NAME + LOG_TAG, "Compiled CodP-TAC artifact: " + type.name + " → " + type.name + ".codb");
             } catch (Exception e) {
                 DebugSystem.warn(NAME + LOG_TAG, "Failed to compile " + type.name + ": " + e.getMessage());
             }
@@ -232,6 +254,9 @@ public class CommandRunner extends BaseRunner {
         out();
         out("Commands:");
         out("  compile <file>      Compile source to bytecode (.codb)");
+        out("Environment flags:");
+        out("  COD_PTAC_MODE=legacy|compile-only|compile-execute");
+        out("  COD_PTAC_FALLBACK=true|false");
         out();
         out("Examples:");
         out("  CommandRunner program.cod");
@@ -248,5 +273,19 @@ public class CommandRunner extends BaseRunner {
             e.printStackTrace();
             System.exit(1);
         }
+    }
+
+    private Type findMainType(Program ast) {
+        if (ast == null || ast.unit == null || ast.unit.types == null) return null;
+        for (Type type : ast.unit.types) {
+            if (type == null || type.methods == null) continue;
+            for (Method method : type.methods) {
+                if (method != null && "main".equals(method.methodName)
+                    && (method.parameters == null || method.parameters.isEmpty())) {
+                    return type;
+                }
+            }
+        }
+        return ast.unit.types.isEmpty() ? null : ast.unit.types.get(0);
     }
 }

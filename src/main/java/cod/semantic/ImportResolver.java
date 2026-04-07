@@ -9,6 +9,7 @@ import cod.parser.MainParser;
 import cod.debug.DebugSystem;
 import cod.interpreter.Index;
 import cod.ir.IRManager;
+import cod.ptac.CodPTACArtifact;
 
 import java.util.*;
 import java.io.*;
@@ -57,6 +58,7 @@ public class ImportResolver {
     
     // Cache for loaded TypeNodes (bytecode or parsed)
     private Map<String, Type> loadedTypes = createBoundedMap(LOADED_TYPES_CACHE_LIMIT);
+    private Map<String, CodPTACArtifact> loadedArtifacts = createBoundedMap(LOADED_TYPES_CACHE_LIMIT);
     
     // Filesystem result cache
     private Map<String, CachedFileResult> fileCache = createBoundedMap(FILE_CACHE_LIMIT);
@@ -631,20 +633,23 @@ public class ImportResolver {
         
         DebugSystem.debug("IMPORTS", "Unit: " + unitName + ", Class: " + className);
         
-        // ========== TRY IR FIRST (FAST PATH) ==========
+        // ========== TRY CODE-P-TAC ARTIFACT FIRST (FAST PATH) ==========
         if (irManager != null) {
-            Type cachedType = irManager.load(unitName, className);
-            if (cachedType != null) {
+            CodPTACArtifact artifact = irManager.loadArtifact(unitName, className);
+            if (artifact != null) {
                 bytecodeCacheHits++;
-                DebugSystem.debug("IR", "Loaded " + className + " from .codb (cache hit)");
-                loadedTypes.put(importName, cachedType);
-                return cachedType;
+                DebugSystem.debug("IR", "Loaded " + className + " CodP-TAC artifact from .codb (cache hit)");
+                loadedArtifacts.put(importName, artifact);
+                if (artifact.typeSnapshot != null) {
+                    loadedTypes.put(importName, artifact.typeSnapshot);
+                    return artifact.typeSnapshot;
+                }
             } else {
                 bytecodeCacheMisses++;
                 DebugSystem.debug("IR", ".codb not found for " + className + " (cache miss)");
             }
         }
-        // ========== END IR CHECK ==========
+        // ========== END CodP-TAC CHECK ==========
         
         // Try to get index (fast path for source)
         Index index = getIndex(unitName);
