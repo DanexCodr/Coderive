@@ -3,7 +3,7 @@ package cod.parser.context;
 import cod.lexer.Token;
 import cod.lexer.TokenType;
 import static cod.lexer.TokenType.*;
-import cod.parser.context.*;;
+import cod.parser.context.*;
 import cod.syntax.Keyword;
 import static cod.syntax.Keyword.*;
 import cod.syntax.Symbol;
