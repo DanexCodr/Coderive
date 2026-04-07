@@ -78,23 +78,29 @@ public class CommandRunner extends BaseRunner {
                 "No input file specified. Usage: CommandRunner <filename> [options]");
         }
 
-        // Set file path on interpreter BEFORE parsing
-        interpreter.setFilePath(config.inputFilename);
+        DebugSystem.startTimer("exec");
+        try {
+            // Set file path on interpreter BEFORE parsing
+            interpreter.setFilePath(config.inputFilename);
 
-        DebugSystem.startTimer("parsing");
-        Program ast = parse(config.inputFilename, interpreter);
-        if (ast == null) {
-            throw new RuntimeException("Parsing failed, AST is null.");
+            DebugSystem.startTimer("parsing");
+            Program ast = parse(config.inputFilename, interpreter);
+            if (ast == null) {
+                throw new RuntimeException("Parsing failed, AST is null.");
+            }
+            DebugSystem.stopTimer("parsing");
+            DebugSystem.info(NAME + LOG_TAG, "AST built successfully");
+            
+            // Initialize IR manager
+            initializeIRManager();
+
+            executeInterpretation(ast);
+
+            DebugSystem.info(NAME + LOG_TAG, "CommandRunner execution completed");
+        } finally {
+            System.out.println("\n-----------------------------");
+            System.out.println("Execution completed! Duration: " + DebugSystem.stopTimer("exec") + "ms");
         }
-        DebugSystem.stopTimer("parsing");
-        DebugSystem.info(NAME + LOG_TAG, "AST built successfully");
-        
-        // Initialize IR manager
-        initializeIRManager();
-
-        executeInterpretation(ast);
-
-        DebugSystem.info(NAME + LOG_TAG, "CommandRunner execution completed");
     }
     
     /**
@@ -158,15 +164,24 @@ public class CommandRunner extends BaseRunner {
 
     private void executeInterpretation(Program ast) {
         DebugSystem.info(NAME + LOG_TAG, "Starting program interpretation");
-        
-        // Generate indexes before execution for O(1) import resolution
-        DebugSystem.info(NAME + LOG_TAG, "Generating indexes...");
-        generateIndexes(ast, interpreter);
-        
-        // Compile to IR after index generation
-        if (irManager != null && ast != null && ast.unit != null) {
-            DebugSystem.info(NAME + LOG_TAG, "Generating IR...");
-            compileToBytecode(ast);
+
+        boolean hasImports =
+            ast != null
+                && ast.unit != null
+                && ast.unit.imports != null
+                && ast.unit.imports.imports != null
+                && !ast.unit.imports.imports.isEmpty();
+
+        if (hasImports) {
+            DebugSystem.info(NAME + LOG_TAG, "Generating indexes...");
+            generateIndexes(ast, interpreter);
+
+            if (irManager != null) {
+                DebugSystem.info(NAME + LOG_TAG, "Generating IR...");
+                compileToBytecode(ast);
+            }
+        } else {
+            DebugSystem.debug(NAME + LOG_TAG, "Skipping index/IR generation (no imports)");
         }
         
         interpreter.run(ast);

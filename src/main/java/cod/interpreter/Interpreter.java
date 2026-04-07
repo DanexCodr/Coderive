@@ -475,6 +475,24 @@ public void run(Object entryPoint) {
     
     Unit unit = program.unit;
     initializeImportResolver(unit);
+
+    Type localMainClass = null;
+    Method localMainMethod = null;
+    if (unit.types != null) {
+      for (Type type : unit.types) {
+        Method candidate = findNoArgMainMethod(type);
+        if (candidate != null) {
+          localMainClass = type;
+          localMainMethod = candidate;
+          break;
+        }
+      }
+    }
+    if (localMainMethod != null) {
+      DebugSystem.info("INTERPRETER", "Found local main() in class: " + localMainClass.name);
+      executeMainMethod(localMainClass, localMainMethod, "main (local)", "Failed to execute local main()");
+      return;
+    }
     
     DebugSystem.debug("BROADCAST", "=== STARTING MODULE EXECUTION ===");
     DebugSystem.debug("BROADCAST", "Unit name: " + unit.name);
@@ -509,54 +527,7 @@ public void run(Object entryPoint) {
     DebugSystem.debug("BROADCAST", "Main class to use: " + mainClassNameToUse);
     DebugSystem.debug("BROADCAST", "Is imported broadcast: " + useImportedBroadcast);
     
-    boolean mainExecuted = false;
-    
-    Type localMainClass = null;
-    Method localMainMethod = null;
-    
-    for (Type type : unit.types) {
-        for (Method method : type.methods) {
-            if ("main".equals(method.methodName) && 
-                method.parameters.isEmpty()) {
-                localMainClass = type;
-                localMainMethod = method;
-                break;
-            }
-        }
-        if (localMainClass != null) break;
-    }
-    
-    if (localMainClass != null && localMainMethod != null) {
-        DebugSystem.methodEntry("main (local)", Collections.<String, Object>emptyMap());
-        DebugSystem.info("BROADCAST", "Found local main() in class: " + localMainClass.name);
-        
-        // OPTIMIZED FAST PATH FOR main()
-        ObjectInstance obj = new ObjectInstance(localMainClass);
-        Map<String, Object> locals = new HashMap<String, Object>();
-        ExecutionContext ctx = new ExecutionContext(obj, locals, null, null, typeSystem);
-        
-        visitor.pushContext(ctx);
-        
-        try {
-            if (localMainMethod.body != null) {
-                for (Stmt stmt : localMainMethod.body) {
-                    visitor.visit((Base) stmt);
-                }
-            }
-            DebugSystem.methodExit("main", null);
-            mainExecuted = true;
-        } catch (EarlyExitException e) {
-            DebugSystem.methodExit("main", null);
-            mainExecuted = true;
-        } catch (ProgramError e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InternalError("Failed to execute local main()", e);
-        } finally {
-            visitor.popContext();
-        }
-    }
-    else if (!mainExecuted && mainClassNameToUse != null) {
+    if (mainClassNameToUse != null) {
         DebugSystem.info("INTERPRETER", "Running " + 
             (useImportedBroadcast ? "imported" : "local") + 
             " broadcasted main class: " + mainClassNameToUse);
@@ -616,30 +587,13 @@ public void run(Object entryPoint) {
         }
         
         if (broadcastedClass != null && broadcastedMainMethod != null) {
-            DebugSystem.methodEntry("main (broadcast)", Collections.<String, Object>emptyMap());
             DebugSystem.info("BROADCAST", "Executing broadcasted main() from class: " + broadcastedClass.name);
-            
-            ObjectInstance obj = new ObjectInstance(broadcastedClass);
-            Map<String, Object> locals = new HashMap<String, Object>();
-            ExecutionContext ctx = new ExecutionContext(obj, locals, null, null, typeSystem);
-            
-            visitor.pushContext(ctx);
-            
-            try {
-                if (broadcastedMainMethod.body != null) {
-                    for (Stmt stmt : broadcastedMainMethod.body) {
-                        visitor.visit((Base) stmt);
-                    }
-                }
-                DebugSystem.methodExit("main", null);
-                mainExecuted = true;
-            } catch (ProgramError e) {
-                throw e;
-            } catch (Exception e) {
-                throw new InternalError("Failed to execute broadcasted main()", e);
-            } finally {
-                visitor.popContext();
-            }
+            executeMainMethod(
+                broadcastedClass,
+                broadcastedMainMethod,
+                "main (broadcast)",
+                "Failed to execute broadcasted main()");
+            return;
         } else {
             String source = useImportedBroadcast ? "imported broadcast" : "local broadcast";
             String errorMsg = source + " main class '" + mainClassNameToUse + 
@@ -658,7 +612,7 @@ public void run(Object entryPoint) {
         }
     }
     
-    if (!mainExecuted) {
+    if (mainClassNameToUse == null) {
         String errorMessage = "No executable main() found in package '" + unit.name + "'\n\n" +
             "This file has no main() method and no local broadcast.\n" +
             "Options:\n" +
@@ -794,6 +748,54 @@ public void run(Object entryPoint) {
     }
   }
 
+  private Method findNoArgMainMethod(Type type) {
+    if (type == null || type.methods == null) {
+      return null;
+    }
+    for (Method method : type.methods) {
+      if ("main".equals(method.methodName) && (method.parameters == null || method.parameters.isEmpty())) {
+        return method;
+      }
+    }
+    return null;
+  }
+
+  private Type findTypeByName(Unit unit, String typeName) {
+    if (unit == null || unit.types == null || typeName == null) {
+      return null;
+    }
+    for (Type type : unit.types) {
+      if (typeName.equals(type.name)) {
+        return type;
+      }
+    }
+    return null;
+  }
+
+  private void executeMainMethod(Type ownerType, Method mainMethod, String entryTag, String failureMessage) {
+    DebugSystem.methodEntry(entryTag, Collections.<String, Object>emptyMap());
+    ObjectInstance obj = new ObjectInstance(ownerType);
+    Map<String, Object> locals = new HashMap<String, Object>();
+    ExecutionContext ctx = new ExecutionContext(obj, locals, null, null, typeSystem);
+    visitor.pushContext(ctx);
+    try {
+      if (mainMethod.body != null) {
+        for (Stmt stmt : mainMethod.body) {
+          visitor.visit((Base) stmt);
+        }
+      }
+      DebugSystem.methodExit("main", null);
+    } catch (EarlyExitException e) {
+      DebugSystem.methodExit("main", null);
+    } catch (ProgramError e) {
+      throw e;
+    } catch (Exception e) {
+      throw new InternalError(failureMessage, e);
+    } finally {
+      visitor.popContext();
+    }
+  }
+
   private void runScript(Program program) {
     if (program == null || program.unit == null) {
         throw new InternalError("runScript called with null program or unit");
@@ -845,66 +847,25 @@ public void run(Object entryPoint) {
     initializeImportResolver(unit);
 
     Method mainMethod = null;
-    Type containerType = null;
-
-    for (Type type : unit.types) {
-        if (type.name != null && type.name.equals("__StaticModule__")) {
-            containerType = type;
-            if (type.methods != null) {
-                for (Method node : type.methods) {
-                    if ("main".equals(node.methodName)
-                        && (node.parameters == null || node.parameters.isEmpty())) {
-                        mainMethod = node;
-                        break;
-                    }
-                }
-            }
-            break;
-        }
+    Type containerType = findTypeByName(unit, "__StaticModule__");
+    if (containerType != null) {
+      mainMethod = findNoArgMainMethod(containerType);
     }
-
-    if (mainMethod == null) {
-        for (Type type : unit.types) {
-            if (type.methods != null) {
-                for (Method node : type.methods) {
-                    if ("main".equals(node.methodName)
-                        && (node.parameters == null || node.parameters.isEmpty())) {
-                        mainMethod = node;
-                        containerType = type;
-                        break;
-                    }
-                }
-            }
-            if (mainMethod != null) break;
+    if (mainMethod == null && unit.types != null) {
+      for (Type type : unit.types) {
+        mainMethod = findNoArgMainMethod(type);
+        if (mainMethod != null) {
+          containerType = type;
+          break;
         }
+      }
     }
 
     if (mainMethod == null) {
         throw new ProgramError("Static module requires a 'main()' method");
     }
 
-    DebugSystem.methodEntry("main", Collections.<String, Object>emptyMap());
-    
-    ObjectInstance obj = new ObjectInstance(containerType);
-    Map<String, Object> locals = new HashMap<String, Object>();
-    ExecutionContext ctx = new ExecutionContext(obj, locals, null, null, typeSystem);
-    
-    visitor.pushContext(ctx);
-    
-    try {
-        if (mainMethod.body != null) {
-            for (Stmt stmt : mainMethod.body) {
-                visitor.visit((Base) stmt);
-            }
-        }
-        DebugSystem.methodExit("main", null);
-    } catch (ProgramError e) {
-        throw e;
-    } catch (Exception e) {
-        throw new InternalError("Static module execution failed", e);
-    } finally {
-        visitor.popContext();
-    }
+    executeMainMethod(containerType, mainMethod, "main", "Static module execution failed");
   }
 
   private void initializeImportResolver(Unit unit) {
