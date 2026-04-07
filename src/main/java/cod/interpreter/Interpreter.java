@@ -488,7 +488,7 @@ public void run(Object entryPoint) {
         }
       }
     }
-    if (localMainClass != null && localMainMethod != null) {
+    if (localMainMethod != null) {
       DebugSystem.info("INTERPRETER", "Found local main() in class: " + localMainClass.name);
       executeMainMethod(localMainClass, localMainMethod, "main (local)", "Failed to execute local main()");
       return;
