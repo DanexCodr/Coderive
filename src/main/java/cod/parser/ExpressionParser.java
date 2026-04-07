@@ -1334,9 +1334,11 @@ public class ExpressionParser extends BaseParser {
             throw error("Unexpected end of input in prefix expression");
         }
 
-        Token nextToken = next();
-        if (is(LT) && nextToken != null && is(nextToken, TILDE_ARROW)) {
-            return parseSelfCall();
+        if (is(current, LT)) {
+            Token markerToken = next(1);
+            if (markerToken != null && is(markerToken, TILDE_ARROW)) {
+                return parseSelfCall();
+            }
         }
         
         if (is(BANG, PLUS, MINUS)) {
