@@ -1728,11 +1728,6 @@ public Object visit(TextLiteral node) {
         }
     }
 
-    /**
-     * Self-call resolution rules:
-     * - <~N(...) (explicit level): current lambda level N (0=self, 1=parent, 2=grandparent, ...).
-     * - <~(...) (no level): innermost callable (current lambda if present, otherwise current method).
-     */
     @Override
     @SuppressWarnings("unchecked")
     public Object visit(MethodCall node) {
@@ -2404,8 +2399,9 @@ public Object visit(ChainedComparison node) {
         }
 
         int consumedArgCount = Math.min(params.size(), combinedValues.size());
-        List<Object> values = combinedValues.subList(0, consumedArgCount);
-        List<Object> leftoverValues = combinedValues.subList(consumedArgCount, combinedValues.size());
+        List<Object> values = new ArrayList<Object>(combinedValues.subList(0, consumedArgCount));
+        List<Object> leftoverValues =
+            new ArrayList<Object>(combinedValues.subList(consumedArgCount, combinedValues.size()));
 
         Map<String, Object> lambdaLocals =
             bindLambdaArguments(params, values, closure, ownerMethod);
