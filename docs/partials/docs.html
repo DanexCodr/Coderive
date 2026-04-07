@@ -14,7 +14,24 @@
         <a href="#home" class="back-home-btn" data-route="home">← Back to Home</a>
     </div>
 
-    <div class="docs-section" id="getting-started">
+    <div class="docs-search-wrap">
+        <img src="assets/spec-logo.svg" alt="Coderive v0.8 spec logo" class="docs-spec-logo">
+        <div class="docs-search-controls">
+            <label for="docsSearchInput" class="docs-search-label">Search Documentation & Specification</label>
+            <input id="docsSearchInput" class="docs-search-input" type="search" placeholder="Search keywords, symbols, behavior, syntax..." />
+            <div id="docsSearchMeta" class="docs-search-meta">Showing all sections</div>
+        </div>
+    </div>
+
+    <div class="docs-section searchable-content" id="release-info">
+        <h2>Release: v0.8.0 — Fancy Machine</h2>
+        <p>
+            This documentation set is updated for <strong>Coderive v0.8.0</strong> (<strong>Fancy Machine</strong>).
+            It includes a full language specification section with keyword, symbol, syntax, and runtime behavior details.
+        </p>
+    </div>
+
+    <div class="docs-section searchable-content" id="getting-started">
         <h2>Getting Started</h2>
         <div class="code-block">
 # Download
@@ -32,46 +49,205 @@ java -jar coderive.jar hello.cod
         </div>
     </div>
 
-    <div class="docs-section" id="syntax">
-        <h2>Quick Syntax Overview</h2>
+    <div class="docs-section searchable-content" id="spec-overview">
+        <h2>Language Specification (Comprehensive)</h2>
+        <p>
+            This section defines the current Coderive grammar surface and core runtime behavior.
+        </p>
+    </div>
+
+    <div class="docs-section searchable-content" id="keywords">
+        <h2>Keywords</h2>
         <div class="docs-grid">
             <div class="docs-card">
-                <h3>Variables</h3>
-                <p>Type inference, explicit types, and lazy arrays</p>
-                <div class="docs-code">
-name := "Coderive"
-age: int = 19
-nums := [1 to 1M]
-                </div>
+                <h3>Visibility & Modules</h3>
+                <div class="docs-code">share, local, unit, use</div>
+                <p>
+                    Controls declaration scope/visibility and source organization/imports.
+                </p>
             </div>
-            
             <div class="docs-card">
-                <h3>Functions</h3>
-                <p>Lambda syntax and multiple returns</p>
-                <div class="docs-code">
-add := (\a, b) a + b
-
-calc := (\a, b) {
-  ~> sum: a + b
-}
-                </div>
+                <h3>Object & Type System</h3>
+                <div class="docs-code">is, this, super, policy, with, type</div>
+                <p>
+                    Enables inheritance, instance references, and policy-virality contracts.
+                </p>
             </div>
-            
             <div class="docs-card">
-                <h3>Loops & Ranges</h3>
-                <p>Powerful range syntax with steps</p>
-                <div class="docs-code">
-for i in 1 to 10 by 2 {
-    out(i)
-}
-
-slice := arr[0 to 50 by 5]
-                </div>
+                <h3>Control Flow</h3>
+                <div class="docs-code">if, else, elif, for, of, to, by, break, skip, exit</div>
+                <p>
+                    Structured branching/looping with explicit range iteration syntax.
+                </p>
+            </div>
+            <div class="docs-card">
+                <h3>Core Types & Constants</h3>
+                <div class="docs-code">int, float, text, bool, none, true, false</div>
+                <p>
+                    Built-in primitive/value literals and null-like sentinel.
+                </p>
+            </div>
+            <div class="docs-card">
+                <h3>Logic & Runtime Controls</h3>
+                <div class="docs-code">all, any, get, set, control, unsafe, builtin</div>
+                <p>
+                    Quantifier-first logic and advanced low-level/runtime interaction controls.
+                </p>
+            </div>
+            <div class="docs-card">
+                <h3>Unsafe Primitive Types</h3>
+                <div class="docs-code">i8, i16, i32, i64, u8, u16, u32, u64, f32, f64</div>
+                <p>
+                    Fixed-width numeric primitives enabled via unsafe declaration context.
+                </p>
             </div>
         </div>
     </div>
 
-    <div class="docs-section">
+    <div class="docs-section searchable-content" id="symbols">
+        <h2>Symbols & Operators</h2>
+        <div class="docs-grid">
+            <div class="docs-card">
+                <h3>Assignment & Return</h3>
+                <div class="docs-code">=, :=, ::, ::=, ~&gt;</div>
+                <p>
+                    Includes typed/inferred declaration and slot-return assignment semantics.
+                </p>
+            </div>
+            <div class="docs-card">
+                <h3>Math & Comparison</h3>
+                <div class="docs-code">+, -, *, /, %, ==, !=, &gt;, &lt;, &gt;=, &lt;=</div>
+                <p>
+                    Standard arithmetic/comparison operators with expression precedence.
+                </p>
+            </div>
+            <div class="docs-card">
+                <h3>Range/Sequence Operators</h3>
+                <div class="docs-code">.., #, to, by</div>
+                <p>
+                    Defines range literals, formula shorthand, and step behavior.
+                </p>
+            </div>
+            <div class="docs-card">
+                <h3>Grouping & Access</h3>
+                <div class="docs-code">( ), [ ], { }, ., , , :</div>
+                <p>
+                    Function calls, arrays/range slices, blocks, member access, and named slots.
+                </p>
+            </div>
+            <div class="docs-card">
+                <h3>Unary/Other Symbols</h3>
+                <div class="docs-code">!, ?, |, &, $, _</div>
+                <p>
+                    Negation and reserved/special token support used by parser/runtime features.
+                </p>
+            </div>
+            <div class="docs-card">
+                <h3>Lambda & Self-Call</h3>
+                <div class="docs-code">\\, &lt;~(...), &lt;~N(...), &lt;~CONST(...)</div>
+                <p>
+                    Lambda syntax and recursive self-call syntax for methods and closures.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="docs-section searchable-content" id="core-syntax">
+        <h2>Core Syntax Behaviors</h2>
+        <div class="docs-grid">
+            <div class="docs-card">
+                <h3>Variables, Constants, Types</h3>
+                <div class="docs-code">
+name := "Coderive"
+age: int = 19
+nums := [1 to 1M]
+MAX_RETRY: int = 5
+                </div>
+                <p>
+                    ALL_CAPS identifiers act as constants and require initializers.
+                </p>
+            </div>
+            
+            <div class="docs-card">
+                <h3>Functions, Slots, Lambdas</h3>
+                <div class="docs-code">
+add := (\a, b) a + b
+
+local divide(a: int, b: int)
+:: quotient: float, remainder: int {
+    ~> a / b, a % b
+}
+                </div>
+                <p>
+                    Slot contracts are explicit; lambdas and methods support recursive self-call forms.
+                </p>
+            </div>
+            
+            <div class="docs-card">
+                <h3>Loops & Ranges</h3>
+                <div class="docs-code">
+for i of 1 to 10 by 2 {
+    out(i)
+}
+
+for i of 1..32#*2 { out(i) }
+slice := arr[0 to 50 by 5]
+                </div>
+                <p>
+                    Iteration uses <code>for ... of</code>; <code>for ... in</code> is legacy and unsupported.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="docs-section searchable-content" id="runtime-behavior">
+        <h2>Runtime & Semantic Behavior</h2>
+        <div class="docs-grid">
+            <div class="docs-card">
+                <h3>Control Flow</h3>
+                <p>
+                    Supports <code>if/elif/else</code>, loop control via <code>break</code> and <code>skip</code>,
+                    and early program/method exit via <code>exit</code>.
+                </p>
+            </div>
+            <div class="docs-card">
+                <h3>Quantifier-First Logic</h3>
+                <div class="docs-code">if all[a &gt; 0, b &gt; 0] { ... }
+if any[isAdmin, isOwner] { ... }</div>
+                <p>
+                    Coderive uses <code>all[]</code>/<code>any[]</code> for explicit boolean composition.
+                </p>
+            </div>
+            <div class="docs-card">
+                <h3>Self Calls & Recursion</h3>
+                <p>
+                    <code>&lt;~(...)</code> performs self-call recursion; level form is supported for lambda parent access.
+                    The parser requires call parentheses; bare <code>&lt;~</code> is invalid.
+                </p>
+            </div>
+            <div class="docs-card">
+                <h3>Auto-Currying</h3>
+                <p>
+                    Under-applied lambdas return closures. Extra arguments can chain into returned lambdas,
+                    enabling practical currying workflows.
+                </p>
+            </div>
+            <div class="docs-card">
+                <h3>Policies</h3>
+                <p>
+                    Policy implementations are viral down inheritance chains; descendants must satisfy inherited policy methods.
+                </p>
+            </div>
+            <div class="docs-card">
+                <h3>Natural/Lazy Arrays</h3>
+                <p>
+                    Large ranges are represented lazily with optimized iteration paths and formula-based loop behavior.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="docs-section searchable-content" id="resources">
         <h2>Resources</h2>
         <div class="docs-grid">
             <div class="docs-card">
@@ -90,6 +266,12 @@ slice := arr[0 to 50 by 5]
                 <h3>License</h3>
                 <p>Open source license information</p>
                 <a href="https://github.com/DanexCodr/Coderive/blob/main/LICENSE" target="_blank" class="docs-link">View License →</a>
+            </div>
+            
+            <div class="docs-card">
+                <h3>GitHub Wiki Spec</h3>
+                <p>Wiki-ready language specification markdown for v0.8.0</p>
+                <a href="https://github.com/DanexCodr/Coderive/wiki" target="_blank" class="docs-link">Open Wiki →</a>
             </div>
         </div>
     </div>

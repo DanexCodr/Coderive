@@ -67,6 +67,69 @@
     transform: translateY(-2px);
 }
 
+.docs-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background-color: #181818;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 24px;
+}
+
+.docs-spec-logo {
+    width: 72px;
+    height: 72px;
+    border-radius: 12px;
+    border: 1px solid #333;
+    background: #0d0d0d;
+    flex-shrink: 0;
+}
+
+.docs-search-controls {
+    width: 100%;
+}
+
+.docs-search-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #d1d5db;
+    font-size: 13px;
+    font-family: 'JetBrains Mono Light', monospace;
+}
+
+.docs-search-input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #3a3a3a;
+    background: #0d0d0d;
+    color: #e0e0e0;
+    font-family: 'JetBrains Mono Light', monospace;
+    font-size: 14px;
+    outline: none;
+}
+
+.docs-search-input:focus {
+    border-color: #4a6fa5;
+    box-shadow: 0 0 0 2px rgba(74, 111, 165, 0.2);
+}
+
+.docs-search-meta {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.docs-section.hidden-by-search {
+    display: none;
+}
+
+.docs-section.search-hit h2 {
+    border-bottom-color: #4a6fa5;
+}
+
 .docs-section {
     margin-bottom: 48px;
 }
@@ -227,6 +290,11 @@
 
 /* Responsive */
 @media (max-width: 600px) {
+    .docs-search-wrap {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
     .docs-title {
         font-size: 24px;
     }

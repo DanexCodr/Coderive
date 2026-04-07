@@ -182,7 +182,7 @@ public class REPLRunner {
         help.append("  Output:      out(\"Hello\")\n");
         help.append("  Slots:       ~> result: 42\n");
         help.append("  Control:     if x > 5 { out(\"big\") }\n");
-        help.append("  Loops:       for i in 1 to 5 { out(i) }\n");
+        help.append("  Loops:       for i of 1 to 5 { out(i) }\n");
         help.append("  Multi-line:  Use { } for blocks\n");
         help.append("  Commands:    ;help, ;reset, ;exit/;quit");
         return help.toString();
@@ -275,7 +275,7 @@ public class REPLRunner {
         out("  Output:      out(\"Hello\")");
         out("  Slots:       ~> result: 42");
         out("  Control:     if x > 5 { out(\"big\") }");
-        out("  Loops:       for i in 1 to 5 { out(i) }");
+        out("  Loops:       for i of 1 to 5 { out(i) }");
         out("  Multi-line:  Use { } for blocks (auto-detected)");
         out("  Commands:    ;help, ;reset, ;exit/;quit");
         out();
