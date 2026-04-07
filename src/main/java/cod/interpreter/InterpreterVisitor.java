@@ -20,6 +20,7 @@ import cod.semantic.ConstructorResolver;
 
 public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator {
     private static final String SELF_CALL_PLACEHOLDER = "<~";
+    private static final String SELF_CALL_LAMBDA_OWNER = "self-call lambda";
 
     enum PatternType {
         CONDITIONAL,
@@ -273,7 +274,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         try {
             for (Stmt stmt : node.statements) {
                 dispatch(stmt);
-                // Required for recursive lambdas/methods that return via slot assignment inside nested blocks.
+                // Without this, a nested block can keep executing after ~> assigned all required slots,
+                // so recursive self-calls may ignore their base-case return and continue deeper.
                 if (!ctx.slotsInCurrentPath.isEmpty()
                     && interpreter.shouldReturnEarly(ctx.getSlotValues(), ctx.slotsInCurrentPath)) {
                     break;
@@ -1751,7 +1753,7 @@ public Object visit(TextLiteral node) {
                         Object argValue = dispatch(arg);
                         evaluatedArgs.add(typeSystem.unwrap(argValue));
                     }
-                    return invokeLambdaCallback(targetClosure, evaluatedArgs, ctx, SELF_CALL_PLACEHOLDER);
+                    return invokeLambdaCallback(targetClosure, evaluatedArgs, ctx, SELF_CALL_LAMBDA_OWNER);
                 }
                 // Without an explicit level, <~(...) resolves to the innermost callable:
                 // current lambda first, then containing method; explicit <~N(...) uses parent lambda levels.
@@ -1761,7 +1763,7 @@ public Object visit(TextLiteral node) {
                         Object argValue = dispatch(arg);
                         evaluatedArgs.add(typeSystem.unwrap(argValue));
                     }
-                    return invokeLambdaCallback(ctx.currentLambdaClosure, evaluatedArgs, ctx, SELF_CALL_PLACEHOLDER);
+                    return invokeLambdaCallback(ctx.currentLambdaClosure, evaluatedArgs, ctx, SELF_CALL_LAMBDA_OWNER);
                 }
                 if (ctx.currentMethodName != null && !ctx.currentMethodName.isEmpty()) {
                     callName = ctx.currentMethodName;
