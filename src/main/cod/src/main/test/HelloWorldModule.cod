@@ -1,0 +1,7 @@
+unit test
+
+share HelloWorldModule {
+	share main() {
+		out("Hello World!")
+		}
+	}

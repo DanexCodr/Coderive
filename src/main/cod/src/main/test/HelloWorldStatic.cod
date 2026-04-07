@@ -1,0 +1,5 @@
+unit test
+
+	share main() {
+		out("Hello World!")
+		}
