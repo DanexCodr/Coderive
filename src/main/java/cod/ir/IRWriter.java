@@ -7,8 +7,12 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 
 public final class IRWriter {
+    static final int STREAM_MAGIC = 0xAC0D1EB2;
+    static final int STREAM_VERSION = 1;
+
     public void write(File file, Type type) throws IOException {
         if (file == null) {
             throw new IOException("IR target file is null");
@@ -22,16 +26,31 @@ public final class IRWriter {
             throw new IOException("Failed to create IR directory: " + parent.getAbsolutePath());
         }
 
-        DataOutputStream out = null;
+        BufferedOutputStream buffered = null;
+        DataOutputStream headerOut = null;
+        ObjectOutputStream objectOut = null;
         try {
-            out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)));
-            IRCodec.writeHeader(out);
-            IRCodec.writeValue(out, type, 0);
-            out.flush();
+            buffered = new BufferedOutputStream(new FileOutputStream(file));
+            headerOut = new DataOutputStream(buffered);
+            headerOut.writeInt(STREAM_MAGIC);
+            headerOut.writeInt(STREAM_VERSION);
+            headerOut.flush();
+
+            objectOut = new ObjectOutputStream(buffered);
+            objectOut.writeObject(type);
+            objectOut.flush();
         } finally {
-            if (out != null) {
+            if (objectOut != null) {
                 try {
-                    out.close();
+                    objectOut.close();
+                } catch (IOException ignored) {}
+            } else if (headerOut != null) {
+                try {
+                    headerOut.close();
+                } catch (IOException ignored) {}
+            } else if (buffered != null) {
+                try {
+                    buffered.close();
                 } catch (IOException ignored) {}
             }
         }
