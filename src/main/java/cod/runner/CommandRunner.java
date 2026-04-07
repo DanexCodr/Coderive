@@ -286,6 +286,6 @@ public class CommandRunner extends BaseRunner {
                 }
             }
         }
-        return ast.unit.types.isEmpty() ? null : ast.unit.types.get(0);
+        return !ast.unit.types.isEmpty() ? ast.unit.types.get(0) : null;
     }
 }

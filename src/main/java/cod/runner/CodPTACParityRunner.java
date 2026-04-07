@@ -18,13 +18,13 @@ import java.util.List;
 
 public final class CodPTACParityRunner extends BaseRunner {
     private static final String[] DEFAULT_CASES = new String[] {
-        "/home/runner/work/Coderive/Coderive/src/main/cod/src/main/test/Basic.cod",
-        "/home/runner/work/Coderive/Coderive/src/main/cod/src/main/test/Loop.cod",
-        "/home/runner/work/Coderive/Coderive/src/main/cod/src/main/test/LazyLoop.cod",
-        "/home/runner/work/Coderive/Coderive/src/main/cod/src/main/test/Lambda.cod",
-        "/home/runner/work/Coderive/Coderive/src/main/cod/src/main/test/TailCallOptimization.cod",
-        "/home/runner/work/Coderive/Coderive/src/main/cod/src/main/test/Import.cod",
-        "/home/runner/work/Coderive/Coderive/src/main/cod/src/main/test/LinearRecurrenceOptimization.cod"
+        "src/main/cod/src/main/test/Basic.cod",
+        "src/main/cod/src/main/test/Loop.cod",
+        "src/main/cod/src/main/test/LazyLoop.cod",
+        "src/main/cod/src/main/test/Lambda.cod",
+        "src/main/cod/src/main/test/TailCallOptimization.cod",
+        "src/main/cod/src/main/test/Import.cod",
+        "src/main/cod/src/main/test/LinearRecurrenceOptimization.cod"
     };
 
     @Override
@@ -33,11 +33,11 @@ public final class CodPTACParityRunner extends BaseRunner {
         if (args != null && args.length > 0) {
             for (String arg : args) {
                 if (arg != null && !arg.trim().isEmpty()) {
-                    files.add(arg);
+                    files.add(resolvePath(arg));
                 }
             }
         } else {
-            for (String file : DEFAULT_CASES) files.add(file);
+            for (String file : DEFAULT_CASES) files.add(resolvePath(file));
         }
 
         int passed = 0;
@@ -81,12 +81,19 @@ public final class CodPTACParityRunner extends BaseRunner {
 
         String projectRoot = Index.getProjectRoot();
         if (projectRoot == null) {
-            File f = new File("/home/runner/work/Coderive/Coderive");
-            projectRoot = f.getAbsolutePath();
+            projectRoot = new File(".").getAbsoluteFile().getAbsolutePath();
         }
         final IRManager manager = new IRManager(projectRoot);
         final String unitName = ast.unit.name;
         final Type entryType = findMainType(ast);
+        if (entryType == null) {
+            return captureOutput(new Runnable() {
+                @Override
+                public void run() {
+                    interpreter.run(ast);
+                }
+            });
+        }
         manager.save(unitName, entryType);
         final CodPTACArtifact artifact = manager.loadArtifact(unitName, entryType.name);
         if (artifact == null) {
@@ -103,6 +110,9 @@ public final class CodPTACParityRunner extends BaseRunner {
     }
 
     private Type findMainType(Program ast) {
+        if (ast == null || ast.unit == null || ast.unit.types == null || ast.unit.types.isEmpty()) {
+            return null;
+        }
         for (Type type : ast.unit.types) {
             if (type == null || type.methods == null) continue;
             for (Method method : type.methods) {
@@ -133,6 +143,12 @@ public final class CodPTACParityRunner extends BaseRunner {
     private String normalize(String text) {
         if (text == null) return "";
         return text.replace("\r", "").trim();
+    }
+
+    private String resolvePath(String path) {
+        if (path == null) return null;
+        File file = new File(path);
+        return file.isAbsolute() ? file.getAbsolutePath() : file.getAbsoluteFile().getAbsolutePath();
     }
 
     public static void main(String[] args) {

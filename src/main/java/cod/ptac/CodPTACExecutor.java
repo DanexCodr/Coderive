@@ -238,8 +238,18 @@ public final class CodPTACExecutor {
         if (opcode == CodPTACOpcode.ADD) return left.add(right);
         if (opcode == CodPTACOpcode.SUB) return left.subtract(right);
         if (opcode == CodPTACOpcode.MUL) return left.multiply(right);
-        if (opcode == CodPTACOpcode.DIV) return right.equals(BigInteger.ZERO) ? BigInteger.ZERO : left.divide(right);
-        if (opcode == CodPTACOpcode.MOD) return right.equals(BigInteger.ZERO) ? BigInteger.ZERO : left.mod(right.abs());
+        if (opcode == CodPTACOpcode.DIV) {
+            if (right.equals(BigInteger.ZERO)) {
+                throw new ProgramError("CodP-TAC division by zero");
+            }
+            return left.divide(right);
+        }
+        if (opcode == CodPTACOpcode.MOD) {
+            if (right.equals(BigInteger.ZERO)) {
+                throw new ProgramError("CodP-TAC modulo by zero");
+            }
+            return left.mod(right.abs());
+        }
         return BigInteger.ZERO;
     }
 

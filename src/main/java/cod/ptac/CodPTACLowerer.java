@@ -306,6 +306,9 @@ public final class CodPTACLowerer {
 
         if (pattern.steps != null) {
             for (SequencePattern.Step step : pattern.steps) {
+                if (step == null) {
+                    continue;
+                }
                 CodPTACOperand value = lowerExpr(step.expression, lambda, unit);
                 if (step.tempVar != null) {
                     lambda.instructions.add(new CodPTACInstruction(
@@ -440,7 +443,7 @@ public final class CodPTACLowerer {
         if (range != null && (range.start instanceof TextLiteral || range.end instanceof TextLiteral)) {
             return range.step == null ? CodPTACOpcode.RANGE_L : CodPTACOpcode.RANGE_LS;
         }
-        return range != null && range.step != null ? CodPTACOpcode.RANGE_S : CodPTACOpcode.RANGE_Q;
+        return range != null && range.step != null ? CodPTACOpcode.RANGE_S : CodPTACOpcode.RANGE;
     }
 
     private CodPTACOpcode mapBinary(String op) {
