@@ -1,0 +1,169 @@
+unit scimath
+
+use {
+    math.Math,
+    scimath.SciMath
+}
+
+share Integration {
+    share trapezoid(values: [], dx: int|float) :: int|float {
+        if values.size < 2 { ~> 0 }
+        sum: int|float = 0
+        for i of 0 to values.size - 2 {
+            sum = sum + (values[i] + values[i + 1]) * 0.5 * dx
+        }
+        ~> sum
+    }
+}
+
+share Interpolation {
+    share linear(x0: int|float, y0: int|float, x1: int|float, y1: int|float, x: int|float) :: int|float {
+        if x1 == x0 { ~> y0 }
+        t := (x - x0) / (x1 - x0)
+        ~> y0 + t * (y1 - y0)
+    }
+}
+
+share Convolution {
+    share discrete(a: [], b: []) :: [] {
+        if a.size == 0 { ~> [] }
+        if b.size == 0 { ~> [] }
+        outSize := a.size + b.size - 1
+        outArr := [0 to outSize - 1]
+        for i of 0 to outSize - 1 {
+            outArr[i] = 0
+        }
+        for i of 0 to a.size - 1 {
+            for j of 0 to b.size - 1 {
+                outArr[i + j] = outArr[i + j] + a[i] * b[j]
+            }
+        }
+        ~> outArr
+    }
+}
+
+share Spectral {
+    share fft(values: []) :: [] { ~> SciMath.fft(values) }
+    share ifft(values: []) :: [] { ~> SciMath.ifft(values) }
+}
+
+share Window {
+    share hann(n: int) :: [] {
+        if n <= 0 { ~> [] }
+        if n == 1 { ~> [1] }
+        outArr := [0 to n - 1]
+        for i of 0 to n - 1 {
+            outArr[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (n - 1))
+        }
+        ~> outArr
+    }
+}
+
+share ODE {
+    share rk45(ode: [], y0: int|float, t0: int|float, t1: int|float, h: int|float) :: [] {
+        ~> SciMath.rk45(ode, y0, t0, t1, h)
+    }
+
+    share dop853(ode: [], y0: int|float, t0: int|float, t1: int|float, h: int|float) :: [] {
+        ~> SciMath.dop853(ode, y0, t0, t1, h)
+    }
+
+    share odeint(ode: [], y0: int|float, t0: int|float, t1: int|float, h: int|float) :: [] {
+        ~> SciMath.odeint(ode, y0, t0, t1, h)
+    }
+}
+
+share ErrorFunction {
+    share erf(x: int|float) :: int|float {
+        sign: int|float = 1
+        xx: int|float = x
+        if x < 0 {
+            sign = -1
+            xx = -x
+        }
+        a1: float = 0.254829592
+        a2: float = -0.284496736
+        a3: float = 1.421413741
+        a4: float = -1.453152027
+        a5: float = 1.061405429
+        p: float = 0.3275911
+        t := 1 / (1 + p * xx)
+        y := 1 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t) * Math.exp(-xx * xx)
+        ~> sign * y
+    }
+}
+
+share Bessel {
+    share j0(x: int|float) :: int|float {
+        xx := x * x
+        ~> 1 - xx / 4 + (xx * xx) / 64
+    }
+}
+
+share Airy {
+    share ai(x: int|float) :: int|float {
+        ~> Math.exp(-2 * Math.abs(x) / 3)
+    }
+}
+
+share Elliptic {
+    share k(m: int|float) :: int|float {
+        if m < 0 { ~> 0 }
+        if m >= 1 { ~> 0 }
+        ~> (Math.PI / 2) * (1 + m / 4 + 9 * m * m / 64)
+    }
+}
+
+share Bernoulli {
+    share pmf(k: int, p: int|float) :: int|float {
+        if k == 1 { ~> p }
+        if k == 0 { ~> 1 - p }
+        ~> 0
+    }
+}
+
+share Binomial {
+    share pmf(k: int, n: int, p: int|float) :: int|float {
+        if k < 0 { ~> 0 }
+        if k > n { ~> 0 }
+        c := Math.binomial(n, k)
+        ~> c * Math.pow(p, k) * Math.pow(1 - p, n - k)
+    }
+}
+
+share Geometric {
+    share pmf(k: int, p: int|float) :: int|float {
+        if k < 1 { ~> 0 }
+        ~> Math.pow(1 - p, k - 1) * p
+    }
+}
+
+share LogNormal {
+    share pdf(x: int|float, mu: int|float, sigma: int|float) :: int|float {
+        if x <= 0 { ~> 0 }
+        if sigma <= 0 { ~> 0 }
+        z := (Math.log(x) - mu) / sigma
+        den := x * sigma * Math.sqrt(2 * Math.PI)
+        ~> Math.exp(-0.5 * z * z) / den
+    }
+}
+
+share Weibull {
+    share pdf(x: int|float, k: int|float, lambda: int|float) :: int|float {
+        if x < 0 { ~> 0 }
+        if k <= 0 { ~> 0 }
+        if lambda <= 0 { ~> 0 }
+        xx := x / lambda
+        if xx <= 0 { ~> 0 }
+        ~> (k / lambda) * Math.exp((k - 1) * Math.log(xx)) * Math.exp(-Math.exp(k * Math.log(xx)))
+    }
+}
+
+share Pareto {
+    share pdf(x: int|float, xm: int|float, alpha: int|float) :: int|float {
+        if x < xm { ~> 0 }
+        if xm <= 0 { ~> 0 }
+        if alpha <= 0 { ~> 0 }
+        ~> alpha * Math.exp(alpha * Math.log(xm)) / Math.exp((alpha + 1) * Math.log(x))
+    }
+}
