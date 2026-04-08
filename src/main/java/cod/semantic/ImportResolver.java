@@ -78,6 +78,7 @@ public class ImportResolver {
     
     // Current file location for relative import resolution
     private String srcMainRoot;
+    private String demoSiblingRoot;
     private String currentFileDirectory;
     private String projectRoot;
     
@@ -188,6 +189,21 @@ public class ImportResolver {
                 importPaths.add(0, srcMainRoot);
                 DebugSystem.debug("IMPORTS", "Added srcMainRoot to import paths: " + srcMainRoot);
             }
+
+            this.demoSiblingRoot = null;
+            File srcMainDir = new File(srcMainRoot);
+            File srcDir = srcMainDir.getParentFile();
+            File srcHolder = srcDir != null ? srcDir.getParentFile() : null;
+            if (srcHolder != null && "demo".equals(srcHolder.getName())) {
+                File siblingRoot = srcHolder.getParentFile();
+                if (siblingRoot != null) {
+                    this.demoSiblingRoot = siblingRoot.getAbsolutePath();
+                    if (!importPaths.contains(this.demoSiblingRoot)) {
+                        importPaths.add(1, this.demoSiblingRoot);
+                        DebugSystem.debug("IMPORTS", "Added demo sibling root to import paths: " + this.demoSiblingRoot);
+                    }
+                }
+            }
             
             // Set the project root for Index class (for src/idx/ location)
             Index.setProjectRoot(srcMainRoot);
@@ -226,6 +242,25 @@ public class ImportResolver {
      */
     private String getUnitPath(String unitName) {
         validateUnitName(unitName);
+        if (srcMainRoot != null) {
+            String primaryPath = srcMainRoot + "/" + unitName;
+            File primaryDir = new File(primaryPath);
+            if (primaryDir.exists() && primaryDir.isDirectory()) {
+                return primaryPath;
+            }
+        }
+
+        for (String basePath : importPaths) {
+            if (basePath == null || basePath.isEmpty()) {
+                continue;
+            }
+            String candidate = basePath + "/" + unitName;
+            File dir = new File(candidate);
+            if (dir.exists() && dir.isDirectory()) {
+                return candidate;
+            }
+        }
+
         if (srcMainRoot != null) {
             return srcMainRoot + "/" + unitName;
         }

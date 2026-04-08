@@ -26,9 +26,9 @@ public class TestRunner extends BaseRunner {
     
     private final String androidPath = "/storage/emulated/0";
     private final String definedFilePath =
-        "/JavaNIDE/Programming-Language/Coderive/app/src/main/cod/src/main/test/" + TEST_FILE + ".cod";
+        "/JavaNIDE/Programming-Language/Coderive/app/src/main/cod/demo/src/main/test/" + TEST_FILE + ".cod";
     private final String consoleRelativePath =
-        "src/main/cod/src/main/test/" + TEST_FILE + ".cod";
+        "src/main/cod/demo/src/main/test/" + TEST_FILE + ".cod";
     private final String NAME = "TEST";
     private final DebugSystem.Level level = DebugSystem.Level.OFF;
 

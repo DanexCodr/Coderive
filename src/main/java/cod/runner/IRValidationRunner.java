@@ -13,12 +13,12 @@ import java.util.ArrayList;
 import java.util.Map;
 
 public class IRValidationRunner extends BaseRunner {
-    private static final String INTERNAL_RANGE_SPEC_RELATIVE_PATH = "src/main/internal/RangeSpec.cod";
+    private static final String INTERNAL_RANGE_SPEC_RELATIVE_PATH = "../internal/RangeSpec.cod";
     private static final String INTERNAL_IR_IMPORT_RELATIVE_PATH = "src/main/test/InternalRangeSpecImport.cod";
 
     @Override
     public void run(String[] args) throws Exception {
-        String file = "/home/runner/work/Coderive/Coderive/src/main/cod/src/main/test/Import.cod";
+        String file = "/home/runner/work/Coderive/Coderive/src/main/cod/demo/src/main/test/Import.cod";
         if (args != null && args.length > 0 && args[0] != null && !args[0].isEmpty()) {
             file = args[0];
         }
