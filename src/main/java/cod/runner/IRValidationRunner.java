@@ -13,7 +13,9 @@ import java.util.ArrayList;
 import java.util.Map;
 
 public class IRValidationRunner extends BaseRunner {
+    // Relative to Index project root when running demo files: src/main/cod/demo
     private static final String INTERNAL_RANGE_SPEC_RELATIVE_PATH = "../internal/RangeSpec.cod";
+    // Relative to Index project root; points to the demo import-probe test file.
     private static final String INTERNAL_IR_IMPORT_RELATIVE_PATH = "src/main/test/InternalRangeSpecImport.cod";
 
     @Override
@@ -94,6 +96,7 @@ public class IRValidationRunner extends BaseRunner {
         assertTrue(artifact != null, "Failed to save/load internal CodP-TAC artifact");
 
         ImportResolver resolver = new ImportResolver();
+        // setCurrentFileDirectory accepts a file path and derives its parent directory.
         resolver.setCurrentFileDirectory(importProbeFile);
         resolver.clearCache();
         Type loaded = resolver.resolveImport("internal.RangeSpec");

@@ -19,6 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 public class ImportResolver {
+    // The new layout uses src/main/cod/demo/src/main with internal as a sibling of demo.
+    private static final String DEMO_DIR_NAME = "demo";
     private static final Pattern SAFE_UNIT_NAME_PATTERN =
         Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*");
     private static final int IMPORT_NAME_CACHE_LIMIT = 4096;
@@ -194,7 +196,7 @@ public class ImportResolver {
             File srcMainDir = new File(srcMainRoot);
             File srcDir = srcMainDir.getParentFile();
             File srcHolder = srcDir != null ? srcDir.getParentFile() : null;
-            if (srcHolder != null && "demo".equals(srcHolder.getName())) {
+            if (srcHolder != null && DEMO_DIR_NAME.equals(srcHolder.getName())) {
                 File siblingRoot = srcHolder.getParentFile();
                 if (siblingRoot != null) {
                     this.demoSiblingRoot = siblingRoot.getAbsolutePath();
@@ -242,11 +244,15 @@ public class ImportResolver {
      */
     private String getUnitPath(String unitName) {
         validateUnitName(unitName);
-        if (srcMainRoot != null) {
-            String primaryPath = srcMainRoot + "/" + unitName;
-            File primaryDir = new File(primaryPath);
+        String fallbackPath = buildUnitPath(srcMainRoot, unitName);
+        if (fallbackPath == null) {
+            fallbackPath = buildUnitPath("src/main", unitName);
+        }
+
+        if (fallbackPath != null) {
+            File primaryDir = new File(fallbackPath);
             if (primaryDir.exists() && primaryDir.isDirectory()) {
-                return primaryPath;
+                return fallbackPath;
             }
         }
 
@@ -261,10 +267,14 @@ public class ImportResolver {
             }
         }
 
-        if (srcMainRoot != null) {
-            return srcMainRoot + "/" + unitName;
+        return fallbackPath;
+    }
+
+    private static String buildUnitPath(String basePath, String unitName) {
+        if (basePath == null || basePath.isEmpty()) {
+            return null;
         }
-        return "src/main/" + unitName;
+        return new File(basePath, unitName).getPath();
     }
 
     private void validateUnitName(String unitName) {
