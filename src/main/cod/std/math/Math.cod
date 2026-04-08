@@ -15,11 +15,12 @@ PHI: float = 1.618033988749895
 
 share fibonacci(n: int) :: int|float {
     if n < 0 { ~> 0 }
-    fibHelper := [result]:\(k: int, a: int|float, b: int|float) :: result: int|float {
+    fibTailRecursive := [result]:\(k: int, a: int|float, b: int|float) :: result: int|float {
         if k == 0 { ~> result: a }
+        if k == 1 { ~> result: b }
         ~> result: <~(k - 1, b, a + b)
     }
-    ~> fibHelper(n, 0, 1)
+    ~> fibTailRecursive(n, 0, 1)
 }
 catalan: [int] = [1, 1, 2, 5, 14, 42, 132, 429]
 
