@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Scanner;
 
 public final class CodPTACParityRunner extends BaseRunner {
+    private static final String NUMBER_PATTERN = "[-+]?\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?";
     
     private final String androidPath = "/storage/emulated/0";
     private final String baseTestPath = "/JavaNIDE/Programming-Language/Coderive/app/src/main/cod/src/main/test/";
@@ -259,17 +260,16 @@ public final class CodPTACParityRunner extends BaseRunner {
 
     private String normalize(String text) {
         if (text == null) return "";
-        String number = "[-+]?\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?";
         String normalized = text.replace("\r\n", "\n").replace("\r", "\n");
         String[] lines = normalized.split("\n");
         StringBuilder sb = new StringBuilder();
         for (String line : lines) {
             String cleaned = line.trim().replaceFirst("^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}\\]\\s*", "");
-            cleaned = cleaned.replaceFirst("(?i)(Output-aware loop time:\\s*)" + number + "(\\s*ms)", "$1<TIME>$2");
-            cleaned = cleaned.replaceFirst("(?i)(Timer resolution:\\s*)" + number + "(\\s*ms)", "$1<TIME>$2");
-            cleaned = cleaned.replaceFirst("(?i)(elapsed_ms=)" + number, "$1<TIME>");
-            cleaned = cleaned.replaceFirst("(?i)(.*\\btime:\\s*)" + number + "(\\s*ms.*)", "$1<TIME>$2");
-            cleaned = cleaned.replaceFirst("(.*:\\s*)" + number + "(\\s*ms)$", "$1<TIME>$2");
+            cleaned = cleaned.replaceFirst("(?i)(Output-aware loop time:\\s*)" + NUMBER_PATTERN + "(\\s*ms)", "$1<TIME>$2");
+            cleaned = cleaned.replaceFirst("(?i)(Timer resolution:\\s*)" + NUMBER_PATTERN + "(\\s*ms)", "$1<TIME>$2");
+            cleaned = cleaned.replaceFirst("(?i)(elapsed_ms=)" + NUMBER_PATTERN, "$1<TIME>");
+            cleaned = cleaned.replaceFirst("(?i)(.*\\btime:\\s*)" + NUMBER_PATTERN + "(\\s*ms.*)", "$1<TIME>$2");
+            cleaned = cleaned.replaceFirst("(.*:\\s*)" + NUMBER_PATTERN + "(\\s*ms)$", "$1<TIME>$2");
             cleaned = cleaned.replaceFirst("NaturalArray\\[id=\\d+", "NaturalArray[id=<ID>");
             sb.append(cleaned).append("\n");
         }
