@@ -4,10 +4,10 @@ import cod.ast.node.Type;
 import cod.ptac.CodPTACArtifact;
 
 import java.io.BufferedOutputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 
 public final class IRWriter {
     public void write(File file, Type type) throws IOException {
@@ -30,15 +30,15 @@ public final class IRWriter {
             throw new IOException("Failed to create IR directory: " + parent.getAbsolutePath());
         }
 
-        ObjectOutputStream objectOut = null;
+        DataOutputStream out = null;
         try {
-            objectOut = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream(file)));
-            objectOut.writeObject(artifact);
-            objectOut.flush();
+            out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)));
+            IRArtifactCodec.writeArtifact(out, artifact);
+            out.flush();
         } finally {
-            if (objectOut != null) {
+            if (out != null) {
                 try {
-                    objectOut.close();
+                    out.close();
                 } catch (IOException ignored) {}
             }
         }

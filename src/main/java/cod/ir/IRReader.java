@@ -3,11 +3,11 @@ package cod.ir;
 import cod.ast.node.Type;
 import cod.ptac.CodPTACArtifact;
 
-import java.io.File;
-import java.io.IOException;
 import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.File;
 import java.io.FileInputStream;
-import java.io.ObjectInputStream;
+import java.io.IOException;
 
 public final class IRReader {
     public Type read(File file) throws IOException {
@@ -26,23 +26,10 @@ public final class IRReader {
             throw new IOException("IR source file not found: " + file.getAbsolutePath());
         }
 
-        ObjectInputStream in = null;
+        DataInputStream in = null;
         try {
-            in = new ObjectInputStream(new BufferedInputStream(new FileInputStream(file)));
-            Object value = in.readObject();
-            if (value instanceof CodPTACArtifact) {
-                return (CodPTACArtifact) value;
-            }
-            if (value instanceof Type) {
-                CodPTACArtifact legacy = new CodPTACArtifact();
-                legacy.className = ((Type) value).name;
-                legacy.typeSnapshot = (Type) value;
-                return legacy;
-            }
-            throw new IOException("IR root is not a CodPTACArtifact/Type: "
-                + (value == null ? "null" : value.getClass().getName()));
-        } catch (ClassNotFoundException e) {
-            throw new IOException("Failed to load IR object graph", e);
+            in = new DataInputStream(new BufferedInputStream(new FileInputStream(file)));
+            return IRArtifactCodec.readArtifact(in);
         } finally {
             if (in != null) {
                 try {

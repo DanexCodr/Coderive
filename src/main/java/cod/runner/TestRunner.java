@@ -352,7 +352,7 @@ public class TestRunner extends BaseRunner {
             outE("Options:");
             outE("  -o <file>      Output file");
             outE("Environment flags:");
-            outE("  COD_PTAC_MODE=legacy|compile-only|compile-execute");
+            outE("  COD_PTAC_MODE=interpreter|compile-only|compile-execute");
             outE("  COD_PTAC_FALLBACK=true|false");
             outE();
             outE("Example:");
