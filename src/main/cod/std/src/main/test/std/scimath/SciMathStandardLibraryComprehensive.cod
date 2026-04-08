@@ -1,0 +1,100 @@
+unit test.std.scimath
+
+use {
+    math.**,
+    scimath.*,
+    scimath.distribution.*
+}
+
+share SciMathStandardLibraryComprehensive {
+    share main() {
+        out("== constants ==")
+        out(SciMath.AVOGADRO > 1)
+        out(SciMath.BOLTZMANN > 0)
+        out(SciMath.SPEED_OF_LIGHT)
+
+        out("== complex ==")
+        z1 := Complex.make(2, 3)
+        z2 := Complex.make(1, -4)
+        zAdd := Complex.add(z1, z2)
+        zMul := Complex.mul(z1, z2)
+        out(zAdd[0])
+        out(zAdd[1])
+        out(zMul[0])
+        out(zMul[1])
+        out(Complex.abs(z1))
+
+        out("== linear algebra/scimath core ==")
+        out(SciMath.dot([1, 2, 3], [4, 5, 6]))
+        out(SciMath.norm([3, 4]))
+        eig := SciMath.eigh([[2, 0], [0, 8]])
+        out(eig[0])
+        out(eig[1])
+        inv := SciMath.inverse([[4, 7], [2, 6]])
+        out(inv[0][0])
+        out(inv[0][1])
+        out(inv[1][0])
+        out(inv[1][1])
+
+        out("== spectral and ode ==")
+        spectrum := Spectral.fft([1, 0, 0, 0])
+        inverseFftResult := Spectral.ifft(spectrum)
+        out(spectrum.size)
+        out(inverseFftResult[0])
+        odeFunction := [\(t: int|float, y: int|float) y]
+        initialValue: int|float = 1
+        startTime: int|float = 0
+        endTime: int|float = 1
+        stepSize: int|float = 0.5
+        rk45Result := ODE.rk45(odeFunction, initialValue, startTime, endTime, stepSize)
+        dop853Result := ODE.dop853(odeFunction, initialValue, startTime, endTime, stepSize)
+        odeintResult := ODE.odeint(odeFunction, initialValue, startTime, endTime, stepSize)
+        out(rk45Result.size)
+        out(dop853Result.size)
+        out(odeintResult.size)
+
+        out("== methods wrappers ==")
+        out(Integration.trapezoid([0, 1, 2], 1))
+        out(Interpolation.linear(0, 0, 10, 20, 5))
+        conv := Convolution.discrete([1, 2], [3, 4])
+        out(conv[0])
+        out(conv[1])
+        out(conv[2])
+        win := Window.hann(4)
+        out(win[0])
+        out(win[3])
+
+        out("== special functions ==")
+        out(ErrorFunction.erf(0))
+        out(Bessel.j0(0))
+        out(Airy.ai(0))
+        out(Elliptic.k(0))
+
+        out("== stats and tests ==")
+        out(SciMath.lineregress([1, 2, 3], [2, 4, 6])[0])
+        out(SciMath.lineregress([1, 2, 3], [2, 4, 6])[1])
+        out(SciMath.anova([[1, 2, 3], [2, 3, 4], [6, 7, 8]]) > 0)
+        out(SciMath.shapiro([1, 2, 3, 4]))
+        out(SciMath.mannwhitneyu([1, 2, 3], [2, 3, 4]))
+        out(SciMath.chi2contingency([10, 20], [15, 15]))
+        out(SciMath.kstest([0.1, 0.5, 0.9], [0.2, 0.5, 0.8]))
+
+        out("== distributions ==")
+        out(Bernoulli.pmf(1, 0.3))
+        out(Binomial.pmf(2, 5, 0.5))
+        out(Geometric.pmf(3, 0.5))
+        out(LogNormal.pdf(1.5, 0, 1))
+        out(Weibull.pdf(2, 2, 1))
+        out(Pareto.pdf(2, 1, 3))
+
+        out(Normal.pdf(0, 0, 1))
+        out(Normal.cdf(0, 0, 1))
+        out(Uniform.pdf(0.25, 0, 1))
+        out(Uniform.cdf(0.25, 0, 1))
+        out(Exponential.pdf(1, 2))
+        out(Exponential.cdf(1, 2))
+        out(Beta.pdf(0.5, 2, 3))
+        out(Gamma.pdf(2, 3, 2))
+        out(Poisson.pmf(4, 2.5))
+    }
+}

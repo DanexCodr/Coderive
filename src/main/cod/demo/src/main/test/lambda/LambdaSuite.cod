@@ -1,0 +1,20 @@
+unit test.lambda
+
+share LambdaSuite {
+    share main() {
+        out("== lambda core ==")
+        classic := [1, 2, 3, 4].reduce(\(acc, value) acc + value, 0)
+        out(classic)
+        autoCurried := [1, 2, 3, 4].reduce(\(acc) \(value) acc + value, 0)
+        out(autoCurried)
+        withIndex := [5, 6, 7].reduce(\(acc) \(value) \(idx) acc + value + idx, 0)
+        out(withIndex)
+
+        mapped := [1, 2, 3].map($item * 2)
+        out(mapped[0])
+        out(mapped[1])
+        out(mapped[2])
+
+        out([1, 2, 3, 4].reduce(\(acc, value) acc * value, 1))
+    }
+}
