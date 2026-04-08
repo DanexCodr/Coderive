@@ -117,8 +117,6 @@ public class ImportResolver {
 
     private static <K, V> Map<K, V> createBoundedMap(final int maxSize) {
         Map<K, V> lru = new LinkedHashMap<K, V>(maxSize + 1, 0.75f, true) {
-            private static final long serialVersionUID = 1L;
-
             @Override
             protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
                 // removeEldestEntry is evaluated after insertion, so '>' enforces maxSize.

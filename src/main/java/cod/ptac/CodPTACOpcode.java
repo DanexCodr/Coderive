@@ -1,8 +1,7 @@
 package cod.ptac;
 
-import java.io.Serializable;
 
-public enum CodPTACOpcode implements Serializable {
+public enum CodPTACOpcode {
     // Core TAC
     NOP(CodPTACLayer.CORE_TAC),
     ASSIGN(CodPTACLayer.CORE_TAC),
