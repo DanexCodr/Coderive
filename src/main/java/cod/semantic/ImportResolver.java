@@ -825,15 +825,6 @@ public class ImportResolver {
         DebugSystem.debug("IMPORTS", "Scanning for: " + dirPath);
         
         List<String> pathsToTry = new ArrayList<String>();
-        String unitDirPath = getUnitPath(unitName);
-        if (unitDirPath != null) {
-            pathsToTry.add(unitDirPath + File.separator + className + ".cod");
-            String moduleMainFileName = toModuleMainFileName(unitName);
-            if (moduleMainFileName != null) {
-                pathsToTry.add(unitDirPath + File.separator + moduleMainFileName + ".cod");
-            }
-        }
-        
         if (srcMainRoot != null) {
             pathsToTry.add(srcMainRoot + "/" + dirPath);
             pathsToTry.add(srcMainRoot + "/" + dirPath + ".cod");
@@ -851,6 +842,15 @@ public class ImportResolver {
             
             pathsToTry.add(basePath + "/" + dirPath);
             pathsToTry.add(basePath + "/" + dirPath + ".cod");
+        }
+
+        String unitDirPath = getUnitPath(unitName);
+        if (unitDirPath != null) {
+            pathsToTry.add(unitDirPath + File.separator + className + ".cod");
+            String moduleMainFileName = toModuleMainFileName(unitName);
+            if (moduleMainFileName != null) {
+                pathsToTry.add(unitDirPath + File.separator + moduleMainFileName + ".cod");
+            }
         }
         
         pathsToTry.add(dirPath);
