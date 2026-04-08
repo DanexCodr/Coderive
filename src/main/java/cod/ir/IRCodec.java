@@ -396,10 +396,13 @@ final class IRCodec {
 
     private static byte[] obfuscate(byte[] bytes, long hash) {
         byte[] out = new byte[bytes.length];
+        // XOR is its own inverse, so this method safely serves both encode and decode paths.
+        int[] masks = new int[8];
+        for (int i = 0; i < masks.length; i++) {
+            masks[i] = (int) ((hash >>> (i * 8)) & 0xFFL);
+        }
         for (int i = 0; i < bytes.length; i++) {
-            int shift = (i & 7) * 8;
-            int mask = (int) ((hash >>> shift) & 0xFFL);
-            out[i] = (byte) (bytes[i] ^ mask);
+            out[i] = (byte) (bytes[i] ^ masks[i & 7]);
         }
         return out;
     }
