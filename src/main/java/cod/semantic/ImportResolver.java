@@ -23,6 +23,7 @@ public class ImportResolver {
     private static final String DEMO_DIR_NAME = "demo";
     private static final Pattern SAFE_UNIT_NAME_PATTERN =
         Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*");
+    private static final Map<String, String> STANDARD_UNIT_PATH_OVERRIDES = createStandardUnitPathOverrides();
     private static final int IMPORT_NAME_CACHE_LIMIT = 4096;
     private static final int TYPE_CACHE_LIMIT = 4096;
     private static final int INDEX_CACHE_LIMIT = 1024;
@@ -265,6 +266,15 @@ public class ImportResolver {
             if (dir.exists() && dir.isDirectory()) {
                 return candidate;
             }
+
+            String overrideDir = STANDARD_UNIT_PATH_OVERRIDES.get(unitName);
+            if (overrideDir != null) {
+                String overrideCandidate = new File(basePath, overrideDir).getPath();
+                File override = new File(overrideCandidate);
+                if (override.exists() && override.isDirectory()) {
+                    return overrideCandidate;
+                }
+            }
         }
 
         return fallbackPath;
@@ -281,6 +291,24 @@ public class ImportResolver {
         return unitName.replace('.', '/');
     }
 
+    private static Map<String, String> createStandardUnitPathOverrides() {
+        Map<String, String> overrides = new HashMap<String, String>();
+        overrides.put("math", "std/math");
+        return Collections.unmodifiableMap(overrides);
+    }
+
+    private static String toModuleMainFileName(String unitName) {
+        if (unitName == null || unitName.isEmpty()) {
+            return null;
+        }
+        int lastDot = unitName.lastIndexOf('.');
+        String simpleName = lastDot >= 0 ? unitName.substring(lastDot + 1) : unitName;
+        if (simpleName.isEmpty()) {
+            return null;
+        }
+        return Character.toUpperCase(simpleName.charAt(0)) + simpleName.substring(1);
+    }
+
     private void validateUnitName(String unitName) {
         if (unitName == null || unitName.isEmpty()) {
             throw new IllegalArgumentException("Unit name cannot be null/empty");
@@ -288,6 +316,13 @@ public class ImportResolver {
         if (!SAFE_UNIT_NAME_PATTERN.matcher(unitName).matches()) {
             throw new ProgramError("Invalid import unit name: " + unitName);
         }
+    }
+
+    private boolean isMatchingProgramUnit(Program program, String expectedUnitName) {
+        if (program == null || program.unit == null || program.unit.name == null) {
+            return false;
+        }
+        return expectedUnitName.equals(program.unit.name);
     }
     
     /**
@@ -707,6 +742,12 @@ public class ImportResolver {
                 
                 Program program = loadImportFromFileCached(filePath);
                 if (program != null) {
+                    if (!isMatchingProgramUnit(program, unitName)) {
+                        throw new ProgramError(
+                            "Import unit mismatch for '" + importName + "': file declares unit '" +
+                            program.unit.name + "'"
+                        );
+                    }
                     // Extract the Type from the program
                     for (Type type : program.unit.types) {
                         if (type.name.equals(className)) {
@@ -820,12 +861,12 @@ public class ImportResolver {
                 try {
                     Program program = loadImportFromFileCached(absolutePath);
                     if (program != null) {
-                        if (program.unit != null && program.unit.name != null) {
-                            if (!program.unit.name.equals(importName)) {
-                                DebugSystem.warn("IMPORTS", 
-                                    "Imported file unit name '" + program.unit.name + 
-                                    "' does not match import name '" + importName + "'");
-                            }
+                        if (!isMatchingProgramUnit(program, unitName)) {
+                            DebugSystem.debug("IMPORTS",
+                                "Skipping unit mismatch at " + absolutePath +
+                                ": expected '" + unitName + "', found '" +
+                                (program.unit != null ? program.unit.name : "null") + "'");
+                            continue;
                         }
                         
                         // Extract the Type
@@ -1458,6 +1499,8 @@ public class ImportResolver {
     private Program loadStaticModuleProgram(String unitName) {
         validateUnitName(unitName);
         String dirPath = unitName.replace('.', '/');
+        String moduleMainFileName = toModuleMainFileName(unitName);
+        String unitDirPath = getUnitPath(unitName);
         List<String> pathsToTry = new ArrayList<String>();
         
         if (srcMainRoot != null) {
@@ -1476,11 +1519,17 @@ public class ImportResolver {
         }
         
         pathsToTry.add(dirPath + ".cod");
+        if (unitDirPath != null && moduleMainFileName != null) {
+            pathsToTry.add(unitDirPath + "/" + moduleMainFileName + ".cod");
+        }
         
         for (String path : pathsToTry) {
             try {
                 Program program = loadImportFromFileCached(path);
                 if (program != null) {
+                    if (!isMatchingProgramUnit(program, unitName)) {
+                        continue;
+                    }
                     return program;
                 }
             } catch (Exception e) {
