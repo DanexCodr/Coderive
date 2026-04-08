@@ -31,6 +31,7 @@ public final class RangeObjects {
     public static ObjectInstance createMultiRangeSpec(Type type, List<Object> ranges) {
         ObjectInstance instance = new ObjectInstance(type);
         instance.fields.put(MULTI_MARKER, Boolean.TRUE);
+        // Defensive copy to preserve immutability of runtime multi-range objects.
         instance.fields.put(RANGES_FIELD, new ArrayList<Object>(ranges != null ? ranges : Collections.<Object>emptyList()));
         return instance;
     }
@@ -38,7 +39,9 @@ public final class RangeObjects {
     public static boolean isRangeSpec(Object value) {
         if (!(value instanceof ObjectInstance)) return false;
         ObjectInstance instance = (ObjectInstance) value;
+        Object markerValue = instance.fields.get(RANGE_MARKER);
         if (hasMarker(instance.fields, RANGE_MARKER)) return true;
+        if (markerValue instanceof Boolean && !((Boolean) markerValue).booleanValue()) return false;
         return instance.fields.containsKey(START_FIELD)
             && instance.fields.containsKey(END_FIELD)
             && instance.fields.containsKey(STEP_FIELD);

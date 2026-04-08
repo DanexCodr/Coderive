@@ -135,7 +135,26 @@ public class NaturalArray {
         }
         
         public ProcessedRange(Object start, Object end, Object step) {
-            this(RangeObjects.createRangeSpec(null, step, start, end));
+            long s = 0, e = 0, st = 0;
+            boolean ok = true;
+            String err = null;
+            try {
+                s = toLongIndex(start);
+                e = toLongIndex(end);
+                if (step != null) {
+                    st = toLongIndex(step);
+                } else {
+                    st = (s < e) ? 1L : -1L;
+                }
+            } catch (Exception ex) {
+                ok = false;
+                err = ex.getMessage();
+            }
+            this.start = s;
+            this.end = e;
+            this.step = st;
+            this.valid = ok;
+            this.error = err;
         }
         
         // Helper methods using pre-processed values
