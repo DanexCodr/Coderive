@@ -260,7 +260,7 @@ public class ImportResolver {
             if (basePath == null || basePath.isEmpty()) {
                 continue;
             }
-            String candidate = basePath + "/" + unitName;
+            String candidate = buildUnitPath(basePath, unitName);
             File dir = new File(candidate);
             if (dir.exists() && dir.isDirectory()) {
                 return candidate;
@@ -274,7 +274,11 @@ public class ImportResolver {
         if (basePath == null || basePath.isEmpty()) {
             return null;
         }
-        return new File(basePath, unitName).getPath();
+        return new File(basePath, toUnitDirectoryPath(unitName)).getPath();
+    }
+
+    private static String toUnitDirectoryPath(String unitName) {
+        return unitName.replace('.', '/');
     }
 
     private void validateUnitName(String unitName) {
@@ -662,17 +666,16 @@ public class ImportResolver {
             return loadedTypes.get(importName);
         }
         
-        // Parse import name: unit.Class
-        String[] parts = importName.split("\\.");
-        if (parts.length != 2) {
+        int lastDot = importName.lastIndexOf('.');
+        if (lastDot <= 0 || lastDot >= importName.length() - 1) {
             throw new ProgramError(
                 "Invalid import format: '" + importName + "'\n" +
-                "Expected format: unit.Class (e.g., sample.Imported)"
+                "Expected format: unit.Class (e.g., sample.Imported, internal.range.RangeSpec)"
             );
         }
         
-        String unitName = parts[0];
-        String className = parts[1];
+        String unitName = importName.substring(0, lastDot);
+        String className = importName.substring(lastDot + 1);
         
         DebugSystem.debug("IMPORTS", "Unit: " + unitName + ", Class: " + className);
         

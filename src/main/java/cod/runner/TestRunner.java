@@ -210,9 +210,9 @@ public class TestRunner extends BaseRunner {
         // Also check for imported units
         if (ast != null && ast.unit != null && ast.unit.imports != null) {
             for (String importName : ast.unit.imports.imports) {
-                String[] parts = importName.split("\\.");
-                if (parts.length > 0) {
-                    String importedUnit = parts[0];
+                int lastDot = importName.lastIndexOf('.');
+                if (lastDot > 0) {
+                    String importedUnit = importName.substring(0, lastDot);
                     Index importedIdx = Index.load(importedUnit);
                     if (importedIdx != null) {
                         DebugSystem.info(NAME + LOG_TAG, "✓ Index found for imported unit '" + 

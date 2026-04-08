@@ -1,10 +1,13 @@
 unit test
 
-use {internal.RangeSpec}
+use {internal.range.RangeSpec, internal.range.MultiRangeSpec}
 
 share InternalRangeSpecImport {
     share main() {
-        out(internal.RangeSpec.format(1, 1, 5))
-        out(internal.RangeSpec.format(2, 1, 9))
+        out(internal.range.RangeSpec.format(1, 1, 5))
+        out(internal.range.RangeSpec.format(2, 1, 9))
+        first := internal.range.RangeSpec(1, 1, 5)
+        second := internal.range.RangeSpec(2, 1, 9)
+        out(internal.range.MultiRangeSpec([first, second]).toText())
     }
 }

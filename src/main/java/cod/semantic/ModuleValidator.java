@@ -143,9 +143,9 @@ public final class ModuleValidator {
         }
 
         String firstUnitPart;
-        int dotIndex = unitName.indexOf('.');
+        int dotIndex = unitName.lastIndexOf('.');
         if (dotIndex != -1) {
-            firstUnitPart = unitName.substring(0, dotIndex);
+            firstUnitPart = unitName.substring(dotIndex + 1);
         } else {
             firstUnitPart = unitName;
         }
