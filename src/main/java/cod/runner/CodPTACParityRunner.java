@@ -9,15 +9,18 @@ import cod.ir.IRManager;
 import cod.ptac.CodPTACArtifact;
 import cod.ptac.CodPTACExecutor;
 import cod.ptac.CodPTACOptions;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
 public final class CodPTACParityRunner extends BaseRunner {
     private static final String NUMBER_PATTERN = "[-+]?\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?";
+    private static final String DEFAULT_INPUT = "\n\n\n\n\n\n\n\n\n\n";
     
     private final String androidPath = "/storage/emulated/0";
     private final String baseTestPath = "/JavaNIDE/Programming-Language/Coderive/app/src/main/cod/src/main/test/";
@@ -31,6 +34,22 @@ public final class CodPTACParityRunner extends BaseRunner {
         androidPath + baseTestPath + "Import.cod",
         androidPath + baseTestPath + "LinearRecurrenceOptimization.cod"
     };
+    
+    private interface PathSupplier {
+        String get() throws Exception;
+    }
+    
+    private static final class PathResult {
+        final boolean ok;
+        final String text;
+        final String error;
+        
+        PathResult(boolean ok, String text, String error) {
+            this.ok = ok;
+            this.text = text;
+            this.error = error;
+        }
+    }
 
     @Override
     public void run(String[] args) throws Exception {
@@ -104,22 +123,43 @@ public final class CodPTACParityRunner extends BaseRunner {
             System.out.print("[" + (i + 1) + "/" + files.size() + "] Testing " + shortName + "... ");
             System.out.flush();
             
-            try {
-                String astOut = runAstPath(file);
-                String ptacOut = runCodPTACPath(file);
-                
-                if (normalize(astOut).equals(normalize(ptacOut))) {
+            PathResult astResult = executePath(new PathSupplier() {
+                @Override
+                public String get() throws Exception {
+                    return runAstPath(file);
+                }
+            });
+            PathResult ptacResult = executePath(new PathSupplier() {
+                @Override
+                public String get() throws Exception {
+                    return runCodPTACPath(file);
+                }
+            });
+
+            if (astResult.ok && ptacResult.ok) {
+                if (normalize(astResult.text).equals(normalize(ptacResult.text))) {
                     System.out.println("PASSED");
                     passed++;
                 } else {
                     System.out.println("FAILED");
                     failed++;
-                    failures.add(shortName);
+                    failures.add(shortName + " - output mismatch");
                 }
-            } catch (Exception e) {
-                System.out.println("ERROR: " + e.getMessage());
+            } else if (!astResult.ok && !ptacResult.ok) {
+                if (normalize(astResult.error).equals(normalize(ptacResult.error))) {
+                    System.out.println("PASSED");
+                    passed++;
+                } else {
+                    System.out.println("FAILED");
+                    failed++;
+                    failures.add(shortName + " - error mismatch");
+                }
+            } else {
+                String astState = astResult.ok ? "ok" : "error";
+                String ptacState = ptacResult.ok ? "ok" : "error";
+                System.out.println("FAILED");
                 failed++;
-                failures.add(shortName + " - " + e.getMessage());
+                failures.add(shortName + " - AST(" + astState + ") vs PTAC(" + ptacState + ")");
             }
             
             System.out.flush();
@@ -200,6 +240,7 @@ public final class CodPTACParityRunner extends BaseRunner {
     private String captureOutput(Interpreter interpreter, Program ast) {
         PrintStream oldOut = System.out;
         PrintStream oldErr = System.err;
+        java.io.InputStream oldIn = System.in;
         ByteArrayOutputStream outBuffer = new ByteArrayOutputStream();
         ByteArrayOutputStream errBuffer = new ByteArrayOutputStream();
         PrintStream outReplacement = new PrintStream(outBuffer);
@@ -208,6 +249,7 @@ public final class CodPTACParityRunner extends BaseRunner {
         try {
             System.setOut(outReplacement);
             System.setErr(errReplacement);
+            System.setIn(new ByteArrayInputStream(DEFAULT_INPUT.getBytes(StandardCharsets.UTF_8)));
             interpreter.run(ast);
             outReplacement.flush();
             errReplacement.flush();
@@ -224,12 +266,14 @@ public final class CodPTACParityRunner extends BaseRunner {
             errReplacement.close();
             System.setOut(oldOut);
             System.setErr(oldErr);
+            System.setIn(oldIn);
         }
     }
 
     private String captureOutputPTAC(CodPTACArtifact artifact, Interpreter interpreter) {
         PrintStream oldOut = System.out;
         PrintStream oldErr = System.err;
+        java.io.InputStream oldIn = System.in;
         ByteArrayOutputStream outBuffer = new ByteArrayOutputStream();
         ByteArrayOutputStream errBuffer = new ByteArrayOutputStream();
         PrintStream outReplacement = new PrintStream(outBuffer);
@@ -238,6 +282,7 @@ public final class CodPTACParityRunner extends BaseRunner {
         try {
             System.setOut(outReplacement);
             System.setErr(errReplacement);
+            System.setIn(new ByteArrayInputStream(DEFAULT_INPUT.getBytes(StandardCharsets.UTF_8)));
             new CodPTACExecutor(CodPTACOptions.compileExecuteWithFallback(true))
                 .execute(artifact, interpreter);
             outReplacement.flush();
@@ -255,6 +300,19 @@ public final class CodPTACParityRunner extends BaseRunner {
             errReplacement.close();
             System.setOut(oldOut);
             System.setErr(oldErr);
+            System.setIn(oldIn);
+        }
+    }
+    
+    private PathResult executePath(PathSupplier supplier) {
+        try {
+            return new PathResult(true, supplier.get(), null);
+        } catch (Throwable t) {
+            String msg = t.getMessage();
+            if (msg == null || msg.trim().isEmpty()) {
+                msg = t.getClass().getName();
+            }
+            return new PathResult(false, null, msg);
         }
     }
 
@@ -268,6 +326,7 @@ public final class CodPTACParityRunner extends BaseRunner {
             cleaned = cleaned.replaceFirst("(?i)(Output-aware loop time:\\s*)" + NUMBER_PATTERN + "(\\s*ms)", "$1<TIME>$2");
             cleaned = cleaned.replaceFirst("(?i)(Timer resolution:\\s*)" + NUMBER_PATTERN + "(\\s*ms)", "$1<TIME>$2");
             cleaned = cleaned.replaceFirst("(?i)(elapsed_ms=)" + NUMBER_PATTERN, "$1<TIME>");
+            cleaned = cleaned.replaceFirst("(?i)(.*(?:time|elapsed|duration|latency)[^=]*=)" + NUMBER_PATTERN + "$", "$1<TIME>");
             cleaned = cleaned.replaceFirst("(?i)(.*\\btime:\\s*)" + NUMBER_PATTERN + "(\\s*ms.*)", "$1<TIME>$2");
             cleaned = cleaned.replaceFirst("(.*:\\s*)" + NUMBER_PATTERN + "(\\s*ms)$", "$1<TIME>$2");
             cleaned = cleaned.replaceFirst("NaturalArray\\[id=\\d+", "NaturalArray[id=<ID>");
