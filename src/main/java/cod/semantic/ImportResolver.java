@@ -303,9 +303,6 @@ public class ImportResolver {
         }
         int lastDot = unitName.lastIndexOf('.');
         String simpleName = lastDot >= 0 ? unitName.substring(lastDot + 1) : unitName;
-        if (simpleName.isEmpty()) {
-            return null;
-        }
         return Character.toUpperCase(simpleName.charAt(0)) + simpleName.substring(1);
     }
 
@@ -743,21 +740,22 @@ public class ImportResolver {
                 Program program = loadImportFromFileCached(filePath);
                 if (program != null) {
                     if (!isMatchingProgramUnit(program, unitName)) {
-                        throw new ProgramError(
-                            "Import unit mismatch for '" + importName + "': file declares unit '" +
-                            program.unit.name + "'"
-                        );
-                    }
-                    // Extract the Type from the program
-                    for (Type type : program.unit.types) {
-                        if (type.name.equals(className)) {
-                            // Save IR for next time
-                            if (irManager != null) {
-                                irManager.save(unitName, type);
-                                DebugSystem.debug("IR", "Saved " + className + " to .codb");
+                        DebugSystem.debug("IMPORTS",
+                            "Skipping indexed file due to unit mismatch for '" + importName +
+                            "': expected '" + unitName + "', found '" +
+                            (program.unit != null ? program.unit.name : "null") + "'");
+                    } else {
+                        // Extract the Type from the program
+                        for (Type type : program.unit.types) {
+                            if (type.name.equals(className)) {
+                                // Save IR for next time
+                                if (irManager != null) {
+                                    irManager.save(unitName, type);
+                                    DebugSystem.debug("IR", "Saved " + className + " to .codb");
+                                }
+                                loadedTypes.put(importName, type);
+                                return type;
                             }
-                            loadedTypes.put(importName, type);
-                            return type;
                         }
                     }
                 }
