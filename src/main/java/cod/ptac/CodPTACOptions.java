@@ -2,7 +2,7 @@ package cod.ptac;
 
 public final class CodPTACOptions {
     public enum Mode {
-        LEGACY,
+        INTERPRETER,
         COMPILE_ONLY,
         COMPILE_EXECUTE
     }
@@ -51,13 +51,14 @@ public final class CodPTACOptions {
     }
 
     private static Mode parseMode(String raw) {
-        if (raw == null) return Mode.LEGACY;
+        if (raw == null) return Mode.INTERPRETER;
         String normalized = raw.trim().toLowerCase();
+        if ("interpreter".equals(normalized)) return Mode.INTERPRETER;
         if ("compile-only".equals(normalized)) return Mode.COMPILE_ONLY;
         if ("compile_execute".equals(normalized) || "compile-execute".equals(normalized)) {
             return Mode.COMPILE_EXECUTE;
         }
-        return Mode.LEGACY;
+        return Mode.INTERPRETER;
     }
 
     private static String firstNonEmpty(String a, String b) {

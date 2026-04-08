@@ -255,7 +255,7 @@ public class CommandRunner extends BaseRunner {
         out("Commands:");
         out("  compile <file>      Compile source to bytecode (.codb)");
         out("Environment flags:");
-        out("  COD_PTAC_MODE=legacy|compile-only|compile-execute");
+        out("  COD_PTAC_MODE=interpreter|compile-only|compile-execute");
         out("  COD_PTAC_FALLBACK=true|false");
         out();
         out("Examples:");
