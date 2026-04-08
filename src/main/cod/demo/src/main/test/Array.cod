@@ -1,7 +1,7 @@
 unit test
 
 use {
-    lang.Math
+    std.Math
 }
 
 // Test 2 - Should work based on parseTypeReference() output  
