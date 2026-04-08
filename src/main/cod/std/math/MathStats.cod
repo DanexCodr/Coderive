@@ -1,6 +1,6 @@
 unit math
 
-share MathStats {
+share Stats {
     share mean(values: []) :: int|float {
         if values.size == 0 { ~> 0 }
         sum: int|float = 0
@@ -58,7 +58,7 @@ share MathStats {
 
     share variance(values: []) :: int|float {
         if values.size == 0 { ~> 0 }
-        mu := MathStats.mean(values)
+        mu := Stats.mean(values)
         sumSq: int|float = 0
         for i of 0 to values.size - 1 {
             d := values[i] - mu
@@ -68,7 +68,7 @@ share MathStats {
     }
 
     share stddev(values: []) :: int|float {
-        ~> MathCore.sqrt(MathStats.variance(values))
+        ~> Core.sqrt(Stats.variance(values))
     }
 
     share runningMean(values: []) :: [] {
@@ -84,13 +84,13 @@ share MathStats {
 
     share runningStddev(values: []) :: [] {
         if values.size == 0 { ~> [] }
-        means := MathStats.runningMean(values)
+        means := Stats.runningMean(values)
         outArr := [0 to values.size - 1]
         sumSq: int|float = 0
         for i of 0 to values.size - 1 {
             d := values[i] - means[i]
             sumSq = sumSq + d * d
-            outArr[i] = MathCore.sqrt(sumSq / (i + 1))
+            outArr[i] = Core.sqrt(sumSq / (i + 1))
         }
         ~> outArr
     }

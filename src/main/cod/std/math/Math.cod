@@ -1,12 +1,11 @@
 unit math
 
 use {
-    math.MathCore,
-    math.MathTrig,
-    math.MathNumberTheory,
-    math.MathRandom,
-    math.MathLinearAlgebra,
-    math.MathStats
+    math.Trig,
+    math.NumberTheory,
+    math.Random,
+    math.LinearAlgebra,
+    math.Stats
 }
 
 PI: float = 3.141592653589793
@@ -14,80 +13,222 @@ E: float = 2.718281828459045
 TAU: float = 6.283185307179586
 PHI: float = 1.618033988749895
 
-fibonacci: [int] = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
+share fibonacci(n: int) :: int|float {
+    compute := [result]:\(k: int, a: int|float, b: int|float) :: result: int|float {
+        if k < 0 { ~> result: <~1(-k) }
+        if k == 0 { ~> result: a }
+        ~> result: <~(k - 1, b, a + b)
+    }
+    ~> compute(n, 0, 1)
+}
 catalan: [int] = [1, 1, 2, 5, 14, 42, 132, 429]
 
-share abs(x: int|float) :: int|float { ~> MathCore.abs(x) }
-share sign(x: int|float) :: int|float { ~> MathCore.sign(x) }
-share min(a: int|float, b: int|float) :: int|float { ~> MathCore.min(a, b) }
-share max(a: int|float, b: int|float) :: int|float { ~> MathCore.max(a, b) }
-share lerp(a: int|float, b: int|float, t: int|float) :: int|float { ~> MathCore.lerp(a, b, t) }
-share floor(x: int|float) :: int|float { ~> MathCore.floor(x) }
-share ceil(x: int|float) :: int|float { ~> MathCore.ceil(x) }
-share round(x: int|float) :: int|float { ~> MathCore.round(x) }
-share trunc(x: int|float) :: int|float { ~> MathCore.trunc(x) }
-share frac(x: int|float) :: int|float { ~> MathCore.frac(x) }
-share pow(base: int|float, exponent: int) :: int|float { ~> MathCore.pow(base, exponent) }
-share sqrt(x: int|float) :: int|float { ~> MathCore.sqrt(x) }
-share cbrt(x: int|float) :: int|float { ~> MathCore.cbrt(x) }
-share hypot(a: int|float, b: int|float) :: int|float { ~> MathCore.hypot(a, b) }
-share square(x: int|float) :: int|float { ~> MathCore.square(x) }
-share cube(x: int|float) :: int|float { ~> MathCore.cube(x) }
-share exp(x: int|float) :: int|float { ~> MathCore.exp(x) }
-share expm1(x: int|float) :: int|float { ~> MathCore.expm1(x) }
-share log(x: int|float) :: int|float { ~> MathCore.log(x) }
-share log10(x: int|float) :: int|float { ~> MathCore.log10(x) }
-share log2(x: int|float) :: int|float { ~> MathCore.log2(x) }
-share log1(x: int|float) :: int|float { ~> MathCore.log1(x) }
-share log1p(x: int|float) :: int|float { ~> MathCore.log1p(x) }
+share Core {
+    PI: float = 3.141592653589793
+    E: float = 2.718281828459045
 
-share sin(x: int|float) :: int|float { ~> MathTrig.sin(x) }
-share cos(x: int|float) :: int|float { ~> MathTrig.cos(x) }
-share tan(x: int|float) :: int|float { ~> MathTrig.tan(x) }
-share asin(x: int|float) :: int|float { ~> MathTrig.asin(x) }
-share acos(x: int|float) :: int|float { ~> MathTrig.acos(x) }
-share atan(x: int|float) :: int|float { ~> MathTrig.atan(x) }
-share atan2(y: int|float, x: int|float) :: int|float { ~> MathTrig.atan2(y, x) }
-share sinh(x: int|float) :: int|float { ~> MathTrig.sinh(x) }
-share cosh(x: int|float) :: int|float { ~> MathTrig.cosh(x) }
-share tanh(x: int|float) :: int|float { ~> MathTrig.tanh(x) }
-share asinh(x: int|float) :: int|float { ~> MathTrig.asinh(x) }
-share acosh(x: int|float) :: int|float { ~> MathTrig.acosh(x) }
-share atanh(x: int|float) :: int|float { ~> MathTrig.atanh(x) }
-share toRadians(x: int|float) :: int|float { ~> MathCore.toRadians(x) }
-share toDegrees(x: int|float) :: int|float { ~> MathCore.toDegrees(x) }
+    share abs(x: int|float) :: int|float {
+        if x < 0 {
+            ~> -x
+        }
+        ~> x
+    }
 
-share gcd(a: int, b: int) :: int|float { ~> MathNumberTheory.gcd(a, b) }
-share lcd(a: int, b: int) :: int|float { ~> MathNumberTheory.lcd(a, b) }
-share lcm(a: int, b: int) :: int|float { ~> MathNumberTheory.lcm(a, b) }
-share isPrime(n: int) :: int|float { ~> MathNumberTheory.isPrime(n) }
-share nextPrime(n: int) :: int|float { ~> MathNumberTheory.nextPrime(n) }
-share prevPrime(n: int) :: int|float { ~> MathNumberTheory.prevPrime(n) }
-share factorize(n: int) :: [] { ~> MathNumberTheory.factorize(n) }
-share factorial(n: int) :: int|float { ~> MathNumberTheory.factorial(n) }
-share binomial(n: int, k: int) :: int|float { ~> MathNumberTheory.binomial(n, k) }
-share permutations(n: int, k: int) :: int|float { ~> MathNumberTheory.permutations(n, k) }
-share combinations(n: int, k: int) :: int|float { ~> MathNumberTheory.combinations(n, k) }
+    share sign(x: int|float) :: int|float {
+        if x > 0 { ~> 1 }
+        if x < 0 { ~> -1 }
+        ~> 0
+    }
 
-share random() :: int|float { ~> MathRandom.random() }
-share random(max: int) :: int|float { ~> MathRandom.random(max) }
-share random(min: int, max: int) :: int|float { ~> MathRandom.random(min, max) }
-share randomGaussian() :: int|float { ~> MathRandom.randomGaussian() }
-share randomSeed(seed: int) { MathRandom.randomSeed(seed) }
+    share min(a: int|float, b: int|float) :: int|float {
+        if a < b { ~> a }
+        ~> b
+    }
 
-share dot(a: [], b: []) :: int|float { ~> MathLinearAlgebra.dot(a, b) }
-share cross(a: [], b: []) :: [] { ~> MathLinearAlgebra.cross(a, b) }
-share magnitude(a: []) :: int|float { ~> MathLinearAlgebra.magnitude(a) }
-share normalize(a: []) :: [] { ~> MathLinearAlgebra.normalize(a) }
-share matmul(a: [], b: []) :: [] { ~> MathLinearAlgebra.matmul(a, b) }
-share transpose(a: []) :: [] { ~> MathLinearAlgebra.transpose(a) }
-share identity(n: int) :: [] { ~> MathLinearAlgebra.identity(n) }
-share determinant(a: []) :: int|float { ~> MathLinearAlgebra.determinant(a) }
+    share max(a: int|float, b: int|float) :: int|float {
+        if a > b { ~> a }
+        ~> b
+    }
 
-share mean(values: []) :: int|float { ~> MathStats.mean(values) }
-share median(values: []) :: int|float { ~> MathStats.median(values) }
-share mode(values: []) :: int|float { ~> MathStats.mode(values) }
-share variance(values: []) :: int|float { ~> MathStats.variance(values) }
-share stddev(values: []) :: int|float { ~> MathStats.stddev(values) }
-share runningMean(values: []) :: [] { ~> MathStats.runningMean(values) }
-share runningStddev(values: []) :: [] { ~> MathStats.runningStddev(values) }
+    share lerp(a: int|float, b: int|float, t: int|float) :: int|float {
+        ~> a + (b - a) * t
+    }
+
+    share trunc(x: int|float) :: int|float {
+        ~> x - (x % 1)
+    }
+
+    share floor(x: int|float) :: int|float {
+        t := Core.trunc(x)
+        if x < t {
+            ~> t - 1
+        }
+        ~> t
+    }
+
+    share ceil(x: int|float) :: int|float {
+        t := Core.trunc(x)
+        if x > t {
+            ~> t + 1
+        }
+        ~> t
+    }
+
+    share round(x: int|float) :: int|float {
+        if x >= 0 {
+            ~> Core.floor(x + 0.5)
+        }
+        ~> Core.ceil(x - 0.5)
+    }
+
+    share frac(x: int|float) :: int|float {
+        ~> x - Core.floor(x)
+    }
+
+    share square(x: int|float) :: int|float { ~> x * x }
+    share cube(x: int|float) :: int|float { ~> x * x * x }
+
+    share pow(base: int|float, exponent: int) :: int|float {
+        if exponent == 0 { ~> 1 }
+        if exponent < 0 {
+            ~> 1 / Core.pow(base, -exponent)
+        }
+        outValue: int|float = 1
+        for i of 1 to exponent {
+            outValue = outValue * base
+        }
+        ~> outValue
+    }
+
+    share sqrt(x: int|float) :: int|float {
+        if x <= 0 { ~> 0 }
+        guess: int|float = x
+        for i of 1 to 16 {
+            guess = (guess + x / guess) / 2
+        }
+        ~> guess
+    }
+
+    share cbrt(x: int|float) :: int|float {
+        if x == 0 { ~> 0 }
+        guess: int|float = x
+        for i of 1 to 16 {
+            guess = (2 * guess + (x / (guess * guess))) / 3
+        }
+        ~> guess
+    }
+
+    share hypot(a: int|float, b: int|float) :: int|float {
+        ~> Core.sqrt(a * a + b * b)
+    }
+
+    share exp(x: int|float) :: int|float {
+        term: int|float = 1
+        sum: int|float = 1
+        for i of 1 to 20 {
+            term = term * x / i
+            sum = sum + term
+        }
+        ~> sum
+    }
+
+    share expm1(x: int|float) :: int|float {
+        ~> Core.exp(x) - 1
+    }
+
+    share log(x: int|float) :: int|float {
+        if x <= 0 { ~> 0 }
+        y: int|float = x - 1
+        for i of 1 to 20 {
+            eY := Core.exp(y)
+            if eY == 0 {
+                ~> y
+            }
+            y = y - (eY - x) / eY
+        }
+        ~> y
+    }
+
+    share log10(x: int|float) :: int|float { ~> Core.log(x) / Core.log(10) }
+    share log2(x: int|float) :: int|float { ~> Core.log(x) / Core.log(2) }
+    share log1(x: int|float) :: int|float { ~> Core.log1p(x) }
+    share log1p(x: int|float) :: int|float { ~> Core.log(1 + x) }
+
+    share toRadians(x: int|float) :: int|float { ~> x * PI / 180 }
+    share toDegrees(x: int|float) :: int|float { ~> x * 180 / PI }
+}
+
+share abs(x: int|float) :: int|float { ~> Core.abs(x) }
+share sign(x: int|float) :: int|float { ~> Core.sign(x) }
+share min(a: int|float, b: int|float) :: int|float { ~> Core.min(a, b) }
+share max(a: int|float, b: int|float) :: int|float { ~> Core.max(a, b) }
+share lerp(a: int|float, b: int|float, t: int|float) :: int|float { ~> Core.lerp(a, b, t) }
+share floor(x: int|float) :: int|float { ~> Core.floor(x) }
+share ceil(x: int|float) :: int|float { ~> Core.ceil(x) }
+share round(x: int|float) :: int|float { ~> Core.round(x) }
+share trunc(x: int|float) :: int|float { ~> Core.trunc(x) }
+share frac(x: int|float) :: int|float { ~> Core.frac(x) }
+share pow(base: int|float, exponent: int) :: int|float { ~> Core.pow(base, exponent) }
+share sqrt(x: int|float) :: int|float { ~> Core.sqrt(x) }
+share cbrt(x: int|float) :: int|float { ~> Core.cbrt(x) }
+share hypot(a: int|float, b: int|float) :: int|float { ~> Core.hypot(a, b) }
+share square(x: int|float) :: int|float { ~> Core.square(x) }
+share cube(x: int|float) :: int|float { ~> Core.cube(x) }
+share exp(x: int|float) :: int|float { ~> Core.exp(x) }
+share expm1(x: int|float) :: int|float { ~> Core.expm1(x) }
+share log(x: int|float) :: int|float { ~> Core.log(x) }
+share log10(x: int|float) :: int|float { ~> Core.log10(x) }
+share log2(x: int|float) :: int|float { ~> Core.log2(x) }
+share log1(x: int|float) :: int|float { ~> Core.log1(x) }
+share log1p(x: int|float) :: int|float { ~> Core.log1p(x) }
+
+share sin(x: int|float) :: int|float { ~> Trig.sin(x) }
+share cos(x: int|float) :: int|float { ~> Trig.cos(x) }
+share tan(x: int|float) :: int|float { ~> Trig.tan(x) }
+share asin(x: int|float) :: int|float { ~> Trig.asin(x) }
+share acos(x: int|float) :: int|float { ~> Trig.acos(x) }
+share atan(x: int|float) :: int|float { ~> Trig.atan(x) }
+share atan2(y: int|float, x: int|float) :: int|float { ~> Trig.atan2(y, x) }
+share sinh(x: int|float) :: int|float { ~> Trig.sinh(x) }
+share cosh(x: int|float) :: int|float { ~> Trig.cosh(x) }
+share tanh(x: int|float) :: int|float { ~> Trig.tanh(x) }
+share asinh(x: int|float) :: int|float { ~> Trig.asinh(x) }
+share acosh(x: int|float) :: int|float { ~> Trig.acosh(x) }
+share atanh(x: int|float) :: int|float { ~> Trig.atanh(x) }
+share toRadians(x: int|float) :: int|float { ~> Core.toRadians(x) }
+share toDegrees(x: int|float) :: int|float { ~> Core.toDegrees(x) }
+
+share gcd(a: int, b: int) :: int|float { ~> NumberTheory.gcd(a, b) }
+share lcd(a: int, b: int) :: int|float { ~> NumberTheory.lcd(a, b) }
+share lcm(a: int, b: int) :: int|float { ~> NumberTheory.lcm(a, b) }
+share isPrime(n: int) :: int|float { ~> NumberTheory.isPrime(n) }
+share nextPrime(n: int) :: int|float { ~> NumberTheory.nextPrime(n) }
+share prevPrime(n: int) :: int|float { ~> NumberTheory.prevPrime(n) }
+share factorize(n: int) :: [] { ~> NumberTheory.factorize(n) }
+share factorial(n: int) :: int|float { ~> NumberTheory.factorial(n) }
+share binomial(n: int, k: int) :: int|float { ~> NumberTheory.binomial(n, k) }
+share permutations(n: int, k: int) :: int|float { ~> NumberTheory.permutations(n, k) }
+share combinations(n: int, k: int) :: int|float { ~> NumberTheory.combinations(n, k) }
+
+share random() :: int|float { ~> Random.random() }
+share random(max: int) :: int|float { ~> Random.random(max) }
+share random(min: int, max: int) :: int|float { ~> Random.random(min, max) }
+share randomGaussian() :: int|float { ~> Random.randomGaussian() }
+share randomSeed(seed: int) { Random.randomSeed(seed) }
+
+share dot(a: [], b: []) :: int|float { ~> LinearAlgebra.dot(a, b) }
+share cross(a: [], b: []) :: [] { ~> LinearAlgebra.cross(a, b) }
+share magnitude(a: []) :: int|float { ~> LinearAlgebra.magnitude(a) }
+share normalize(a: []) :: [] { ~> LinearAlgebra.normalize(a) }
+share matmul(a: [], b: []) :: [] { ~> LinearAlgebra.matmul(a, b) }
+share transpose(a: []) :: [] { ~> LinearAlgebra.transpose(a) }
+share identity(n: int) :: [] { ~> LinearAlgebra.identity(n) }
+share determinant(a: []) :: int|float { ~> LinearAlgebra.determinant(a) }
+
+share mean(values: []) :: int|float { ~> Stats.mean(values) }
+share median(values: []) :: int|float { ~> Stats.median(values) }
+share mode(values: []) :: int|float { ~> Stats.mode(values) }
+share variance(values: []) :: int|float { ~> Stats.variance(values) }
+share stddev(values: []) :: int|float { ~> Stats.stddev(values) }
+share runningMean(values: []) :: [] { ~> Stats.runningMean(values) }
+share runningStddev(values: []) :: [] { ~> Stats.runningStddev(values) }
