@@ -102,6 +102,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     private final Stack<ExecutionContext> contextStack = new Stack<ExecutionContext>();
     private final ExpressionHandler expressionHandler;
     private final AssignmentHandler assignmentHandler;
+    // Lazily resolved internal.range type references used for runtime range index objects.
     private Type internalRangeSpecType;
     private Type internalMultiRangeSpecType;
     

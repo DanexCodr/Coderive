@@ -5,6 +5,7 @@ import cod.error.ProgramError;
 import cod.interpreter.context.ObjectInstance;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -30,7 +31,7 @@ public final class RangeObjects {
     public static ObjectInstance createMultiRangeSpec(Type type, List<Object> ranges) {
         ObjectInstance instance = new ObjectInstance(type);
         instance.fields.put(MULTI_MARKER, Boolean.TRUE);
-        instance.fields.put(RANGES_FIELD, ranges != null ? new ArrayList<Object>(ranges) : new ArrayList<Object>());
+        instance.fields.put(RANGES_FIELD, new ArrayList<Object>(ranges != null ? ranges : Collections.<Object>emptyList()));
         return instance;
     }
 
