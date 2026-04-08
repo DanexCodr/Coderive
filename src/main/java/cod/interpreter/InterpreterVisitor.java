@@ -102,6 +102,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     private final Stack<ExecutionContext> contextStack = new Stack<ExecutionContext>();
     private final ExpressionHandler expressionHandler;
     private final AssignmentHandler assignmentHandler;
+    private Type internalRangeSpecType;
+    private Type internalMultiRangeSpecType;
     
     private final LiteralRegistry literalRegistry;
     
@@ -431,6 +433,42 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             return (Range) rangeField.get(arr);
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    private Type resolveInternalRangeSpecType() {
+        if (internalRangeSpecType != null) {
+            return internalRangeSpecType;
+        }
+        try {
+            Type type = interpreter.getImportResolver().resolveImport("internal.range.RangeSpec");
+            if (type == null) {
+                throw new ProgramError("Unable to load internal.range.RangeSpec");
+            }
+            internalRangeSpecType = type;
+            return type;
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Failed loading internal.range.RangeSpec", e);
+        }
+    }
+
+    private Type resolveInternalMultiRangeSpecType() {
+        if (internalMultiRangeSpecType != null) {
+            return internalMultiRangeSpecType;
+        }
+        try {
+            Type type = interpreter.getImportResolver().resolveImport("internal.range.MultiRangeSpec");
+            if (type == null) {
+                throw new ProgramError("Unable to load internal.range.MultiRangeSpec");
+            }
+            internalMultiRangeSpecType = type;
+            return type;
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Failed loading internal.range.MultiRangeSpec", e);
         }
     }
 
@@ -2384,15 +2422,15 @@ public Object visit(TextLiteral node) {
                 return applyTupleIndices(arrayObj, (List<?>) indexObj);
             }
 
-            if (indexObj instanceof RangeSpec) {
+            if (RangeObjects.isRangeSpec(indexObj)) {
                 if (arrayObj instanceof String) {
-                    return applyStringRangeIndex((String) arrayObj, (RangeSpec) indexObj);
+                    return applyStringRangeIndex((String) arrayObj, indexObj);
                 }
-                return applyRangeIndex(arrayObj, (RangeSpec) indexObj);
+                return applyRangeIndex(arrayObj, indexObj);
             }
             
-            if (indexObj instanceof MultiRangeSpec) {
-                return applyMultiRangeIndex(arrayObj, (MultiRangeSpec) indexObj);
+            if (RangeObjects.isMultiRangeSpec(indexObj)) {
+                return applyMultiRangeIndex(arrayObj, indexObj);
             }
 
             if (arrayObj instanceof String) {
@@ -2456,7 +2494,7 @@ public Object visit(TextLiteral node) {
             Object start = dispatch(node.start);
             Object end = dispatch(node.end);
             
-            return new RangeSpec(step, start, end);
+            return RangeObjects.createRangeSpec(resolveInternalRangeSpecType(), step, start, end);
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -2471,11 +2509,11 @@ public Object visit(TextLiteral node) {
         }
         
         try {
-            List<RangeSpec> ranges = new ArrayList<RangeSpec>();
+            List<Object> ranges = new ArrayList<Object>();
             for (RangeIndex rangeNode : node.ranges) {
-                ranges.add((RangeSpec) visit(rangeNode));
+                ranges.add(visit(rangeNode));
             }
-            return new MultiRangeSpec(ranges);
+            return RangeObjects.createMultiRangeSpec(resolveInternalMultiRangeSpecType(), ranges);
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -3078,7 +3116,7 @@ public Object visit(ChainedComparison node) {
     }
 
     @SuppressWarnings("unchecked")
-    private Object applyRangeIndex(Object array, RangeSpec range) {
+    private Object applyRangeIndex(Object array, Object range) {
         if (array instanceof NaturalArray) {
             NaturalArray natural = (NaturalArray) array;
             return natural.getRange(range);
@@ -3091,7 +3129,7 @@ public Object visit(ChainedComparison node) {
     }
 
     @SuppressWarnings("unchecked")
-    private Object applyMultiRangeIndex(Object array, MultiRangeSpec multiRange) {
+    private Object applyMultiRangeIndex(Object array, Object multiRange) {
         if (array instanceof NaturalArray) {
             NaturalArray natural = (NaturalArray) array;
             return natural.getMultiRange(multiRange);
@@ -3108,12 +3146,12 @@ public Object visit(ChainedComparison node) {
         Object current = array;
         for (Object rawIndex : indices) {
             Object indexObj = typeSystem.unwrap(rawIndex);
-            if (indexObj instanceof RangeSpec) {
-                current = applyRangeIndex(current, (RangeSpec) indexObj);
+            if (RangeObjects.isRangeSpec(indexObj)) {
+                current = applyRangeIndex(current, indexObj);
                 continue;
             }
-            if (indexObj instanceof MultiRangeSpec) {
-                current = applyMultiRangeIndex(current, (MultiRangeSpec) indexObj);
+            if (RangeObjects.isMultiRangeSpec(indexObj)) {
+                current = applyMultiRangeIndex(current, indexObj);
                 continue;
             }
             if (current instanceof NaturalArray) {
@@ -3137,14 +3175,14 @@ public Object visit(ChainedComparison node) {
         return current;
     }
 
-    private List<Object> getListRange(List<Object> list, RangeSpec range) {
+    private List<Object> getListRange(List<Object> list, Object range) {
         try {
             long start, end;
             
-            start = expressionHandler.toLongIndex(range.start);
+            start = expressionHandler.toLongIndex(RangeObjects.getStart(range));
             if (start < 0) start = list.size() + start;
             
-            end = expressionHandler.toLongIndex(range.end);
+            end = expressionHandler.toLongIndex(RangeObjects.getEnd(range));
             if (end < 0) end = list.size() + end;
             
             long step = expressionHandler.calculateStep(range);
@@ -3169,10 +3207,10 @@ public Object visit(ChainedComparison node) {
         }
     }
 
-    private List<Object> getListMultiRange(List<Object> list, MultiRangeSpec multiRange) {
+    private List<Object> getListMultiRange(List<Object> list, Object multiRange) {
         try {
             List<Object> result = new ArrayList<Object>();
-            for (RangeSpec range : multiRange.ranges) {
+            for (Object range : RangeObjects.getRanges(multiRange)) {
                 result.addAll(getListRange(list, range));
             }
             return result;
@@ -3183,10 +3221,10 @@ public Object visit(ChainedComparison node) {
         }
     }
 
-    private String applyStringRangeIndex(String text, RangeSpec range) {
+    private String applyStringRangeIndex(String text, Object range) {
         try {
-            long start = expressionHandler.toLongIndex(range.start);
-            long end = expressionHandler.toLongIndex(range.end);
+            long start = expressionHandler.toLongIndex(RangeObjects.getStart(range));
+            long end = expressionHandler.toLongIndex(RangeObjects.getEnd(range));
             long step = expressionHandler.calculateStep(range);
 
             int length = text.length();

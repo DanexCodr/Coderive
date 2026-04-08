@@ -6,9 +6,8 @@ import cod.error.ProgramError;
 import cod.math.AutoStackingNumber;
 import cod.interpreter.context.ExecutionContext;
 import cod.interpreter.InterpreterVisitor;
-import cod.range.MultiRangeSpec;
 import cod.range.NaturalArray;
-import cod.range.RangeSpec;
+import cod.range.RangeObjects;
 
 import java.util.*;
 
@@ -390,11 +389,11 @@ public Object handleChainedComparison(ChainedComparison node, ExecutionContext c
                 return (long) d;
             }
             
-            if (indexObj instanceof RangeSpec) {
+            if (RangeObjects.isRangeSpec(indexObj)) {
                 throw new ProgramError("Cannot use range as index for single element access");
             }
             
-            if (indexObj instanceof MultiRangeSpec) {
+            if (RangeObjects.isMultiRangeSpec(indexObj)) {
                 throw new ProgramError("Cannot use multi-range as index for single element access");
             }
 
@@ -444,17 +443,20 @@ public Object handleChainedComparison(ChainedComparison node, ExecutionContext c
         }
     }
     
-    public long calculateStep(RangeSpec range) {
+    public long calculateStep(Object range) {
         if (range == null) {
             throw new InternalError("calculateStep called with null range");
         }
         
         try {
-            if (range.step != null) {
-                return toLongIndex(range.step);
+            Object step = RangeObjects.getStep(range);
+            Object startObj = RangeObjects.getStart(range);
+            Object endObj = RangeObjects.getEnd(range);
+            if (step != null) {
+                return toLongIndex(step);
             }
-            long start = toLongIndex(range.start);
-            long end = toLongIndex(range.end);
+            long start = toLongIndex(startObj);
+            long end = toLongIndex(endObj);
             if (start == end) return 1L;
             return (start < end) ? 1L : -1L;
         } catch (ProgramError e) {
