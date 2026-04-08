@@ -38,13 +38,17 @@ share SciMathStandardLibraryComprehensive {
 
         out("== spectral and ode ==")
         spectrum := Spectral.fft([1, 0, 0, 0])
-        back := Spectral.ifft(spectrum)
+        inverseFftResult := Spectral.ifft(spectrum)
         out(spectrum.size)
-        out(back[0])
+        out(inverseFftResult[0])
         odeFunction := [\(t: int|float, y: int|float) y]
-        rk45Result := ODE.rk45(odeFunction, 1, 0, 1, 0.5)
-        dop853Result := ODE.dop853(odeFunction, 1, 0, 1, 0.5)
-        odeintResult := ODE.odeint(odeFunction, 1, 0, 1, 0.5)
+        initialValue: int|float = 1
+        startTime: int|float = 0
+        endTime: int|float = 1
+        stepSize: int|float = 0.5
+        rk45Result := ODE.rk45(odeFunction, initialValue, startTime, endTime, stepSize)
+        dop853Result := ODE.dop853(odeFunction, initialValue, startTime, endTime, stepSize)
+        odeintResult := ODE.odeint(odeFunction, initialValue, startTime, endTime, stepSize)
         out(rk45Result.size)
         out(dop853Result.size)
         out(odeintResult.size)
