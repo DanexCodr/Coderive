@@ -1,15 +1,10 @@
 unit test
 
-use {internal.RangeSpec, internal.MultiRangeSpec}
+use {internal.RangeSpec}
 
 share InternalRangeSpecImport {
     share main() {
-        simple := internal.RangeSpec(none, 1, 5)
-        stepped := internal.RangeSpec(2, 1, 9)
-        specs := internal.MultiRangeSpec([simple, stepped])
-
-        out(simple.toText())
-        out(stepped.toText())
-        out(specs.toText())
+        out(internal.RangeSpec.format(1, 1, 5))
+        out(internal.RangeSpec.format(2, 1, 9))
     }
 }

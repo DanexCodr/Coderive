@@ -1,20 +1,27 @@
 unit internal
 
 share RangeSpec {
-    step: value? = none
-    start: value = 0
-    end: value = 0
+    step: int = 1
+    start: int = 0
+    end: int = 0
 
-    share this(stepValue: value?, startValue: value, endValue: value) {
+    share this(stepValue: int, startValue: int, endValue: int) {
         step = stepValue
         start = startValue
         end = endValue
     }
 
     share toText() :: text {
-        if step != none {
-            ~> "RangeSpec\{by " + step + " in " + start + " to " + end + "}"
+        if this.step != 1 {
+            ~> "RangeSpec\{by " + this.step + " in " + this.start + " to " + this.end + "}"
         }
-        ~> "RangeSpec\{" + start + " to " + end + "}"
+        ~> "RangeSpec\{" + this.start + " to " + this.end + "}"
+    }
+
+    share format(stepValue: int, startValue: int, endValue: int) :: text {
+        if stepValue != 1 {
+            ~> "RangeSpec\{by " + stepValue + " in " + startValue + " to " + endValue + "}"
+        }
+        ~> "RangeSpec\{" + startValue + " to " + endValue + "}"
     }
 }

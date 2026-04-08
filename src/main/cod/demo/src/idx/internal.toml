@@ -1,0 +1,7 @@
+# unit internal
+timestamp = "1775630272452"
+generator = "Coderive 1.0"
+
+[classes]
+MultiRangeSpec = "MultiRangeSpec.cod"
+RangeSpec = "RangeSpec.cod"
