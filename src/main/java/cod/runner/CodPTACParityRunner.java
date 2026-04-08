@@ -19,8 +19,9 @@ import java.util.List;
 import java.util.Scanner;
 
 public final class CodPTACParityRunner extends BaseRunner {
-    private static final String NUMBER_PATTERN = "[-+]?\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?";
-    private static final String DEFAULT_INPUT = "\n\n\n\n\n\n\n\n\n\n";
+    private static final String NUMBER_REGEX_PATTERN = "[-+]?\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?";
+    private static final int DEFAULT_INPUT_LINE_COUNT = 10;
+    private static final String DEFAULT_INPUT = buildDefaultInput(DEFAULT_INPUT_LINE_COUNT);
     
     private final String androidPath = "/storage/emulated/0";
     private final String baseTestPath = "/JavaNIDE/Programming-Language/Coderive/app/src/main/cod/src/main/test/";
@@ -49,6 +50,14 @@ public final class CodPTACParityRunner extends BaseRunner {
             this.text = text;
             this.error = error;
         }
+    }
+    
+    private static String buildDefaultInput(int lines) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < lines; i++) {
+            sb.append('\n');
+        }
+        return sb.toString();
     }
 
     @Override
@@ -323,12 +332,12 @@ public final class CodPTACParityRunner extends BaseRunner {
         StringBuilder sb = new StringBuilder();
         for (String line : lines) {
             String cleaned = line.trim().replaceFirst("^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}\\]\\s*", "");
-            cleaned = cleaned.replaceFirst("(?i)(Output-aware loop time:\\s*)" + NUMBER_PATTERN + "(\\s*ms)", "$1<TIME>$2");
-            cleaned = cleaned.replaceFirst("(?i)(Timer resolution:\\s*)" + NUMBER_PATTERN + "(\\s*ms)", "$1<TIME>$2");
-            cleaned = cleaned.replaceFirst("(?i)(elapsed_ms=)" + NUMBER_PATTERN, "$1<TIME>");
-            cleaned = cleaned.replaceFirst("(?i)(.*(?:time|elapsed|duration|latency)[^=]*=)" + NUMBER_PATTERN + "$", "$1<TIME>");
-            cleaned = cleaned.replaceFirst("(?i)(.*\\btime:\\s*)" + NUMBER_PATTERN + "(\\s*ms.*)", "$1<TIME>$2");
-            cleaned = cleaned.replaceFirst("(.*:\\s*)" + NUMBER_PATTERN + "(\\s*ms)$", "$1<TIME>$2");
+            cleaned = cleaned.replaceFirst("(?i)(Output-aware loop time:\\s*)" + NUMBER_REGEX_PATTERN + "(\\s*ms)", "$1<TIME>$2");
+            cleaned = cleaned.replaceFirst("(?i)(Timer resolution:\\s*)" + NUMBER_REGEX_PATTERN + "(\\s*ms)", "$1<TIME>$2");
+            cleaned = cleaned.replaceFirst("(?i)(elapsed_ms=)" + NUMBER_REGEX_PATTERN, "$1<TIME>");
+            cleaned = cleaned.replaceFirst("(?i)(.*(?:time|elapsed|duration|latency)[^=]*=)" + NUMBER_REGEX_PATTERN + "$", "$1<TIME>");
+            cleaned = cleaned.replaceFirst("(?i)(.*\\btime:\\s*)" + NUMBER_REGEX_PATTERN + "(\\s*ms.*)", "$1<TIME>$2");
+            cleaned = cleaned.replaceFirst("(.*:\\s*)" + NUMBER_REGEX_PATTERN + "(\\s*ms)$", "$1<TIME>$2");
             cleaned = cleaned.replaceFirst("NaturalArray\\[id=\\d+", "NaturalArray[id=<ID>");
             sb.append(cleaned).append("\n");
         }
