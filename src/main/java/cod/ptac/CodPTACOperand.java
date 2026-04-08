@@ -1,10 +1,7 @@
 package cod.ptac;
 
-import java.io.Serializable;
 
-public final class CodPTACOperand implements Serializable {
-    private static final long serialVersionUID = 1L;
-
+public final class CodPTACOperand {
     public final CodPTACOperandKind kind;
     public final Object value;
 

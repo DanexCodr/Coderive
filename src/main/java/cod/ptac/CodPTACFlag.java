@@ -1,8 +1,7 @@
 package cod.ptac;
 
-import java.io.Serializable;
 
-public enum CodPTACFlag implements Serializable {
+public enum CodPTACFlag {
     LAZY,
     TAIL,
     PURE,

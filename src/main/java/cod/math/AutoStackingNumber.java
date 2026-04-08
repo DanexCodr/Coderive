@@ -1,6 +1,5 @@
 package cod.math;
 
-import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -18,9 +17,8 @@ import java.math.RoundingMode;
  * Now with proper overflow checking! When a result exceeds 7 stacks,
  * an ArithmeticException is thrown rather than silent truncation.
  */
-public class AutoStackingNumber implements Comparable<AutoStackingNumber>, Serializable {
+public class AutoStackingNumber implements Comparable<AutoStackingNumber> {
 
-    public static final long serialVersionUID = 1L;
     private static final AutoStackingNumber ZERO_1 = new AutoStackingNumber(1, 0L);
     private static final AutoStackingNumber ONE_1 = new AutoStackingNumber(1, 1L);
     private static final AutoStackingNumber MINUS_ONE_1 = new AutoStackingNumber(1, -1L);

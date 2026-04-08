@@ -1,13 +1,10 @@
 package cod.ptac;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
-public final class CodPTACInstruction implements Serializable {
-    private static final long serialVersionUID = 1L;
-
+public final class CodPTACInstruction {
     public final CodPTACOpcode opcode;
     public final String dest;
     public final List<CodPTACOperand> operands;

@@ -3,12 +3,9 @@ package cod.ast.node;
 import cod.ast.VisitorImpl;
 import cod.ast.SourceSpan;
 import cod.lexer.Token;
-import java.io.Serializable;
 import java.util.List;
 
-public abstract class Base implements Serializable {
-    private static final long serialVersionUID = 1L;
-    
+public abstract class Base {
     // Source span for error reporting
     public transient SourceSpan sourceSpan;
     

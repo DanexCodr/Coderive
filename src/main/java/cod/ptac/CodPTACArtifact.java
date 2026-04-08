@@ -2,11 +2,8 @@ package cod.ptac;
 
 import cod.ast.node.Type;
 
-import java.io.Serializable;
 
-public final class CodPTACArtifact implements Serializable {
-    private static final long serialVersionUID = 1L;
-
+public final class CodPTACArtifact {
     public static final int FORMAT_VERSION = 1;
 
     public int version = FORMAT_VERSION;
