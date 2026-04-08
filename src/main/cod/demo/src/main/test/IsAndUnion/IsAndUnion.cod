@@ -1,0 +1,20 @@
+unit test.IsAndUnion
+
+share IsAndUnionDemo {
+    local choose(flag: bool) :: value: int|text {
+        if flag {
+            ~> value: 10
+        }
+        ~> value: "ten"
+    }
+
+    share main() {
+        a := choose(true)
+        b := choose(false)
+
+        out("a=" + a)
+        out("b=" + b)
+        out("a-is-int=" + (a is int))
+        out("b-is-text=" + (b is text))
+    }
+}

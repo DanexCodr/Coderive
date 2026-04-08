@@ -1,0 +1,30 @@
+unit test.SuperThis
+
+share Parent {
+    label: text = "parent"
+
+    share this(initial: text) {
+        label = initial
+    }
+
+    share who() :: text {
+        ~> "P:" + this.label
+    }
+}
+
+share Child is Parent {
+    share this(initial: text) {
+        super.label = initial + "-via-super"
+    }
+
+    share who() :: text {
+        ~> "C:" + this.label
+    }
+}
+
+share SuperThisMain {
+    share main() {
+        c := Child("x")
+        out("super-this-ok")
+    }
+}
