@@ -1,0 +1,15 @@
+unit test
+
+use {internal.RangeSpec, internal.MultiRangeSpec}
+
+share InternalRangeSpecImport {
+    share main() {
+        simple := RangeSpec(none, 1, 5)
+        stepped := RangeSpec(2, 1, 9)
+        specs := MultiRangeSpec([simple, stepped])
+
+        out(simple.toText())
+        out(stepped.toText())
+        out(specs.toText())
+    }
+}

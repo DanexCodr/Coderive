@@ -13,8 +13,8 @@ import java.util.ArrayList;
 import java.util.Map;
 
 public class IRValidationRunner extends BaseRunner {
-    private static final String INTERNAL_INT_MATH_RELATIVE_PATH = "src/main/internal/IntMath.cod";
-    private static final String INTERNAL_IR_IMPORT_RELATIVE_PATH = "src/main/test/InternalIRImport.cod";
+    private static final String INTERNAL_RANGE_SPEC_RELATIVE_PATH = "src/main/internal/RangeSpec.cod";
+    private static final String INTERNAL_IR_IMPORT_RELATIVE_PATH = "src/main/test/InternalRangeSpecImport.cod";
 
     @Override
     public void run(String[] args) throws Exception {
@@ -76,7 +76,7 @@ public class IRValidationRunner extends BaseRunner {
         String codProjectRoot = cod.interpreter.Index.getProjectRoot();
         assertTrue(codProjectRoot != null, "Project root not resolved for internal IR validation");
 
-        String internalFile = new File(codProjectRoot, INTERNAL_INT_MATH_RELATIVE_PATH).getAbsolutePath();
+        String internalFile = new File(codProjectRoot, INTERNAL_RANGE_SPEC_RELATIVE_PATH).getAbsolutePath();
         String importProbeFile = new File(codProjectRoot, INTERNAL_IR_IMPORT_RELATIVE_PATH).getAbsolutePath();
 
         Interpreter internalInterpreter = new Interpreter();
@@ -96,14 +96,14 @@ public class IRValidationRunner extends BaseRunner {
         ImportResolver resolver = new ImportResolver();
         resolver.setCurrentFileDirectory(importProbeFile);
         resolver.clearCache();
-        Type loaded = resolver.resolveImport("internal.IntMath");
-        assertTrue(loaded != null, "ImportResolver failed to load internal.IntMath");
+        Type loaded = resolver.resolveImport("internal.RangeSpec");
+        assertTrue(loaded != null, "ImportResolver failed to load internal.RangeSpec");
 
         Map<String, Object> cacheStats = resolver.getCacheStats();
         Object bytecodeHits = cacheStats.get("bytecodeCacheHits");
         assertTrue(bytecodeHits instanceof Integer, "Missing bytecode cache hit stat");
         assertTrue(((Integer) bytecodeHits).intValue() == 1,
-            "Expected exactly one IR bytecode cache hit when loading internal.IntMath");
+            "Expected exactly one IR bytecode cache hit when loading internal.RangeSpec");
     }
 
     private static boolean equalsSafe(String a, String b) {

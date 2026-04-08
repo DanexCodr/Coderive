@@ -1,0 +1,20 @@
+unit internal
+
+share RangeSpec {
+    step: value? = none
+    start: value = 0
+    end: value = 0
+
+    share this(stepValue: value?, startValue: value, endValue: value) {
+        step = stepValue
+        start = startValue
+        end = endValue
+    }
+
+    share toText() :: text {
+        if step != none {
+            ~> "RangeSpec{by " + step + " in " + start + " to " + end + "}"
+        }
+        ~> "RangeSpec{" + start + " to " + end + "}"
+    }
+}
