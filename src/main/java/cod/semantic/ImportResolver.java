@@ -294,6 +294,8 @@ public class ImportResolver {
     private static Map<String, String> createStandardUnitPathOverrides() {
         Map<String, String> overrides = new HashMap<String, String>();
         overrides.put("math", "std/math");
+        overrides.put("scimath", "std/scimath");
+        overrides.put("scimath.distribution", "std/scimath/distribution");
         return Collections.unmodifiableMap(overrides);
     }
 
@@ -823,6 +825,14 @@ public class ImportResolver {
         DebugSystem.debug("IMPORTS", "Scanning for: " + dirPath);
         
         List<String> pathsToTry = new ArrayList<String>();
+        String unitDirPath = getUnitPath(unitName);
+        if (unitDirPath != null) {
+            pathsToTry.add(unitDirPath + File.separator + className + ".cod");
+            String moduleMainFileName = toModuleMainFileName(unitName);
+            if (moduleMainFileName != null) {
+                pathsToTry.add(unitDirPath + File.separator + moduleMainFileName + ".cod");
+            }
+        }
         
         if (srcMainRoot != null) {
             pathsToTry.add(srcMainRoot + "/" + dirPath);
