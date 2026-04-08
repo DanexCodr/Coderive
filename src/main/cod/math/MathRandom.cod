@@ -1,0 +1,43 @@
+unit math
+
+share MathRandom {
+    seed: int = 123456789
+
+    share randomSeed(newSeed: int) {
+        seed = newSeed
+    }
+
+    share nextRaw() :: int|float {
+        seed = (1103515245 * seed + 12345) % 2147483647
+        if seed < 0 {
+            seed = -seed
+        }
+        ~> seed
+    }
+
+    share random() :: int|float {
+        ~> MathRandom.nextRaw() / 2147483647
+    }
+
+    share random(max: int) :: int|float {
+        if max <= 0 { ~> 0 }
+        ~> MathRandom.nextRaw() % max
+    }
+
+    share random(min: int, max: int) :: int|float {
+        if max <= min { ~> min }
+        span: int = max - min + 1
+        ~> min + (MathRandom.nextRaw() % span)
+    }
+
+    share randomGaussian() :: int|float {
+        u1 := MathRandom.random()
+        if u1 <= 0 {
+            u1 = 0.000001
+        }
+        u2 := MathRandom.random()
+        r := MathCore.sqrt(-2 * MathCore.log(u1))
+        theta := 6.283185307179586 * u2
+        ~> r * MathTrig.cos(theta)
+    }
+}

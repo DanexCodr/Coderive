@@ -1,0 +1,136 @@
+unit math
+
+share MathCore {
+    PI: float = 3.141592653589793
+    E: float = 2.718281828459045
+
+    share abs(x: int|float) :: int|float {
+        if x < 0 {
+            ~> -x
+        }
+        ~> x
+    }
+
+    share sign(x: int|float) :: int|float {
+        if x > 0 { ~> 1 }
+        if x < 0 { ~> -1 }
+        ~> 0
+    }
+
+    share min(a: int|float, b: int|float) :: int|float {
+        if a < b { ~> a }
+        ~> b
+    }
+
+    share max(a: int|float, b: int|float) :: int|float {
+        if a > b { ~> a }
+        ~> b
+    }
+
+    share lerp(a: int|float, b: int|float, t: int|float) :: int|float {
+        ~> a + (b - a) * t
+    }
+
+    share trunc(x: int|float) :: int|float {
+        ~> x - (x % 1)
+    }
+
+    share floor(x: int|float) :: int|float {
+        t := MathCore.trunc(x)
+        if x < t {
+            ~> t - 1
+        }
+        ~> t
+    }
+
+    share ceil(x: int|float) :: int|float {
+        t := MathCore.trunc(x)
+        if x > t {
+            ~> t + 1
+        }
+        ~> t
+    }
+
+    share round(x: int|float) :: int|float {
+        if x >= 0 {
+            ~> MathCore.floor(x + 0.5)
+        }
+        ~> MathCore.ceil(x - 0.5)
+    }
+
+    share frac(x: int|float) :: int|float {
+        ~> x - MathCore.floor(x)
+    }
+
+    share square(x: int|float) :: int|float { ~> x * x }
+    share cube(x: int|float) :: int|float { ~> x * x * x }
+
+    share pow(base: int|float, exponent: int) :: int|float {
+        if exponent == 0 { ~> 1 }
+        if exponent < 0 {
+            ~> 1 / MathCore.pow(base, -exponent)
+        }
+        outValue: int|float = 1
+        for i of 1 to exponent {
+            outValue = outValue * base
+        }
+        ~> outValue
+    }
+
+    share sqrt(x: int|float) :: int|float {
+        if x <= 0 { ~> 0 }
+        guess: int|float = x
+        for i of 1 to 16 {
+            guess = (guess + x / guess) / 2
+        }
+        ~> guess
+    }
+
+    share cbrt(x: int|float) :: int|float {
+        if x == 0 { ~> 0 }
+        guess: int|float = x
+        for i of 1 to 16 {
+            guess = (2 * guess + (x / (guess * guess))) / 3
+        }
+        ~> guess
+    }
+
+    share hypot(a: int|float, b: int|float) :: int|float {
+        ~> MathCore.sqrt(a * a + b * b)
+    }
+
+    share exp(x: int|float) :: int|float {
+        term: int|float = 1
+        sum: int|float = 1
+        for i of 1 to 20 {
+            term = term * x / i
+            sum = sum + term
+        }
+        ~> sum
+    }
+
+    share expm1(x: int|float) :: int|float {
+        ~> MathCore.exp(x) - 1
+    }
+
+    share log(x: int|float) :: int|float {
+        if x <= 0 { ~> 0 }
+        y: int|float = x - 1
+        for i of 1 to 20 {
+            eY := MathCore.exp(y)
+            if eY == 0 {
+                ~> y
+            }
+            y = y - (eY - x) / eY
+        }
+        ~> y
+    }
+
+    share log10(x: int|float) :: int|float { ~> MathCore.log(x) / MathCore.log(10) }
+    share log2(x: int|float) :: int|float { ~> MathCore.log(x) / MathCore.log(2) }
+    share log1(x: int|float) :: int|float { ~> MathCore.log1p(x) }
+    share log1p(x: int|float) :: int|float { ~> MathCore.log(1 + x) }
+
+    share toRadians(x: int|float) :: int|float { ~> x * PI / 180 }
+    share toDegrees(x: int|float) :: int|float { ~> x * 180 / PI }
+}

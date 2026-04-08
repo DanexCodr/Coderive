@@ -1,0 +1,97 @@
+unit math
+
+share MathStats {
+    share mean(values: []) :: int|float {
+        if values.size == 0 { ~> 0 }
+        sum: int|float = 0
+        for i of 0 to values.size - 1 {
+            sum = sum + values[i]
+        }
+        ~> sum / values.size
+    }
+
+    share median(values: []) :: int|float {
+        n := values.size
+        if n == 0 { ~> 0 }
+        data := [0 to n - 1]
+        for i of 0 to n - 1 {
+            data[i] = values[i]
+        }
+
+        for i of 0 to n - 1 {
+            for j of i + 1 to n - 1 {
+                if data[j] < data[i] {
+                    t := data[i]
+                    data[i] = data[j]
+                    data[j] = t
+                }
+            }
+        }
+
+        mid := n / 2
+        if n % 2 == 1 {
+            ~> data[mid]
+        }
+        ~> (data[mid - 1] + data[mid]) / 2
+    }
+
+    share mode(values: []) :: int|float {
+        if values.size == 0 { ~> 0 }
+        bestValue := values[0]
+        bestCount: int = 1
+
+        for i of 0 to values.size - 1 {
+            count: int = 1
+            for j of i + 1 to values.size - 1 {
+                if values[j] == values[i] {
+                    count = count + 1
+                }
+            }
+            if count > bestCount {
+                bestCount = count
+                bestValue = values[i]
+            }
+        }
+
+        ~> bestValue
+    }
+
+    share variance(values: []) :: int|float {
+        if values.size == 0 { ~> 0 }
+        mu := MathStats.mean(values)
+        sumSq: int|float = 0
+        for i of 0 to values.size - 1 {
+            d := values[i] - mu
+            sumSq = sumSq + d * d
+        }
+        ~> sumSq / values.size
+    }
+
+    share stddev(values: []) :: int|float {
+        ~> MathCore.sqrt(MathStats.variance(values))
+    }
+
+    share runningMean(values: []) :: [] {
+        if values.size == 0 { ~> [] }
+        outArr := [0 to values.size - 1]
+        sum: int|float = 0
+        for i of 0 to values.size - 1 {
+            sum = sum + values[i]
+            outArr[i] = sum / (i + 1)
+        }
+        ~> outArr
+    }
+
+    share runningStddev(values: []) :: [] {
+        if values.size == 0 { ~> [] }
+        means := MathStats.runningMean(values)
+        outArr := [0 to values.size - 1]
+        sumSq: int|float = 0
+        for i of 0 to values.size - 1 {
+            d := values[i] - means[i]
+            sumSq = sumSq + d * d
+            outArr[i] = MathCore.sqrt(sumSq / (i + 1))
+        }
+        ~> outArr
+    }
+}

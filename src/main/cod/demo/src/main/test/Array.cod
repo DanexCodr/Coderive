@@ -1,7 +1,7 @@
 unit test
 
 use {
-    std.Math
+    math.**
 }
 
 // Test 2 - Should work based on parseTypeReference() output  
