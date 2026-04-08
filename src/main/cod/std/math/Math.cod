@@ -14,10 +14,10 @@ TAU: float = 6.283185307179586
 PHI: float = 1.618033988749895
 
 share fibonacci(n: int) :: int|float {
+    if n < 0 { ~> 0 }
     compute := [result]:\(k: int, a: int|float, b: int|float) :: result: int|float {
-        if k < 0 { ~> result: <~1(-k) }
         if k == 0 { ~> result: a }
-        ~> result: <~(k - 1, b, a + b)
+        ~> result: <~0(k - 1, b, a + b)
     }
     ~> compute(n, 0, 1)
 }
