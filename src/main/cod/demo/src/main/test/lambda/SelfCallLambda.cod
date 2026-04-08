@@ -1,0 +1,16 @@
+unit test.lambda
+
+share SelfCallLambda {
+    share main() {
+        n := 6
+        recursiveResult := 0
+        recursiveResult = [result]:\(n: int) :: result: int {
+            if n <= 1 {
+                ~> result: 1
+            }
+            ~> result: n * <~(n - 1)
+        }
+
+        out("lambda=" + recursiveResult)
+    }
+}

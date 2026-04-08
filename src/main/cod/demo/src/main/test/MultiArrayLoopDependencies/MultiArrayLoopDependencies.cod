@@ -1,0 +1,23 @@
+unit test.MultiArrayLoopDependencies
+
+share main() {
+    out("=== Multi-array loop dependencies ===")
+
+    first := [0 to 1000]
+    second := [0 to 1000]
+    third := [0 to 1000]
+
+    for i of [0 to 1000] {
+        first[i] = i + 1
+        second[i] = first[i] * 2
+        third[i] = second[i] + first[i]
+    }
+
+    out("first[10]=" + first[10] + " expected=11")
+    out("second[10]=" + second[10] + " expected=22")
+    out("third[10]=" + third[10] + " expected=33")
+
+    out("first[777]=" + first[777] + " expected=778")
+    out("second[777]=" + second[777] + " expected=1556")
+    out("third[777]=" + third[777] + " expected=2334")
+}

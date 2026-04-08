@@ -1,0 +1,51 @@
+unit test.AutoStackingNumberComprehensive
+
+share AutoStackingNumberComprehensive {
+
+share main() {
+    out("=== AutoStackingNumber Comprehensive ===")
+
+    a := 123456789
+    b := 987654321
+    out(a + b)
+    out(b - a)
+    out(a * 3)
+    out(b / 3)
+    out(b % 7)
+
+    x := 12.5
+    y := 3.25
+    out(x + y)
+    out(x - y)
+    out(x * y)
+    out(x / y)
+
+    n1 := -42
+    n2 := 17
+    out(n1 + n2)
+    out(n1 - n2)
+    out(n1 * n2)
+    out(n1 / n2)
+
+    nums := [0 to 200]
+    sum := 0
+    for i of [0 to 200] {
+        sum = sum + nums[i]
+    }
+    out(sum)
+
+    acc := 0
+    for i of [1 to 10000] {
+        acc = acc + i
+    }
+    out(acc)
+
+    down := 0
+    for i of [1000 to 1] {
+        down = down + i
+    }
+    out(down)
+
+    out("=== done ===")
+}
+}

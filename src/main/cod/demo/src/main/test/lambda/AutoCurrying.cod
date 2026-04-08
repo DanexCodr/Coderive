@@ -1,0 +1,14 @@
+unit test.lambda
+
+share AutoCurrying {
+    share main() {
+        sum := [1, 2, 3, 4].reduce(\(acc) \(value) acc + value, 0)
+        out("sum=" + sum)
+
+        withIndex := [5, 6, 7].reduce(\(acc) \(value) \(idx) acc + value + idx, 0)
+        out("withIndex=" + withIndex)
+
+        classic := [1, 2, 3, 4].reduce(\(acc, value) acc + value, 0)
+        out("classic=" + classic)
+    }
+}
