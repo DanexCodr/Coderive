@@ -33,7 +33,7 @@ share Math {
         }
     }
 
-        share min(a: float, b: float) :: float {
+        share min(a: int|float, b: int|float) :: int|float {
         if a < b {
             ~> a
         } else {
@@ -41,7 +41,7 @@ share Math {
         }
     }
     
-        share abs(x: float) :: float {
+        share abs(x: int|float) :: int|float {
         if x < 0 {
             ~> -x
         } else {
