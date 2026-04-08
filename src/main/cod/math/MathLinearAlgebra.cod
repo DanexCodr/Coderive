@@ -42,7 +42,8 @@ share MathLinearAlgebra {
 
     share transpose(a: []) :: [] {
         if a.size == 0 { ~> [] }
-        cols := a[0].size
+        firstRow := a[0]
+        cols := firstRow.size
         outArr := [0 to cols - 1]
         for c of 0 to cols - 1 {
             outArr[c] = [0 to a.size - 1]
@@ -73,8 +74,10 @@ share MathLinearAlgebra {
         if a.size == 0 { ~> [] }
         if b.size == 0 { ~> [] }
         rows := a.size
-        inner := a[0].size
-        cols := b[0].size
+        firstA := a[0]
+        firstB := b[0]
+        inner := firstA.size
+        cols := firstB.size
         outArr := [0 to rows - 1]
         for r of 0 to rows - 1 {
             outArr[r] = [0 to cols - 1]

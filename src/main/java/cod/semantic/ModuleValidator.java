@@ -136,173 +136,20 @@ public final class ModuleValidator {
             throw error("File must have .cod extension", errorToken);
         }
 
-        String dirName = extractDirNameNoFileIO(filePath);
-        if (dirName.isEmpty()) {
-            validateFileInCurrentDirectory(unitName, filePath, errorToken);
-            return;
-        }
+        String normalizedPath = filePath.replace('\\', '/');
+        int lastSlash = normalizedPath.lastIndexOf('/');
+        String directoryPath = lastSlash >= 0 ? normalizedPath.substring(0, lastSlash) : "";
+        String expectedFolderPath = unitName.replace('.', '/');
+        boolean matchesUnitFolder =
+            directoryPath.equals(expectedFolderPath) ||
+            directoryPath.endsWith("/" + expectedFolderPath);
 
-        String lastUnitPart;
-        int dotIndex = unitName.lastIndexOf('.');
-        if (dotIndex != -1) {
-            lastUnitPart = unitName.substring(dotIndex + 1);
-        } else {
-            lastUnitPart = unitName;
-        }
-
-        if (!lastUnitPart.isEmpty() && !dirName.isEmpty() &&
-            lastUnitPart.charAt(0) != dirName.charAt(0)) {
+        if (!matchesUnitFolder) {
             throw error(
-                "Unit name '" + unitName + "' doesn't match directory '" + dirName + "'",
+                "Unit name '" + unitName + "' must match containing folder path '" + expectedFolderPath + "'",
                 errorToken
             );
         }
-
-        int lengthDiff = Math.abs(lastUnitPart.length() - dirName.length());
-        if (lengthDiff > 3) {
-            throw error(
-                "Unit name '" + unitName + "' doesn't match directory '" + dirName + "'",
-                errorToken
-            );
-        }
-
-        if (!lastUnitPart.isEmpty() && !dirName.isEmpty() &&
-            lastUnitPart.charAt(lastUnitPart.length() - 1) != dirName.charAt(dirName.length() - 1)) {
-            throw error(
-                "Unit name '" + unitName + "' doesn't match directory '" + dirName + "'",
-                errorToken
-            );
-        }
-
-        if (quickPathMatchCheck(unitName, filePath)) {
-            return;
-        }
-
-        String expectedUnit = calculateExpectedUnit(filePath);
-        if (!unitName.equals(expectedUnit)) {
-            throw error(
-                "Unit name '" + unitName + "' doesn't match directory structure",
-                errorToken
-            );
-        }
-    }
-
-    private static String extractDirNameNoFileIO(String filePath) {
-        int len = filePath.length();
-
-        if (len > 4 && filePath.endsWith(".cod")) {
-            len -= 4;
-        }
-
-        int lastSeparator = -1;
-        for (int i = len - 1; i >= 0; i--) {
-            char c = filePath.charAt(i);
-            if (c == '/' || c == '\\') {
-                lastSeparator = i;
-                break;
-            }
-        }
-
-        if (lastSeparator == -1) {
-            return "";
-        }
-
-        int prevSeparator = -1;
-        for (int i = lastSeparator - 1; i >= 0; i--) {
-            char c = filePath.charAt(i);
-            if (c == '/' || c == '\\') {
-                prevSeparator = i;
-                break;
-            }
-        }
-
-        if (prevSeparator == -1) {
-            return filePath.substring(0, lastSeparator);
-        }
-
-        return filePath.substring(prevSeparator + 1, lastSeparator);
-    }
-
-    private static void validateFileInCurrentDirectory(String unitName, String filePath, Token errorToken) {
-        if (unitName.isEmpty()) {
-            throw error("Unit name cannot be empty", errorToken);
-        }
-
-        if (unitName.contains(" ")) {
-            throw error("Unit name cannot contain spaces: '" + unitName + "'", errorToken);
-        }
-    }
-
-    private static boolean quickPathMatchCheck(String unitName, String filePath) {
-        String unitAsPath = unitName.replace('.', '/');
-
-        String pathWithoutExt = filePath;
-        if (filePath.endsWith(".cod")) {
-            pathWithoutExt = filePath.substring(0, filePath.length() - 4);
-        }
-
-        pathWithoutExt = pathWithoutExt.replace('\\', '/');
-
-        if (pathWithoutExt.endsWith("/" + unitAsPath) ||
-            pathWithoutExt.equals(unitAsPath)) {
-            return true;
-        }
-
-        int lastSlash = pathWithoutExt.lastIndexOf('/');
-        if (lastSlash != -1) {
-            String parentPath = pathWithoutExt.substring(0, lastSlash);
-            if (parentPath.endsWith("/" + unitAsPath) ||
-                parentPath.equals(unitAsPath)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static String calculateExpectedUnit(String filePath) {
-        String normalized = filePath.replace('\\', '/');
-
-        String srcMain = "src/main/";
-        int srcMainIndex = normalized.indexOf(srcMain);
-
-        if (srcMainIndex == -1) {
-            return "";
-        }
-
-        String relative = normalized.substring(srcMainIndex + srcMain.length());
-
-        if (relative.endsWith(".cod")) {
-            relative = relative.substring(0, relative.length() - 4);
-        }
-
-        String[] parts = relative.split("/");
-        List<String> unitParts = new ArrayList<>();
-
-        for (int i = 0; i < parts.length; i++) {
-            String part = parts[i];
-            if (part.isEmpty()) continue;
-
-            boolean looksLikeFileName = part.length() > 0 && Character.isUpperCase(part.charAt(0));
-
-            if (i == parts.length - 1 && looksLikeFileName) {
-                continue;
-            }
-
-            unitParts.add(part);
-        }
-
-        if (unitParts.isEmpty()) {
-            return "";
-        }
-
-        StringBuilder unitName = new StringBuilder();
-        for (int i = 0; i < unitParts.size(); i++) {
-            if (i > 0) unitName.append(".");
-            unitName.append(unitParts.get(i));
-        }
-
-        return unitName.toString();
     }
 
     private static void validateMainClassExistsInFile(Unit unit, List<Type> typesInFile, Token errorToken) {
