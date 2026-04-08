@@ -1,4 +1,4 @@
-unit test
+unit test.lambda
 
 share SelfCallLambdaLevels {
     share main() {
