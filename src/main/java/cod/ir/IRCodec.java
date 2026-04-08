@@ -17,7 +17,7 @@ import java.util.Map;
 
 final class IRCodec {
     static final int MAGIC = 0xAC0D1EB1;
-    static final int VERSION = 2;
+    static final int VERSION = 1;
 
     private static final int MAX_DEPTH = 512;
     private static final int MAX_STRING_BYTES = 4 * 1024 * 1024;
@@ -40,6 +40,7 @@ final class IRCodec {
     private static final Map<String, byte[]> STRING_BYTES_CACHE = new ConcurrentHashMap<String, byte[]>();
     private static final int STRING_BYTES_CACHE_LIMIT = 512;
     private static final int MAX_IDENTIFIER_LIKE_STRING_LENGTH = 64;
+    private static final int HASH_MASK_BYTES = 8;
     private static final Object STRING_BYTES_CACHE_GUARD = new Object();
     private static final long NULL_STRING_HASH = 0x9AE16A3B2F90404FL;
     private static final long FNV64_OFFSET_BASIS = 0xcbf29ce484222325L;
@@ -396,13 +397,14 @@ final class IRCodec {
 
     private static byte[] obfuscate(byte[] bytes, long hash) {
         byte[] out = new byte[bytes.length];
+        // Lightweight obfuscation only (not encryption); integrity is enforced via hash verification on read.
         // XOR is its own inverse, so this method safely serves both encode and decode paths.
-        int[] masks = new int[8];
+        int[] masks = new int[HASH_MASK_BYTES];
         for (int i = 0; i < masks.length; i++) {
             masks[i] = (int) ((hash >>> (i * 8)) & 0xFFL);
         }
         for (int i = 0; i < bytes.length; i++) {
-            out[i] = (byte) (bytes[i] ^ masks[i & 7]);
+            out[i] = (byte) (bytes[i] ^ masks[i & (HASH_MASK_BYTES - 1)]);
         }
         return out;
     }
