@@ -17,7 +17,7 @@ import java.util.Map;
 
 final class IRCodec {
     static final int MAGIC = 0xAC0D1EB1;
-    static final int VERSION = 1;
+    static final int VERSION = 2;
 
     private static final int MAX_DEPTH = 512;
     private static final int MAX_STRING_BYTES = 4 * 1024 * 1024;
@@ -41,6 +41,9 @@ final class IRCodec {
     private static final int STRING_BYTES_CACHE_LIMIT = 512;
     private static final int MAX_IDENTIFIER_LIKE_STRING_LENGTH = 64;
     private static final Object STRING_BYTES_CACHE_GUARD = new Object();
+    private static final long NULL_STRING_HASH = 0x9AE16A3B2F90404FL;
+    private static final long FNV64_OFFSET_BASIS = 0xcbf29ce484222325L;
+    private static final long FNV64_PRIME = 0x100000001b3L;
 
     private IRCodec() {}
 
@@ -273,6 +276,7 @@ final class IRCodec {
 
     private static void writeString(DataOutput out, String value) throws IOException {
         if (value == null) {
+            out.writeLong(NULL_STRING_HASH);
             out.writeInt(-1);
             return;
         }
@@ -280,20 +284,32 @@ final class IRCodec {
         if (bytes.length > MAX_STRING_BYTES) {
             throw new IOException("String exceeds IR limit: " + bytes.length + " bytes");
         }
+        long hash = hash64(bytes);
+        out.writeLong(hash);
         out.writeInt(bytes.length);
-        out.write(bytes);
+        out.write(obfuscate(bytes, hash));
     }
 
     private static String readString(DataInput in) throws IOException {
+        long storedHash = in.readLong();
         int len = in.readInt();
         if (len == -1) {
+            if (storedHash != NULL_STRING_HASH) {
+                throw new IOException("Invalid null string hash in IR: 0x" + Long.toHexString(storedHash));
+            }
             return null;
         }
         if (len < 0 || len > MAX_STRING_BYTES) {
             throw new IOException("Invalid string length in IR: " + len);
         }
-        byte[] bytes = new byte[len];
-        in.readFully(bytes);
+        byte[] encoded = new byte[len];
+        in.readFully(encoded);
+        byte[] bytes = obfuscate(encoded, storedHash);
+        long actualHash = hash64(bytes);
+        if (actualHash != storedHash) {
+            throw new IOException("IR string hash mismatch: expected 0x" + Long.toHexString(storedHash)
+                + ", got 0x" + Long.toHexString(actualHash));
+        }
         return new String(bytes, StandardCharsets.UTF_8);
     }
 
@@ -367,6 +383,25 @@ final class IRCodec {
             }
         }
         return true;
+    }
+
+    private static long hash64(byte[] bytes) {
+        long hash = FNV64_OFFSET_BASIS;
+        for (int i = 0; i < bytes.length; i++) {
+            hash ^= (bytes[i] & 0xFFL);
+            hash *= FNV64_PRIME;
+        }
+        return hash;
+    }
+
+    private static byte[] obfuscate(byte[] bytes, long hash) {
+        byte[] out = new byte[bytes.length];
+        for (int i = 0; i < bytes.length; i++) {
+            int shift = (i & 7) * 8;
+            int mask = (int) ((hash >>> shift) & 0xFFL);
+            out[i] = (byte) (bytes[i] ^ mask);
+        }
+        return out;
     }
 
 }
