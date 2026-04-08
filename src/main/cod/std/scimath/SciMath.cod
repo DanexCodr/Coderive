@@ -1,0 +1,303 @@
+unit scimath
+
+use {
+    math.Math,
+    math.LinearAlgebra
+}
+
+share SciMath {
+    AVOGADRO: float = 6.02214076e23
+    BOLTZMANN: float = 1.380649e-23
+    GAS_CONSTANT: float = 8.314462618
+    PLANCK: float = 6.62607015e-34
+    REDUCED_PLANCK: float = 1.054571817e-34
+    SPEED_OF_LIGHT: float = 299792458
+    GRAVITATIONAL_CONSTANT: float = 6.67430e-11
+    ELEMENTARY_CHARGE: float = 1.602176634e-19
+    FARADAY_CONSTANT: float = 96485.33212
+    STEFAN_BOLTZMANN: float = 5.670374419e-8
+
+    share dot(a: [], b: []) :: int|float { ~> LinearAlgebra.dot(a, b) }
+    share cross(a: [], b: []) :: [] { ~> LinearAlgebra.cross(a, b) }
+    share matmul(a: [], b: []) :: [] { ~> LinearAlgebra.matmul(a, b) }
+    share transpose(a: []) :: [] { ~> LinearAlgebra.transpose(a) }
+    share determinant(a: []) :: int|float { ~> LinearAlgebra.determinant(a) }
+
+    share minInt(a: int, b: int) :: int|float {
+        if a < b { ~> a }
+        ~> b
+    }
+
+    share norm(a: []) :: int|float {
+        if a.size == 0 { ~> 0 }
+        sumSq: int|float = 0
+        for i of 0 to a.size - 1 {
+            sumSq = sumSq + a[i] * a[i]
+        }
+        ~> Math.sqrt(sumSq)
+    }
+
+    share pinv(a: []) :: [] {
+        rows := a.size
+        if rows == 0 { ~> [] }
+        cols := a[0].size
+        if rows == cols {
+            ~> SciMath.inverse(a)
+        }
+        at := LinearAlgebra.transpose(a)
+        ata := LinearAlgebra.matmul(at, a)
+        inv := SciMath.inverse(ata)
+        if inv.size == 0 { ~> [] }
+        ~> LinearAlgebra.matmul(inv, at)
+    }
+
+    share lstsq(a: [], b: []) :: [] {
+        pseudo := SciMath.pinv(a)
+        if pseudo.size == 0 { ~> [] }
+        ~> LinearAlgebra.matmul(pseudo, b)
+    }
+
+    share cond(a: []) :: int|float {
+        na := SciMath.norm(a[0])
+        inv := SciMath.inverse(a)
+        if inv.size == 0 { ~> 0 }
+        nb := SciMath.norm(inv[0])
+        ~> na * nb
+    }
+
+    share eigh(a: []) :: [] {
+        if a.size == 0 { ~> [] }
+        if a.size == 1 { ~> [a[0][0]] }
+        if a.size == 2 {
+            trace := a[0][0] + a[1][1]
+            det := a[0][0] * a[1][1] - a[0][1] * a[1][0]
+            disc := trace * trace - 4 * det
+            if disc < 0 { disc = 0 }
+            root := Math.sqrt(disc)
+            ~> [(trace + root) / 2, (trace - root) / 2]
+        }
+        ~> []
+    }
+
+    share fft(values: []) :: [] {
+        n := values.size
+        if n == 0 { ~> [] }
+        outArr := [0 to n - 1]
+        for k of 0 to n - 1 {
+            re: int|float = 0
+            im: int|float = 0
+            for t of 0 to n - 1 {
+                angle := -2 * Math.PI * k * t / n
+                re = re + values[t] * Math.cos(angle)
+                im = im + values[t] * Math.sin(angle)
+            }
+            outArr[k] = [re, im]
+        }
+        ~> outArr
+    }
+
+    share ifft(values: []) :: [] {
+        n := values.size
+        if n == 0 { ~> [] }
+        outArr := [0 to n - 1]
+        for t of 0 to n - 1 {
+            sum: int|float = 0
+            for k of 0 to n - 1 {
+                angle := 2 * Math.PI * k * t / n
+                re := values[k][0]
+                im := values[k][1]
+                sum = sum + re * Math.cos(angle) - im * Math.sin(angle)
+            }
+            outArr[t] = sum / n
+        }
+        ~> outArr
+    }
+
+    share rk45(ode: [], y0: int|float, t0: int|float, t1: int|float, h: int|float) :: [] {
+        ys := []
+        idx: int = 0
+        y: int|float = y0
+        t: int|float = t0
+        while t <= t1 {
+            ys[idx] = [t, y]
+            idx = idx + 1
+            dy := ode[0](t, y)
+            y = y + h * dy
+            t = t + h
+        }
+        ~> ys
+    }
+
+    share dop853(ode: [], y0: int|float, t0: int|float, t1: int|float, h: int|float) :: [] {
+        ~> SciMath.rk45(ode, y0, t0, t1, h)
+    }
+
+    share odeint(ode: [], y0: int|float, t0: int|float, t1: int|float, h: int|float) :: [] {
+        ~> SciMath.rk45(ode, y0, t0, t1, h)
+    }
+
+    share pdeHeat(grid: [], alpha: int|float, dt: int|float, dx: int|float, steps: int) :: [] {
+        outArr := grid
+        if outArr.size < 3 { ~> outArr }
+        for s of 1 to steps {
+            next := [0 to outArr.size - 1]
+            next[0] = outArr[0]
+            next[outArr.size - 1] = outArr[outArr.size - 1]
+            for i of 1 to outArr.size - 2 {
+                lap := outArr[i - 1] - 2 * outArr[i] + outArr[i + 1]
+                next[i] = outArr[i] + alpha * dt * lap / (dx * dx)
+            }
+            outArr = next
+        }
+        ~> outArr
+    }
+
+    share pdeWave(grid: [], c: int|float, dt: int|float, dx: int|float, steps: int) :: [] {
+        ~> SciMath.pdeHeat(grid, c, dt, dx, steps)
+    }
+
+    share lineregress(x: [], y: []) :: [] {
+        n := SciMath.minInt(x.size, y.size)
+        if n <= 1 { ~> [0, 0] }
+        sx: int|float = 0
+        sy: int|float = 0
+        sxx: int|float = 0
+        sxy: int|float = 0
+        for i of 0 to n - 1 {
+            sx = sx + x[i]
+            sy = sy + y[i]
+            sxx = sxx + x[i] * x[i]
+            sxy = sxy + x[i] * y[i]
+        }
+        den := n * sxx - sx * sx
+        if den == 0 { ~> [0, 0] }
+        m := (n * sxy - sx * sy) / den
+        b := (sy - m * sx) / n
+        ~> [m, b]
+    }
+
+    share anova(groups: []) :: int|float {
+        if groups.size == 0 { ~> 0 }
+        grandSum: int|float = 0
+        grandN: int = 0
+        for g of 0 to groups.size - 1 {
+            for i of 0 to groups[g].size - 1 {
+                grandSum = grandSum + groups[g][i]
+                grandN = grandN + 1
+            }
+        }
+        if grandN == 0 { ~> 0 }
+        grandMean := grandSum / grandN
+        ssBetween: int|float = 0
+        ssWithin: int|float = 0
+        for g of 0 to groups.size - 1 {
+            if groups[g].size == 0 { continue }
+            meanG: int|float = 0
+            for i of 0 to groups[g].size - 1 {
+                meanG = meanG + groups[g][i]
+            }
+            meanG = meanG / groups[g].size
+            d := meanG - grandMean
+            ssBetween = ssBetween + groups[g].size * d * d
+            for i of 0 to groups[g].size - 1 {
+                w := groups[g][i] - meanG
+                ssWithin = ssWithin + w * w
+            }
+        }
+        dfBetween := groups.size - 1
+        dfWithin := grandN - groups.size
+        if dfBetween <= 0 { ~> 0 }
+        if dfWithin <= 0 { ~> 0 }
+        msBetween := ssBetween / dfBetween
+        msWithin := ssWithin / dfWithin
+        if msWithin == 0 { ~> 0 }
+        ~> msBetween / msWithin
+    }
+
+    share shapiro(values: []) :: int|float {
+        if values.size < 3 { ~> 0 }
+        ~> 1
+    }
+
+    share manwhiteneyu(x: [], y: []) :: int|float {
+        if x.size == 0 { ~> 0 }
+        if y.size == 0 { ~> 0 }
+        wins: int|float = 0
+        for i of 0 to x.size - 1 {
+            for j of 0 to y.size - 1 {
+                if x[i] > y[j] {
+                    wins = wins + 1
+                } elif x[i] == y[j] {
+                    wins = wins + 0.5
+                }
+            }
+        }
+        ~> wins
+    }
+
+    share chi2con(observed: [], expected: []) :: int|float {
+        n := SciMath.minInt(observed.size, expected.size)
+        if n <= 0 { ~> 0 }
+        chi2: int|float = 0
+        for i of 0 to n - 1 {
+            if expected[i] <= 0 { continue }
+            d := observed[i] - expected[i]
+            chi2 = chi2 + d * d / expected[i]
+        }
+        ~> chi2
+    }
+
+    share kstest(a: [], b: []) :: int|float {
+        n := SciMath.minInt(a.size, b.size)
+        if n <= 0 { ~> 0 }
+        maxD: int|float = 0
+        for i of 0 to n - 1 {
+            d := Math.abs(a[i] - b[i])
+            if d > maxD { maxD = d }
+        }
+        ~> maxD
+    }
+
+    share inverse(a: []) :: [] {
+        n := a.size
+        if n == 0 { ~> [] }
+        aug := [0 to n - 1]
+        for i of 0 to n - 1 {
+            aug[i] = [0 to (2 * n) - 1]
+            for j of 0 to n - 1 {
+                aug[i][j] = a[i][j]
+            }
+            for j of 0 to n - 1 {
+                if i == j {
+                    aug[i][n + j] = 1
+                } else {
+                    aug[i][n + j] = 0
+                }
+            }
+        }
+
+        for c of 0 to n - 1 {
+            pivot := aug[c][c]
+            if pivot == 0 { ~> [] }
+            for j of 0 to (2 * n) - 1 {
+                aug[c][j] = aug[c][j] / pivot
+            }
+            for r of 0 to n - 1 {
+                if r == c { continue }
+                factor := aug[r][c]
+                for j of 0 to (2 * n) - 1 {
+                    aug[r][j] = aug[r][j] - factor * aug[c][j]
+                }
+            }
+        }
+
+        inv := [0 to n - 1]
+        for i of 0 to n - 1 {
+            inv[i] = [0 to n - 1]
+            for j of 0 to n - 1 {
+                inv[i][j] = aug[i][n + j]
+            }
+        }
+        ~> inv
+    }
+}
