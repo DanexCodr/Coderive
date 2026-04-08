@@ -1,62 +1,11 @@
 unit std
 
+use { math.** }
+
 share Math {
-    
-        share sqrt(x: int|float) :: int|float {
-        if x < 0 {
-            ~> 0
-        } elif x == 0 {
-            ~> 0
-        } else {
-            // Simple square root approximation
-            guess: int|float = x / 2
-            for i of 1 to 10 {
-                guess = (guess + x / guess) / 2
-            }
-            ~> guess
-        }
-    }
-    
-        share pow(base: int|float, exponent: int|float) :: int|float {
-        temp: int|float = 1
-        for i of 1 to exponent {
-            temp = temp * base
-        }
-        ~> temp
-    }
-    
-        share max(a: int|float, b: int|float) :: int|float {
-        if a > b {
-            ~> a
-        } else {
-            ~> b
-        }
-    }
-
-        share min(a: int|float, b: int|float) :: int|float {
-        if a < b {
-            ~> a
-        } else {
-            ~> b
-        }
-    }
-    
-        share abs(x: int|float) :: int|float {
-        if x < 0 {
-            ~> -x
-        } else {
-            ~> x
-        }
-    }
-
-    share main() {
-        out("=== Math library self-test ===")
-        out("sqrt(9)   = " + sqrt(9))
-        out("sqrt(2)   = " + sqrt(2))
-        out("pow(2, 8) = " + pow(2, 8))
-        out("max(3, 7) = " + max(3, 7))
-        out("min(3.0, 7.0) = " + min(3.0, 7.0))
-        out("abs(-5.0) = " + abs(-5.0))
-        out("=== Done ===")
-    }
+    share abs(x: int|float) :: int|float { ~> math.abs(x) }
+    share min(a: int|float, b: int|float) :: int|float { ~> math.min(a, b) }
+    share max(a: int|float, b: int|float) :: int|float { ~> math.max(a, b) }
+    share pow(base: int|float, exponent: int) :: int|float { ~> math.pow(base, exponent) }
+    share sqrt(x: int|float) :: int|float { ~> math.sqrt(x) }
 }

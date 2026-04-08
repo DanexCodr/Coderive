@@ -1,0 +1,121 @@
+unit math
+
+share MathTrig {
+    PI: float = 3.141592653589793
+
+    share normalizeAngle(x: int|float) :: int|float {
+        twoPi: float = 6.283185307179586
+        y: int|float = x
+        for i of 1 to 8 {
+            if y > PI {
+                y = y - twoPi
+            } elif y < -PI {
+                y = y + twoPi
+            }
+        }
+        ~> y
+    }
+
+    share sin(x: int|float) :: int|float {
+        y := MathTrig.normalizeAngle(x)
+        term: int|float = y
+        sum: int|float = y
+        for i of 1 to 12 {
+            a: int = 2 * i
+            b: int = 2 * i + 1
+            term = -term * y * y / (a * b)
+            sum = sum + term
+        }
+        ~> sum
+    }
+
+    share cos(x: int|float) :: int|float {
+        y := MathTrig.normalizeAngle(x)
+        term: int|float = 1
+        sum: int|float = 1
+        for i of 1 to 12 {
+            a: int = 2 * i - 1
+            b: int = 2 * i
+            term = -term * y * y / (a * b)
+            sum = sum + term
+        }
+        ~> sum
+    }
+
+    share tan(x: int|float) :: int|float {
+        c := MathTrig.cos(x)
+        if c == 0 { ~> 0 }
+        ~> MathTrig.sin(x) / c
+    }
+
+    share atan(x: int|float) :: int|float {
+        if x > 1 {
+            ~> PI / 2 - MathTrig.atan(1 / x)
+        }
+        if x < -1 {
+            ~> -PI / 2 - MathTrig.atan(1 / x)
+        }
+        term: int|float = x
+        sum: int|float = x
+        for i of 1 to 24 {
+            n: int = 2 * i + 1
+            term = -term * x * x
+            sum = sum + term / n
+        }
+        ~> sum
+    }
+
+    share atan2(y: int|float, x: int|float) :: int|float {
+        if x > 0 { ~> MathTrig.atan(y / x) }
+        if x < 0 {
+            if y >= 0 { ~> MathTrig.atan(y / x) + PI }
+            ~> MathTrig.atan(y / x) - PI
+        }
+        if y > 0 { ~> PI / 2 }
+        if y < 0 { ~> -PI / 2 }
+        ~> 0
+    }
+
+    share asin(x: int|float) :: int|float {
+        if x > 1 { ~> PI / 2 }
+        if x < -1 { ~> -PI / 2 }
+        ~> MathTrig.atan2(x, MathCore.sqrt(1 - x * x))
+    }
+
+    share acos(x: int|float) :: int|float {
+        ~> PI / 2 - MathTrig.asin(x)
+    }
+
+    share sinh(x: int|float) :: int|float {
+        ex := MathCore.exp(x)
+        enx := MathCore.exp(-x)
+        ~> (ex - enx) / 2
+    }
+
+    share cosh(x: int|float) :: int|float {
+        ex := MathCore.exp(x)
+        enx := MathCore.exp(-x)
+        ~> (ex + enx) / 2
+    }
+
+    share tanh(x: int|float) :: int|float {
+        c := MathTrig.cosh(x)
+        if c == 0 { ~> 0 }
+        ~> MathTrig.sinh(x) / c
+    }
+
+    share asinh(x: int|float) :: int|float {
+        ~> MathCore.log(x + MathCore.sqrt(x * x + 1))
+    }
+
+    share acosh(x: int|float) :: int|float {
+        if x < 1 { ~> 0 }
+        ~> MathCore.log(x + MathCore.sqrt(x * x - 1))
+    }
+
+    share atanh(x: int|float) :: int|float {
+        if x >= 1 { ~> 0 }
+        if x <= -1 { ~> 0 }
+        ~> 0.5 * MathCore.log((1 + x) / (1 - x))
+    }
+}

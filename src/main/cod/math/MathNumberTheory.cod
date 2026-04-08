@@ -1,0 +1,119 @@
+unit math
+
+share MathNumberTheory {
+    share absInt(x: int) :: int|float {
+        if x < 0 { ~> -x }
+        ~> x
+    }
+
+    share gcd(a: int, b: int) :: int|float {
+        x := MathNumberTheory.absInt(a)
+        y := MathNumberTheory.absInt(b)
+        for i of 0 to 128 {
+            if y == 0 { break }
+            t := y
+            y = x % y
+            x = t
+        }
+        ~> x
+    }
+
+    share lcd(a: int, b: int) :: int|float {
+        if a == 0 { ~> 0 }
+        if b == 0 { ~> 0 }
+        ~> MathNumberTheory.absInt(a * b) / MathNumberTheory.gcd(a, b)
+    }
+
+    share isPrime(n: int) :: int|float {
+        if n < 2 { ~> 0 }
+        if n == 2 { ~> 1 }
+        if n % 2 == 0 { ~> 0 }
+        limit := MathCore.sqrt(n)
+        for i of 3 to limit by 2 {
+            if n % i == 0 { ~> 0 }
+        }
+        ~> 1
+    }
+
+    share nextPrime(n: int) :: int|float {
+        for c of n + 1 to n + 100000 {
+            if MathNumberTheory.isPrime(c) == 1 { ~> c }
+        }
+        ~> 0
+    }
+
+    share prevPrime(n: int) :: int|float {
+        if n <= 2 { ~> 0 }
+        for c of n - 1 to 2 by -1 {
+            if MathNumberTheory.isPrime(c) == 1 { ~> c }
+        }
+        ~> 0
+    }
+
+    share factorize(n: int) :: [] {
+        x := MathNumberTheory.absInt(n)
+        if x < 2 { ~> [] }
+        factors := []
+        idx: int = 0
+        for i of 0 to 64 {
+            if x % 2 != 0 { break }
+            factors[idx] = 2
+            idx = idx + 1
+            x = x / 2
+        }
+        for f of 3 to x by 2 {
+            if f * f > x { break }
+            for j of 0 to 64 {
+                if x % f != 0 { break }
+                factors[idx] = f
+                idx = idx + 1
+                x = x / f
+            }
+        }
+        if x > 1 {
+            factors[idx] = x
+        }
+        ~> factors
+    }
+
+    share factorial(n: int) :: int|float {
+        if n < 0 { ~> 0 }
+        outValue: int|float = 1
+        for i of 2 to n {
+            outValue = outValue * i
+        }
+        ~> outValue
+    }
+
+    share permutations(n: int, k: int) :: int|float {
+        if n < 0 { ~> 0 }
+        if k < 0 { ~> 0 }
+        if k > n { ~> 0 }
+        outValue: int|float = 1
+        for i of 0 to k - 1 {
+            outValue = outValue * (n - i)
+        }
+        ~> outValue
+    }
+
+    share combinations(n: int, k: int) :: int|float {
+        if n < 0 { ~> 0 }
+        if k < 0 { ~> 0 }
+        if k > n { ~> 0 }
+        kk: int = k
+        if kk > n - kk {
+            kk = n - kk
+        }
+        num: int|float = 1
+        den: int|float = 1
+        for i of 1 to kk {
+            num = num * (n - kk + i)
+            den = den * i
+        }
+        ~> num / den
+    }
+
+    share binomial(n: int, k: int) :: int|float {
+        ~> MathNumberTheory.combinations(n, k)
+    }
+}
