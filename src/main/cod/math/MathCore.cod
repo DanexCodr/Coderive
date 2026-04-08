@@ -128,7 +128,8 @@ share MathCore {
 
     share log10(x: int|float) :: int|float { ~> MathCore.log(x) / MathCore.log(10) }
     share log2(x: int|float) :: int|float { ~> MathCore.log(x) / MathCore.log(2) }
-    share log1(x: int|float) :: int|float { ~> MathCore.log(1 + x) }
+    share log1(x: int|float) :: int|float { ~> MathCore.log1p(x) }
+    share log1p(x: int|float) :: int|float { ~> MathCore.log(1 + x) }
 
     share toRadians(x: int|float) :: int|float { ~> x * PI / 180 }
     share toDegrees(x: int|float) :: int|float { ~> x * 180 / PI }

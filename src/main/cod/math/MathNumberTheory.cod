@@ -24,6 +24,10 @@ share MathNumberTheory {
         ~> MathNumberTheory.absInt(a * b) / MathNumberTheory.gcd(a, b)
     }
 
+    share lcm(a: int, b: int) :: int|float {
+        ~> MathNumberTheory.lcd(a, b)
+    }
+
     share isPrime(n: int) :: int|float {
         if n < 2 { ~> 0 }
         if n == 2 { ~> 1 }

@@ -14,8 +14,8 @@ E: float = 2.718281828459045
 TAU: float = 6.283185307179586
 PHI: float = 1.618033988749895
 
-fibonacci: [int] = [0 to 1Qi]
-catalan: [int] = [0 to 1Qi]
+fibonacci: [int] = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
+catalan: [int] = [1, 1, 2, 5, 14, 42, 132, 429]
 
 share abs(x: int|float) :: int|float { ~> MathCore.abs(x) }
 share sign(x: int|float) :: int|float { ~> MathCore.sign(x) }
@@ -39,6 +39,7 @@ share log(x: int|float) :: int|float { ~> MathCore.log(x) }
 share log10(x: int|float) :: int|float { ~> MathCore.log10(x) }
 share log2(x: int|float) :: int|float { ~> MathCore.log2(x) }
 share log1(x: int|float) :: int|float { ~> MathCore.log1(x) }
+share log1p(x: int|float) :: int|float { ~> MathCore.log1p(x) }
 
 share sin(x: int|float) :: int|float { ~> MathTrig.sin(x) }
 share cos(x: int|float) :: int|float { ~> MathTrig.cos(x) }
@@ -58,6 +59,7 @@ share toDegrees(x: int|float) :: int|float { ~> MathCore.toDegrees(x) }
 
 share gcd(a: int, b: int) :: int|float { ~> MathNumberTheory.gcd(a, b) }
 share lcd(a: int, b: int) :: int|float { ~> MathNumberTheory.lcd(a, b) }
+share lcm(a: int, b: int) :: int|float { ~> MathNumberTheory.lcm(a, b) }
 share isPrime(n: int) :: int|float { ~> MathNumberTheory.isPrime(n) }
 share nextPrime(n: int) :: int|float { ~> MathNumberTheory.nextPrime(n) }
 share prevPrime(n: int) :: int|float { ~> MathNumberTheory.prevPrime(n) }

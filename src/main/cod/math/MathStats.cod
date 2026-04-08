@@ -13,22 +13,26 @@ share MathStats {
     share median(values: []) :: int|float {
         n := values.size
         if n == 0 { ~> 0 }
+        data := [0 to n - 1]
+        for i of 0 to n - 1 {
+            data[i] = values[i]
+        }
 
         for i of 0 to n - 1 {
             for j of i + 1 to n - 1 {
-                if values[j] < values[i] {
-                    t := values[i]
-                    values[i] = values[j]
-                    values[j] = t
+                if data[j] < data[i] {
+                    t := data[i]
+                    data[i] = data[j]
+                    data[j] = t
                 }
             }
         }
 
         mid := n / 2
         if n % 2 == 1 {
-            ~> values[mid]
+            ~> data[mid]
         }
-        ~> (values[mid - 1] + values[mid]) / 2
+        ~> (data[mid - 1] + data[mid]) / 2
     }
 
     share mode(values: []) :: int|float {
