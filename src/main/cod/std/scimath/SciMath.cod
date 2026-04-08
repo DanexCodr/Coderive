@@ -234,6 +234,7 @@ share SciMath {
         }
         ~> wins
     }
+    share mannwhitneyu(x: [], y: []) :: int|float { ~> SciMath.manwhiteneyu(x, y) }
 
     share chi2con(observed: [], expected: []) :: int|float {
         n := SciMath.minInt(observed.size, expected.size)
@@ -246,6 +247,7 @@ share SciMath {
         }
         ~> chi2
     }
+    share chi2contingency(observed: [], expected: []) :: int|float { ~> SciMath.chi2con(observed, expected) }
 
     share kstest(a: [], b: []) :: int|float {
         n := SciMath.minInt(a.size, b.size)
