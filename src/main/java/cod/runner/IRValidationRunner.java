@@ -13,6 +13,9 @@ import java.util.ArrayList;
 import java.util.Map;
 
 public class IRValidationRunner extends BaseRunner {
+    private static final String INTERNAL_INT_MATH_RELATIVE_PATH = "src/main/internal/IntMath.cod";
+    private static final String INTERNAL_IR_IMPORT_RELATIVE_PATH = "src/main/test/InternalIRImport.cod";
+
     @Override
     public void run(String[] args) throws Exception {
         String file = "/home/runner/work/Coderive/Coderive/src/main/cod/src/main/test/Import.cod";
@@ -70,8 +73,11 @@ public class IRValidationRunner extends BaseRunner {
     }
 
     private void validateInternalImportIRPath() throws Exception {
-        String internalFile = "/home/runner/work/Coderive/Coderive/src/main/cod/src/main/internal/IntMath.cod";
-        String importProbeFile = "/home/runner/work/Coderive/Coderive/src/main/cod/src/main/test/InternalIRImport.cod";
+        String codProjectRoot = cod.interpreter.Index.getProjectRoot();
+        assertTrue(codProjectRoot != null, "Project root not resolved for internal IR validation");
+
+        String internalFile = new File(codProjectRoot, INTERNAL_INT_MATH_RELATIVE_PATH).getAbsolutePath();
+        String importProbeFile = new File(codProjectRoot, INTERNAL_IR_IMPORT_RELATIVE_PATH).getAbsolutePath();
 
         Interpreter internalInterpreter = new Interpreter();
         internalInterpreter.setFilePath(internalFile);
@@ -82,24 +88,22 @@ public class IRValidationRunner extends BaseRunner {
             "Internal type list is empty");
 
         Type internalType = internalProgram.unit.types.get(0);
-        String projectRoot = cod.interpreter.Index.getProjectRoot();
-        assertTrue(projectRoot != null, "Project root not resolved for internal IR validation");
-
-        IRManager manager = new IRManager(projectRoot);
+        IRManager manager = new IRManager(codProjectRoot);
         manager.save(internalProgram.unit.name, internalType);
         CodPTACArtifact artifact = manager.loadArtifact(internalProgram.unit.name, internalType.name);
         assertTrue(artifact != null, "Failed to save/load internal CodP-TAC artifact");
 
         ImportResolver resolver = new ImportResolver();
         resolver.setCurrentFileDirectory(importProbeFile);
+        resolver.clearCache();
         Type loaded = resolver.resolveImport("internal.IntMath");
         assertTrue(loaded != null, "ImportResolver failed to load internal.IntMath");
 
         Map<String, Object> cacheStats = resolver.getCacheStats();
         Object bytecodeHits = cacheStats.get("bytecodeCacheHits");
         assertTrue(bytecodeHits instanceof Integer, "Missing bytecode cache hit stat");
-        assertTrue(((Integer) bytecodeHits).intValue() > 0,
-            "Expected IR bytecode cache hit when loading internal.IntMath");
+        assertTrue(((Integer) bytecodeHits).intValue() == 1,
+            "Expected exactly one IR bytecode cache hit when loading internal.IntMath");
     }
 
     private static boolean equalsSafe(String a, String b) {
