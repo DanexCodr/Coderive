@@ -4,9 +4,9 @@ use {internal.RangeSpec, internal.MultiRangeSpec}
 
 share InternalRangeSpecImport {
     share main() {
-        simple := RangeSpec(none, 1, 5)
-        stepped := RangeSpec(2, 1, 9)
-        specs := MultiRangeSpec([simple, stepped])
+        simple := internal.RangeSpec(none, 1, 5)
+        stepped := internal.RangeSpec(2, 1, 9)
+        specs := internal.MultiRangeSpec([simple, stepped])
 
         out(simple.toText())
         out(stepped.toText())

@@ -8,7 +8,7 @@ share MultiRangeSpec {
     }
 
     share toText() :: text {
-        textValue: text = "MultiRangeSpec{ranges=["
+        textValue: text = "MultiRangeSpec\\{ranges=["
         first: bool = true
 
         for range of ranges {

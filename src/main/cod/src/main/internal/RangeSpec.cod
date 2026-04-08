@@ -13,8 +13,8 @@ share RangeSpec {
 
     share toText() :: text {
         if step != none {
-            ~> "RangeSpec{by " + step + " in " + start + " to " + end + "}"
+            ~> "RangeSpec\{by " + step + " in " + start + " to " + end + "}"
         }
-        ~> "RangeSpec{" + start + " to " + end + "}"
+        ~> "RangeSpec\{" + start + " to " + end + "}"
     }
 }
