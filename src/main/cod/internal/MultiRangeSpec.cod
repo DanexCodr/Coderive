@@ -1,0 +1,25 @@
+unit internal
+
+share MultiRangeSpec {
+    rangesText: text = ""
+
+    share this(values: []) {
+        textValue: text = ""
+        first: bool = true
+
+        for range of values {
+            if first {
+                first = false
+            } else {
+                textValue = textValue + ", "
+            }
+            textValue = textValue + range.toText()
+        }
+
+        rangesText = textValue
+    }
+
+    share toText() :: text {
+        ~> "MultiRangeSpec\{ranges=[" + this.rangesText + "]}"
+    }
+}

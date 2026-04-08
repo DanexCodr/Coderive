@@ -19,6 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 public class ImportResolver {
+    // The new layout uses src/main/cod/demo/src/main with internal as a sibling of demo.
+    private static final String DEMO_DIR_NAME = "demo";
     private static final Pattern SAFE_UNIT_NAME_PATTERN =
         Pattern.compile("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*");
     private static final int IMPORT_NAME_CACHE_LIMIT = 4096;
@@ -78,6 +80,7 @@ public class ImportResolver {
     
     // Current file location for relative import resolution
     private String srcMainRoot;
+    private String demoSiblingRoot;
     private String currentFileDirectory;
     private String projectRoot;
     
@@ -188,6 +191,21 @@ public class ImportResolver {
                 importPaths.add(0, srcMainRoot);
                 DebugSystem.debug("IMPORTS", "Added srcMainRoot to import paths: " + srcMainRoot);
             }
+
+            this.demoSiblingRoot = null;
+            File srcMainDir = new File(srcMainRoot);
+            File srcDir = srcMainDir.getParentFile();
+            File srcHolder = srcDir != null ? srcDir.getParentFile() : null;
+            if (srcHolder != null && DEMO_DIR_NAME.equals(srcHolder.getName())) {
+                File siblingRoot = srcHolder.getParentFile();
+                if (siblingRoot != null) {
+                    this.demoSiblingRoot = siblingRoot.getAbsolutePath();
+                    if (!importPaths.contains(this.demoSiblingRoot)) {
+                        importPaths.add(1, this.demoSiblingRoot);
+                        DebugSystem.debug("IMPORTS", "Added demo sibling root to import paths: " + this.demoSiblingRoot);
+                    }
+                }
+            }
             
             // Set the project root for Index class (for src/idx/ location)
             Index.setProjectRoot(srcMainRoot);
@@ -226,10 +244,37 @@ public class ImportResolver {
      */
     private String getUnitPath(String unitName) {
         validateUnitName(unitName);
-        if (srcMainRoot != null) {
-            return srcMainRoot + "/" + unitName;
+        String fallbackPath = buildUnitPath(srcMainRoot, unitName);
+        if (fallbackPath == null) {
+            fallbackPath = buildUnitPath("src/main", unitName);
         }
-        return "src/main/" + unitName;
+
+        if (fallbackPath != null) {
+            File primaryDir = new File(fallbackPath);
+            if (primaryDir.exists() && primaryDir.isDirectory()) {
+                return fallbackPath;
+            }
+        }
+
+        for (String basePath : importPaths) {
+            if (basePath == null || basePath.isEmpty()) {
+                continue;
+            }
+            String candidate = basePath + "/" + unitName;
+            File dir = new File(candidate);
+            if (dir.exists() && dir.isDirectory()) {
+                return candidate;
+            }
+        }
+
+        return fallbackPath;
+    }
+
+    private static String buildUnitPath(String basePath, String unitName) {
+        if (basePath == null || basePath.isEmpty()) {
+            return null;
+        }
+        return new File(basePath, unitName).getPath();
     }
 
     private void validateUnitName(String unitName) {

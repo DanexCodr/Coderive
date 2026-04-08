@@ -6,14 +6,21 @@ import cod.ir.IRReader;
 import cod.ir.IRWriter;
 import cod.interpreter.Interpreter;
 import cod.ptac.CodPTACArtifact;
+import cod.semantic.ImportResolver;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Map;
 
 public class IRValidationRunner extends BaseRunner {
+    // Relative to Index project root when running demo files: src/main/cod/demo
+    private static final String INTERNAL_RANGE_SPEC_RELATIVE_PATH = "../internal/RangeSpec.cod";
+    // Relative to Index project root; points to the demo import-probe test file.
+    private static final String INTERNAL_IR_IMPORT_RELATIVE_PATH = "src/main/test/InternalRangeSpecImport.cod";
+
     @Override
     public void run(String[] args) throws Exception {
-        String file = "/home/runner/work/Coderive/Coderive/src/main/cod/src/main/test/Import.cod";
+        String file = "/home/runner/work/Coderive/Coderive/src/main/cod/demo/src/main/test/Import.cod";
         if (args != null && args.length > 0 && args[0] != null && !args[0].isEmpty()) {
             file = args[0];
         }
@@ -62,7 +69,44 @@ public class IRValidationRunner extends BaseRunner {
             assertTrue(managerArtifact.unit != null, "CodP-TAC unit missing from artifact");
         }
 
+        validateInternalImportIRPath();
+
         System.out.println("IR validation passed");
+    }
+
+    private void validateInternalImportIRPath() throws Exception {
+        String codProjectRoot = cod.interpreter.Index.getProjectRoot();
+        assertTrue(codProjectRoot != null, "Project root not resolved for internal IR validation");
+
+        String internalFile = new File(codProjectRoot, INTERNAL_RANGE_SPEC_RELATIVE_PATH).getAbsolutePath();
+        String importProbeFile = new File(codProjectRoot, INTERNAL_IR_IMPORT_RELATIVE_PATH).getAbsolutePath();
+
+        Interpreter internalInterpreter = new Interpreter();
+        internalInterpreter.setFilePath(internalFile);
+        Program internalProgram = parse(internalFile, internalInterpreter);
+        assertTrue(internalProgram != null, "Internal source parse failed");
+        assertTrue(internalProgram.unit != null, "Internal unit is null");
+        assertTrue(internalProgram.unit.types != null && !internalProgram.unit.types.isEmpty(),
+            "Internal type list is empty");
+
+        Type internalType = internalProgram.unit.types.get(0);
+        IRManager manager = new IRManager(codProjectRoot);
+        manager.save(internalProgram.unit.name, internalType);
+        CodPTACArtifact artifact = manager.loadArtifact(internalProgram.unit.name, internalType.name);
+        assertTrue(artifact != null, "Failed to save/load internal CodP-TAC artifact");
+
+        ImportResolver resolver = new ImportResolver();
+        // setCurrentFileDirectory accepts a file path and derives its parent directory.
+        resolver.setCurrentFileDirectory(importProbeFile);
+        resolver.clearCache();
+        Type loaded = resolver.resolveImport("internal.RangeSpec");
+        assertTrue(loaded != null, "ImportResolver failed to load internal.RangeSpec");
+
+        Map<String, Object> cacheStats = resolver.getCacheStats();
+        Object bytecodeHits = cacheStats.get("bytecodeCacheHits");
+        assertTrue(bytecodeHits instanceof Integer, "Missing bytecode cache hit stat");
+        assertTrue(((Integer) bytecodeHits).intValue() == 1,
+            "Expected exactly one IR bytecode cache hit when loading internal.RangeSpec");
     }
 
     private static boolean equalsSafe(String a, String b) {

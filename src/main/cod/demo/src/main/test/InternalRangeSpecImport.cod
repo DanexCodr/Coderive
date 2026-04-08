@@ -1,0 +1,10 @@
+unit test
+
+use {internal.RangeSpec}
+
+share InternalRangeSpecImport {
+    share main() {
+        out(internal.RangeSpec.format(1, 1, 5))
+        out(internal.RangeSpec.format(2, 1, 9))
+    }
+}
