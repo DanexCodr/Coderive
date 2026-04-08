@@ -40,8 +40,7 @@ public final class RangeObjects {
         if (!(value instanceof ObjectInstance)) return false;
         ObjectInstance instance = (ObjectInstance) value;
         Object markerValue = instance.fields.get(RANGE_MARKER);
-        if (hasMarker(instance.fields, RANGE_MARKER)) return true;
-        if (markerValue instanceof Boolean && !((Boolean) markerValue).booleanValue()) return false;
+        if (markerValue instanceof Boolean) return ((Boolean) markerValue).booleanValue();
         return instance.fields.containsKey(START_FIELD)
             && instance.fields.containsKey(END_FIELD)
             && instance.fields.containsKey(STEP_FIELD);

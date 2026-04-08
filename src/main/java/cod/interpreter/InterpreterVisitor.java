@@ -2512,7 +2512,11 @@ public Object visit(TextLiteral node) {
         try {
             List<Object> ranges = new ArrayList<Object>();
             for (RangeIndex rangeNode : node.ranges) {
-                ranges.add(visit(rangeNode));
+                Object range = visit(rangeNode);
+                if (!RangeObjects.isRangeSpec(range)) {
+                    throw new InternalError("Multi-range index contains non-range value");
+                }
+                ranges.add(range);
             }
             return RangeObjects.createMultiRangeSpec(resolveInternalMultiRangeSpecType(), ranges);
         } catch (ProgramError e) {
