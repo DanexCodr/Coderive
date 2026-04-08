@@ -34,12 +34,26 @@ public final class IRReader {
             in = new DataInputStream(new BufferedInputStream(new FileInputStream(file)));
             int magic = in.readInt();
             if (magic == IRCodec.MAGIC) {
-                return IRArtifactCodec.readArtifact(in);
+                return readPlatformArtifact(file);
             }
             if (magic == JAVA_SERIAL_STREAM_MAGIC) {
                 return readLegacyObjectStream(file);
             }
             throw new IOException("Unknown IR format magic: 0x" + Integer.toHexString(magic));
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    private CodPTACArtifact readPlatformArtifact(File file) throws IOException {
+        DataInputStream in = null;
+        try {
+            in = new DataInputStream(new BufferedInputStream(new FileInputStream(file)));
+            return IRArtifactCodec.readArtifact(in);
         } finally {
             if (in != null) {
                 try {
