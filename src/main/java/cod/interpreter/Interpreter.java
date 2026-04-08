@@ -128,6 +128,10 @@ public class Interpreter {
     return currentProgram;
   }
 
+  public void setCurrentProgram(Program program) {
+    this.currentProgram = program;
+  }
+
   public Object evalReplStatement(
       Stmt stmt,
       ObjectInstance obj,

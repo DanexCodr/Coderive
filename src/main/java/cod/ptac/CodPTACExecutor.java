@@ -2,6 +2,7 @@ package cod.ptac;
 
 import cod.error.ProgramError;
 import cod.interpreter.Interpreter;
+import cod.ast.node.Program;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -11,6 +12,7 @@ import java.util.Map;
 
 public final class CodPTACExecutor {
     private final CodPTACOptions options;
+    private static final Object FALLBACK_SENTINEL = new Object();
 
     private static final class CodPTACRange {
         final BigInteger start;
@@ -41,7 +43,8 @@ public final class CodPTACExecutor {
         if (entry == null) {
             return fallback(artifact, fallbackInterpreter, "No entry function found in CodP-TAC unit");
         }
-        return executeFunction(artifact.unit, entry, new ArrayList<Object>(), fallbackInterpreter, artifact);
+        Object result = executeFunction(artifact.unit, entry, new ArrayList<Object>(), fallbackInterpreter, artifact);
+        return result == FALLBACK_SENTINEL ? null : result;
     }
 
     private Object executeFunction(
@@ -64,6 +67,9 @@ public final class CodPTACExecutor {
         for (CodPTACInstruction inst : function.instructions) {
             if (inst == null) continue;
             Object result = runInstruction(unit, inst, registers, fallbackInterpreter, artifact);
+            if (result == FALLBACK_SENTINEL) {
+                return FALLBACK_SENTINEL;
+            }
             if (inst.opcode == CodPTACOpcode.RETURN) {
                 return result;
             }
@@ -167,6 +173,9 @@ public final class CodPTACExecutor {
                 args.add(operandValue(inst.operands, i, registers));
             }
             Object result = executeFunction(unit, target, args, fallbackInterpreter, artifact);
+            if (result == FALLBACK_SENTINEL) {
+                return FALLBACK_SENTINEL;
+            }
             if (inst.dest != null) registers.put(inst.dest, result);
             return result;
         }
@@ -182,9 +191,16 @@ public final class CodPTACExecutor {
         if (!options.isFallbackEnabled()) {
             throw new ProgramError("CodP-TAC execution failed without fallback: " + reason);
         }
-        if (fallbackInterpreter != null && artifact != null && artifact.typeSnapshot != null) {
-            fallbackInterpreter.runType(artifact.typeSnapshot);
-            return null;
+        if (fallbackInterpreter != null) {
+            Program currentProgram = fallbackInterpreter.getCurrentProgram();
+            if (currentProgram != null) {
+                fallbackInterpreter.run(currentProgram);
+                return FALLBACK_SENTINEL;
+            }
+            if (artifact != null && artifact.typeSnapshot != null) {
+                fallbackInterpreter.runType(artifact.typeSnapshot);
+                return FALLBACK_SENTINEL;
+            }
         }
         throw new ProgramError("CodP-TAC fallback unavailable: " + reason);
     }
