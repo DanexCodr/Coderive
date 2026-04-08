@@ -1,4 +1,4 @@
-unit internal
+unit internal.range
 
 share MultiRangeSpec {
     rangesText: text = ""

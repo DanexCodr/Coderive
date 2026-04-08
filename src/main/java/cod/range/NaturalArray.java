@@ -105,14 +105,14 @@ public class NaturalArray {
         public final boolean valid;
         public final String error;  // For debugging
         
-        public ProcessedRange(RangeSpec range) {
+        public ProcessedRange(Object range) {
             long s = 0, e = 0, st = 0;
             boolean ok = true;
             String err = null;
             
             try {
-                s = toLongIndex(range.start);
-                e = toLongIndex(range.end);
+                s = toLongIndex(RangeObjects.getStart(range));
+                e = toLongIndex(RangeObjects.getEnd(range));
                 st = calculateStep(range);
             } catch (Exception ex) {
                 ok = false;
@@ -135,7 +135,26 @@ public class NaturalArray {
         }
         
         public ProcessedRange(Object start, Object end, Object step) {
-            this(new RangeSpec(step, start, end));
+            long s = 0, e = 0, st = 0;
+            boolean ok = true;
+            String err = null;
+            try {
+                s = toLongIndex(start);
+                e = toLongIndex(end);
+                if (step != null) {
+                    st = toLongIndex(step);
+                } else {
+                    st = (s < e) ? 1L : -1L;
+                }
+            } catch (Exception ex) {
+                ok = false;
+                err = ex.getMessage();
+            }
+            this.start = s;
+            this.end = e;
+            this.step = st;
+            this.valid = ok;
+            this.error = err;
         }
         
         // Helper methods using pre-processed values
@@ -196,7 +215,7 @@ public class NaturalArray {
         final ProcessedRange range;
         final Object value;
         
-        PendingRangeUpdate(RangeSpec spec, Object value) {
+        PendingRangeUpdate(Object spec, Object value) {
             this.range = new ProcessedRange(spec);  // Process ONCE
             this.value = value;
         }
@@ -517,7 +536,7 @@ public class NaturalArray {
         private final ProcessedRange range;
         private final long size;
         
-        public LazyRangeView(RangeSpec spec) {
+        public LazyRangeView(Object spec) {
             if (spec == null) {
                 throw new InternalError("LazyRangeView constructed with null range");
             }
@@ -613,19 +632,16 @@ public class NaturalArray {
         private final int[] rangeOffsets;
         private final int[] rangeForIndex; // Precomputed mapping
 
-        public LazyMultiRangeView(MultiRangeSpec multiRange) {
+        public LazyMultiRangeView(Object multiRange) {
             if (multiRange == null) {
                 throw new InternalError("LazyMultiRangeView constructed with null multiRange");
-            }
-            if (multiRange.ranges == null) {
-                throw new InternalError("LazyMultiRangeView constructed with null ranges list");
             }
             
             this.parentRef = new WeakReference<NaturalArray>(NaturalArray.this);
             this.rangeViews = new ArrayList<LazyRangeView>();
             int total = 0;
             
-            for (RangeSpec range : multiRange.ranges) {
+            for (Object range : RangeObjects.getRanges(multiRange)) {
                 if (range == null) {
                     throw new InternalError("Null range in MultiRangeSpec");
                 }
@@ -937,21 +953,21 @@ public class NaturalArray {
 
     // ========== OPTIMIZED RANGE OPERATIONS ==========
 
-    public List<Object> getRange(RangeSpec range) {
+    public List<Object> getRange(Object range) {
         if (range == null) {
             throw new InternalError("getRange called with null range");
         }
         return new LazyRangeView(range);
     }
 
-    public List<Object> getMultiRange(MultiRangeSpec multiRange) {
+    public List<Object> getMultiRange(Object multiRange) {
         if (multiRange == null) {
             throw new InternalError("getMultiRange called with null multiRange");
         }
         return new LazyMultiRangeView(multiRange);
     }
 
-    public void setRange(RangeSpec range, Object value) {
+    public void setRange(Object range, Object value) {
         if (range == null) {
             throw new InternalError("setRange called with null range");
         }
@@ -1013,7 +1029,7 @@ public class NaturalArray {
         }
     }
 
-    public void setMultiRange(MultiRangeSpec multiRange, Object value) {
+    public void setMultiRange(Object multiRange, Object value) {
         if (multiRange == null) {
             throw new InternalError("setMultiRange called with null multiRange");
         }
@@ -1022,7 +1038,7 @@ public class NaturalArray {
         if (tracked) {
             ArrayTracker.recordArrayModification(this);
             int total = 0;
-            for (RangeSpec range : multiRange.ranges) {
+            for (Object range : RangeObjects.getRanges(multiRange)) {
                 ProcessedRange processed = new ProcessedRange(range);
                 if (processed.valid) {
                     total += processed.size();
@@ -1042,7 +1058,7 @@ public class NaturalArray {
         }
         
         try {
-            for (RangeSpec range : multiRange.ranges) {
+            for (Object range : RangeObjects.getRanges(multiRange)) {
                 if (range == null) {
                     throw new InternalError("Null range in MultiRangeSpec");
                 }
@@ -1174,12 +1190,13 @@ public class NaturalArray {
         return Long.parseLong(obj.toString());
     }
     
-    private static long calculateStep(RangeSpec range) {
-        if (range.step != null) {
-            return toLongIndex(range.step);
+    private static long calculateStep(Object range) {
+        Object step = RangeObjects.getStep(range);
+        if (step != null) {
+            return toLongIndex(step);
         }
-        long start = toLongIndex(range.start);
-        long end = toLongIndex(range.end);
+        long start = toLongIndex(RangeObjects.getStart(range));
+        long end = toLongIndex(RangeObjects.getEnd(range));
         return (start < end) ? 1L : -1L;
     }
 

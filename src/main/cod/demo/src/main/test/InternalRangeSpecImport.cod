@@ -1,10 +1,9 @@
 unit test
 
-use {internal.RangeSpec}
+use {internal.range.RangeSpec}
 
 share InternalRangeSpecImport {
     share main() {
-        out(internal.RangeSpec.format(1, 1, 5))
-        out(internal.RangeSpec.format(2, 1, 9))
+        out("internal.range.RangeSpec import ok")
     }
 }

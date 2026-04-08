@@ -142,23 +142,23 @@ public final class ModuleValidator {
             return;
         }
 
-        String firstUnitPart;
-        int dotIndex = unitName.indexOf('.');
+        String lastUnitPart;
+        int dotIndex = unitName.lastIndexOf('.');
         if (dotIndex != -1) {
-            firstUnitPart = unitName.substring(0, dotIndex);
+            lastUnitPart = unitName.substring(dotIndex + 1);
         } else {
-            firstUnitPart = unitName;
+            lastUnitPart = unitName;
         }
 
-        if (!firstUnitPart.isEmpty() && !dirName.isEmpty() &&
-            firstUnitPart.charAt(0) != dirName.charAt(0)) {
+        if (!lastUnitPart.isEmpty() && !dirName.isEmpty() &&
+            lastUnitPart.charAt(0) != dirName.charAt(0)) {
             throw error(
                 "Unit name '" + unitName + "' doesn't match directory '" + dirName + "'",
                 errorToken
             );
         }
 
-        int lengthDiff = Math.abs(firstUnitPart.length() - dirName.length());
+        int lengthDiff = Math.abs(lastUnitPart.length() - dirName.length());
         if (lengthDiff > 3) {
             throw error(
                 "Unit name '" + unitName + "' doesn't match directory '" + dirName + "'",
@@ -166,8 +166,8 @@ public final class ModuleValidator {
             );
         }
 
-        if (!firstUnitPart.isEmpty() && !dirName.isEmpty() &&
-            firstUnitPart.charAt(firstUnitPart.length() - 1) != dirName.charAt(dirName.length() - 1)) {
+        if (!lastUnitPart.isEmpty() && !dirName.isEmpty() &&
+            lastUnitPart.charAt(lastUnitPart.length() - 1) != dirName.charAt(dirName.length() - 1)) {
             throw error(
                 "Unit name '" + unitName + "' doesn't match directory '" + dirName + "'",
                 errorToken

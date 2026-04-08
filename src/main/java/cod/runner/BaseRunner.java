@@ -188,10 +188,9 @@ public abstract class BaseRunner {
             DebugSystem.debug("INDEX", "Processing imports: " + ast.unit.imports.imports);
             
             for (String importName : ast.unit.imports.imports) {
-                // Parse unit name from import (format: unit.Class)
-                String[] parts = importName.split("\\.");
-                if (parts.length > 0) {
-                    String unitName = parts[0];
+                int lastDot = importName.lastIndexOf('.');
+                if (lastDot > 0) {
+                    String unitName = importName.substring(0, lastDot);
                     DebugSystem.debug("INDEX", "Generating index for imported unit: " + unitName);
                     generateIndexForUnit(unitName, srcMainRoot);
                 }

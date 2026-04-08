@@ -14,7 +14,8 @@ import java.util.Map;
 
 public class IRValidationRunner extends BaseRunner {
     // Relative to Index project root when running demo files: src/main/cod/demo
-    private static final String INTERNAL_RANGE_SPEC_RELATIVE_PATH = "../internal/RangeSpec.cod";
+    private static final String INTERNAL_RANGE_SPEC_RELATIVE_PATH = "../internal/range/RangeSpec.cod";
+    private static final String INTERNAL_MULTI_RANGE_SPEC_RELATIVE_PATH = "../internal/range/MultiRangeSpec.cod";
     // Relative to Index project root; points to the demo import-probe test file.
     private static final String INTERNAL_IR_IMPORT_RELATIVE_PATH = "src/main/test/InternalRangeSpecImport.cod";
 
@@ -79,6 +80,7 @@ public class IRValidationRunner extends BaseRunner {
         assertTrue(codProjectRoot != null, "Project root not resolved for internal IR validation");
 
         String internalFile = new File(codProjectRoot, INTERNAL_RANGE_SPEC_RELATIVE_PATH).getAbsolutePath();
+        String internalMultiRangeFile = new File(codProjectRoot, INTERNAL_MULTI_RANGE_SPEC_RELATIVE_PATH).getAbsolutePath();
         String importProbeFile = new File(codProjectRoot, INTERNAL_IR_IMPORT_RELATIVE_PATH).getAbsolutePath();
 
         Interpreter internalInterpreter = new Interpreter();
@@ -89,24 +91,39 @@ public class IRValidationRunner extends BaseRunner {
         assertTrue(internalProgram.unit.types != null && !internalProgram.unit.types.isEmpty(),
             "Internal type list is empty");
 
-        Type internalType = internalProgram.unit.types.get(0);
         IRManager manager = new IRManager(codProjectRoot);
+        Type internalType = internalProgram.unit.types.get(0);
         manager.save(internalProgram.unit.name, internalType);
         CodPTACArtifact artifact = manager.loadArtifact(internalProgram.unit.name, internalType.name);
         assertTrue(artifact != null, "Failed to save/load internal CodP-TAC artifact");
+        
+        Interpreter internalMultiRangeInterpreter = new Interpreter();
+        internalMultiRangeInterpreter.setFilePath(internalMultiRangeFile);
+        Program internalMultiRangeProgram = parse(internalMultiRangeFile, internalMultiRangeInterpreter);
+        assertTrue(internalMultiRangeProgram != null, "Internal multi-range source parse failed");
+        assertTrue(internalMultiRangeProgram.unit != null, "Internal multi-range unit is null");
+        assertTrue(internalMultiRangeProgram.unit.types != null && !internalMultiRangeProgram.unit.types.isEmpty(),
+            "Internal multi-range type list is empty");
+        
+        Type internalMultiRangeType = internalMultiRangeProgram.unit.types.get(0);
+        manager.save(internalMultiRangeProgram.unit.name, internalMultiRangeType);
+        CodPTACArtifact multiArtifact = manager.loadArtifact(internalMultiRangeProgram.unit.name, internalMultiRangeType.name);
+        assertTrue(multiArtifact != null, "Failed to save/load internal multi-range CodP-TAC artifact");
 
         ImportResolver resolver = new ImportResolver();
         // setCurrentFileDirectory accepts a file path and derives its parent directory.
         resolver.setCurrentFileDirectory(importProbeFile);
         resolver.clearCache();
-        Type loaded = resolver.resolveImport("internal.RangeSpec");
-        assertTrue(loaded != null, "ImportResolver failed to load internal.RangeSpec");
+        Type loaded = resolver.resolveImport("internal.range.RangeSpec");
+        assertTrue(loaded != null, "ImportResolver failed to load internal.range.RangeSpec");
+        Type loadedMulti = resolver.resolveImport("internal.range.MultiRangeSpec");
+        assertTrue(loadedMulti != null, "ImportResolver failed to load internal.range.MultiRangeSpec");
 
         Map<String, Object> cacheStats = resolver.getCacheStats();
         Object bytecodeHits = cacheStats.get("bytecodeCacheHits");
         assertTrue(bytecodeHits instanceof Integer, "Missing bytecode cache hit stat");
-        assertTrue(((Integer) bytecodeHits).intValue() == 1,
-            "Expected exactly one IR bytecode cache hit when loading internal.RangeSpec");
+        assertTrue(((Integer) bytecodeHits).intValue() == 2,
+            "Expected exactly two IR bytecode cache hits when loading internal.range.RangeSpec and internal.range.MultiRangeSpec");
     }
 
     private static boolean equalsSafe(String a, String b) {

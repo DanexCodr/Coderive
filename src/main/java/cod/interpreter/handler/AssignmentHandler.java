@@ -4,8 +4,7 @@ import cod.ast.node.*;
 import cod.error.InternalError;
 import cod.error.ProgramError;
 import cod.range.NaturalArray;
-import cod.range.MultiRangeSpec;
-import cod.range.RangeSpec;
+import cod.range.RangeObjects;
 import cod.interpreter.context.ExecutionContext;
 import cod.interpreter.*;
 import cod.semantic.ConstructorResolver;
@@ -174,12 +173,12 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
                 return assignTupleIndex(arrayObj, (List<?>) indexObj, newValue);
             }
             
-            if (indexObj instanceof RangeSpec) {
-                return assignRange(arrayObj, (RangeSpec) indexObj, newValue);
+            if (RangeObjects.isRangeSpec(indexObj)) {
+                return assignRange(arrayObj, indexObj, newValue);
             }
             
-            if (indexObj instanceof MultiRangeSpec) {
-                return assignMultiRange(arrayObj, (MultiRangeSpec) indexObj, newValue);
+            if (RangeObjects.isMultiRangeSpec(indexObj)) {
+                return assignMultiRange(arrayObj, indexObj, newValue);
             }
             
             if (arrayObj instanceof NaturalArray) {
@@ -214,12 +213,12 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
         Object current = arrayObj;
         for (int i = 0; i < tupleIndices.size() - 1; i++) {
             Object idxObj = typeSystem.unwrap(tupleIndices.get(i));
-            if (idxObj instanceof RangeSpec) {
-                current = extractRange(current, (RangeSpec) idxObj);
+            if (RangeObjects.isRangeSpec(idxObj)) {
+                current = extractRange(current, idxObj);
                 continue;
             }
-            if (idxObj instanceof MultiRangeSpec) {
-                current = extractMultiRange(current, (MultiRangeSpec) idxObj);
+            if (RangeObjects.isMultiRangeSpec(idxObj)) {
+                current = extractMultiRange(current, idxObj);
                 continue;
             }
             if (current instanceof NaturalArray) {
@@ -242,11 +241,11 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
         }
         
         Object lastIdxObj = typeSystem.unwrap(tupleIndices.get(tupleIndices.size() - 1));
-        if (lastIdxObj instanceof RangeSpec) {
-            return assignRange(current, (RangeSpec) lastIdxObj, newValue);
+        if (RangeObjects.isRangeSpec(lastIdxObj)) {
+            return assignRange(current, lastIdxObj, newValue);
         }
-        if (lastIdxObj instanceof MultiRangeSpec) {
-            return assignMultiRange(current, (MultiRangeSpec) lastIdxObj, newValue);
+        if (RangeObjects.isMultiRangeSpec(lastIdxObj)) {
+            return assignMultiRange(current, lastIdxObj, newValue);
         }
         if (current instanceof NaturalArray) {
             NaturalArray natural = (NaturalArray) current;
@@ -266,15 +265,15 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
     }
 
     @SuppressWarnings("unchecked")
-    private Object extractRange(Object array, RangeSpec range) {
+    private Object extractRange(Object array, Object range) {
         if (array instanceof NaturalArray) {
             return ((NaturalArray) array).getRange(range);
         }
         if (array instanceof List) {
             List<Object> list = (List<Object>) array;
             List<Object> result = new ArrayList<Object>();
-            long start = expressionHandler.toLongIndex(range.start);
-            long end = expressionHandler.toLongIndex(range.end);
+            long start = expressionHandler.toLongIndex(RangeObjects.getStart(range));
+            long end = expressionHandler.toLongIndex(RangeObjects.getEnd(range));
             long step = expressionHandler.calculateStep(range);
             start = normalizeListIndex(start, list.size());
             end = normalizeListIndex(end, list.size());
@@ -303,14 +302,14 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
     }
 
     @SuppressWarnings("unchecked")
-    private Object extractMultiRange(Object array, MultiRangeSpec multiRange) {
+    private Object extractMultiRange(Object array, Object multiRange) {
         if (array instanceof NaturalArray) {
             return ((NaturalArray) array).getMultiRange(multiRange);
         }
         if (array instanceof List) {
             List<Object> list = (List<Object>) array;
             List<Object> result = new ArrayList<Object>();
-            for (RangeSpec range : multiRange.ranges) {
+            for (Object range : RangeObjects.getRanges(multiRange)) {
                 Object sub = extractRange(list, range);
                 if (sub instanceof List) {
                     result.addAll((List<Object>) sub);
@@ -507,7 +506,7 @@ public Object assignToVariableScoped(String varName, Object newValue, ExecutionC
     // === Range/Multi-Range Assignment Methods ===
     
     @SuppressWarnings("unchecked")
-    private Object assignRange(Object array, RangeSpec range, Object value) {
+    private Object assignRange(Object array, Object range, Object value) {
         try {
             if (array instanceof NaturalArray) {
                 NaturalArray natural = (NaturalArray) array;
@@ -528,7 +527,7 @@ public Object assignToVariableScoped(String varName, Object newValue, ExecutionC
     }
     
     @SuppressWarnings("unchecked")
-    private Object assignMultiRange(Object array, MultiRangeSpec multiRange, Object value) {
+    private Object assignMultiRange(Object array, Object multiRange, Object value) {
         try {
             if (array instanceof NaturalArray) {
                 NaturalArray natural = (NaturalArray) array;
@@ -548,10 +547,10 @@ public Object assignToVariableScoped(String varName, Object newValue, ExecutionC
         }
     }
     
-    private void setListRange(List<Object> list, RangeSpec range, Object value) {
+    private void setListRange(List<Object> list, Object range, Object value) {
         try {
-            long start = expressionHandler.toLongIndex(range.start);
-            long end = expressionHandler.toLongIndex(range.end);
+            long start = expressionHandler.toLongIndex(RangeObjects.getStart(range));
+            long end = expressionHandler.toLongIndex(RangeObjects.getEnd(range));
             long step = expressionHandler.calculateStep(range);
             
             if (start < 0) start = list.size() + start;
@@ -575,9 +574,9 @@ public Object assignToVariableScoped(String varName, Object newValue, ExecutionC
         }
     }
     
-    private void setListMultiRange(List<Object> list, MultiRangeSpec multiRange, Object value) {
+    private void setListMultiRange(List<Object> list, Object multiRange, Object value) {
         try {
-            for (RangeSpec range : multiRange.ranges) {
+            for (Object range : RangeObjects.getRanges(multiRange)) {
                 setListRange(list, range, value);
             }
         } catch (ProgramError e) {
