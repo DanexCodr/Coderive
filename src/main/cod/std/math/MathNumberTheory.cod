@@ -1,14 +1,14 @@
 unit math
 
-share MathNumberTheory {
+share NumberTheory {
     share absInt(x: int) :: int|float {
         if x < 0 { ~> -x }
         ~> x
     }
 
     share gcd(a: int, b: int) :: int|float {
-        x := MathNumberTheory.absInt(a)
-        y := MathNumberTheory.absInt(b)
+        x := NumberTheory.absInt(a)
+        y := NumberTheory.absInt(b)
         for i of 0 to 128 {
             if y == 0 { break }
             t := y
@@ -21,18 +21,18 @@ share MathNumberTheory {
     share lcd(a: int, b: int) :: int|float {
         if a == 0 { ~> 0 }
         if b == 0 { ~> 0 }
-        ~> MathNumberTheory.absInt(a * b) / MathNumberTheory.gcd(a, b)
+        ~> NumberTheory.absInt(a * b) / NumberTheory.gcd(a, b)
     }
 
     share lcm(a: int, b: int) :: int|float {
-        ~> MathNumberTheory.lcd(a, b)
+        ~> NumberTheory.lcd(a, b)
     }
 
     share isPrime(n: int) :: int|float {
         if n < 2 { ~> 0 }
         if n == 2 { ~> 1 }
         if n % 2 == 0 { ~> 0 }
-        limit := MathCore.sqrt(n)
+        limit := Core.sqrt(n)
         for i of 3 to limit by 2 {
             if n % i == 0 { ~> 0 }
         }
@@ -41,7 +41,7 @@ share MathNumberTheory {
 
     share nextPrime(n: int) :: int|float {
         for c of n + 1 to n + 100000 {
-            if MathNumberTheory.isPrime(c) == 1 { ~> c }
+            if NumberTheory.isPrime(c) == 1 { ~> c }
         }
         ~> 0
     }
@@ -49,13 +49,13 @@ share MathNumberTheory {
     share prevPrime(n: int) :: int|float {
         if n <= 2 { ~> 0 }
         for c of n - 1 to 2 by -1 {
-            if MathNumberTheory.isPrime(c) == 1 { ~> c }
+            if NumberTheory.isPrime(c) == 1 { ~> c }
         }
         ~> 0
     }
 
     share factorize(n: int) :: [] {
-        x := MathNumberTheory.absInt(n)
+        x := NumberTheory.absInt(n)
         if x < 2 { ~> [] }
         factors := []
         idx: int = 0
@@ -118,6 +118,6 @@ share MathNumberTheory {
     }
 
     share binomial(n: int, k: int) :: int|float {
-        ~> MathNumberTheory.combinations(n, k)
+        ~> NumberTheory.combinations(n, k)
     }
 }

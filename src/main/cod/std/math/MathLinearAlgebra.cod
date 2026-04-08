@@ -1,13 +1,13 @@
 unit math
 
-share MathLinearAlgebra {
+share LinearAlgebra {
     share minInt(a: int, b: int) :: int|float {
         if a < b { ~> a }
         ~> b
     }
 
     share dot(a: [], b: []) :: int|float {
-        n := MathLinearAlgebra.minInt(a.size, b.size)
+        n := LinearAlgebra.minInt(a.size, b.size)
         sum: int|float = 0
         if n <= 0 { ~> 0 }
         for i of 0 to n - 1 {
@@ -27,11 +27,11 @@ share MathLinearAlgebra {
     }
 
     share magnitude(a: []) :: int|float {
-        ~> MathCore.sqrt(MathLinearAlgebra.dot(a, a))
+        ~> Core.sqrt(LinearAlgebra.dot(a, a))
     }
 
     share normalize(a: []) :: [] {
-        mag := MathLinearAlgebra.magnitude(a)
+        mag := LinearAlgebra.magnitude(a)
         if mag == 0 { ~> a }
         outArr := [0 to a.size - 1]
         for i of 0 to a.size - 1 {
