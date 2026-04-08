@@ -259,11 +259,19 @@ public final class CodPTACParityRunner extends BaseRunner {
 
     private String normalize(String text) {
         if (text == null) return "";
+        String number = "[-+]?\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?";
         String normalized = text.replace("\r\n", "\n").replace("\r", "\n");
         String[] lines = normalized.split("\n");
         StringBuilder sb = new StringBuilder();
         for (String line : lines) {
-            sb.append(line.trim()).append("\n");
+            String cleaned = line.trim().replaceFirst("^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}\\]\\s*", "");
+            cleaned = cleaned.replaceFirst("(?i)(Output-aware loop time:\\s*)" + number + "(\\s*ms)", "$1<TIME>$2");
+            cleaned = cleaned.replaceFirst("(?i)(Timer resolution:\\s*)" + number + "(\\s*ms)", "$1<TIME>$2");
+            cleaned = cleaned.replaceFirst("(?i)(elapsed_ms=)" + number, "$1<TIME>");
+            cleaned = cleaned.replaceFirst("(?i)(.*\\btime:\\s*)" + number + "(\\s*ms.*)", "$1<TIME>$2");
+            cleaned = cleaned.replaceFirst("(.*:\\s*)" + number + "(\\s*ms)$", "$1<TIME>$2");
+            cleaned = cleaned.replaceFirst("NaturalArray\\[id=\\d+", "NaturalArray[id=<ID>");
+            sb.append(cleaned).append("\n");
         }
         return sb.toString().trim();
     }
