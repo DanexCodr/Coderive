@@ -26,32 +26,6 @@ public final class CodPTACParityRunner extends BaseRunner {
     private final String androidPath = "/storage/emulated/0";
     private final String baseTestPath = "/JavaNIDE/Programming-Language/Coderive/app/src/main/cod/src/main/test/";
     
-    private final String[] DEFAULT_CASES = new String[] {
-        androidPath + baseTestPath + "Basic.cod",
-        androidPath + baseTestPath + "Loop.cod",
-        androidPath + baseTestPath + "LazyLoop.cod",
-        androidPath + baseTestPath + "Lambda.cod",
-        androidPath + baseTestPath + "TailCallOptimization.cod",
-        androidPath + baseTestPath + "Import.cod",
-        androidPath + baseTestPath + "LinearRecurrenceOptimization.cod"
-    };
-    
-    private interface PathSupplier {
-        String get() throws Exception;
-    }
-    
-    private static final class PathResult {
-        final boolean ok;
-        final String text;
-        final String error;
-        
-        PathResult(boolean ok, String text, String error) {
-            this.ok = ok;
-            this.text = text;
-            this.error = error;
-        }
-    }
-    
     private static String buildDefaultInput(int lines) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < lines; i++) {
@@ -67,51 +41,62 @@ public final class CodPTACParityRunner extends BaseRunner {
         if (args != null && args.length > 0) {
             for (String arg : args) {
                 if (arg != null && !arg.trim().isEmpty() && !arg.startsWith("-")) {
-                    files.add(arg);
+                    File f = new File(arg);
+                    if (f.isDirectory()) {
+                        files.addAll(findCodFiles(f));
+                    } else if (f.exists() && arg.endsWith(".cod")) {
+                        files.add(f.getAbsolutePath());
+                    }
                 }
             }
         }
         
         if (files.isEmpty()) {
             // Check if Android default path exists
-            File lazyLoop = new File(androidPath + baseTestPath + "LazyLoop.cod");
-            if (lazyLoop.exists()) {
+            File androidTestDir = new File(androidPath + baseTestPath);
+            if (androidTestDir.exists() && androidTestDir.isDirectory()) {
                 System.out.println("Found Android test directory at: " + androidPath + baseTestPath);
-                System.out.print("Use Android default tests? (y/n): ");
+                System.out.print("Use Android tests? (y/n): ");
                 System.out.flush();
                 
                 Scanner scanner = new Scanner(System.in);
                 String response = scanner.nextLine().trim().toLowerCase();
                 
                 if (response.equals("y") || response.equals("yes")) {
-                    for (String file : DEFAULT_CASES) {
-                        File f = new File(file);
-                        if (f.exists()) {
-                            files.add(file);
-                        }
-                    }
+                    files.addAll(findCodFiles(androidTestDir));
                 } else {
-                    System.out.print("Enter test file path: ");
-                    String userFile = scanner.nextLine().trim();
-                    if (!userFile.isEmpty()) {
-                        files.add(userFile);
+                    System.out.print("Enter directory or file path: ");
+                    String userPath = scanner.nextLine().trim();
+                    if (!userPath.isEmpty()) {
+                        File userFile = new File(userPath);
+                        if (userFile.isDirectory()) {
+                            files.addAll(findCodFiles(userFile));
+                        } else if (userFile.exists() && userPath.endsWith(".cod")) {
+                            files.add(userFile.getAbsolutePath());
+                        }
                     }
                 }
             } else {
                 System.out.println("No Android test directory found at: " + androidPath + baseTestPath);
-                System.out.print("Enter test file path: ");
+                System.out.print("Enter directory or file path: ");
                 System.out.flush();
                 
                 Scanner scanner = new Scanner(System.in);
-                String userFile = scanner.nextLine().trim();
-                if (!userFile.isEmpty()) {
-                    files.add(userFile);
+                String userPath = scanner.nextLine().trim();
+                if (!userPath.isEmpty()) {
+                    File userFile = new File(userPath);
+                    if (userFile.isDirectory()) {
+                        files.addAll(findCodFiles(userFile));
+                    } else if (userFile.exists() && userPath.endsWith(".cod")) {
+                        files.add(userFile.getAbsolutePath());
+                    }
                 }
             }
         }
         
         if (files.isEmpty()) {
-            System.out.println("No test files specified.");
+            System.out.println("No .cod files found.");
+            System.out.println("Usage: CodPTACParityRunner <file.cod> or <directory>");
             return;
         }
 
@@ -122,11 +107,11 @@ public final class CodPTACParityRunner extends BaseRunner {
         System.out.println();
         System.out.println("CodP-TAC Parity Validation");
         System.out.println("=========================");
-        System.out.println("Running " + files.size() + " test(s)...");
+        System.out.println("Found " + files.size() + " test file(s)");
         System.out.println();
 
         for (int i = 0; i < files.size(); i++) {
-            String file = files.get(i);
+            final String file = files.get(i);
             String shortName = new File(file).getName();
             
             System.out.print("[" + (i + 1) + "/" + files.size() + "] Testing " + shortName + "... ");
@@ -188,6 +173,21 @@ public final class CodPTACParityRunner extends BaseRunner {
         
         System.out.println();
         System.out.println("Parity check complete.");
+    }
+    
+    private List<String> findCodFiles(File dir) {
+        List<String> files = new ArrayList<String>();
+        File[] entries = dir.listFiles();
+        if (entries == null) return files;
+        
+        for (File entry : entries) {
+            if (entry.isDirectory()) {
+                files.addAll(findCodFiles(entry));
+            } else if (entry.getName().endsWith(".cod")) {
+                files.add(entry.getAbsolutePath());
+            }
+        }
+        return files;
     }
 
     private String runAstPath(String file) throws Exception {
@@ -342,6 +342,22 @@ public final class CodPTACParityRunner extends BaseRunner {
             sb.append(cleaned).append("\n");
         }
         return sb.toString().trim();
+    }
+    
+    private interface PathSupplier {
+        String get() throws Exception;
+    }
+    
+    private static final class PathResult {
+        final boolean ok;
+        final String text;
+        final String error;
+        
+        PathResult(boolean ok, String text, String error) {
+            this.ok = ok;
+            this.text = text;
+            this.error = error;
+        }
     }
 
     public static void main(String[] args) {
