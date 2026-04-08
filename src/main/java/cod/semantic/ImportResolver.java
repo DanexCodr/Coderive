@@ -303,6 +303,9 @@ public class ImportResolver {
         }
         int lastDot = unitName.lastIndexOf('.');
         String simpleName = lastDot >= 0 ? unitName.substring(lastDot + 1) : unitName;
+        if (simpleName.isEmpty()) {
+            return null;
+        }
         return Character.toUpperCase(simpleName.charAt(0)) + simpleName.substring(1);
     }
 
@@ -1518,7 +1521,7 @@ public class ImportResolver {
         
         pathsToTry.add(dirPath + ".cod");
         if (unitDirPath != null && moduleMainFileName != null) {
-            pathsToTry.add(unitDirPath + "/" + moduleMainFileName + ".cod");
+            pathsToTry.add(unitDirPath + File.separator + moduleMainFileName + ".cod");
         }
         
         for (String path : pathsToTry) {
