@@ -1,4 +1,4 @@
-unit test.MultiArrayMutualLoop
+unit test.MultiArray
 
 share main() {
     out("=== Multi-array mutual loop test ===")

@@ -1,4 +1,4 @@
-unit test.SelfCallMethod
+unit test.SelfCall
 
 share SelfCallMethod {
     local fact(n: int) :: result: int {

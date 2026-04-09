@@ -1,4 +1,4 @@
-unit test.MultiArrayOptimization
+unit test.MultiArray
 
 share main() {
     out("=== Multi-array optimization test ===")
