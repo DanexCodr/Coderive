@@ -1,5 +1,7 @@
 unit math
 
+// Standard math facade and core numeric utilities used by Coderive programs.
+// Re-exports trigonometry, random, number theory, linear algebra, and statistics helpers.
 use {
     math.Trig,
     math.NumberTheory,

@@ -1,5 +1,6 @@
 unit scimath
 
+// Minimal complex number helpers represented as [real, imaginary] arrays.
 use {math.Math}
 
 share Complex {

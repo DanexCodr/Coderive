@@ -52,20 +52,35 @@ public final class CodPTACParityRunner extends BaseRunner {
         }
         
         if (files.isEmpty()) {
-            // Check if Android default path exists
-            File androidTestDir = new File(androidPath + baseTestPath);
-            if (androidTestDir.exists() && androidTestDir.isDirectory()) {
-                System.out.println("Found Android test directory at: " + androidPath + baseTestPath);
-                System.out.print("Use Android tests? (y/n): ");
-                System.out.flush();
-                
-                Scanner scanner = new Scanner(System.in);
-                String response = scanner.nextLine().trim().toLowerCase();
-                
-                if (response.equals("y") || response.equals("yes")) {
-                    files.addAll(findCodFiles(androidTestDir));
+            try (Scanner scanner = new Scanner(System.in)) {
+                // Check if Android default path exists
+                File androidTestDir = new File(androidPath + baseTestPath);
+                if (androidTestDir.exists() && androidTestDir.isDirectory()) {
+                    System.out.println("Found Android test directory at: " + androidPath + baseTestPath);
+                    System.out.print("Use Android tests? (y/n): ");
+                    System.out.flush();
+                    
+                    String response = scanner.nextLine().trim().toLowerCase();
+                    
+                    if (response.equals("y") || response.equals("yes")) {
+                        files.addAll(findCodFiles(androidTestDir));
+                    } else {
+                        System.out.print("Enter directory or file path: ");
+                        String userPath = scanner.nextLine().trim();
+                        if (!userPath.isEmpty()) {
+                            File userFile = new File(userPath);
+                            if (userFile.isDirectory()) {
+                                files.addAll(findCodFiles(userFile));
+                            } else if (userFile.exists() && userPath.endsWith(".cod")) {
+                                files.add(userFile.getAbsolutePath());
+                            }
+                        }
+                    }
                 } else {
+                    System.out.println("No Android test directory found at: " + androidPath + baseTestPath);
                     System.out.print("Enter directory or file path: ");
+                    System.out.flush();
+                    
                     String userPath = scanner.nextLine().trim();
                     if (!userPath.isEmpty()) {
                         File userFile = new File(userPath);
@@ -74,21 +89,6 @@ public final class CodPTACParityRunner extends BaseRunner {
                         } else if (userFile.exists() && userPath.endsWith(".cod")) {
                             files.add(userFile.getAbsolutePath());
                         }
-                    }
-                }
-            } else {
-                System.out.println("No Android test directory found at: " + androidPath + baseTestPath);
-                System.out.print("Enter directory or file path: ");
-                System.out.flush();
-                
-                Scanner scanner = new Scanner(System.in);
-                String userPath = scanner.nextLine().trim();
-                if (!userPath.isEmpty()) {
-                    File userFile = new File(userPath);
-                    if (userFile.isDirectory()) {
-                        files.addAll(findCodFiles(userFile));
-                    } else if (userFile.exists() && userPath.endsWith(".cod")) {
-                        files.add(userFile.getAbsolutePath());
                     }
                 }
             }

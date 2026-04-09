@@ -1,7 +1,6 @@
 // CommandRunner.java
 package cod.runner;
 
-import cod.runner.BaseRunner;
 import cod.ast.node.*;
 import cod.debug.DebugSystem;
 import cod.interpreter.Interpreter;

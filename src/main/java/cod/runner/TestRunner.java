@@ -1,6 +1,5 @@
 package cod.runner;
 
-import cod.runner.BaseRunner;
 import cod.ast.node.*;
 import cod.debug.DebugSystem;
 import cod.interpreter.Interpreter;
@@ -43,57 +42,63 @@ public class TestRunner extends BaseRunner {
 
     @Override
     public void run(String[] args) throws Exception {
-        String inputFilename = getInputFilename(args);
+        Scanner scanner = new Scanner(System.in);
+        String inputFilename;
+        try {
+            inputFilename = getInputFilename(args, scanner);
 
-        // Validate file path is under src/main/
-        validateSourceFilePath(inputFilename);
+            // Validate file path is under src/main/
+            validateSourceFilePath(inputFilename);
 
-        RunnerConfig config =
-            processArgs(
-                args,
-                inputFilename,
-                new Configuration() {
-                    @Override
-                    public void configure(RunnerConfig config) {
-                        // Enable DEBUG to see index generation logs
-                        config.withDebugLevel(level);
-                    }
-                });
+            RunnerConfig config =
+                processArgs(
+                    args,
+                    inputFilename,
+                    new Configuration() {
+                        @Override
+                        public void configure(RunnerConfig config) {
+                            // Enable DEBUG to see index generation logs
+                            config.withDebugLevel(level);
+                        }
+                    });
 
-        configureDebugSystem(config.debugLevel);
+            configureDebugSystem(config.debugLevel);
 
-        DebugSystem.info(
-            NAME + LOG_TAG, 
-            "Starting interpreter execution...\nInput file: " + config.inputFilename);
-            
-        DebugSystem.startTimer("exec");
-
-        // Set file path on interpreter BEFORE parsing
-        interpreter.setFilePath(config.inputFilename);
-
-        // Parse with interpreter for unit validation
-        Program ast = parse(config.inputFilename, interpreter);
-
-        // Initialize IR manager after parsing (project root is now known)
-        initializeIRManager();
-
-        // Perform linting and check completion status
-        boolean lintingCompleted = performLinting(ast);
-
-        // Ensure all output streams are fully flushed before proceeding
-        flushStreams();
-
-        // Only run interpreter if linting completed successfully
-        if (lintingCompleted) {
-            executeWithManualInterpreter(ast);
-        } else {
-            DebugSystem.error(
+            DebugSystem.info(
                 NAME + LOG_TAG, 
-                "Linting did not complete successfully. Interpreter execution aborted.");
-            throw new RuntimeException("Linting phase failed to complete");
+                "Starting interpreter execution...\nInput file: " + config.inputFilename);
+            
+            DebugSystem.startTimer("exec");
+
+            // Set file path on interpreter BEFORE parsing
+            interpreter.setFilePath(config.inputFilename);
+
+            // Parse with interpreter for unit validation
+            Program ast = parse(config.inputFilename, interpreter);
+
+            // Initialize IR manager after parsing (project root is now known)
+            initializeIRManager();
+
+            // Perform linting and check completion status
+            boolean lintingCompleted = performLinting(ast);
+
+            // Ensure all output streams are fully flushed before proceeding
+            flushStreams();
+
+            // Only run interpreter if linting completed successfully
+            if (lintingCompleted) {
+                executeWithManualInterpreter(ast);
+            } else {
+                DebugSystem.error(
+                    NAME + LOG_TAG, 
+                    "Linting did not complete successfully. Interpreter execution aborted.");
+                throw new RuntimeException("Linting phase failed to complete");
+            }
+            System.out.println("\n" + "-----------------------------");
+            System.out.println("Execution completed! Duration: " + DebugSystem.stopTimer("exec") + "ms");
+        } finally {
+            scanner.close();
         }
-        System.out.println("\n" + "-----------------------------");
-        System.out.println("Execution completed! Duration: " + DebugSystem.stopTimer("exec") + "ms");
     }
 
     /**
@@ -123,7 +128,7 @@ public class TestRunner extends BaseRunner {
         }
     }
 
-    private String getInputFilename(String[] args) {
+    private String getInputFilename(String[] args, Scanner scanner) {
         // First, check for input file in args
         String inputFileFromArgs = null;
         for (int i = 0; i < args.length; i++) {
@@ -148,9 +153,6 @@ public class TestRunner extends BaseRunner {
             out("Using console default file: " + consoleFilename);
             return consoleFilename;
         }
-
-        // Otherwise, ask user interactively
-        Scanner scanner = new Scanner(System.in);
 
         out("Enter file path or press Enter for default [" + defaultFilename + "]");
         out("Or type 'console' to use local default [" + consoleFilename + "]");

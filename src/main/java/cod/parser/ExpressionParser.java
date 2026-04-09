@@ -1378,6 +1378,12 @@ public class ExpressionParser extends BaseParser {
             }
         }
         expect(RPAREN);
+        if (is(now(), PLUS, MINUS, MUL, DIV, MOD, EQ, NEQ, GT, LT, GTE, LTE)) {
+            throw error(
+                "Invalid self-call operation usage after '<~(...)'. " +
+                "Wrap the self-call with extra parentheses, e.g. '(<~(...)) op value'.",
+                now());
+        }
         return call;
     }
 

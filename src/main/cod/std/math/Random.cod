@@ -1,5 +1,6 @@
 unit math
 
+// Pseudo-random number generation utilities for integer and gaussian sampling.
 share Random {
     seed: int = 123456789
 

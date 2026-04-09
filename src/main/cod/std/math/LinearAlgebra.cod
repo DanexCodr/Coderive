@@ -1,5 +1,6 @@
 unit math
 
+// Linear algebra helpers for vectors and matrices in the standard math library.
 share LinearAlgebra {
     share minInt(a: int, b: int) :: int|float {
         if a < b { ~> (a) }
