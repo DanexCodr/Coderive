@@ -1,7 +1,0 @@
-# unit internal.range
-timestamp = "1775747639293"
-generator = "Coderive 1.0"
-
-[classes]
-MultiRangeSpec = "MultiRangeSpec.cod"
-RangeSpec = "RangeSpec.cod"
