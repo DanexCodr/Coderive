@@ -79,15 +79,15 @@ if role == any["admin", "moderator", "owner"] {
 
 ### ② Multi-Return Slot System
 
-Functions declare named return slots with `::` and assign them with `~>`. Call sites destructure them cleanly.
+Functions declare named return slots with `::` and assign them with `~>(slot-returns)`. Call sites destructure them cleanly.
 
 ```python
 local divide(a: int, b: int)
 :: quotient: float, remainder: int, status: text {
     if b == 0 {
-        ~> 0.0, 0, "division by zero"
+        ~> (0.0, 0, "division by zero")
     }
-    ~> a / b, a % b, "ok"
+    ~> (a / b, a % b, "ok")
 }
 
 # Destructure only what you need
@@ -259,13 +259,13 @@ if all[age >= 18, hasId] {
 
 ```python
 # Single-expression shorthand
-local square(n: int) ~> n * n
+local square(n: int) ~> (n * n)
 
 # Multi-return slots
 local stats(a: int, b: int, c: int)
 :: total: int, average: float {
     sum := a + b + c
-    ~> sum, sum / 3.0
+    ~> (sum, sum / 3.0)
 }
 
 # Call and destructure
@@ -277,7 +277,7 @@ out("Total: {t}, Average: {avg}")
 
 ```python
 local greet(name: text, greeting: text = "Hello") :: msg: text {
-    ~> msg: "{greeting}, {name}!"
+    ~> (msg: "{greeting}, {name}!")
 }
 
 result := greet("Alice", _)   # skip optional param — uses default
@@ -294,7 +294,7 @@ share Document with Printable {
     title: text = "Untitled"
 
     policy print() :: output: text {
-        ~> output: "Document: {this.title}"
+        ~> (output: "Document: {this.title}")
     }
 
     share main() {
