@@ -1,0 +1,12 @@
+# unit math
+timestamp = "1775773371141"
+generator = "Coderive 1.0"
+
+[classes]
+Core = "Math.cod"
+LinearAlgebra = "LinearAlgebra.cod"
+Math = "Math.cod"
+NumberTheory = "NumberTheory.cod"
+Random = "Random.cod"
+Stats = "Stats.cod"
+Trig = "Trig.cod"

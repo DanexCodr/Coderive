@@ -1,9 +1,16 @@
 unit test.staticimportsmethodprovider
 
-share ping() {
-    out("PONG")
+share StaticImportsMethodProvider {
+    share ping() {
+        out("PONG")
+    }
+
+    share add(a: int, b: int) {
+        out(a + b)
+    }
 }
 
-share add(a: int, b: int) {
-    out(a + b)
+share main() {
+    out("PONG")
+    out(7)
 }

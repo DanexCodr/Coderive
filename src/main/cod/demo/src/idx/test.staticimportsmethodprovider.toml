@@ -1,0 +1,6 @@
+# unit test.staticimportsmethodprovider
+timestamp = "1775773310564"
+generator = "Coderive 1.0"
+
+[classes]
+StaticImportsMethodProvider = "Provider.cod"
