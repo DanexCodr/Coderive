@@ -1,4 +1,4 @@
-unit test.HelloWorldModule
+unit test.helloworld
 
 share HelloWorldModule {
 	share main() {

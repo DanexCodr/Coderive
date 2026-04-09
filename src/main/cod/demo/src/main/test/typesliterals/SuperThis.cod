@@ -1,4 +1,4 @@
-unit test.SuperThis
+unit test.typesliterals
 
 share Parent {
     label: text = "parent"
@@ -8,7 +8,7 @@ share Parent {
     }
 
     share who() :: text {
-        ~> "P:" + this.label
+        ~> ("P:" + this.label)
     }
 }
 
@@ -18,7 +18,7 @@ share Child is Parent {
     }
 
     share who() :: text {
-        ~> "C:" + this.label
+        ~> ("C:" + this.label)
     }
 }
 

@@ -3,12 +3,12 @@ unit scimath
 use {math.Math}
 
 share Complex {
-    share make(re: int|float, im: int|float) :: [] { ~> [re, im] }
-    share real(z: []) :: int|float { ~> z[0] }
-    share imag(z: []) :: int|float { ~> z[1] }
-    share add(a: [], b: []) :: [] { ~> [a[0] + b[0], a[1] + b[1]] }
-    share sub(a: [], b: []) :: [] { ~> [a[0] - b[0], a[1] - b[1]] }
-    share mul(a: [], b: []) :: [] { ~> [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]] }
-    share conj(a: []) :: [] { ~> [a[0], -a[1]] }
-    share abs(a: []) :: int|float { ~> Math.sqrt(a[0] * a[0] + a[1] * a[1]) }
+    share make(re: int|float, im: int|float) :: [] { ~> ([re, im]) }
+    share real(z: []) :: int|float { ~> (z[0]) }
+    share imag(z: []) :: int|float { ~> (z[1]) }
+    share add(a: [], b: []) :: [] { ~> ([a[0] + b[0], a[1] + b[1]]) }
+    share sub(a: [], b: []) :: [] { ~> ([a[0] - b[0], a[1] - b[1]]) }
+    share mul(a: [], b: []) :: [] { ~> ([a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]]) }
+    share conj(a: []) :: [] { ~> ([a[0], -a[1]]) }
+    share abs(a: []) :: int|float { ~> (Math.sqrt(a[0] * a[0] + a[1] * a[1])) }
 }

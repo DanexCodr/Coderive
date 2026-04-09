@@ -1,4 +1,4 @@
-unit test.TextLiteral
+unit test.typesliterals
 
 TextLiteral {
     share main() {

@@ -1,8 +1,0 @@
-unit test.ConstantRequiresInitializerInvalid
-
-share ConstantRequiresInitializerInvalid {
-    share main() {
-        LIMIT: int
-        out(LIMIT)
-    }
-}

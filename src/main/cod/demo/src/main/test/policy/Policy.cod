@@ -1,0 +1,24 @@
+unit test.policy
+
+policy Accept {
+    accept(n: type) :: type
+}
+
+Node with Accept {
+    policy accept(n: type) :: type {
+        // Implementation here
+        ~> (n)
+    }
+}
+
+ChildNode is Node {
+    policy accept(n: type) :: type {
+        ~> (n)
+    }
+}
+
+share Main {
+    share main() {
+        out("it parsed correctly.")
+    }
+}

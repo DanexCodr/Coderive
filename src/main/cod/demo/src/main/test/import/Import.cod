@@ -1,0 +1,9 @@
+unit test.import
+
+use {sample.Imported}
+
+share Hello {
+    share main() {
+        Imported.hello()
+    }
+}

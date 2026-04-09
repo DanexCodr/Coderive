@@ -2,8 +2,8 @@ unit math
 
 share NumberTheory {
     share absInt(x: int) :: int|float {
-        if x < 0 { ~> -x }
-        ~> x
+        if x < 0 { ~> (-x) }
+        ~> (x)
     }
 
     share gcd(a: int, b: int) :: int|float {
@@ -15,48 +15,48 @@ share NumberTheory {
             y = x % y
             x = t
         }
-        ~> x
+        ~> (x)
     }
 
     share lcd(a: int, b: int) :: int|float {
-        if a == 0 { ~> 0 }
-        if b == 0 { ~> 0 }
-        ~> NumberTheory.absInt(a * b) / NumberTheory.gcd(a, b)
+        if a == 0 { ~> (0) }
+        if b == 0 { ~> (0) }
+        ~> (NumberTheory.absInt(a * b) / NumberTheory.gcd(a, b))
     }
 
     share lcm(a: int, b: int) :: int|float {
-        ~> NumberTheory.lcd(a, b)
+        ~> (NumberTheory.lcd(a, b))
     }
 
     share isPrime(n: int) :: int|float {
-        if n < 2 { ~> 0 }
-        if n == 2 { ~> 1 }
-        if n % 2 == 0 { ~> 0 }
+        if n < 2 { ~> (0) }
+        if n == 2 { ~> (1) }
+        if n % 2 == 0 { ~> (0) }
         limit := Core.sqrt(n)
         for i of 3 to limit by 2 {
-            if n % i == 0 { ~> 0 }
+            if n % i == 0 { ~> (0) }
         }
-        ~> 1
+        ~> (1)
     }
 
     share nextPrime(n: int) :: int|float {
         for c of n + 1 to n + 100000 {
-            if NumberTheory.isPrime(c) == 1 { ~> c }
+            if NumberTheory.isPrime(c) == 1 { ~> (c) }
         }
-        ~> 0
+        ~> (0)
     }
 
     share prevPrime(n: int) :: int|float {
-        if n <= 2 { ~> 0 }
+        if n <= 2 { ~> (0) }
         for c of n - 1 to 2 by -1 {
-            if NumberTheory.isPrime(c) == 1 { ~> c }
+            if NumberTheory.isPrime(c) == 1 { ~> (c) }
         }
-        ~> 0
+        ~> (0)
     }
 
     share factorize(n: int) :: [] {
         x := NumberTheory.absInt(n)
-        if x < 2 { ~> [] }
+        if x < 2 { ~> ([]) }
         factors := []
         idx: int = 0
         for i of 0 to 64 {
@@ -77,33 +77,33 @@ share NumberTheory {
         if x > 1 {
             factors[idx] = x
         }
-        ~> factors
+        ~> (factors)
     }
 
     share factorial(n: int) :: int|float {
-        if n < 0 { ~> 0 }
+        if n < 0 { ~> (0) }
         outValue: int|float = 1
         for i of 2 to n {
             outValue = outValue * i
         }
-        ~> outValue
+        ~> (outValue)
     }
 
     share permutations(n: int, k: int) :: int|float {
-        if n < 0 { ~> 0 }
-        if k < 0 { ~> 0 }
-        if k > n { ~> 0 }
+        if n < 0 { ~> (0) }
+        if k < 0 { ~> (0) }
+        if k > n { ~> (0) }
         outValue: int|float = 1
         for i of 0 to k - 1 {
             outValue = outValue * (n - i)
         }
-        ~> outValue
+        ~> (outValue)
     }
 
     share combinations(n: int, k: int) :: int|float {
-        if n < 0 { ~> 0 }
-        if k < 0 { ~> 0 }
-        if k > n { ~> 0 }
+        if n < 0 { ~> (0) }
+        if k < 0 { ~> (0) }
+        if k > n { ~> (0) }
         kk: int = k
         if kk > n - kk {
             kk = n - kk
@@ -114,10 +114,10 @@ share NumberTheory {
             num = num * (n - kk + i)
             den = den * i
         }
-        ~> num / den
+        ~> (num / den)
     }
 
     share binomial(n: int, k: int) :: int|float {
-        ~> NumberTheory.combinations(n, k)
+        ~> (NumberTheory.combinations(n, k))
     }
 }

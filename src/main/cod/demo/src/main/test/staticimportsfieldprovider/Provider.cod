@@ -1,0 +1,7 @@
+unit test.staticimportsfieldprovider
+
+PI: int = 314
+
+share scale() {
+    out(2)
+}

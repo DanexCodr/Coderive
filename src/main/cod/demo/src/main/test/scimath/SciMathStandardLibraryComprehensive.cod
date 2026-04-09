@@ -1,4 +1,4 @@
-unit test.std.scimath
+unit test.scimath
 
 use {
     math.**,

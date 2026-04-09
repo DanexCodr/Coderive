@@ -1,0 +1,9 @@
+unit test.internalrangespecimport
+
+use {internal.range.RangeSpec}
+
+share InternalRangeSpecImport {
+    share main() {
+        out("internal.range.RangeSpec import ok")
+    }
+}

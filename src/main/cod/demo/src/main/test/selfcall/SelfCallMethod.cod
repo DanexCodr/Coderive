@@ -1,25 +1,25 @@
-unit test.SelfCall
+unit test.selfcall
 
 share SelfCallMethod {
     local fact(n: int) :: result: int {
         if n < 2 {
-            ~> result: 1
+            ~> (result: 1)
         }
-        ~> result: n * <~(n - 1)
+        ~> (result: n * <~(n - 1))
     }
 
     local factorialByName(n: int) :: result: int {
         if n <= 1 {
-            ~> result: 1
+            ~> (result: 1)
         }
-        ~> result: n * [result]:factorialByName(n - 1)
+        ~> (result: n * [result]:factorialByName(n - 1))
     }
 
     local factorialBySelf(n: int) :: result: int {
         if n <= 1 {
-            ~> result: 1
+            ~> (result: 1)
         }
-        ~> result: n * <~(n - 1)
+        ~> (result: n * <~(n - 1))
     }
 
     share main() {

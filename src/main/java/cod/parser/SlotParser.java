@@ -89,7 +89,7 @@ public class SlotParser {
     }
     
     /**
-     * Parse slot assignments: ~> name: expr, expr
+     * Parse slot assignments list: name: expr, expr
      */
     public List<SlotAssignment> parseSlotAssignments() {
         List<SlotAssignment> assignments = new ArrayList<SlotAssignment>();
@@ -102,6 +102,19 @@ public class SlotParser {
             assignments.add(parseSingleSlotAssignment());
         }
         
+        return assignments;
+    }
+
+    /**
+     * Parse parenthesized slot assignments: ~>(name: expr, expr)
+     */
+    public List<SlotAssignment> parseParenthesizedSlotAssignments(Token tildeArrowToken) {
+        parser.expect(LPAREN);
+        if (parser.is(parser.now(), RPAREN)) {
+            throw parser.error("~> requires at least one return value assignment", tildeArrowToken);
+        }
+        List<SlotAssignment> assignments = parseSlotAssignments();
+        parser.expect(RPAREN);
         return assignments;
     }
     
@@ -136,7 +149,7 @@ public class SlotParser {
      * Parse slot assignments and wrap appropriately
      */
     public Stmt parseSlotAssignmentsAsStmt(Token tildeArrowToken) {
-        List<SlotAssignment> assignments = parseSlotAssignments();
+        List<SlotAssignment> assignments = parseParenthesizedSlotAssignments(tildeArrowToken);
         
         if (assignments.size() == 1) {
             return assignments.get(0);

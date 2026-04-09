@@ -13,7 +13,7 @@ share Trig {
                 y = y + twoPi
             }
         }
-        ~> y
+        ~> (y)
     }
 
     share sin(x: int|float) :: int|float {
@@ -26,7 +26,7 @@ share Trig {
             term = -term * y * y / (a * b)
             sum = sum + term
         }
-        ~> sum
+        ~> (sum)
     }
 
     share cos(x: int|float) :: int|float {
@@ -39,21 +39,21 @@ share Trig {
             term = -term * y * y / (a * b)
             sum = sum + term
         }
-        ~> sum
+        ~> (sum)
     }
 
     share tan(x: int|float) :: int|float {
         c := Trig.cos(x)
-        if c == 0 { ~> 0 }
-        ~> Trig.sin(x) / c
+        if c == 0 { ~> (0) }
+        ~> (Trig.sin(x) / c)
     }
 
     share atan(x: int|float) :: int|float {
         if x > 1 {
-            ~> PI / 2 - Trig.atan(1 / x)
+            ~> (PI / 2 - Trig.atan(1 / x))
         }
         if x < -1 {
-            ~> -PI / 2 - Trig.atan(1 / x)
+            ~> (-PI / 2 - Trig.atan(1 / x))
         }
         term: int|float = x
         sum: int|float = x
@@ -62,28 +62,28 @@ share Trig {
             term = -term * x * x
             sum = sum + term / n
         }
-        ~> sum
+        ~> (sum)
     }
 
     share atan2(y: int|float, x: int|float) :: int|float {
-        if x > 0 { ~> Trig.atan(y / x) }
+        if x > 0 { ~> (Trig.atan(y / x)) }
         if x < 0 {
-            if y >= 0 { ~> Trig.atan(y / x) + PI }
-            ~> Trig.atan(y / x) - PI
+            if y >= 0 { ~> (Trig.atan(y / x) + PI) }
+            ~> (Trig.atan(y / x) - PI)
         }
-        if y > 0 { ~> PI / 2 }
-        if y < 0 { ~> -PI / 2 }
-        ~> 0
+        if y > 0 { ~> (PI / 2) }
+        if y < 0 { ~> (-PI / 2) }
+        ~> (0)
     }
 
     share asin(x: int|float) :: int|float {
-        if x > 1 { ~> PI / 2 }
-        if x < -1 { ~> -PI / 2 }
-        ~> Trig.atan2(x, Core.sqrt(1 - x * x))
+        if x > 1 { ~> (PI / 2) }
+        if x < -1 { ~> (-PI / 2) }
+        ~> (Trig.atan2(x, Core.sqrt(1 - x * x)))
     }
 
     share acos(x: int|float) :: int|float {
-        ~> PI / 2 - Trig.asin(x)
+        ~> (PI / 2 - Trig.asin(x))
     }
 
     share sinh(x: int|float) :: int|float {
@@ -100,22 +100,22 @@ share Trig {
 
     share tanh(x: int|float) :: int|float {
         c := Trig.cosh(x)
-        if c == 0 { ~> 0 }
-        ~> Trig.sinh(x) / c
+        if c == 0 { ~> (0) }
+        ~> (Trig.sinh(x) / c)
     }
 
     share asinh(x: int|float) :: int|float {
-        ~> Core.log(x + Core.sqrt(x * x + 1))
+        ~> (Core.log(x + Core.sqrt(x * x + 1)))
     }
 
     share acosh(x: int|float) :: int|float {
-        if x < 1 { ~> 0 }
-        ~> Core.log(x + Core.sqrt(x * x - 1))
+        if x < 1 { ~> (0) }
+        ~> (Core.log(x + Core.sqrt(x * x - 1)))
     }
 
     share atanh(x: int|float) :: int|float {
-        if x >= 1 { ~> 0 }
-        if x <= -1 { ~> 0 }
-        ~> 0.5 * Core.log((1 + x) / (1 - x))
+        if x >= 1 { ~> (0) }
+        if x <= -1 { ~> (0) }
+        ~> (0.5 * Core.log((1 + x) / (1 - x)))
     }
 }

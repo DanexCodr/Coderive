@@ -1,4 +1,4 @@
-unit test.std.math
+unit test.math
 
 use {math.**}
 

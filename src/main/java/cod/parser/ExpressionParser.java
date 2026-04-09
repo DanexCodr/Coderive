@@ -456,44 +456,23 @@ public class ExpressionParser extends BaseParser {
             body = block;
         } else if (is(TILDE_ARROW)) {
             tildeArrowToken = expect(TILDE_ARROW);
-            
-            if (is(LBRACE)) {
-                // Optional braces around expression(s)
-                expect(LBRACE);
-                List<SlotAssignment> assignments = slotParser.parseSlotAssignments();
-                expect(RBRACE);
-                
-                // Validate against contract if present
-                if (returnSlots != null) {
-                    slotParser.validateSlotCount(returnSlots, assignments, tildeArrowToken);
-                }
-                
-                // Wrap in Block
-                Block block = new Block();
-                if (assignments.size() == 1) {
-                    block.statements.add(assignments.get(0));
-                } else {
-                    block.statements.add(ASTFactory.createMultipleSlotAsmt(assignments, tildeArrowToken));
-                }
-                body = block;
-            } else {
-                // Direct expression(s) without braces
-                List<SlotAssignment> assignments = slotParser.parseSlotAssignments();
-                
-                // Validate against contract if present
-                if (returnSlots != null) {
-                    slotParser.validateSlotCount(returnSlots, assignments, tildeArrowToken);
-                }
-                
-                // Wrap in Block
-                Block block = new Block();
-                if (assignments.size() == 1) {
-                    block.statements.add(assignments.get(0));
-                } else {
-                    block.statements.add(ASTFactory.createMultipleSlotAsmt(assignments, tildeArrowToken));
-                }
-                body = block;
+
+            List<SlotAssignment> assignments =
+                slotParser.parseParenthesizedSlotAssignments(tildeArrowToken);
+
+            // Validate against contract if present
+            if (returnSlots != null) {
+                slotParser.validateSlotCount(returnSlots, assignments, tildeArrowToken);
             }
+
+            // Wrap in Block
+            Block block = new Block();
+            if (assignments.size() == 1) {
+                block.statements.add(assignments.get(0));
+            } else {
+                block.statements.add(ASTFactory.createMultipleSlotAsmt(assignments, tildeArrowToken));
+            }
+            body = block;
         } else {
             // Error: missing ~> or {
             throw error(

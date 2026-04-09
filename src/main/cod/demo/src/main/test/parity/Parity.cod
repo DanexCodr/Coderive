@@ -1,0 +1,6 @@
+unit test.parity (main: this)
+
+n := in(int, "Enter an integer: ")
+
+if n % 2 == 0 outs(n, "is even.")
+else outs(n, "is odd.")

@@ -1,4 +1,4 @@
-unit test.Basic
+unit test.field
 
 Test1 {
 x: int = 5

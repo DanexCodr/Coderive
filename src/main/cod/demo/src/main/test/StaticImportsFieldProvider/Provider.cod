@@ -1,7 +1,0 @@
-unit test.StaticImportsFieldProvider
-
-PI: int = 314
-
-share scale() {
-    out(2)
-}

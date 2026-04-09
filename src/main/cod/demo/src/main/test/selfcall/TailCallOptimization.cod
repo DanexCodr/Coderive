@@ -1,11 +1,11 @@
-unit test.TailCallOptimization
+unit test.selfcall
 
 share TailCallOptimization {
     local countDown(n: int, acc: int) :: result: int {
         if n == 0 {
-            ~> result: acc
+            ~> (result: acc)
         }
-        ~> result: <~(n - 1, acc + 1)
+        ~> (result: <~(n - 1, acc + 1))
     }
 
     share main() {
@@ -17,9 +17,9 @@ share TailCallOptimization {
         lambdaResult := 0
         lambdaResult = [result]:\(n: int, acc: int) :: result: int {
             if n == 0 {
-                ~> result: acc
+                ~> (result: acc)
             }
-            ~> result: <~(n - 1, acc + 1)
+            ~> (result: <~(n - 1, acc + 1))
         }
         out("lambda=" + lambdaResult)
     }

@@ -1,11 +1,11 @@
-unit test.NoneAndType
+unit test.typesliterals
 
 share NoneAndTypeDemo {
     local maybe(flag: bool) :: value: text? {
         if flag {
-            ~> value: "ok"
+            ~> (value: "ok")
         }
-        ~> value: none
+        ~> (value: none)
     }
 
     share main() {

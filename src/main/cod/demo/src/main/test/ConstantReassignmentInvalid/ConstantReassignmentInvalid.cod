@@ -1,9 +1,0 @@
-unit test.ConstantReassignmentInvalid
-
-share ConstantReassignmentInvalid {
-    share main() {
-        LIMIT := 5
-        LIMIT = 6
-        out(LIMIT)
-    }
-}

@@ -20,6 +20,6 @@ share MultiRangeSpec {
     }
 
     share toText() :: text {
-        ~> "MultiRangeSpec\{ranges=[" + this.rangesText + "]}"
+        ~> ("MultiRangeSpec\{ranges=[" + this.rangesText + "]}")
     }
 }

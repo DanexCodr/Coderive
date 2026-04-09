@@ -1,0 +1,23 @@
+unit test.multiarray
+
+share main() {
+    out("=== Multi-array mutual loop test ===")
+
+    base := [0 to 500]
+    left := [0 to 500]
+    right := [0 to 500]
+
+    for i of [0 to 500] {
+        base[i] = i * 3
+        left[i] = base[i] + i
+        right[i] = left[i] - base[i]
+    }
+
+    out("base[9]=" + base[9] + " expected=27")
+    out("left[9]=" + left[9] + " expected=36")
+    out("right[9]=" + right[9] + " expected=9")
+
+    out("base[123]=" + base[123] + " expected=369")
+    out("left[123]=" + left[123] + " expected=492")
+    out("right[123]=" + right[123] + " expected=123")
+}

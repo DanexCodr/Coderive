@@ -1,11 +1,11 @@
-unit test.IsAndUnion
+unit test.typesliterals
 
 share IsAndUnionDemo {
     local choose(flag: bool) :: value: int|text {
         if flag {
-            ~> value: 10
+            ~> (value: 10)
         }
-        ~> value: "ten"
+        ~> (value: "ten")
     }
 
     share main() {
