@@ -119,8 +119,9 @@ public class SlotParser {
         parser.expect(RPAREN);
         if (parser.is(parser.now(), PLUS, MINUS, MUL, DIV, MOD, EQ, NEQ, GT, LT, GTE, LTE)) {
             throw parser.error(
-                "Invalid '~>' slot assignment operation usage. Wrap the full expression inside '~>(...)', " +
-                "for example '~>((a + b) * c)'.",
+                "Invalid trailing operation after '~>(...)'. Wrap the complete expression " +
+                "including the operator inside '~>(...)', for example '~>((a + b) * c)' " +
+                "instead of '~>(a + b) * c'.",
                 parser.now());
         }
         return assignments;
