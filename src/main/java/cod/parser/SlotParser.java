@@ -119,7 +119,7 @@ public class SlotParser {
         parser.expect(RPAREN);
         if (parser.is(parser.now(), PLUS, MINUS, MUL, DIV, MOD, EQ, NEQ, GT, LT, GTE, LTE)) {
             throw parser.error(
-                "Invalid '~>' operation usage. Wrap the full expression inside '~>(...)', " +
+                "Invalid '~>' slot assignment operation usage. Wrap the full expression inside '~>(...)', " +
                 "for example '~>((a + b) * c)'.",
                 parser.now());
         }

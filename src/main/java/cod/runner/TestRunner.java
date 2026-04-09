@@ -42,10 +42,8 @@ public class TestRunner extends BaseRunner {
 
     @Override
     public void run(String[] args) throws Exception {
-        Scanner scanner = new Scanner(System.in);
-        String inputFilename;
-        try {
-            inputFilename = getInputFilename(args, scanner);
+        try (Scanner scanner = new Scanner(System.in)) {
+            String inputFilename = getInputFilename(args, scanner);
 
             // Validate file path is under src/main/
             validateSourceFilePath(inputFilename);
@@ -96,8 +94,6 @@ public class TestRunner extends BaseRunner {
             }
             System.out.println("\n" + "-----------------------------");
             System.out.println("Execution completed! Duration: " + DebugSystem.stopTimer("exec") + "ms");
-        } finally {
-            scanner.close();
         }
     }
 
