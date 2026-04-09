@@ -9,22 +9,22 @@ share SelfCallLambdaConstantLevel {
         result := 0
         result = [result]:\(a: int) :: result: int {
             if a <= 0 {
-                ~> result: 0
+                ~> (result: 0)
             }
 
             b := a
             inner := 0
             inner = [result]:\(b: int) :: result: int {
                 if b <= 0 {
-                    ~> result: 0
+                    ~> (result: 0)
                 }
 
                 same := <~SELF(b - 1)
                 up := <~PARENT(b - 1)
-                ~> result: b + same + up
+                ~> (result: b + same + up)
             }
 
-            ~> result: inner
+            ~> (result: inner)
         }
 
         out("const-level=" + result)

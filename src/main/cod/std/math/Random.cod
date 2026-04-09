@@ -12,22 +12,22 @@ share Random {
         if seed < 0 {
             seed = -seed
         }
-        ~> seed
+        ~> (seed)
     }
 
     share random() :: int|float {
-        ~> Random.nextRaw() / 2147483647
+        ~> (Random.nextRaw() / 2147483647)
     }
 
     share random(max: int) :: int|float {
-        if max <= 0 { ~> 0 }
-        ~> Random.nextRaw() % max
+        if max <= 0 { ~> (0) }
+        ~> (Random.nextRaw() % max)
     }
 
     share random(min: int, max: int) :: int|float {
-        if max <= min { ~> min }
+        if max <= min { ~> (min) }
         span: int = max - min + 1
-        ~> min + (Random.nextRaw() % span)
+        ~> (min + (Random.nextRaw() % span))
     }
 
     share randomGaussian() :: int|float {
@@ -38,6 +38,6 @@ share Random {
         u2 := Random.random()
         r := Core.sqrt(-2 * Core.log(u1))
         theta := 6.283185307179586 * u2
-        ~> r * Trig.cos(theta)
+        ~> (r * Trig.cos(theta))
     }
 }

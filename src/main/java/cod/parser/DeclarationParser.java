@@ -584,7 +584,8 @@ public class DeclarationParser extends BaseParser {
         Token tildeArrowToken = now();
         expect(TILDE_ARROW);
 
-        List<SlotAssignment> slotAssignments = slotParser.parseSlotAssignments();
+        List<SlotAssignment> slotAssignments =
+            slotParser.parseParenthesizedSlotAssignments(tildeArrowToken);
 
         if (slotAssignments.size() == 1) {
             method.body.add(slotAssignments.get(0));

@@ -1,0 +1,5 @@
+unit test.helloworld
+
+	share main() {
+		out("Hello World!")
+		}

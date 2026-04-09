@@ -2,46 +2,46 @@ unit math
 
 share LinearAlgebra {
     share minInt(a: int, b: int) :: int|float {
-        if a < b { ~> a }
-        ~> b
+        if a < b { ~> (a) }
+        ~> (b)
     }
 
     share dot(a: [], b: []) :: int|float {
         n := LinearAlgebra.minInt(a.size, b.size)
         sum: int|float = 0
-        if n <= 0 { ~> 0 }
+        if n <= 0 { ~> (0) }
         for i of 0 to n - 1 {
             sum = sum + a[i] * b[i]
         }
-        ~> sum
+        ~> (sum)
     }
 
     share cross(a: [], b: []) :: [] {
-        if a.size < 3 { ~> [0, 0, 0] }
-        if b.size < 3 { ~> [0, 0, 0] }
-        ~> [
+        if a.size < 3 { ~> ([0, 0, 0]) }
+        if b.size < 3 { ~> ([0, 0, 0]) }
+        ~> ([
             a[1] * b[2] - a[2] * b[1],
             a[2] * b[0] - a[0] * b[2],
             a[0] * b[1] - a[1] * b[0]
-        ]
+        ])
     }
 
     share magnitude(a: []) :: int|float {
-        ~> Core.sqrt(LinearAlgebra.dot(a, a))
+        ~> (Core.sqrt(LinearAlgebra.dot(a, a)))
     }
 
     share normalize(a: []) :: [] {
         mag := LinearAlgebra.magnitude(a)
-        if mag == 0 { ~> a }
+        if mag == 0 { ~> (a) }
         outArr := [0 to a.size - 1]
         for i of 0 to a.size - 1 {
             outArr[i] = a[i] / mag
         }
-        ~> outArr
+        ~> (outArr)
     }
 
     share transpose(a: []) :: [] {
-        if a.size == 0 { ~> [] }
+        if a.size == 0 { ~> ([]) }
         firstRow := a[0]
         cols := firstRow.size
         outArr := [0 to cols - 1]
@@ -51,11 +51,11 @@ share LinearAlgebra {
                 outArr[c][r] = a[r][c]
             }
         }
-        ~> outArr
+        ~> (outArr)
     }
 
     share identity(n: int) :: [] {
-        if n <= 0 { ~> [] }
+        if n <= 0 { ~> ([]) }
         outArr := [0 to n - 1]
         for r of 0 to n - 1 {
             outArr[r] = [0 to n - 1]
@@ -67,12 +67,12 @@ share LinearAlgebra {
                 }
             }
         }
-        ~> outArr
+        ~> (outArr)
     }
 
     share matmul(a: [], b: []) :: [] {
-        if a.size == 0 { ~> [] }
-        if b.size == 0 { ~> [] }
+        if a.size == 0 { ~> ([]) }
+        if b.size == 0 { ~> ([]) }
         rows := a.size
         firstA := a[0]
         firstB := b[0]
@@ -89,15 +89,15 @@ share LinearAlgebra {
                 outArr[r][c] = sum
             }
         }
-        ~> outArr
+        ~> (outArr)
     }
 
     share determinant(a: []) :: int|float {
-        if a.size == 0 { ~> 0 }
-        if a.size == 1 { ~> a[0][0] }
+        if a.size == 0 { ~> (0) }
+        if a.size == 1 { ~> (a[0][0]) }
         if a.size == 2 {
-            ~> a[0][0] * a[1][1] - a[0][1] * a[1][0]
+            ~> (a[0][0] * a[1][1] - a[0][1] * a[1][0])
         }
-        ~> 0
+        ~> (0)
     }
 }

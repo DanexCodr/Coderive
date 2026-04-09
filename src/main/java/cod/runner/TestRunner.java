@@ -22,7 +22,7 @@ For production use CommandRunner.
 
 public class TestRunner extends BaseRunner {
 
-    private final String TEST_FILE = "HelloWorldModule";
+    private final String TEST_FILE = "helloworld/HelloWorldModule";
     
     private final String androidPath = "/storage/emulated/0";
     private final String definedFilePath =

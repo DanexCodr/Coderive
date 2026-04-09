@@ -1,0 +1,20 @@
+unit test.typesliterals
+
+share TypeAndTupleDemo {
+    share main() {
+        point: (int, text, bool) = (7, "x", true)
+        out("tuple-a=" + point[0]) // int position
+        out("tuple-b=" + point[1]) // text label
+        out("tuple-c=" + point[2]) // bool flag
+
+        whole := 9
+        ratio := 9.5
+        label := "coderive"
+        flag := false
+
+        out("whole-is-int=" + (whole is int))
+        out("ratio-is-float=" + (ratio is float))
+        out("label-is-text=" + (label is text))
+        out("flag-is-bool=" + (flag is bool))
+    }
+}

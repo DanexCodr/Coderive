@@ -1,7 +1,0 @@
-unit test.HelloWorldModule
-
-share HelloWorldModule {
-	share main() {
-		out("Hello World!")
-		}
-	}

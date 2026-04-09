@@ -1,5 +1,0 @@
-unit test.HelloWorldStatic
-
-	share main() {
-		out("Hello World!")
-		}

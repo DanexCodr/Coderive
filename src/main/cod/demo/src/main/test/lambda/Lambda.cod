@@ -4,14 +4,14 @@ share LambdaDemo {
     local compute() :: sum: int, diff: int {
         a := 9
         b := 4
-        x, y = [sum, diff]:\() :: sum: int, diff: int ~> sum: a + b, diff: a - b
+        x, y = [sum, diff]:\() :: sum: int, diff: int ~> (sum: a + b, diff: a - b)
         z := [1, 2, 3].map($item + 1)
         w := [1, 2, 3, 4].reduce(\(acc, value) acc + value, 0)
         out(z[0])
         out(z[1])
         out(z[2])
         out(w)
-        ~> sum: x, diff: y
+        ~> (sum: x, diff: y)
     }
     
     share main() {

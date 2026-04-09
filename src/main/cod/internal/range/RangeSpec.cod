@@ -13,15 +13,15 @@ share RangeSpec {
 
     share toText() :: text {
         if this.step != 1 {
-            ~> "RangeSpec\{by " + this.step + " in " + this.start + " to " + this.end + "}"
+            ~> ("RangeSpec\{by " + this.step + " in " + this.start + " to " + this.end + "}")
         }
-        ~> "RangeSpec\{" + this.start + " to " + this.end + "}"
+        ~> ("RangeSpec\{" + this.start + " to " + this.end + "}")
     }
 
     share format(stepValue: int, startValue: int, endValue: int) :: text {
         if stepValue != 1 {
-            ~> "RangeSpec\{by " + stepValue + " in " + startValue + " to " + endValue + "}"
+            ~> ("RangeSpec\{by " + stepValue + " in " + startValue + " to " + endValue + "}")
         }
-        ~> "RangeSpec\{" + startValue + " to " + endValue + "}"
+        ~> ("RangeSpec\{" + startValue + " to " + endValue + "}")
     }
 }

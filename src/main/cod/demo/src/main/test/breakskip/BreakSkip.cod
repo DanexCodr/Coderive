@@ -1,0 +1,21 @@
+unit test.breakskip
+
+share BreakSkipDemo {
+    share main() {
+        out("breakskip:start")
+
+        total := 0
+        for i of 1 to 5 {
+            if i == 2 {
+                skip
+            }
+            if i == 4 {
+                break
+            }
+            total = total + i
+        }
+
+        out("total=" + total)
+        out("breakskip:end")
+    }
+}

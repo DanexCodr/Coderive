@@ -1,0 +1,26 @@
+unit test.selfcall
+
+share TailCallOptimization {
+    local countDown(n: int, acc: int) :: result: int {
+        if n == 0 {
+            ~> (result: acc)
+        }
+        ~> (result: <~(n - 1, acc + 1))
+    }
+
+    share main() {
+        methodResult := [result]:countDown(20000, 0)
+        out("method=" + methodResult)
+
+        n := 20000
+        acc := 0
+        lambdaResult := 0
+        lambdaResult = [result]:\(n: int, acc: int) :: result: int {
+            if n == 0 {
+                ~> (result: acc)
+            }
+            ~> (result: <~(n - 1, acc + 1))
+        }
+        out("lambda=" + lambdaResult)
+    }
+}

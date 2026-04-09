@@ -1,0 +1,26 @@
+unit test.typesliterals
+
+TextLiteral {
+    share main() {
+        out("hello".length)
+        out("hello".has("e"))
+        out("hello".find("l"))
+        out("hello".findLast("l"))
+        out("hello"[2 to 3])
+        out("hello"[-2 to 4])
+        out("hello".replace("l", ""))
+        out("a,b,c".split(","))
+        out("a,,c".split(","))
+        out("hello".starts("he"))
+        out("hello".ends("lo"))
+        out("  hi  ".trim())
+        out("".isEmpty())
+        out("   ".isBlank())
+        out("hello".repeat(3))
+        out("hello".toUpper())
+        out("HELLO".toLower())
+        out("HI".isUpper())
+        out("hi".isUpper())
+        out("Hello"[0])
+    }
+}

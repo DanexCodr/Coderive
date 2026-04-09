@@ -1,9 +1,0 @@
-unit test.Import
-
-use {sample.Imported}
-
-share Hello {
-    share main() {
-        Imported.hello()
-    }
-}
