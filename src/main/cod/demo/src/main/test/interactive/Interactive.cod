@@ -1,6 +1,6 @@
 unit test.interactive
 
-Intective {
+Interactive {
     // Supporting both else-if and elif
     local calculate(a: int, b: int, op: text) :: formula: int|float, operation: text {  
         if op == "+" {

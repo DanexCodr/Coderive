@@ -89,7 +89,9 @@ public class SlotParser {
     }
     
     /**
-     * Parse slot assignments list: name: expr, expr
+     * Parse a slot assignments list.
+     *
+     * @return parsed slot assignments in declaration order
      */
     public List<SlotAssignment> parseSlotAssignments() {
         List<SlotAssignment> assignments = new ArrayList<SlotAssignment>();
