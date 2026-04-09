@@ -1,4 +1,4 @@
-unit test.policy
+unit test.policies
 
 policy Accept {
     accept(n: type) :: type

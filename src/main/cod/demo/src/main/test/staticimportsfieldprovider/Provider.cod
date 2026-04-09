@@ -1,7 +1,16 @@
 unit test.staticimportsfieldprovider
 
-PI: int = 314
+share StaticImportsFieldProvider {
+    share pi() :: int|float {
+        ~> (314)
+    }
 
-share scale() {
+    share scale() {
+        out(2)
+    }
+}
+
+share main() {
+    out(314)
     out(2)
 }

@@ -1,5 +1,6 @@
 unit math
 
+// Trigonometric and hyperbolic utilities.
 share Trig {
     PI: float = 3.141592653589793
 
@@ -89,13 +90,13 @@ share Trig {
     share sinh(x: int|float) :: int|float {
         ex := Core.exp(x)
         enx := Core.exp(-x)
-        ~> (ex - enx) / 2
+        ~> ((ex - enx) / 2)
     }
 
     share cosh(x: int|float) :: int|float {
         ex := Core.exp(x)
         enx := Core.exp(-x)
-        ~> (ex + enx) / 2
+        ~> ((ex + enx) / 2)
     }
 
     share tanh(x: int|float) :: int|float {

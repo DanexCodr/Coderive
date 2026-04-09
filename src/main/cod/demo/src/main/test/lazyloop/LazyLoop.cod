@@ -1,4 +1,4 @@
-unit test.lazyloop (main: lazyloop) // broadcasting throughout entire package
+unit test.lazyloop (main: LazyLoop) // broadcasting throughout entire package
 
 LazyLoop {
     share main() {

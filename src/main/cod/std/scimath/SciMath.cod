@@ -1,5 +1,6 @@
 unit scimath
 
+// Scientific computing toolkit (linear algebra, FFT, ODE/PDE, and statistics helpers).
 use {
     math.Math,
     math.LinearAlgebra

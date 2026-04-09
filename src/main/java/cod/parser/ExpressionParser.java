@@ -1378,6 +1378,13 @@ public class ExpressionParser extends BaseParser {
             }
         }
         expect(RPAREN);
+        if (is(now(), PLUS, MINUS, MUL, DIV, MOD, EQ, NEQ, GT, LT, GTE, LTE)) {
+            throw error(
+                "Invalid trailing operation after '<~(...)'. Wrap the complete expression " +
+                "including the operator inside '<~(...)', for example '<~((a + b) * c)' " +
+                "instead of '<~(a + b) * c'.",
+                now());
+        }
         return call;
     }
 

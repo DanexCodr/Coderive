@@ -1,5 +1,6 @@
 unit math
 
+// Descriptive statistics helpers over numeric arrays.
 share Stats {
     share mean(values: []) :: int|float {
         if values.size == 0 { ~> (0) }
@@ -32,7 +33,7 @@ share Stats {
         if n % 2 == 1 {
             ~> (data[mid])
         }
-        ~> (data[mid - 1] + data[mid]) / 2
+        ~> ((data[mid - 1] + data[mid]) / 2)
     }
 
     share mode(values: []) :: int|float {

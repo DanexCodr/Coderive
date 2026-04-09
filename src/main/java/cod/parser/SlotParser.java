@@ -117,6 +117,13 @@ public class SlotParser {
         }
         List<SlotAssignment> assignments = parseSlotAssignments();
         parser.expect(RPAREN);
+        if (parser.is(parser.now(), PLUS, MINUS, MUL, DIV, MOD, EQ, NEQ, GT, LT, GTE, LTE)) {
+            throw parser.error(
+                "Invalid trailing operation after '~>(...)'. Wrap the complete expression " +
+                "including the operator inside '~>(...)', for example '~>((a + b) * c)' " +
+                "instead of '~>(a + b) * c'.",
+                parser.now());
+        }
         return assignments;
     }
     

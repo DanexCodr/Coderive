@@ -1,15 +1,13 @@
 unit test.staticimportsconsumer
 
 use {
-    test.StaticImportsMethodProvider.ping(*),
-    test.StaticImportsMethodProvider.add(int,int),
-    test.StaticImportsFieldProvider.PI,
-    test.StaticImportsFieldProvider.**
+    test.staticimportsmethodprovider.StaticImportsMethodProvider,
+    test.staticimportsfieldprovider.StaticImportsFieldProvider
 }
 
 share main() {
-    ping()
-    add(3, 4)
-    out(PI)
-    scale()
+    StaticImportsMethodProvider.ping()
+    StaticImportsMethodProvider.add(3, 4)
+    out(StaticImportsFieldProvider.pi())
+    StaticImportsFieldProvider.scale()
 }

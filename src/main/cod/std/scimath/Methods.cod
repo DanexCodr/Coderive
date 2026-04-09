@@ -1,5 +1,6 @@
 unit scimath
 
+// Additional scientific methods and distributions built on top of SciMath and Math.
 use {
     math.Math,
     scimath.SciMath
@@ -110,7 +111,7 @@ share Elliptic {
     share k(m: int|float) :: int|float {
         if m < 0 { ~> (0) }
         if m >= 1 { ~> (0) }
-        ~> (Math.PI / 2) * (1 + m / 4 + 9 * m * m / 64)
+        ~> ((Math.PI / 2) * (1 + m / 4 + 9 * m * m / 64))
     }
 }
 
@@ -155,7 +156,7 @@ share Weibull {
         if lambda <= 0 { ~> (0) }
         xx := x / lambda
         if xx <= 0 { ~> (0) }
-        ~> (k / lambda) * Math.exp((k - 1) * Math.log(xx)) * Math.exp(-Math.exp(k * Math.log(xx)))
+        ~> ((k / lambda) * Math.exp((k - 1) * Math.log(xx)) * Math.exp(-Math.exp(k * Math.log(xx))))
     }
 }
 

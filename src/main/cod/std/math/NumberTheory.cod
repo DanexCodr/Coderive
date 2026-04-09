@@ -1,5 +1,6 @@
 unit math
 
+// Number theory helpers: gcd/lcm, primality, combinatorics, and factorization.
 share NumberTheory {
     share absInt(x: int) :: int|float {
         if x < 0 { ~> (-x) }
