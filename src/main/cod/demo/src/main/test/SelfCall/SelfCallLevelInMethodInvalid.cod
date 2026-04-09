@@ -1,12 +1,11 @@
-unit test.SelfCallLevelConstantInMethodInvalid
+unit test.SelfCall
 
-share SelfCallLevelConstantInMethodInvalid {
+share SelfCallLevelInMethodInvalid {
     local bad(n: int) :: result: int {
-        LEVEL := 0
         if n < 2 {
             ~> result: 1
         }
-        ~> result: n * <~LEVEL(n - 1)
+        ~> result: n * <~0(n - 1)
     }
 
     share main() {

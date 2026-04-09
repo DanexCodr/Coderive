@@ -1,4 +1,4 @@
-unit test.SelfCallInvalidNoParentheses
+unit test.SelfCall
 
 share SelfCallInvalidNoParentheses {
     local bad(n: int) :: result: int {
