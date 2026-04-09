@@ -11,6 +11,9 @@ import cod.ptac.CodPTACExecutor;
 import cod.ptac.CodPTACOptions;
 
 import java.io.File;
+import java.io.FilterInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Scanner;
 
@@ -42,7 +45,7 @@ public class TestRunner extends BaseRunner {
 
     @Override
     public void run(String[] args) throws Exception {
-        try (Scanner scanner = new Scanner(System.in)) {
+        try (Scanner scanner = newSystemInScanner()) {
             String inputFilename = getInputFilename(args, scanner);
 
             // Validate file path is under src/main/
@@ -95,6 +98,17 @@ public class TestRunner extends BaseRunner {
             System.out.println("\n" + "-----------------------------");
             System.out.println("Execution completed! Duration: " + DebugSystem.stopTimer("exec") + "ms");
         }
+    }
+
+    private Scanner newSystemInScanner() {
+        InputStream nonClosingIn =
+            new FilterInputStream(System.in) {
+                @Override
+                public void close() throws IOException {
+                    // Keep System.in available for interpreter execution.
+                }
+            };
+        return new Scanner(nonClosingIn);
     }
 
     /**

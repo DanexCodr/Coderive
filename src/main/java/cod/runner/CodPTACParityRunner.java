@@ -11,7 +11,10 @@ import cod.ptac.CodPTACExecutor;
 import cod.ptac.CodPTACOptions;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FilterInputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -52,7 +55,7 @@ public final class CodPTACParityRunner extends BaseRunner {
         }
         
         if (files.isEmpty()) {
-            try (Scanner scanner = new Scanner(System.in)) {
+            try (Scanner scanner = newSystemInScanner()) {
                 // Check if Android default path exists
                 File androidTestDir = new File(androidPath + baseTestPath);
                 if (androidTestDir.exists() && androidTestDir.isDirectory()) {
@@ -342,6 +345,17 @@ public final class CodPTACParityRunner extends BaseRunner {
             sb.append(cleaned).append("\n");
         }
         return sb.toString().trim();
+    }
+
+    private Scanner newSystemInScanner() {
+        InputStream nonClosingIn =
+            new FilterInputStream(System.in) {
+                @Override
+                public void close() throws IOException {
+                    // Keep System.in available for the process lifetime.
+                }
+            };
+        return new Scanner(nonClosingIn);
     }
     
     private interface PathSupplier {
