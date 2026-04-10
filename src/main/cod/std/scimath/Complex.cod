@@ -1,7 +1,7 @@
 unit scimath
 
 // Minimal complex number helpers represented as [real, imaginary] arrays.
-use {math.Math}
+use {math}
 
 share Complex {
     share make(re: int|float, im: int|float) :: [] { ~> ([re, im]) }
@@ -11,5 +11,5 @@ share Complex {
     share sub(a: [], b: []) :: [] { ~> ([a[0] - b[0], a[1] - b[1]]) }
     share mul(a: [], b: []) :: [] { ~> ([a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]]) }
     share conj(a: []) :: [] { ~> ([a[0], -a[1]]) }
-    share abs(a: []) :: int|float { ~> (Math.sqrt(a[0] * a[0] + a[1] * a[1])) }
+    share abs(a: []) :: int|float { ~> (sqrt(a[0] * a[0] + a[1] * a[1])) }
 }

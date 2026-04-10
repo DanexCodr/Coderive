@@ -9,7 +9,10 @@ import cod.interpreter.Index;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import cod.lexer.*;
 import cod.parser.MainParser;
@@ -180,7 +183,7 @@ public abstract class BaseRunner {
         
         // Generate index for the main unit
         if (ast.unit.name != null && !ast.unit.name.equals("default")) {
-            generateIndexForUnit(ast.unit.name, srcMainRoot);
+            generateIndexForUnit(ast.unit.name, srcMainRoot, resolver);
         }
         
         // Generate indexes for imported units
@@ -192,14 +195,14 @@ public abstract class BaseRunner {
                 if (lastDot > 0) {
                     String unitName = importName.substring(0, lastDot);
                     DebugSystem.debug("INDEX", "Generating index for imported unit: " + unitName);
-                    generateIndexForUnit(unitName, srcMainRoot);
+                    generateIndexForUnit(unitName, srcMainRoot, resolver);
                 }
             }
         }
         
         // Also generate indexes for any units found in the loaded programs cache
         for (String unitName : resolver.getLoadedImports()) {
-            generateIndexForUnit(unitName, srcMainRoot);
+            generateIndexForUnit(unitName, srcMainRoot, resolver);
         }
         
         DebugSystem.debug("INDEX", "=== Index generation complete ===");
@@ -216,21 +219,13 @@ public abstract class BaseRunner {
      * @param unitName the name of the unit
      * @param srcMainRoot the root src/main directory path
      */
-    private void generateIndexForUnit(String unitName, String srcMainRoot) {
+    private void generateIndexForUnit(String unitName, String srcMainRoot, ImportResolver resolver) {
         if (unitName == null || unitName.isEmpty()) {
             return;
         }
-        
-        String unitPath = srcMainRoot + "/" + unitName;
-        File unitDir = new File(unitPath);
-        
-        if (!unitDir.exists()) {
-            DebugSystem.debug("INDEX", "Unit directory does not exist: " + unitPath);
-            return;
-        }
-        
-        if (!unitDir.isDirectory()) {
-            DebugSystem.debug("INDEX", "Path is not a directory: " + unitPath);
+        String unitPath = resolveUnitPath(unitName, srcMainRoot);
+        if (unitPath == null) {
+            DebugSystem.debug("INDEX", "Unit directory does not exist for unit: " + unitName);
             return;
         }
         
@@ -261,6 +256,66 @@ public abstract class BaseRunner {
             DebugSystem.debug("INDEX", "Index is up to date for unit: " + unitName + 
                              " (" + index.size() + " classes)");
         }
+    }
+
+    private String resolveUnitPath(String unitName, String srcMainRoot) {
+        Set<String> candidates = new LinkedHashSet<String>();
+        String unitDirectory = unitName.replace('.', '/');
+        String overrideDirectory = getStandardOverrideDirectory(unitName);
+        addPathCandidate(candidates, srcMainRoot, unitDirectory);
+        addPathCandidate(candidates, srcMainRoot, overrideDirectory);
+
+        String demoSiblingRoot = getDemoSiblingRoot(srcMainRoot);
+        addPathCandidate(candidates, demoSiblingRoot, unitDirectory);
+        addPathCandidate(candidates, demoSiblingRoot, overrideDirectory);
+
+        List<String> missing = new ArrayList<String>();
+        for (String candidate : candidates) {
+            File dir = new File(candidate);
+            if (dir.exists() && dir.isDirectory()) {
+                return candidate;
+            }
+            missing.add(candidate);
+        }
+
+        DebugSystem.debug("INDEX", "Checked unit paths for " + unitName + ": " + missing);
+        return null;
+    }
+
+    private void addPathCandidate(Set<String> candidates, String basePath, String relativePath) {
+        if (basePath == null || basePath.isEmpty() || relativePath == null || relativePath.isEmpty()) {
+            return;
+        }
+        candidates.add(basePath + "/" + relativePath);
+    }
+
+    private String getDemoSiblingRoot(String srcMainRoot) {
+        if (srcMainRoot == null || srcMainRoot.isEmpty()) {
+            return null;
+        }
+        File srcMain = new File(srcMainRoot);
+        File srcDir = srcMain.getParentFile();
+        File srcHolder = srcDir != null ? srcDir.getParentFile() : null;
+        if (srcHolder != null && "demo".equals(srcHolder.getName())) {
+            File sibling = srcHolder.getParentFile();
+            if (sibling != null) {
+                return sibling.getAbsolutePath();
+            }
+        }
+        return null;
+    }
+
+    private String getStandardOverrideDirectory(String unitName) {
+        if ("math".equals(unitName)) {
+            return "std/math";
+        }
+        if ("scimath".equals(unitName)) {
+            return "std/scimath";
+        }
+        if ("scimath.distribution".equals(unitName)) {
+            return "std/scimath/distribution";
+        }
+        return null;
     }
     
     /**

@@ -1,8 +1,8 @@
 unit scimath
 
-// Additional scientific methods and distributions built on top of SciMath and Math.
+// Additional scientific methods and distributions built on top of SciMath and 
 use {
-    math.Math,
+    math,
     scimath.SciMath
 }
 
@@ -54,7 +54,7 @@ share Window {
         if n == 1 { ~> ([1]) }
         outArr := [0 to n - 1]
         for i of 0 to n - 1 {
-            outArr[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (n - 1))
+            outArr[i] = 0.5 - 0.5 * cos((2 * 3.141592653589793 * i) / (n - 1))
         }
         ~> (outArr)
     }
@@ -89,7 +89,7 @@ share ErrorFunction {
         a5: float = 1.061405429
         p: float = 0.3275911
         t := 1 / (1 + p * xx)
-        y := 1 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t) * Math.exp(-xx * xx)
+        y := 1 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t) * exp(-xx * xx)
         ~> (sign * y)
     }
 }
@@ -103,7 +103,7 @@ share Bessel {
 
 share Airy {
     share ai(x: int|float) :: int|float {
-        ~> (Math.exp(-2 * Math.abs(x) / 3))
+        ~> (exp(-2 * abs(x) / 3))
     }
 }
 
@@ -111,7 +111,7 @@ share Elliptic {
     share k(m: int|float) :: int|float {
         if m < 0 { ~> (0) }
         if m >= 1 { ~> (0) }
-        ~> ((Math.PI / 2) * (1 + m / 4 + 9 * m * m / 64))
+        ~> ((3.141592653589793 / 2) * (1 + m / 4 + 9 * m * m / 64))
     }
 }
 
@@ -127,15 +127,15 @@ share Binomial {
     share pmf(k: int, n: int, p: int|float) :: int|float {
         if k < 0 { ~> (0) }
         if k > n { ~> (0) }
-        c := Math.binomial(n, k)
-        ~> (c * Math.pow(p, k) * Math.pow(1 - p, n - k))
+        c := binomial(n, k)
+        ~> (c * pow(p, k) * pow(1 - p, n - k))
     }
 }
 
 share Geometric {
     share pmf(k: int, p: int|float) :: int|float {
         if k < 1 { ~> (0) }
-        ~> (Math.pow(1 - p, k - 1) * p)
+        ~> (pow(1 - p, k - 1) * p)
     }
 }
 
@@ -143,9 +143,9 @@ share LogNormal {
     share pdf(x: int|float, mu: int|float, sigma: int|float) :: int|float {
         if x <= 0 { ~> (0) }
         if sigma <= 0 { ~> (0) }
-        z := (Math.log(x) - mu) / sigma
-        den := x * sigma * Math.sqrt(2 * Math.PI)
-        ~> (Math.exp(-0.5 * z * z) / den)
+        z := (log(x) - mu) / sigma
+        den := x * sigma * sqrt(2 * 3.141592653589793)
+        ~> (exp(-0.5 * z * z) / den)
     }
 }
 
@@ -156,7 +156,7 @@ share Weibull {
         if lambda <= 0 { ~> (0) }
         xx := x / lambda
         if xx <= 0 { ~> (0) }
-        ~> ((k / lambda) * Math.exp((k - 1) * Math.log(xx)) * Math.exp(-Math.exp(k * Math.log(xx))))
+        ~> ((k / lambda) * exp((k - 1) * log(xx)) * exp(-exp(k * log(xx))))
     }
 }
 
@@ -165,6 +165,6 @@ share Pareto {
         if x < xm { ~> (0) }
         if xm <= 0 { ~> (0) }
         if alpha <= 0 { ~> (0) }
-        ~> (alpha * Math.exp(alpha * Math.log(xm)) / Math.exp((alpha + 1) * Math.log(x)))
+        ~> (alpha * exp(alpha * log(xm)) / exp((alpha + 1) * log(x)))
     }
 }

@@ -1,11 +1,60 @@
 unit test.math
 
+use {math}
+
 share MathStandardLibraryComprehensive {
     share main() {
-        out("== math smoke ==")
-        out(1 + 1)
-        out(10 / 2)
-        out(7 % 3)
-        out((3 * 4) + 5)
+        out("== math standard library comprehensive ==")
+
+        out(fibonacci(0))
+        out(fibonacci(1))
+        out(fibonacci(10))
+
+        out(abs(-12))
+        out(sign(-3))
+        out(sign(0))
+        out(sign(9))
+        out(min(2, 7))
+        out(max(2, 7))
+        out(lerp(10, 20, 0.25))
+        out(floor(3.9))
+        out(floor(-3.1))
+        out(ceil(3.1))
+        out(ceil(-3.9))
+        out(round(3.6))
+        out(round(-3.6))
+        out(trunc(3.9))
+        out(trunc(-3.9))
+        out(frac(3.25))
+        out(square(6))
+        out(cube(3))
+        out(pow(2, 10))
+        out(pow(2, -2))
+        out(sqrt(81))
+        out(cbrt(27))
+        out(hypot(3, 4))
+        out(exp(1))
+        out(expm1(1))
+        out(log(E))
+        out(log10(1000))
+        out(log2(8))
+        out(log1(1))
+        out(log1p(1))
+
+        out(toRadians(180))
+        out(toDegrees(3.141592653589793))
+
+        out(gcd(54, 24))
+        out(lcd(12, 18))
+        out(lcm(12, 18))
+        out(isPrime(29))
+        out(nextPrime(29))
+        out(prevPrime(29))
+        out(factorial(6))
+        out(binomial(5, 2))
+        out(permutations(5, 2))
+        out(combinations(5, 2))
+
+        out("== done ==")
     }
 }

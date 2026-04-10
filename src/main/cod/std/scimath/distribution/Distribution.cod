@@ -1,7 +1,7 @@
 unit scimath.distribution
 
 // Probability distribution helpers (PDF/CDF/PMF) for scientific workflows.
-use {math.Math}
+use {math}
 
 share DistributionCore {
     share erf(x: int|float) :: int|float {
@@ -18,13 +18,13 @@ share DistributionCore {
         a5: float = 1.061405429
         p: float = 0.3275911
         t := 1 / (1 + p * xx)
-        y := 1 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t) * Math.exp(-xx * xx)
+        y := 1 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t) * exp(-xx * xx)
         ~> (sign * y)
     }
 
     share powReal(base: int|float, exponent: int|float) :: int|float {
         if base <= 0 { ~> (0) }
-        ~> (Math.exp(exponent * Math.log(base)))
+        ~> (exp(exponent * log(base)))
     }
 }
 
@@ -32,13 +32,13 @@ share Normal {
     share pdf(x: int|float, mu: int|float, sigma: int|float) :: int|float {
         if sigma <= 0 { ~> (0) }
         z := (x - mu) / sigma
-        den := sigma * Math.sqrt(2 * Math.PI)
-        ~> (Math.exp(-0.5 * z * z) / den)
+        den := sigma * sqrt(2 * 3.141592653589793)
+        ~> (exp(-0.5 * z * z) / den)
     }
 
     share cdf(x: int|float, mu: int|float, sigma: int|float) :: int|float {
         if sigma <= 0 { ~> (0) }
-        z := (x - mu) / (sigma * Math.sqrt(2))
+        z := (x - mu) / (sigma * sqrt(2))
         ~> (0.5 * (1 + DistributionCore.erf(z)))
     }
 }
@@ -63,13 +63,13 @@ share Exponential {
     share pdf(x: int|float, lambda: int|float) :: int|float {
         if x < 0 { ~> (0) }
         if lambda <= 0 { ~> (0) }
-        ~> (lambda * Math.exp(-lambda * x))
+        ~> (lambda * exp(-lambda * x))
     }
 
     share cdf(x: int|float, lambda: int|float) :: int|float {
         if x < 0 { ~> (0) }
         if lambda <= 0 { ~> (0) }
-        ~> (1 - Math.exp(-lambda * x))
+        ~> (1 - exp(-lambda * x))
     }
 }
 
@@ -77,12 +77,12 @@ share Beta {
     share betaFunc(a: int|float, b: int|float) :: int|float {
         if a <= 0 { ~> (0) }
         if b <= 0 { ~> (0) }
-        if Math.floor(a) != a { ~> (0) }
-        if Math.floor(b) != b { ~> (0) }
-        ai: int = Math.floor(a)
-        bi: int = Math.floor(b)
-        num := Math.factorial(ai - 1) * Math.factorial(bi - 1)
-        den := Math.factorial(ai + bi - 1)
+        if floor(a) != a { ~> (0) }
+        if floor(b) != b { ~> (0) }
+        ai: int = floor(a)
+        bi: int = floor(b)
+        num := factorial(ai - 1) * factorial(bi - 1)
+        den := factorial(ai + bi - 1)
         if den == 0 { ~> (0) }
         ~> (num / den)
     }
@@ -109,11 +109,11 @@ share Gamma {
         if x < 0 { ~> (0) }
         if k <= 0 { ~> (0) }
         if theta <= 0 { ~> (0) }
-        if Math.floor(k) != k { ~> (0) }
-        ki: int = Math.floor(k)
-        g := Math.factorial(ki - 1)
+        if floor(k) != k { ~> (0) }
+        ki: int = floor(k)
+        g := factorial(ki - 1)
         if g == 0 { ~> (0) }
-        num := DistributionCore.powReal(x, k - 1) * Math.exp(-x / theta)
+        num := DistributionCore.powReal(x, k - 1) * exp(-x / theta)
         den := DistributionCore.powReal(theta, k) * g
         if den == 0 { ~> (0) }
         ~> (num / den)
@@ -124,8 +124,8 @@ share Poisson {
     share pmf(k: int, lambda: int|float) :: int|float {
         if k < 0 { ~> (0) }
         if lambda < 0 { ~> (0) }
-        den := Math.factorial(k)
+        den := factorial(k)
         if den == 0 { ~> (0) }
-        ~> (Math.exp(-lambda) * Math.pow(lambda, k) / den)
+        ~> (exp(-lambda) * pow(lambda, k) / den)
     }
 }
