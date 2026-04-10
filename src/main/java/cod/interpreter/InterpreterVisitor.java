@@ -24,26 +24,6 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     private static final String SELF_CALL_LAMBDA_OWNER = "self-call lambda";
     private static final double SELF_CALL_LEVEL_FLOAT_EPSILON = 1e-12d;
 
-    private static final class TailCallSignal extends RuntimeException {
-        public final String methodName;
-        public final LambdaClosure lambdaClosure;
-        public final List<Object> arguments;
-
-        private TailCallSignal(String methodName, LambdaClosure lambdaClosure, List<Object> arguments) {
-            this.methodName = methodName;
-            this.lambdaClosure = lambdaClosure;
-            this.arguments =
-                arguments != null ? new ArrayList<Object>(arguments) : Collections.<Object>emptyList();
-        }
-
-        static TailCallSignal forMethod(String methodName, List<Object> arguments) {
-            return new TailCallSignal(methodName, null, arguments);
-        }
-
-        static TailCallSignal forLambda(LambdaClosure lambdaClosure, List<Object> arguments) {
-            return new TailCallSignal(null, lambdaClosure, arguments);
-        }
-    }
     // Tail-call trampolining intentionally uses this internal signal to unwind Java frames
     // without allocating wrapper result objects through every visitor return path.
     // This favors lower allocation overhead over exception cost in non-tail paths.
@@ -102,11 +82,12 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     private final Stack<ExecutionContext> contextStack = new Stack<ExecutionContext>();
     private final ExpressionHandler expressionHandler;
     private final AssignmentHandler assignmentHandler;
-    // Lazily resolved internal.range type references used for runtime range index objects.
-    private Type internalRangeSpecType;
-    private Type internalMultiRangeSpecType;
-    
     private final LiteralRegistry literalRegistry;
+    private final ContextHelper contextHelper;
+    private final LambdaInvoker lambdaInvoker;
+    private final ArrayOperationHandler arrayOperationHandler;
+    private final PatternApplier patternApplier;
+    private final LoopOptimizer loopOptimizer;
     
     // ========== SIMPLE LOOP OPTIMIZATION CONSTANTS ==========
     private static final int LAZY_THRESHOLD = 10;  // From your data: 10+ iterations = worth it
@@ -127,8 +108,16 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         this.interpreter = interpreter;
         this.typeSystem = typeSystem;
         this.literalRegistry = literalRegistry;
+        this.contextHelper = new ContextHelper(interpreter);
         this.expressionHandler = new ExpressionHandler(typeSystem, this);
         this.assignmentHandler = new AssignmentHandler(typeSystem, interpreter, expressionHandler, this);
+        this.arrayOperationHandler =
+            new ArrayOperationHandler(this, interpreter, typeSystem, expressionHandler, contextHelper);
+        this.patternApplier =
+            new PatternApplier(this, typeSystem, expressionHandler, arrayOperationHandler);
+        this.loopOptimizer =
+            new LoopOptimizer(this, typeSystem, expressionHandler, arrayOperationHandler, patternApplier);
+        this.lambdaInvoker = new LambdaInvoker(typeSystem, this);
     }
     
     // Implement Evaluator interface
@@ -171,7 +160,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         if (ctx == null) {
             throw new InternalError("invokeLambda called with null context");
         }
-        return invokeLambdaCallback(callback, arguments, ctx, ownerMethod);
+        return lambdaInvoker.invokeLambdaCallback(callback, arguments, ctx, ownerMethod);
     }
 
     public void pushContext(ExecutionContext context) {
@@ -206,7 +195,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     private Object createNoneValue() {
-        return new NoneLiteral();
+        return contextHelper.createNoneValue();
     }
 
     @Override
@@ -350,7 +339,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 if (node.value == null) {
                     throw new ProgramError("Constant '" + node.name + "' must have an initial value");
                 }
-                if (isVariableDeclaredInAnyScope(ctx, node.name)) {
+                if (contextHelper.isVariableDeclaredInAnyScope(ctx, node.name)) {
                     throw new ProgramError("Cannot reassign constant '" + node.name + "'");
                 }
             }
@@ -368,7 +357,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 // If expected is [text] but actual is not text, create a converting wrapper
                 if (expectedElementType.equals("text") && !actualElementType.equals("text")) {
                     // Create a new NaturalArray with conversion enabled
-                    Range range = getRangeFromArray(arr);
+                    Range range = contextHelper.getRangeFromArray(arr);
                     if (range != null) {
                         val = new NaturalArray(range, this, ctx, node.explicitType);
                     }
@@ -428,62 +417,19 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
 
     // Helper method to extract Range from NaturalArray
     private Range getRangeFromArray(NaturalArray arr) {
-        try {
-            java.lang.reflect.Field rangeField = NaturalArray.class.getDeclaredField("baseRange");
-            rangeField.setAccessible(true);
-            return (Range) rangeField.get(arr);
-        } catch (Exception e) {
-            return null;
-        }
+        return contextHelper.getRangeFromArray(arr);
     }
 
     private Type resolveInternalRangeSpecType() {
-        if (internalRangeSpecType != null) {
-            return internalRangeSpecType;
-        }
-        try {
-            Type type = interpreter.getImportResolver().resolveImport("internal.range.RangeSpec");
-            if (type == null) {
-                throw new ProgramError("Unable to load internal.range.RangeSpec");
-            }
-            internalRangeSpecType = type;
-            return type;
-        } catch (ProgramError e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InternalError("Failed loading internal.range.RangeSpec", e);
-        }
+        return contextHelper.resolveInternalRangeSpecType();
     }
 
     private Type resolveInternalMultiRangeSpecType() {
-        if (internalMultiRangeSpecType != null) {
-            return internalMultiRangeSpecType;
-        }
-        try {
-            Type type = interpreter.getImportResolver().resolveImport("internal.range.MultiRangeSpec");
-            if (type == null) {
-                throw new ProgramError("Unable to load internal.range.MultiRangeSpec");
-            }
-            internalMultiRangeSpecType = type;
-            return type;
-        } catch (ProgramError e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InternalError("Failed loading internal.range.MultiRangeSpec", e);
-        }
+        return contextHelper.resolveInternalMultiRangeSpecType();
     }
 
     private boolean isVariableDeclaredInAnyScope(ExecutionContext ctx, String name) {
-        if (ctx == null || name == null) return false;
-        List<Map<String, Object>> localsStack = ctx.getLocalsStack();
-        if (localsStack == null) return false;
-        for (int i = localsStack.size() - 1; i >= 0; i--) {
-            Map<String, Object> scope = localsStack.get(i);
-            if (scope != null && scope.containsKey(name)) {
-                return true;
-            }
-        }
-        return false;
+        return contextHelper.isVariableDeclaredInAnyScope(ctx, name);
     }
 
     @Override
@@ -550,71 +496,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     // ========== UPDATED FOR NODE WITH SIMPLE LOOP DECISION ==========
     @Override
     public Object visit(For node) {
-        if (node == null) {
-            throw new InternalError("visit(For) called with null node");
-        }
-        
-        ExecutionContext ctx = getCurrentContext();
-        int originalDepth = ctx.getScopeDepth();
-        
-        // Estimate loop size before execution
-        long loopSize = estimateLoopSize(node, ctx);
-        boolean hasSideEffects = hasSideEffects(node.body);
-        
-        // Simple decision: should we try lazy execution?
-        boolean useLazyExecution = shouldUseLazyExecution(loopSize, hasSideEffects);
-        
-        // Start tracking this loop
-        int loopId = ArrayTracker.beginLoop(node);
-        
-        // Store estimated size in tracker
-        ArrayTracker.setLoopSize(loopId, loopSize);
-        ArrayTracker.setSideEffects(loopId, hasSideEffects);
-        
-        try {
-            ctx.pushScope();
-            
-            // Try lazy execution if beneficial
-            if (useLazyExecution) {
-                Object result = tryOptimizedExecution(node, loopId);
-                if (result != null) {
-                    return result;
-                }
-            } else {
-                    DebugSystem.debug("LOOP", 
-                        String.format("Skipping optimization: size=%d, sideEffects=%s", 
-                            loopSize, hasSideEffects));
-            }
-            
-            // Normal eager execution
-            ArrayTracker.incrementIteration();
-            
-            if (node.range != null) {
-                return executeRangeLoop(ctx, node, node.iterator);
-            } else if (node.arraySource != null) {
-                Object arrayObj = dispatch(node.arraySource);
-                arrayObj = typeSystem.unwrap(arrayObj);
-                return executeArrayLoop(ctx, node, node.iterator, arrayObj);
-            }
-            throw new ProgramError("Invalid for loop: neither range nor array source specified");
-            
-        } catch (ProgramError e) {
-            throw e;
-        } catch (TailCallSignal e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InternalError("For loop execution failed", e);
-        } finally {
-            // End tracking - simple log
-            ArrayTracker.LoopStats stats = ArrayTracker.endLoop();
-            if (stats != null) {
-                DebugSystem.debug("LOOP", stats.toString());
-            }
-            
-            while (ctx.getScopeDepth() > originalDepth) {
-                ctx.popScope();
-            }
-        }
+        return loopOptimizer.executeForLoop(node);
     }
 
     // ========== SIMPLE LOOP DECISION METHODS ==========
@@ -2400,130 +2282,17 @@ public Object visit(TextLiteral node) {
     @SuppressWarnings("unchecked")
     @Override
     public Object visit(IndexAccess node) {
-        if (node == null) {
-            throw new InternalError("visit(IndexAccess) called with null node");
-        }
-        
-        try {
-            Object arrayObj = dispatch(node.array);
-            arrayObj = typeSystem.unwrap(arrayObj);
-            
-            // Force materialization BEFORE index access
-            if (arrayObj instanceof NaturalArray) {
-                NaturalArray natural = (NaturalArray) arrayObj;
-                if (natural.hasPendingUpdates()) {
-                    natural.commitUpdates();
-                }
-            }
-            
-            Object indexObj = dispatch(node.index);
-            indexObj = typeSystem.unwrap(indexObj);
-            
-            if (indexObj instanceof List) {
-                return applyTupleIndices(arrayObj, (List<?>) indexObj);
-            }
-
-            if (RangeObjects.isRangeSpec(indexObj)) {
-                if (arrayObj instanceof String) {
-                    return applyStringRangeIndex((String) arrayObj, indexObj);
-                }
-                return applyRangeIndex(arrayObj, indexObj);
-            }
-            
-            if (RangeObjects.isMultiRangeSpec(indexObj)) {
-                return applyMultiRangeIndex(arrayObj, indexObj);
-            }
-
-            if (arrayObj instanceof String) {
-                String text = (String) arrayObj;
-                int index = expressionHandler.toIntIndex(indexObj);
-                index = normalizeTextIndex(index, text.length());
-                if (index < 0 || index >= text.length()) {
-                    throw new ProgramError(
-                        "Index out of bounds: " + index + " for text of length " + text.length());
-                }
-                return String.valueOf(text.charAt(index));
-            }
-
-            if (arrayObj instanceof NaturalArray) {
-                NaturalArray natural = (NaturalArray) arrayObj;
-                long index = expressionHandler.toLongIndex(indexObj);
-                
-                if (natural.needsConversion()) {
-                    return natural.get(index, true);
-                }
-                return natural.get(index);
-            }
-
-            if (arrayObj instanceof List) {
-                List<Object> list = (List<Object>) arrayObj;
-                if (indexObj instanceof AutoStackingNumber) {
-                    int index = (int) ((AutoStackingNumber) indexObj).longValue();
-                    if (index < 0 || index >= list.size()) {
-                        throw new ProgramError(
-                            "Index out of bounds: " + index + " for array of size " + list.size());
-                    }
-                    return list.get(index);
-                } else {
-                    int index = expressionHandler.toIntIndex(indexObj);
-                    if (index < 0 || index >= list.size()) {
-                        throw new ProgramError(
-                            "Index out of bounds: " + index + " for array of size " + list.size());
-                    }
-                    return list.get(index);
-                }
-            }
-
-            throw new ProgramError(
-                "Invalid array access: expected NaturalArray or List, got "
-                    + (arrayObj != null ? arrayObj.getClass().getSimpleName() : "null"));
-        } catch (ProgramError e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InternalError("Index access failed", e);
-        }
+        return arrayOperationHandler.visitIndexAccess(node);
     }
 
     @Override
     public Object visit(RangeIndex node) {
-        if (node == null) {
-            throw new InternalError("visit(RangeIndex) called with null node");
-        }
-        
-        try {
-            Object step = node.step != null ? dispatch(node.step) : null;
-            Object start = dispatch(node.start);
-            Object end = dispatch(node.end);
-            
-            return RangeObjects.createRangeSpec(resolveInternalRangeSpecType(), step, start, end);
-        } catch (ProgramError e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InternalError("Range index creation failed", e);
-        }
+        return arrayOperationHandler.visitRangeIndex(node);
     }
 
     @Override
     public Object visit(MultiRangeIndex node) {
-        if (node == null) {
-            throw new InternalError("visit(MultiRangeIndex) called with null node");
-        }
-        
-        try {
-            List<Object> ranges = new ArrayList<Object>();
-            for (RangeIndex rangeNode : node.ranges) {
-                Object range = visit(rangeNode);
-                if (!RangeObjects.isRangeSpec(range)) {
-                    throw new InternalError("Multi-range index contains non-range value");
-                }
-                ranges.add(range);
-            }
-            return RangeObjects.createMultiRangeSpec(resolveInternalMultiRangeSpecType(), ranges);
-        } catch (ProgramError e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InternalError("Multi-range index creation failed", e);
-        }
+        return arrayOperationHandler.visitMultiRangeIndex(node);
     }
 
     @Override
@@ -2578,26 +2347,7 @@ public Object visit(ChainedComparison node) {
 
     @Override
     public Object visit(Lambda node) {
-        if (node == null) {
-            throw new InternalError("visit(Lambda) called with null node");
-        }
-        
-        ExecutionContext ctx = getCurrentContext();
-        Map<String, Object> captured = new HashMap<String, Object>();
-        for (int i = 0; i < ctx.getScopeDepth(); i++) {
-            Map<String, Object> scope = ctx.getScope(i);
-            if (scope != null) {
-                captured.putAll(scope);
-            }
-        }
-        
-        return new LambdaClosure(
-            node,
-            captured,
-            ctx.objectInstance,
-            ctx.currentClass,
-            ctx.currentLambdaClosure,
-            Collections.<Object>emptyList());
+        return lambdaInvoker.createLambdaClosure(node, getCurrentContext());
     }
     
     private Object invokeLambdaCallback(
@@ -2605,71 +2355,7 @@ public Object visit(ChainedComparison node) {
         List<Object> args,
         ExecutionContext parentCtx,
         String ownerMethod) {
-        
-        Object callback = typeSystem.unwrap(callbackObj);
-        LambdaClosure closure;
-        if (callback instanceof LambdaClosure) {
-            closure = (LambdaClosure) callback;
-        } else if (callback instanceof Lambda) {
-            closure =
-                new LambdaClosure(
-                    (Lambda) callback,
-                    parentCtx.locals(),
-                    parentCtx.objectInstance,
-                    parentCtx.currentClass,
-                    parentCtx.currentLambdaClosure,
-                    Collections.<Object>emptyList());
-        } else {
-            String actualType = callback == null ? "null" : callback.getClass().getSimpleName();
-            throw new ProgramError(ownerMethod + " expects a lambda callback, got: " + actualType);
-        }
-
-        LambdaClosure activeClosure = closure;
-        List<Object> activeIncomingValues = args != null ? args : Collections.<Object>emptyList();
-
-        while (true) {
-            Lambda lambda = activeClosure.lambda;
-            List<Param> params = resolveLambdaParameters(lambda);
-            List<Object> combinedValues =
-                mergeBoundAndIncomingLambdaArgs(activeClosure.boundArguments, activeIncomingValues);
-
-            if (shouldAutoCurry(params, combinedValues)) {
-                return createCurriedLambdaClosure(activeClosure, combinedValues);
-            }
-
-            int parameterBindCount = Math.min(params.size(), combinedValues.size());
-            List<Object> values = new ArrayList<Object>(combinedValues.subList(0, parameterBindCount));
-            List<Object> leftoverValues =
-                new ArrayList<Object>(combinedValues.subList(parameterBindCount, combinedValues.size()));
-
-            Map<String, Object> lambdaLocals =
-                bindLambdaArguments(params, values, activeClosure, ownerMethod);
-            if (lambda.inferParameters && params.isEmpty()) {
-                bindPositionalInferredPlaceholderAliases(lambdaLocals, values);
-            }
-
-            Object result;
-            try {
-                if (lambda.expressionBody != null) {
-                    result = evaluateLambdaExpressionBody(lambda, activeClosure, lambdaLocals);
-                } else {
-                    result = evaluateLambdaBlockBody(lambda, activeClosure, lambdaLocals);
-                }
-            } catch (TailCallSignal tailCallSignal) {
-                if (tailCallSignal.lambdaClosure != null
-                    && tailCallSignal.lambdaClosure == activeClosure) {
-                    activeClosure = tailCallSignal.lambdaClosure;
-                    activeIncomingValues = tailCallSignal.arguments;
-                    continue;
-                }
-                throw tailCallSignal;
-            }
-
-            if (!leftoverValues.isEmpty() && (result instanceof LambdaClosure || result instanceof Lambda)) {
-                return invokeLambdaCallback(result, leftoverValues, parentCtx, ownerMethod);
-            }
-            return result;
-        }
+        return lambdaInvoker.invokeLambdaCallback(callbackObj, args, parentCtx, ownerMethod);
     }
 
     private List<Param> resolveLambdaParameters(Lambda lambda) {
