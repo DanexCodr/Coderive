@@ -19,24 +19,24 @@ public class ArrayOperationHandler {
     private final Interpreter interpreter;
     private final TypeHandler typeSystem;
     private final ExpressionHandler expressionHandler;
-    private final ContextHelper contextHelper;
+    private final ContextHandler contextHandler;
 
     public ArrayOperationHandler(
         InterpreterVisitor dispatcher,
         Interpreter interpreter,
         TypeHandler typeSystem,
         ExpressionHandler expressionHandler,
-        ContextHelper contextHelper) {
+        ContextHandler contextHandler) {
         if (dispatcher == null) throw new InternalError("ArrayOperationHandler dispatcher is null");
         if (interpreter == null) throw new InternalError("ArrayOperationHandler interpreter is null");
         if (typeSystem == null) throw new InternalError("ArrayOperationHandler typeSystem is null");
         if (expressionHandler == null) throw new InternalError("ArrayOperationHandler expressionHandler is null");
-        if (contextHelper == null) throw new InternalError("ArrayOperationHandler contextHelper is null");
+        if (contextHandler == null) throw new InternalError("ArrayOperationHandler contextHandler is null");
         this.dispatcher = dispatcher;
         this.interpreter = interpreter;
         this.typeSystem = typeSystem;
         this.expressionHandler = expressionHandler;
-        this.contextHelper = contextHelper;
+        this.contextHandler = contextHandler;
     }
 
     public Object executeForLoopNormally(For node) {
@@ -339,7 +339,7 @@ public class ArrayOperationHandler {
             Object start = dispatcher.dispatch(node.start);
             Object end = dispatcher.dispatch(node.end);
 
-            return RangeObjects.createRangeSpec(contextHelper.resolveInternalRangeSpecType(), step, start, end);
+            return RangeObjects.createRangeSpec(contextHandler.resolveInternalRangeSpecType(), step, start, end);
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -361,7 +361,7 @@ public class ArrayOperationHandler {
                 }
                 ranges.add(range);
             }
-            return RangeObjects.createMultiRangeSpec(contextHelper.resolveInternalMultiRangeSpecType(), ranges);
+            return RangeObjects.createMultiRangeSpec(contextHandler.resolveInternalMultiRangeSpecType(), ranges);
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {

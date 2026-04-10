@@ -19,7 +19,7 @@ import cod.range.formula.SequenceFormula;
 
 import java.util.*;
 
-public class LoopOptimizer {
+public class LoopOptimizationHandler {
     private static final int LAZY_THRESHOLD = 10;
     private static final int MAX_SUPPORTED_LAG = 64;
 
@@ -27,24 +27,24 @@ public class LoopOptimizer {
     private final TypeHandler typeSystem;
     private final ExpressionHandler expressionHandler;
     private final ArrayOperationHandler arrayOperationHandler;
-    private final PatternApplier patternApplier;
+    private final PattrrnHandler pattrrnHandler;
 
-    public LoopOptimizer(
+    public LoopOptimizationHandler(
         InterpreterVisitor dispatcher,
         TypeHandler typeSystem,
         ExpressionHandler expressionHandler,
         ArrayOperationHandler arrayOperationHandler,
-        PatternApplier patternApplier) {
-        if (dispatcher == null) throw new InternalError("LoopOptimizer dispatcher is null");
-        if (typeSystem == null) throw new InternalError("LoopOptimizer typeSystem is null");
-        if (expressionHandler == null) throw new InternalError("LoopOptimizer expressionHandler is null");
-        if (arrayOperationHandler == null) throw new InternalError("LoopOptimizer arrayOperationHandler is null");
-        if (patternApplier == null) throw new InternalError("LoopOptimizer patternApplier is null");
+        PattrrnHandler pattrrnHandler) {
+        if (dispatcher == null) throw new InternalError("LoopOptimizationHandler dispatcher is null");
+        if (typeSystem == null) throw new InternalError("LoopOptimizationHandler typeSystem is null");
+        if (expressionHandler == null) throw new InternalError("LoopOptimizationHandler expressionHandler is null");
+        if (arrayOperationHandler == null) throw new InternalError("LoopOptimizationHandler arrayOperationHandler is null");
+        if (pattrrnHandler == null) throw new InternalError("LoopOptimizationHandler pattrrnHandler is null");
         this.dispatcher = dispatcher;
         this.typeSystem = typeSystem;
         this.expressionHandler = expressionHandler;
         this.arrayOperationHandler = arrayOperationHandler;
-        this.patternApplier = patternApplier;
+        this.pattrrnHandler = pattrrnHandler;
     }
 
     public Object executeForLoop(For node) {
@@ -218,10 +218,10 @@ public class LoopOptimizer {
             }
         }
 
-        List<PatternApplier.PatternResult> multiArrayPatterns = extractMultiArraySequencePatterns(node);
+        List<PattrrnHandler.PatternResult> multiArrayPatterns = extractMultiArraySequencePatterns(node);
         if (!multiArrayPatterns.isEmpty()) {
             try {
-                Object result = patternApplier.applyPatterns(node, multiArrayPatterns);
+                Object result = pattrrnHandler.applyPatterns(node, multiArrayPatterns);
                 ArrayTracker.markLoopOptimized(loopId);
                 return result;
             } catch (Exception e) {
@@ -229,12 +229,12 @@ public class LoopOptimizer {
             }
         }
 
-        PatternApplier.LinearRecurrencePattern recurrencePattern = extractLinearRecurrencePattern(node);
+        PattrrnHandler.LinearRecurrencePattern recurrencePattern = extractLinearRecurrencePattern(node);
         if (recurrencePattern != null) {
             try {
-                List<PatternApplier.PatternResult> patterns = new ArrayList<PatternApplier.PatternResult>();
-                patterns.add(new PatternApplier.PatternResult(PatternApplier.PatternType.LINEAR_RECURRENCE, recurrencePattern, recurrencePattern.targetArray));
-                Object result = patternApplier.applyPatterns(node, patterns);
+                List<PattrrnHandler.PatternResult> patterns = new ArrayList<PattrrnHandler.PatternResult>();
+                patterns.add(new PattrrnHandler.PatternResult(PattrrnHandler.PatternType.LINEAR_RECURRENCE, recurrencePattern, recurrencePattern.targetArray));
+                Object result = pattrrnHandler.applyPatterns(node, patterns);
                 ArrayTracker.markLoopOptimized(loopId);
                 return result;
             } catch (Exception e) {
@@ -246,9 +246,9 @@ public class LoopOptimizer {
             SequencePattern.extract(node.body.statements, node.iterator);
         if (seqPattern != null && seqPattern.isOptimizable()) {
             try {
-                List<PatternApplier.PatternResult> patterns = new ArrayList<PatternApplier.PatternResult>();
-                patterns.add(new PatternApplier.PatternResult(PatternApplier.PatternType.SEQUENCE, seqPattern, seqPattern.targetArray));
-                Object result = patternApplier.applyPatterns(node, patterns);
+                List<PattrrnHandler.PatternResult> patterns = new ArrayList<PattrrnHandler.PatternResult>();
+                patterns.add(new PattrrnHandler.PatternResult(PattrrnHandler.PatternType.SEQUENCE, seqPattern, seqPattern.targetArray));
+                Object result = pattrrnHandler.applyPatterns(node, patterns);
                 ArrayTracker.markLoopOptimized(loopId);
                 return result;
             } catch (Exception e) {
@@ -256,14 +256,14 @@ public class LoopOptimizer {
             }
         }
 
-        List<PatternApplier.PatternResult> allPatterns = new ArrayList<PatternApplier.PatternResult>();
+        List<PattrrnHandler.PatternResult> allPatterns = new ArrayList<PattrrnHandler.PatternResult>();
         for (Stmt stmt : node.body.statements) {
             if (stmt instanceof StmtIf) {
                 StmtIf ifStmt = (StmtIf) stmt;
                 List<ConditionalPattern> patterns = extractConditionalPatterns(ifStmt, node.iterator);
                 for (ConditionalPattern pattern : patterns) {
                     if (pattern != null && pattern.isOptimizable()) {
-                        allPatterns.add(new PatternApplier.PatternResult(PatternApplier.PatternType.CONDITIONAL, pattern, pattern.array));
+                        allPatterns.add(new PattrrnHandler.PatternResult(PattrrnHandler.PatternType.CONDITIONAL, pattern, pattern.array));
                     }
                 }
             }
@@ -271,7 +271,7 @@ public class LoopOptimizer {
 
         if (!allPatterns.isEmpty()) {
             try {
-                Object result = patternApplier.applyPatterns(node, allPatterns);
+                Object result = pattrrnHandler.applyPatterns(node, allPatterns);
                 ArrayTracker.markLoopOptimized(loopId);
                 return result;
             } catch (Exception e) {
@@ -282,7 +282,7 @@ public class LoopOptimizer {
         return null;
     }
 
-    public PatternApplier.LinearRecurrencePattern extractLinearRecurrencePattern(For node) {
+    public PattrrnHandler.LinearRecurrencePattern extractLinearRecurrencePattern(For node) {
         if (node == null || node.body == null || node.body.statements == null) {
             return null;
         }
@@ -376,7 +376,7 @@ public class LoopOptimizer {
             seed[i] = v;
         }
 
-        return new PatternApplier.LinearRecurrencePattern(
+        return new PattrrnHandler.LinearRecurrencePattern(
             leftAccess.array,
             order,
             coeffByLag,
@@ -526,8 +526,8 @@ public class LoopOptimizer {
         return null;
     }
 
-    public List<PatternApplier.PatternResult> extractMultiArraySequencePatterns(For node) {
-        List<PatternApplier.PatternResult> results = new ArrayList<PatternApplier.PatternResult>();
+    public List<PattrrnHandler.PatternResult> extractMultiArraySequencePatterns(For node) {
+        List<PattrrnHandler.PatternResult> results = new ArrayList<PattrrnHandler.PatternResult>();
         if (node == null || node.body == null || node.body.statements == null) {
             return results;
         }
@@ -542,27 +542,27 @@ public class LoopOptimizer {
 
         for (Stmt stmt : statements) {
             if (!(stmt instanceof Assignment)) {
-                return new ArrayList<PatternApplier.PatternResult>();
+                return new ArrayList<PattrrnHandler.PatternResult>();
             }
 
             Assignment assign = (Assignment) stmt;
             if (assign.isDeclaration || !(assign.left instanceof IndexAccess)) {
-                return new ArrayList<PatternApplier.PatternResult>();
+                return new ArrayList<PattrrnHandler.PatternResult>();
             }
 
             IndexAccess indexAccess = (IndexAccess) assign.left;
             if (!(indexAccess.array instanceof Identifier) || !(indexAccess.index instanceof Identifier)) {
-                return new ArrayList<PatternApplier.PatternResult>();
+                return new ArrayList<PattrrnHandler.PatternResult>();
             }
 
             Identifier index = (Identifier) indexAccess.index;
             if (!node.iterator.equals(index.name)) {
-                return new ArrayList<PatternApplier.PatternResult>();
+                return new ArrayList<PattrrnHandler.PatternResult>();
             }
 
             String targetName = ((Identifier) indexAccess.array).name;
             if (orderedTargets.contains(targetName)) {
-                return new ArrayList<PatternApplier.PatternResult>();
+                return new ArrayList<PattrrnHandler.PatternResult>();
             }
 
             orderedTargets.add(targetName);
@@ -580,14 +580,14 @@ public class LoopOptimizer {
             for (String ref : refs) {
                 int refIndex = orderedTargets.indexOf(ref);
                 if (refIndex == -1 || refIndex > i) {
-                    return new ArrayList<PatternApplier.PatternResult>();
+                    return new ArrayList<PattrrnHandler.PatternResult>();
                 }
             }
 
             List<SequencePattern.Step> steps = new ArrayList<SequencePattern.Step>();
             steps.add(new SequencePattern.Step(null, assign.right));
             SequencePattern.Pattern pattern = new SequencePattern.Pattern(steps, targetArray, node.iterator);
-            results.add(new PatternApplier.PatternResult(PatternApplier.PatternType.SEQUENCE, pattern, targetArray));
+            results.add(new PattrrnHandler.PatternResult(PattrrnHandler.PatternType.SEQUENCE, pattern, targetArray));
         }
 
         return results;

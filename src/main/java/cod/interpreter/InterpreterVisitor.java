@@ -83,11 +83,11 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     private final ExpressionHandler expressionHandler;
     private final AssignmentHandler assignmentHandler;
     private final LiteralRegistry literalRegistry;
-    private final ContextHelper contextHelper;
-    private final LambdaInvoker lambdaInvoker;
+    private final ContextHandler contextHandler;
+    private final LambdaInvokingHandler lambdaInvokingHandler;
     private final ArrayOperationHandler arrayOperationHandler;
-    private final PatternApplier patternApplier;
-    private final LoopOptimizer loopOptimizer;
+    private final PattrrnHandler pattrrnHandler;
+    private final LoopOptimizationHandler loopOptimizationHandler;
     
     // ========== SIMPLE LOOP OPTIMIZATION CONSTANTS ==========
     private static final int LAZY_THRESHOLD = 10;  // From your data: 10+ iterations = worth it
@@ -108,16 +108,16 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         this.interpreter = interpreter;
         this.typeSystem = typeSystem;
         this.literalRegistry = literalRegistry;
-        this.contextHelper = new ContextHelper(interpreter);
+        this.contextHandler = new ContextHandler(interpreter);
         this.expressionHandler = new ExpressionHandler(typeSystem, this);
         this.assignmentHandler = new AssignmentHandler(typeSystem, interpreter, expressionHandler, this);
         this.arrayOperationHandler =
-            new ArrayOperationHandler(this, interpreter, typeSystem, expressionHandler, contextHelper);
-        this.patternApplier =
-            new PatternApplier(this, typeSystem, expressionHandler, arrayOperationHandler);
-        this.loopOptimizer =
-            new LoopOptimizer(this, typeSystem, expressionHandler, arrayOperationHandler, patternApplier);
-        this.lambdaInvoker = new LambdaInvoker(typeSystem, this);
+            new ArrayOperationHandler(this, interpreter, typeSystem, expressionHandler, contextHandler);
+        this.pattrrnHandler =
+            new PattrrnHandler(this, typeSystem, expressionHandler, arrayOperationHandler);
+        this.loopOptimizationHandler =
+            new LoopOptimizationHandler(this, typeSystem, expressionHandler, arrayOperationHandler, pattrrnHandler);
+        this.lambdaInvokingHandler = new LambdaInvokingHandler(typeSystem, this);
     }
     
     // Implement Evaluator interface
@@ -160,7 +160,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         if (ctx == null) {
             throw new InternalError("invokeLambda called with null context");
         }
-        return lambdaInvoker.invokeLambdaCallback(callback, arguments, ctx, ownerMethod);
+        return lambdaInvokingHandler.invokeLambdaCallback(callback, arguments, ctx, ownerMethod);
     }
 
     public void pushContext(ExecutionContext context) {
@@ -199,7 +199,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     private Object createNoneValue() {
-        return contextHelper.createNoneValue();
+        return contextHandler.createNoneValue();
     }
 
     @Override
@@ -343,7 +343,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 if (node.value == null) {
                     throw new ProgramError("Constant '" + node.name + "' must have an initial value");
                 }
-                if (contextHelper.isVariableDeclaredInAnyScope(ctx, node.name)) {
+                if (contextHandler.isVariableDeclaredInAnyScope(ctx, node.name)) {
                     throw new ProgramError("Cannot reassign constant '" + node.name + "'");
                 }
             }
@@ -361,7 +361,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 // If expected is [text] but actual is not text, create a converting wrapper
                 if (expectedElementType.equals("text") && !actualElementType.equals("text")) {
                     // Create a new NaturalArray with conversion enabled
-                    Range range = contextHelper.getRangeFromArray(arr);
+                    Range range = contextHandler.getRangeFromArray(arr);
                     if (range != null) {
                         val = new NaturalArray(range, this, ctx, node.explicitType);
                     }
@@ -421,19 +421,19 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
 
     // Helper method to extract Range from NaturalArray
     private Range getRangeFromArray(NaturalArray arr) {
-        return contextHelper.getRangeFromArray(arr);
+        return contextHandler.getRangeFromArray(arr);
     }
 
     private Type resolveInternalRangeSpecType() {
-        return contextHelper.resolveInternalRangeSpecType();
+        return contextHandler.resolveInternalRangeSpecType();
     }
 
     private Type resolveInternalMultiRangeSpecType() {
-        return contextHelper.resolveInternalMultiRangeSpecType();
+        return contextHandler.resolveInternalMultiRangeSpecType();
     }
 
     private boolean isVariableDeclaredInAnyScope(ExecutionContext ctx, String name) {
-        return contextHelper.isVariableDeclaredInAnyScope(ctx, name);
+        return contextHandler.isVariableDeclaredInAnyScope(ctx, name);
     }
 
     @Override
@@ -500,7 +500,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     // ========== UPDATED FOR NODE WITH SIMPLE LOOP DECISION ==========
     @Override
     public Object visit(For node) {
-        return loopOptimizer.executeForLoop(node);
+        return loopOptimizationHandler.executeForLoop(node);
     }
 
     // ========== SIMPLE LOOP DECISION METHODS ==========
@@ -2351,7 +2351,7 @@ public Object visit(ChainedComparison node) {
 
     @Override
     public Object visit(Lambda node) {
-        return lambdaInvoker.createLambdaClosure(node, getCurrentContext());
+        return lambdaInvokingHandler.createLambdaClosure(node, getCurrentContext());
     }
     
     private Object invokeLambdaCallback(
@@ -2359,7 +2359,7 @@ public Object visit(ChainedComparison node) {
         List<Object> args,
         ExecutionContext parentCtx,
         String ownerMethod) {
-        return lambdaInvoker.invokeLambdaCallback(callbackObj, args, parentCtx, ownerMethod);
+        return lambdaInvokingHandler.invokeLambdaCallback(callbackObj, args, parentCtx, ownerMethod);
     }
 
     private List<Param> resolveLambdaParameters(Lambda lambda) {

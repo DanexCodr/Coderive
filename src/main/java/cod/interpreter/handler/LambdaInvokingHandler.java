@@ -10,16 +10,16 @@ import cod.interpreter.context.LambdaClosure;
 
 import java.util.*;
 
-public class LambdaInvoker {
+public class LambdaInvokingHandler {
     private final TypeHandler typeSystem;
     private final InterpreterVisitor dispatcher;
 
-    public LambdaInvoker(TypeHandler typeSystem, InterpreterVisitor dispatcher) {
+    public LambdaInvokingHandler(TypeHandler typeSystem, InterpreterVisitor dispatcher) {
         if (typeSystem == null) {
-            throw new InternalError("LambdaInvoker constructed with null typeSystem");
+            throw new InternalError("LambdaInvokingHandler constructed with null typeSystem");
         }
         if (dispatcher == null) {
-            throw new InternalError("LambdaInvoker constructed with null dispatcher");
+            throw new InternalError("LambdaInvokingHandler constructed with null dispatcher");
         }
         this.typeSystem = typeSystem;
         this.dispatcher = dispatcher;

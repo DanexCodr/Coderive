@@ -12,14 +12,14 @@ import cod.ast.node.Range;
 import java.util.List;
 import java.util.Map;
 
-public class ContextHelper {
+public class ContextHandler {
     private final Interpreter interpreter;
     private Type internalRangeSpecType;
     private Type internalMultiRangeSpecType;
 
-    public ContextHelper(Interpreter interpreter) {
+    public ContextHandler(Interpreter interpreter) {
         if (interpreter == null) {
-            throw new InternalError("ContextHelper constructed with null interpreter");
+            throw new InternalError("ContextHandler constructed with null interpreter");
         }
         this.interpreter = interpreter;
     }

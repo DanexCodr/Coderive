@@ -15,7 +15,7 @@ import cod.range.pattern.SequencePattern;
 
 import java.util.*;
 
-public class PatternApplier {
+public class PattrrnHandler {
     public enum PatternType {
         CONDITIONAL,
         SEQUENCE,
@@ -70,16 +70,16 @@ public class PatternApplier {
     private final ExpressionHandler expressionHandler;
     private final ArrayOperationHandler arrayOperationHandler;
 
-    public PatternApplier(
+    public PattrrnHandler(
         InterpreterVisitor dispatcher,
         TypeHandler typeSystem,
         ExpressionHandler expressionHandler,
         ArrayOperationHandler arrayOperationHandler
     ) {
-        if (dispatcher == null) throw new InternalError("PatternApplier dispatcher is null");
-        if (typeSystem == null) throw new InternalError("PatternApplier typeSystem is null");
-        if (expressionHandler == null) throw new InternalError("PatternApplier expressionHandler is null");
-        if (arrayOperationHandler == null) throw new InternalError("PatternApplier arrayOperationHandler is null");
+        if (dispatcher == null) throw new InternalError("PattrrnHandler dispatcher is null");
+        if (typeSystem == null) throw new InternalError("PattrrnHandler typeSystem is null");
+        if (expressionHandler == null) throw new InternalError("PattrrnHandler expressionHandler is null");
+        if (arrayOperationHandler == null) throw new InternalError("PattrrnHandler arrayOperationHandler is null");
         this.dispatcher = dispatcher;
         this.typeSystem = typeSystem;
         this.expressionHandler = expressionHandler;
