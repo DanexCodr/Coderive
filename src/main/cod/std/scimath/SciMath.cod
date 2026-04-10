@@ -1,12 +1,16 @@
 unit scimath
 
-// SciMath.entific computing toolkit (linear algebra, FFT, ODE/PDE, and statistics helpers).
+// Scientific computing toolkit (linear algebra, FFT, ODE/PDE, and statistics helpers).
 use {
     math,
     math.LinearAlgebra
 }
 
 share SciMath {
+    // TODO(parser): restore scientific notation literals once lexer/parser supports e-notation.
+    // Note: written in decimal form because parser currently rejects scientific notation.
+    // AVOGADRO=6.02214076e23, BOLTZMANN=1.380649e-23, PLANCK=6.62607015e-34
+    // REDUCED_PLANCK=1.054571817e-34, G=6.67430e-11, q=1.602176634e-19, SIGMA=5.670374419e-8
     AVOGADRO: float = 602214076000000000000000
     BOLTZMANN: float = 0.00000000000000000000001380649
     GAS_CONSTANT: float = 8.314462618
@@ -41,6 +45,7 @@ share SciMath {
     share pinv(a: []) :: [] {
         rows := a.size
         if rows == 0 { ~> ([]) }
+        // Workaround: chained index/property access `a[0].size` currently fails to parse.
         firstRow := a[0]
         cols := firstRow.size
         if rows == cols {
@@ -122,6 +127,7 @@ share SciMath {
         if h <= 0 { ~> (ys) }
         steps: int = floor((t1 - t0) / h)
         if steps < 0 { ~> (ys) }
+        // Inclusive range keeps the endpoint sample when step lands exactly on t1.
         for step of 0 to steps {
             t := t0 + step * h
             ys[idx] = [t, y]

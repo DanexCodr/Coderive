@@ -1,6 +1,6 @@
 unit scimath
 
-// Additional scientific methods and distributions built on top of SciMath and 
+// Additional scientific methods and distributions built on top of SciMath and math.
 use {
     math,
     scimath.SciMath

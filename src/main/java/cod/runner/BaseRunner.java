@@ -306,12 +306,6 @@ public abstract class BaseRunner {
     }
 
     private String getStandardOverrideDirectory(String unitName) {
-        if ("math".equals(unitName)) {
-            return "std/math";
-        }
-        if ("scimath".equals(unitName)) {
-            return "std/scimath";
-        }
         if ("scimath.distribution".equals(unitName)) {
             return "std/scimath/distribution";
         }

@@ -19,6 +19,7 @@ share fibonacci(n: int) :: int|float {
     if n < 0 { ~> (0) }
     if n == 0 { ~> (0) }
     if n == 1 { ~> (1) }
+    // Iterative form avoids parser/runtime issues hit by lambda-based self recursion here.
     a: int|float = 0
     b: int|float = 1
     for i of 2 to n {

@@ -19,16 +19,16 @@ share Trig {
 
     share sin(x: int|float) :: int|float {
         y := Trig.normalizeAngle(x)
-        termAbs: int|float = y
+        termValue: int|float = y
         sum: int|float = y
         for i of 1 to 12 {
             a: int = 2 * i
             b: int = 2 * i + 1
-            termAbs = termAbs * y * y / (a * b)
+            termValue = termValue * y * y / (a * b)
             if i % 2 == 1 {
-                sum = sum - termAbs
+                sum = sum - termValue
             } else {
-                sum = sum + termAbs
+                sum = sum + termValue
             }
         }
         ~> (sum)
@@ -36,16 +36,16 @@ share Trig {
 
     share cos(x: int|float) :: int|float {
         y := Trig.normalizeAngle(x)
-        termAbs: int|float = 1
+        termValue: int|float = 1
         sum: int|float = 1
         for i of 1 to 12 {
             a: int = 2 * i - 1
             b: int = 2 * i
-            termAbs = termAbs * y * y / (a * b)
+            termValue = termValue * y * y / (a * b)
             if i % 2 == 1 {
-                sum = sum - termAbs
+                sum = sum - termValue
             } else {
-                sum = sum + termAbs
+                sum = sum + termValue
             }
         }
         ~> (sum)
@@ -64,15 +64,15 @@ share Trig {
         if x < (0 - 1) {
             ~> ((0 - PI / 2) - Trig.atan(1 / x))
         }
-        termAbs: int|float = x
+        termValue: int|float = x
         sum: int|float = x
         for i of 1 to 24 {
             n: int = 2 * i + 1
-            termAbs = termAbs * x * x
+            termValue = termValue * x * x
             if i % 2 == 1 {
-                sum = sum - termAbs / n
+                sum = sum - termValue / n
             } else {
-                sum = sum + termAbs / n
+                sum = sum + termValue / n
             }
         }
         ~> (sum)
