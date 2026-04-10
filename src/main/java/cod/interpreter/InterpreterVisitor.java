@@ -194,6 +194,10 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         return contextStack.isEmpty();
     }
 
+    public boolean shouldReturnEarly(Map<String, Object> slotValues, Set<String> slotsInCurrentPath) {
+        return interpreter.shouldReturnEarly(slotValues, slotsInCurrentPath);
+    }
+
     private Object createNoneValue() {
         return contextHelper.createNoneValue();
     }

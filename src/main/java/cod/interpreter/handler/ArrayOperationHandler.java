@@ -9,7 +9,6 @@ import cod.interpreter.exception.BreakLoopException;
 import cod.interpreter.exception.SkipIterationException;
 import cod.math.AutoStackingNumber;
 import cod.range.NaturalArray;
-import cod.range.Range;
 import cod.range.RangeObjects;
 
 import java.util.ArrayList;
@@ -234,7 +233,7 @@ public class ArrayOperationHandler {
                 }
 
                 if (!ctx.slotsInCurrentPath.isEmpty()
-                    && interpreter.shouldReturnEarly(ctx.getSlotValues(), ctx.slotsInCurrentPath)) return;
+                    && dispatcher.shouldReturnEarly(ctx.getSlotValues(), ctx.slotsInCurrentPath)) return;
             }
         } catch (BreakLoopException e) {
             throw e;

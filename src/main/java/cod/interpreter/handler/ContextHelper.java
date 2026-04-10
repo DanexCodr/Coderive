@@ -7,7 +7,7 @@ import cod.error.ProgramError;
 import cod.interpreter.Interpreter;
 import cod.interpreter.context.ExecutionContext;
 import cod.range.NaturalArray;
-import cod.range.Range;
+import cod.ast.node.Range;
 
 import java.util.List;
 import java.util.Map;
