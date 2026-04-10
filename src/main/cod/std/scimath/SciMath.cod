@@ -2,21 +2,25 @@ unit scimath
 
 // Scientific computing toolkit (linear algebra, FFT, ODE/PDE, and statistics helpers).
 use {
-    math.Math,
+    math,
     math.LinearAlgebra
 }
 
 share SciMath {
-    AVOGADRO: float = 6.02214076e23
-    BOLTZMANN: float = 1.380649e-23
+    // TODO(parser): restore scientific notation literals once lexer/parser supports e-notation.
+    // Note: written in decimal form because parser currently rejects scientific notation.
+    // AVOGADRO=6.02214076e23, BOLTZMANN=1.380649e-23, PLANCK=6.62607015e-34
+    // REDUCED_PLANCK=1.054571817e-34, G=6.67430e-11, q=1.602176634e-19, SIGMA=5.670374419e-8
+    AVOGADRO: float = 602214076000000000000000
+    BOLTZMANN: float = 0.00000000000000000000001380649
     GAS_CONSTANT: float = 8.314462618
-    PLANCK: float = 6.62607015e-34
-    REDUCED_PLANCK: float = 1.054571817e-34
+    PLANCK: float = 0.000000000000000000000000000000000662607015
+    REDUCED_PLANCK: float = 0.0000000000000000000000000000000001054571817
     SPEED_OF_LIGHT: float = 299792458
-    GRAVITATIONAL_CONSTANT: float = 6.67430e-11
-    ELEMENTARY_CHARGE: float = 1.602176634e-19
+    GRAVITATIONAL_CONSTANT: float = 0.000000000066743
+    ELEMENTARY_CHARGE: float = 0.0000000000000000001602176634
     FARADAY_CONSTANT: float = 96485.33212
-    STEFAN_BOLTZMANN: float = 5.670374419e-8
+    STEFAN_BOLTZMANN: float = 0.00000005670374419
 
     share dot(a: [], b: []) :: int|float { ~> (LinearAlgebra.dot(a, b)) }
     share cross(a: [], b: []) :: [] { ~> (LinearAlgebra.cross(a, b)) }
@@ -35,13 +39,15 @@ share SciMath {
         for i of 0 to a.size - 1 {
             sumSq = sumSq + a[i] * a[i]
         }
-        ~> (Math.sqrt(sumSq))
+        ~> (sqrt(sumSq))
     }
 
     share pinv(a: []) :: [] {
         rows := a.size
         if rows == 0 { ~> ([]) }
-        cols := a[0].size
+        // Workaround: chained index/property access `a[0].size` currently fails to parse.
+        firstRow := a[0]
+        cols := firstRow.size
         if rows == cols {
             ~> (SciMath.inverse(a))
         }
@@ -74,7 +80,7 @@ share SciMath {
             det := a[0][0] * a[1][1] - a[0][1] * a[1][0]
             disc := trace * trace - 4 * det
             if disc < 0 { disc = 0 }
-            root := Math.sqrt(disc)
+            root := sqrt(disc)
             ~> ([(trace + root) / 2, (trace - root) / 2])
         }
         ~> ([])
@@ -88,9 +94,9 @@ share SciMath {
             re: int|float = 0
             im: int|float = 0
             for t of 0 to n - 1 {
-                angle := -2 * Math.PI * k * t / n
-                re = re + values[t] * Math.cos(angle)
-                im = im + values[t] * Math.sin(angle)
+                angle := -2 * 3.141592653589793 * k * t / n
+                re = re + values[t] * cos(angle)
+                im = im + values[t] * sin(angle)
             }
             outArr[k] = [re, im]
         }
@@ -104,10 +110,10 @@ share SciMath {
         for t of 0 to n - 1 {
             sum: int|float = 0
             for k of 0 to n - 1 {
-                angle := 2 * Math.PI * k * t / n
+                angle := 2 * 3.141592653589793 * k * t / n
                 re := values[k][0]
                 im := values[k][1]
-                sum = sum + re * Math.cos(angle) - im * Math.sin(angle)
+                sum = sum + re * cos(angle) - im * sin(angle)
             }
             outArr[t] = sum / n
         }
@@ -118,13 +124,16 @@ share SciMath {
         ys := []
         idx: int = 0
         y: int|float = y0
-        t: int|float = t0
-        while t <= t1 {
+        if h <= 0 { ~> (ys) }
+        steps: int = floor((t1 - t0) / h)
+        if steps < 0 { ~> (ys) }
+        // Inclusive range keeps the endpoint sample when step lands exactly on t1.
+        for step of 0 to steps {
+            t := t0 + step * h
             ys[idx] = [t, y]
             idx = idx + 1
             dy := ode[0](t, y)
             y = y + h * dy
-            t = t + h
         }
         ~> (ys)
     }
@@ -255,7 +264,7 @@ share SciMath {
         if n <= 0 { ~> (0) }
         maxD: int|float = 0
         for i of 0 to n - 1 {
-            d := Math.abs(a[i] - b[i])
+            d := abs(a[i] - b[i])
             if d > maxD { maxD = d }
         }
         ~> (maxD)

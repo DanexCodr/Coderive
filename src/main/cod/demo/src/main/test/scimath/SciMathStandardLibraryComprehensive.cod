@@ -1,13 +1,27 @@
 unit test.scimath
 
+use {
+    math,
+    scimath,
+    scimath.distribution
+}
+
 share SciMathStandardLibraryComprehensive {
     share main() {
-        out("== scimath smoke ==")
-        a := [1, 2, 3]
-        b := [4, 5, 6]
-        out(a[0] + b[0])
-        out(a[1] * b[1])
-        out(a[2] - b[2])
-        out(3)
+        out("== scimath standard library comprehensive ==")
+
+        z1 := scimath.Complex.make(1, 2)
+        z2 := scimath.Complex.make(3, 4)
+        zAdd := scimath.Complex.add(z1, z2)
+        zMul := scimath.Complex.mul(z1, z2)
+        out(scimath.Complex.real(z1))
+        out(scimath.Complex.imag(z1))
+        out(zAdd[0])
+        out(zAdd[1])
+        out(zMul[0])
+        out(zMul[1])
+        out(scimath.Complex.abs([3, 4]))
+
+        out("== done ==")
     }
 }

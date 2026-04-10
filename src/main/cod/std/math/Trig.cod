@@ -10,7 +10,7 @@ share Trig {
         for i of 1 to 8 {
             if y > PI {
                 y = y - twoPi
-            } elif y < -PI {
+            } elif y < (0 - PI) {
                 y = y + twoPi
             }
         }
@@ -19,26 +19,34 @@ share Trig {
 
     share sin(x: int|float) :: int|float {
         y := Trig.normalizeAngle(x)
-        term: int|float = y
+        termValue: int|float = y
         sum: int|float = y
         for i of 1 to 12 {
             a: int = 2 * i
             b: int = 2 * i + 1
-            term = -term * y * y / (a * b)
-            sum = sum + term
+            termValue = termValue * y * y / (a * b)
+            if i % 2 == 1 {
+                sum = sum - termValue
+            } else {
+                sum = sum + termValue
+            }
         }
         ~> (sum)
     }
 
     share cos(x: int|float) :: int|float {
         y := Trig.normalizeAngle(x)
-        term: int|float = 1
+        termValue: int|float = 1
         sum: int|float = 1
         for i of 1 to 12 {
             a: int = 2 * i - 1
             b: int = 2 * i
-            term = -term * y * y / (a * b)
-            sum = sum + term
+            termValue = termValue * y * y / (a * b)
+            if i % 2 == 1 {
+                sum = sum - termValue
+            } else {
+                sum = sum + termValue
+            }
         }
         ~> (sum)
     }
@@ -53,15 +61,19 @@ share Trig {
         if x > 1 {
             ~> (PI / 2 - Trig.atan(1 / x))
         }
-        if x < -1 {
-            ~> (-PI / 2 - Trig.atan(1 / x))
+        if x < (0 - 1) {
+            ~> ((0 - PI / 2) - Trig.atan(1 / x))
         }
-        term: int|float = x
+        termValue: int|float = x
         sum: int|float = x
         for i of 1 to 24 {
             n: int = 2 * i + 1
-            term = -term * x * x
-            sum = sum + term / n
+            termValue = termValue * x * x
+            if i % 2 == 1 {
+                sum = sum - termValue / n
+            } else {
+                sum = sum + termValue / n
+            }
         }
         ~> (sum)
     }
@@ -73,13 +85,13 @@ share Trig {
             ~> (Trig.atan(y / x) - PI)
         }
         if y > 0 { ~> (PI / 2) }
-        if y < 0 { ~> (-PI / 2) }
+        if y < 0 { ~> (0 - PI / 2) }
         ~> (0)
     }
 
     share asin(x: int|float) :: int|float {
         if x > 1 { ~> (PI / 2) }
-        if x < -1 { ~> (-PI / 2) }
+        if x < (0 - 1) { ~> (0 - PI / 2) }
         ~> (Trig.atan2(x, Core.sqrt(1 - x * x)))
     }
 
@@ -89,13 +101,13 @@ share Trig {
 
     share sinh(x: int|float) :: int|float {
         ex := Core.exp(x)
-        enx := Core.exp(-x)
+        enx := Core.exp(0 - x)
         ~> ((ex - enx) / 2)
     }
 
     share cosh(x: int|float) :: int|float {
         ex := Core.exp(x)
-        enx := Core.exp(-x)
+        enx := Core.exp(0 - x)
         ~> ((ex + enx) / 2)
     }
 
@@ -116,7 +128,7 @@ share Trig {
 
     share atanh(x: int|float) :: int|float {
         if x >= 1 { ~> (0) }
-        if x <= -1 { ~> (0) }
+        if x <= (0 - 1) { ~> (0) }
         ~> (0.5 * Core.log((1 + x) / (1 - x)))
     }
 }

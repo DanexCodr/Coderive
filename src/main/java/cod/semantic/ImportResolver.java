@@ -635,6 +635,16 @@ public class ImportResolver {
             return;
         }
 
+        if (!importName.contains(".")) {
+            wildcardEverythingUnits.add(importName);
+            if (!registeredImports.contains(importName)) {
+                registeredImports.add(importName);
+                cacheImportName(importName);
+            }
+            DebugSystem.debug("IMPORTS", "Registered unit import as everything wildcard: " + importName);
+            return;
+        }
+
         int lastDot = importName.lastIndexOf('.');
         if (lastDot > 0 && lastDot < importName.length() - 1) {
             String alias = importName.substring(lastDot + 1);
@@ -652,13 +662,18 @@ public class ImportResolver {
         String[] parts = importName.split("\\.");
         if (parts.length > 0) {
             String lastPart = parts[parts.length - 1];
-            importNameCache.put(lastPart, importName);
+            if (!importNameCache.containsKey(lastPart)) {
+                importNameCache.put(lastPart, importName);
+            }
             
             StringBuilder partial = new StringBuilder();
             for (int i = 0; i < parts.length; i++) {
                 if (i > 0) partial.append(".");
                 partial.append(parts[i]);
-                importNameCache.put(partial.toString(), importName);
+                String key = partial.toString();
+                if (!importNameCache.containsKey(key)) {
+                    importNameCache.put(key, importName);
+                }
             }
         }
     }
@@ -1031,7 +1046,10 @@ public class ImportResolver {
         
         DebugSystem.debug("IMPORTS", "Import part: '" + importPart + "', type: '" + typeName + "'");
         
-        String actualImportName = findMatchingImportCached(importPart);
+        String actualImportName = qualifiedTypeName;
+        if (typeName.isEmpty() || !Character.isUpperCase(typeName.charAt(0))) {
+            actualImportName = findMatchingImportCached(importPart);
+        }
         
         DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', type: '" + typeName + "'");
         
@@ -1415,6 +1433,20 @@ public class ImportResolver {
         }
         
         int lastDot = fullName.lastIndexOf('.');
+        if (lastDot == -1) {
+            for (String wildcardUnit : wildcardEverythingUnits) {
+                Type wildcardType = loadStaticModuleType(wildcardUnit);
+                if (wildcardType != null && wildcardType.fields != null) {
+                    for (Field field : wildcardType.fields) {
+                        if (qualifiedFieldName.equals(field.name)) {
+                            return field;
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+        
         if (lastDot <= 0 || lastDot >= fullName.length() - 1) {
             return null;
         }
