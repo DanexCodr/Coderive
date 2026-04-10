@@ -1,0 +1,24 @@
+name: PR Announcements
+on:
+  pull_request:
+    types: [opened, closed]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: New PR opened
+        if: github.event.action == 'opened'
+        run: |
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{"content": "🆕 **New PR**: ${{ github.event.pull_request.title }}\nBy: ${{ github.event.pull_request.user.login }}\n${{ github.event.pull_request.html_url }}"}' \
+            ${{ secrets.DISCORD_WEBHOOK }}
+            
+      - name: PR merged
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true
+        run: |
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{"content": "✅ **MERGED**: ${{ github.event.pull_request.title }}\n${{ github.event.pull_request.html_url }}"}' \
+            ${{ secrets.DISCORD_WEBHOOK }}
