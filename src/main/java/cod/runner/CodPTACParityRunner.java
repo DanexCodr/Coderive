@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-public final class ParityRunner extends BaseRunner {
+public final class CodPTACParityRunner extends BaseRunner {
     private static final String NUMBER_REGEX_PATTERN = "[-+]?\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?";
     private static final int DEFAULT_INPUT_LINE_COUNT = 10;
     private static final String DEFAULT_INPUT = buildDefaultInput(DEFAULT_INPUT_LINE_COUNT);
@@ -99,7 +99,7 @@ public final class ParityRunner extends BaseRunner {
         
         if (files.isEmpty()) {
             System.out.println("No .cod files found.");
-            System.out.println("Usage: ParityRunner <file.cod> or <directory>");
+            System.out.println("Usage: CodPTACParityRunner <file.cod> or <directory>");
             return;
         }
 
@@ -375,7 +375,7 @@ public final class ParityRunner extends BaseRunner {
     }
 
     public static void main(String[] args) {
-        ParityRunner runner = new ParityRunner();
+        CodPTACParityRunner runner = new CodPTACParityRunner();
         try {
             runner.run(args);
         } catch (Exception e) {
