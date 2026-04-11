@@ -1,0 +1,8 @@
+# unit test.autostackingnumber
+timestamp = "1775936694798"
+generator = "Coderive 1.0"
+
+[classes]
+AutoStackingNumberComprehensive = "AutoStackingNumberComprehensive.cod"
+AutoStackingNumberEdgeCases = "AutoStackingNumberEdgeCases.cod"
+AutoStackingNumberPortParity = "AutoStackingNumberPortParity.cod"
