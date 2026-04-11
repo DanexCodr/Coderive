@@ -1,0 +1,61 @@
+unit math
+
+// Coderive implementation of core AutoStackingNumber-style arithmetic helpers.
+// This provides a Coderive-native class that can be compiled to CodP-TAC and loaded from .codb.
+share AutoStackingNumber {
+    share zero() :: int|float { ~> (0) }
+    share one() :: int|float { ~> (1) }
+    share minusOne() :: int|float { ~> (-1) }
+
+    share fromLong(value: int) :: int|float { ~> (value) }
+    share fromDouble(value: float) :: int|float { ~> (value) }
+
+    share add(a: int|float, b: int|float) :: int|float { ~> (a + b) }
+    share subtract(a: int|float, b: int|float) :: int|float { ~> (a - b) }
+    share multiply(a: int|float, b: int|float) :: int|float { ~> (a * b) }
+    share divide(a: int|float, b: int|float) :: int|float { ~> (a / b) }
+    share remainder(a: int|float, b: int|float) :: int|float { ~> (a % b) }
+    share negate(value: int|float) :: int|float { ~> (-value) }
+    share abs(value: int|float) :: int|float {
+        if value < 0 { ~> (-value) }
+        ~> (value)
+    }
+
+    // Arithmetic shift helper: multiplies by 2^bits (not bit-level integer shifting).
+    share shiftLeft(value: int|float, bits: int) :: int|float {
+        if bits <= 0 { ~> (value) }
+        outValue: int|float = value
+        for i of 1 to bits {
+            outValue = outValue * 2
+        }
+        ~> (outValue)
+    }
+
+    // Arithmetic shift helper: divides by 2^bits (not bit-level integer shifting).
+    share shiftRight(value: int|float, bits: int) :: int|float {
+        if bits <= 0 { ~> (value) }
+        outValue: int|float = value
+        for i of 1 to bits {
+            outValue = outValue / 2
+        }
+        ~> (outValue)
+    }
+
+    share compare(a: int|float, b: int|float) :: int|float {
+        if a < b { ~> (-1) }
+        if a > b { ~> (1) }
+        ~> (0)
+    }
+
+    share pow(value: int|float, exponent: int) :: int|float {
+        if exponent == 0 { ~> (1) }
+        if exponent < 0 {
+            ~> (1 / AutoStackingNumber.pow(value, -exponent))
+        }
+        outValue: int|float = 1
+        for i of 1 to exponent {
+            outValue = outValue * value
+        }
+        ~> (outValue)
+    }
+}
