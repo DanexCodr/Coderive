@@ -21,6 +21,7 @@ share AutoStackingNumber {
         ~> (value)
     }
 
+    // Arithmetic shift helper: multiplies by 2^bits (not bit-level integer shifting).
     share shiftLeft(value: int|float, bits: int) :: int|float {
         if bits <= 0 { ~> (value) }
         outValue: int|float = value
@@ -30,6 +31,7 @@ share AutoStackingNumber {
         ~> (outValue)
     }
 
+    // Arithmetic shift helper: divides by 2^bits (not bit-level integer shifting).
     share shiftRight(value: int|float, bits: int) :: int|float {
         if bits <= 0 { ~> (value) }
         outValue: int|float = value
