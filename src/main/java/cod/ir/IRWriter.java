@@ -1,7 +1,7 @@
 package cod.ir;
 
 import cod.ast.node.Type;
-import cod.ptac.CodPTACArtifact;
+import cod.ptac.Artifact;
 
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
@@ -11,13 +11,13 @@ import java.io.IOException;
 
 public final class IRWriter {
     public void write(File file, Type type) throws IOException {
-        CodPTACArtifact artifact = new CodPTACArtifact();
+        Artifact artifact = new Artifact();
         artifact.className = type != null ? type.name : null;
         artifact.typeSnapshot = type;
         writeArtifact(file, artifact);
     }
 
-    public void writeArtifact(File file, CodPTACArtifact artifact) throws IOException {
+    public void writeArtifact(File file, Artifact artifact) throws IOException {
         if (file == null) {
             throw new IOException("IR target file is null");
         }

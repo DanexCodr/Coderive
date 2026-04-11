@@ -5,26 +5,26 @@ import cod.ptac.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class CodPTACPatternFusionPass implements CodPTACOptimizationPass {
+public final class PatternFusion implements Optimization {
     @Override
-    public void apply(CodPTACUnit unit) {
+    public void apply(Unit unit) {
         if (unit == null || unit.functions == null) return;
 
-        for (CodPTACFunction function : unit.functions) {
+        for (Function function : unit.functions) {
             if (function == null || function.instructions == null) continue;
 
-            List<CodPTACInstruction> rewritten = new ArrayList<CodPTACInstruction>();
+            List<Instruction> rewritten = new ArrayList<Instruction>();
             for (int i = 0; i < function.instructions.size(); i++) {
-                CodPTACInstruction current = function.instructions.get(i);
-                CodPTACInstruction next = i + 1 < function.instructions.size()
+                Instruction current = function.instructions.get(i);
+                Instruction next = i + 1 < function.instructions.size()
                     ? function.instructions.get(i + 1) : null;
 
                 if (canFuseFilterMap(current, next)) {
-                    List<CodPTACOperand> fusedOps = new ArrayList<CodPTACOperand>();
+                    List<Operand> fusedOps = new ArrayList<Operand>();
                     fusedOps.add(current.operands.get(0)); // source
                     fusedOps.add(current.operands.get(1)); // filter lambda
                     fusedOps.add(next.operands.get(1));    // map lambda
-                    rewritten.add(new CodPTACInstruction(CodPTACOpcode.FILTER_MAP, next.dest, fusedOps, next.flags));
+                    rewritten.add(new Instruction(Opcode.FILTER_MAP, next.dest, fusedOps, next.flags));
                     i++;
                     continue;
                 }
@@ -35,13 +35,13 @@ public final class CodPTACPatternFusionPass implements CodPTACOptimizationPass {
         }
     }
 
-    private boolean canFuseFilterMap(CodPTACInstruction filter, CodPTACInstruction map) {
+    private boolean canFuseFilterMap(Instruction filter, Instruction map) {
         if (filter == null || map == null) return false;
-        if (filter.opcode != CodPTACOpcode.FILTER) return false;
-        if (map.opcode != CodPTACOpcode.MAP) return false;
+        if (filter.opcode != Opcode.FILTER) return false;
+        if (map.opcode != Opcode.MAP) return false;
         if (filter.dest == null) return false;
         if (map.operands == null || map.operands.isEmpty()) return false;
-        CodPTACOperand mapSource = map.operands.get(0);
-        return mapSource.kind == CodPTACOperandKind.REGISTER && filter.dest.equals(mapSource.value);
+        Operand mapSource = map.operands.get(0);
+        return mapSource.kind == OperandKind.REGISTER && filter.dest.equals(mapSource.value);
     }
 }

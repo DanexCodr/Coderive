@@ -3,10 +3,10 @@ package cod.ptac;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class CodPTACFunction {
+public final class Function {
     public String name;
     public List<String> parameters = new ArrayList<String>();
-    public List<CodPTACInstruction> instructions = new ArrayList<CodPTACInstruction>();
+    public List<Instruction> instructions = new ArrayList<Instruction>();
     public boolean lambdaBlock;
     public int closureLevel;
 }

@@ -1,6 +1,6 @@
 package cod.ptac;
 
-public final class CodPTACOptions {
+public final class Options {
     public enum Mode {
         INTERPRETER,
         COMPILE_ONLY,
@@ -10,12 +10,12 @@ public final class CodPTACOptions {
     private final Mode mode;
     private final boolean fallbackEnabled;
 
-    private CodPTACOptions(Mode mode, boolean fallbackEnabled) {
+    private Options(Mode mode, boolean fallbackEnabled) {
         this.mode = mode;
         this.fallbackEnabled = fallbackEnabled;
     }
 
-    public static CodPTACOptions current() {
+    public static Options current() {
         String rawMode = firstNonEmpty(
             System.getProperty("cod.ptac.mode"),
             System.getenv("COD_PTAC_MODE")
@@ -27,11 +27,11 @@ public final class CodPTACOptions {
 
         Mode mode = parseMode(rawMode);
         boolean fallback = rawFallback == null || !"false".equalsIgnoreCase(rawFallback.trim());
-        return new CodPTACOptions(mode, fallback);
+        return new Options(mode, fallback);
     }
 
-    public static CodPTACOptions compileExecuteWithFallback(boolean fallback) {
-        return new CodPTACOptions(Mode.COMPILE_EXECUTE, fallback);
+    public static Options compileExecuteWithFallback(boolean fallback) {
+        return new Options(Mode.COMPILE_EXECUTE, fallback);
     }
 
     public Mode getMode() {

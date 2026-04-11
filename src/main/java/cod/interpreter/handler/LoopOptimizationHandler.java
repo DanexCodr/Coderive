@@ -27,24 +27,24 @@ public class LoopOptimizationHandler {
     private final TypeHandler typeSystem;
     private final ExpressionHandler expressionHandler;
     private final ArrayOperationHandler arrayOperationHandler;
-    private final PattrrnHandler pattrrnHandler;
+    private final PatternHandler patternHandler;
 
     public LoopOptimizationHandler(
         InterpreterVisitor dispatcher,
         TypeHandler typeSystem,
         ExpressionHandler expressionHandler,
         ArrayOperationHandler arrayOperationHandler,
-        PattrrnHandler pattrrnHandler) {
+        PatternHandler patternHandler) {
         if (dispatcher == null) throw new InternalError("LoopOptimizationHandler dispatcher is null");
         if (typeSystem == null) throw new InternalError("LoopOptimizationHandler typeSystem is null");
         if (expressionHandler == null) throw new InternalError("LoopOptimizationHandler expressionHandler is null");
         if (arrayOperationHandler == null) throw new InternalError("LoopOptimizationHandler arrayOperationHandler is null");
-        if (pattrrnHandler == null) throw new InternalError("LoopOptimizationHandler pattrrnHandler is null");
+        if (patternHandler == null) throw new InternalError("LoopOptimizationHandler patternHandler is null");
         this.dispatcher = dispatcher;
         this.typeSystem = typeSystem;
         this.expressionHandler = expressionHandler;
         this.arrayOperationHandler = arrayOperationHandler;
-        this.pattrrnHandler = pattrrnHandler;
+        this.patternHandler = patternHandler;
     }
 
     public Object executeForLoop(For node) {
@@ -218,10 +218,10 @@ public class LoopOptimizationHandler {
             }
         }
 
-        List<PattrrnHandler.PatternResult> multiArrayPatterns = extractMultiArraySequencePatterns(node);
+        List<PatternHandler.PatternResult> multiArrayPatterns = extractMultiArraySequencePatterns(node);
         if (!multiArrayPatterns.isEmpty()) {
             try {
-                Object result = pattrrnHandler.applyPatterns(node, multiArrayPatterns);
+                Object result = patternHandler.applyPatterns(node, multiArrayPatterns);
                 ArrayTracker.markLoopOptimized(loopId);
                 return result;
             } catch (Exception e) {
@@ -229,12 +229,12 @@ public class LoopOptimizationHandler {
             }
         }
 
-        PattrrnHandler.LinearRecurrencePattern recurrencePattern = extractLinearRecurrencePattern(node);
+        PatternHandler.LinearRecurrencePattern recurrencePattern = extractLinearRecurrencePattern(node);
         if (recurrencePattern != null) {
             try {
-                List<PattrrnHandler.PatternResult> patterns = new ArrayList<PattrrnHandler.PatternResult>();
-                patterns.add(new PattrrnHandler.PatternResult(PattrrnHandler.PatternType.LINEAR_RECURRENCE, recurrencePattern, recurrencePattern.targetArray));
-                Object result = pattrrnHandler.applyPatterns(node, patterns);
+                List<PatternHandler.PatternResult> patterns = new ArrayList<PatternHandler.PatternResult>();
+                patterns.add(new PatternHandler.PatternResult(PatternHandler.PatternType.LINEAR_RECURRENCE, recurrencePattern, recurrencePattern.targetArray));
+                Object result = patternHandler.applyPatterns(node, patterns);
                 ArrayTracker.markLoopOptimized(loopId);
                 return result;
             } catch (Exception e) {
@@ -246,9 +246,9 @@ public class LoopOptimizationHandler {
             SequencePattern.extract(node.body.statements, node.iterator);
         if (seqPattern != null && seqPattern.isOptimizable()) {
             try {
-                List<PattrrnHandler.PatternResult> patterns = new ArrayList<PattrrnHandler.PatternResult>();
-                patterns.add(new PattrrnHandler.PatternResult(PattrrnHandler.PatternType.SEQUENCE, seqPattern, seqPattern.targetArray));
-                Object result = pattrrnHandler.applyPatterns(node, patterns);
+                List<PatternHandler.PatternResult> patterns = new ArrayList<PatternHandler.PatternResult>();
+                patterns.add(new PatternHandler.PatternResult(PatternHandler.PatternType.SEQUENCE, seqPattern, seqPattern.targetArray));
+                Object result = patternHandler.applyPatterns(node, patterns);
                 ArrayTracker.markLoopOptimized(loopId);
                 return result;
             } catch (Exception e) {
@@ -256,14 +256,14 @@ public class LoopOptimizationHandler {
             }
         }
 
-        List<PattrrnHandler.PatternResult> allPatterns = new ArrayList<PattrrnHandler.PatternResult>();
+        List<PatternHandler.PatternResult> allPatterns = new ArrayList<PatternHandler.PatternResult>();
         for (Stmt stmt : node.body.statements) {
             if (stmt instanceof StmtIf) {
                 StmtIf ifStmt = (StmtIf) stmt;
                 List<ConditionalPattern> patterns = extractConditionalPatterns(ifStmt, node.iterator);
                 for (ConditionalPattern pattern : patterns) {
                     if (pattern != null && pattern.isOptimizable()) {
-                        allPatterns.add(new PattrrnHandler.PatternResult(PattrrnHandler.PatternType.CONDITIONAL, pattern, pattern.array));
+                        allPatterns.add(new PatternHandler.PatternResult(PatternHandler.PatternType.CONDITIONAL, pattern, pattern.array));
                     }
                 }
             }
@@ -271,7 +271,7 @@ public class LoopOptimizationHandler {
 
         if (!allPatterns.isEmpty()) {
             try {
-                Object result = pattrrnHandler.applyPatterns(node, allPatterns);
+                Object result = patternHandler.applyPatterns(node, allPatterns);
                 ArrayTracker.markLoopOptimized(loopId);
                 return result;
             } catch (Exception e) {
@@ -282,7 +282,7 @@ public class LoopOptimizationHandler {
         return null;
     }
 
-    public PattrrnHandler.LinearRecurrencePattern extractLinearRecurrencePattern(For node) {
+    public PatternHandler.LinearRecurrencePattern extractLinearRecurrencePattern(For node) {
         if (node == null || node.body == null || node.body.statements == null) {
             return null;
         }
@@ -376,7 +376,7 @@ public class LoopOptimizationHandler {
             seed[i] = v;
         }
 
-        return new PattrrnHandler.LinearRecurrencePattern(
+        return new PatternHandler.LinearRecurrencePattern(
             leftAccess.array,
             order,
             coeffByLag,
@@ -526,8 +526,8 @@ public class LoopOptimizationHandler {
         return null;
     }
 
-    public List<PattrrnHandler.PatternResult> extractMultiArraySequencePatterns(For node) {
-        List<PattrrnHandler.PatternResult> results = new ArrayList<PattrrnHandler.PatternResult>();
+    public List<PatternHandler.PatternResult> extractMultiArraySequencePatterns(For node) {
+        List<PatternHandler.PatternResult> results = new ArrayList<PatternHandler.PatternResult>();
         if (node == null || node.body == null || node.body.statements == null) {
             return results;
         }
@@ -542,27 +542,27 @@ public class LoopOptimizationHandler {
 
         for (Stmt stmt : statements) {
             if (!(stmt instanceof Assignment)) {
-                return new ArrayList<PattrrnHandler.PatternResult>();
+                return new ArrayList<PatternHandler.PatternResult>();
             }
 
             Assignment assign = (Assignment) stmt;
             if (assign.isDeclaration || !(assign.left instanceof IndexAccess)) {
-                return new ArrayList<PattrrnHandler.PatternResult>();
+                return new ArrayList<PatternHandler.PatternResult>();
             }
 
             IndexAccess indexAccess = (IndexAccess) assign.left;
             if (!(indexAccess.array instanceof Identifier) || !(indexAccess.index instanceof Identifier)) {
-                return new ArrayList<PattrrnHandler.PatternResult>();
+                return new ArrayList<PatternHandler.PatternResult>();
             }
 
             Identifier index = (Identifier) indexAccess.index;
             if (!node.iterator.equals(index.name)) {
-                return new ArrayList<PattrrnHandler.PatternResult>();
+                return new ArrayList<PatternHandler.PatternResult>();
             }
 
             String targetName = ((Identifier) indexAccess.array).name;
             if (orderedTargets.contains(targetName)) {
-                return new ArrayList<PattrrnHandler.PatternResult>();
+                return new ArrayList<PatternHandler.PatternResult>();
             }
 
             orderedTargets.add(targetName);
@@ -580,14 +580,14 @@ public class LoopOptimizationHandler {
             for (String ref : refs) {
                 int refIndex = orderedTargets.indexOf(ref);
                 if (refIndex == -1 || refIndex > i) {
-                    return new ArrayList<PattrrnHandler.PatternResult>();
+                    return new ArrayList<PatternHandler.PatternResult>();
                 }
             }
 
             List<SequencePattern.Step> steps = new ArrayList<SequencePattern.Step>();
             steps.add(new SequencePattern.Step(null, assign.right));
             SequencePattern.Pattern pattern = new SequencePattern.Pattern(steps, targetArray, node.iterator);
-            results.add(new PattrrnHandler.PatternResult(PattrrnHandler.PatternType.SEQUENCE, pattern, targetArray));
+            results.add(new PatternHandler.PatternResult(PatternHandler.PatternType.SEQUENCE, pattern, targetArray));
         }
 
         return results;

@@ -6,9 +6,9 @@ import cod.interpreter.Interpreter;
 import cod.debug.Linter;
 import cod.interpreter.Index;
 import cod.ir.IRManager;
-import cod.ptac.CodPTACArtifact;
-import cod.ptac.CodPTACExecutor;
-import cod.ptac.CodPTACOptions;
+import cod.ptac.Artifact;
+import cod.ptac.Executor;
+import cod.ptac.Options;
 
 import java.io.File;
 import java.io.FilterInputStream;
@@ -36,11 +36,11 @@ public class TestRunner extends BaseRunner {
 
     private final Interpreter interpreter;
     private IRManager irManager;
-    private final CodPTACOptions ptacOptions;
+    private final Options ptacOptions;
 
     public TestRunner() {
         this.interpreter = new Interpreter();
-        this.ptacOptions = CodPTACOptions.current();
+        this.ptacOptions = Options.current();
     }
 
     @Override
@@ -273,14 +273,14 @@ public class TestRunner extends BaseRunner {
         if (ptacOptions.isCompileExecuteEnabled() && irManager != null && ast != null && ast.unit != null) {
             Type entryType = findMainType(ast);
             if (entryType != null) {
-                CodPTACArtifact artifact = irManager.loadArtifact(ast.unit.name, entryType.name);
+                Artifact artifact = irManager.loadArtifact(ast.unit.name, entryType.name);
                 if (artifact == null) {
                     irManager.save(ast.unit.name, entryType);
                     artifact = irManager.loadArtifact(ast.unit.name, entryType.name);
                 }
                 if (artifact != null) {
                     DebugSystem.info(NAME + LOG_TAG, "Executing using CodP-TAC executor");
-                    new CodPTACExecutor(ptacOptions).execute(artifact, interpreter);
+                    new Executor(ptacOptions).execute(artifact, interpreter);
                     double duration = DebugSystem.stopTimer("interpretation");
                     DebugSystem.info(NAME + LOG_TAG, String.format("Interpretation completed in %.3f ms", duration));
                     return;

@@ -1,9 +1,9 @@
 package cod.ir;
 
 import cod.ast.node.Type;
-import cod.ptac.CodPTACArtifact;
-import cod.ptac.CodPTACCompiler;
-import cod.ptac.CodPTACUnit;
+import cod.ptac.Artifact;
+import cod.ptac.Compiler;
+import cod.ptac.Unit;
 
 import java.io.File;
 import java.io.IOException;
@@ -18,16 +18,16 @@ public class IRManager {
     private final IRWriter writer;
     private final IRReader reader;
     private final Map<String, Map<String, Type>> cache;
-    private final Map<String, Map<String, CodPTACArtifact>> artifactCache;
-    private final CodPTACCompiler compiler;
+    private final Map<String, Map<String, Artifact>> artifactCache;
+    private final Compiler compiler;
 
     public IRManager(String projectRoot) {
         this.projectRoot = projectRoot;
         this.writer = new IRWriter();
         this.reader = new IRReader();
         this.cache = new HashMap<String, Map<String, Type>>();
-        this.artifactCache = new HashMap<String, Map<String, CodPTACArtifact>>();
-        this.compiler = new CodPTACCompiler();
+        this.artifactCache = new HashMap<String, Map<String, Artifact>>();
+        this.compiler = new Compiler();
     }
 
     public Type load(String unit, String className) {
@@ -49,7 +49,7 @@ public class IRManager {
         }
 
         try {
-            CodPTACArtifact artifact = reader.readArtifact(file);
+            Artifact artifact = reader.readArtifact(file);
             if (artifact != null) {
                 putArtifactCache(unit, className, artifact);
                 Type type = artifact.typeSnapshot;
@@ -70,19 +70,19 @@ public class IRManager {
         }
         File file = getIRFile(unit, type.name);
         try {
-            CodPTACArtifact artifact = compiler.compile(unit, type);
+            Artifact artifact = compiler.compile(unit, type);
             writer.writeArtifact(file, artifact);
             putCache(unit, type.name, type);
             putArtifactCache(unit, type.name, artifact);
         } catch (IOException ignored) {}
     }
 
-    public CodPTACArtifact loadArtifact(String unit, String className) {
+    public Artifact loadArtifact(String unit, String className) {
         if (unit == null || className == null) {
             return null;
         }
 
-        Map<String, CodPTACArtifact> unitCache = artifactCache.get(unit);
+        Map<String, Artifact> unitCache = artifactCache.get(unit);
         if (unitCache != null && unitCache.containsKey(className)) {
             return unitCache.get(className);
         }
@@ -93,7 +93,7 @@ public class IRManager {
         }
 
         try {
-            CodPTACArtifact artifact = reader.readArtifact(file);
+            Artifact artifact = reader.readArtifact(file);
             if (artifact != null) {
                 putArtifactCache(unit, className, artifact);
                 if (artifact.typeSnapshot != null) {
@@ -106,12 +106,12 @@ public class IRManager {
         }
     }
 
-    public CodPTACUnit loadCodPTACUnit(String unit, String className) {
-        CodPTACArtifact artifact = loadArtifact(unit, className);
+    public Unit loadCodPTACUnit(String unit, String className) {
+        Artifact artifact = loadArtifact(unit, className);
         return artifact != null ? artifact.unit : null;
     }
 
-    public void saveArtifact(String unit, CodPTACArtifact artifact) {
+    public void saveArtifact(String unit, Artifact artifact) {
         if (artifact == null || unit == null || artifact.className == null) return;
         File file = getIRFile(unit, artifact.className);
         try {
@@ -137,7 +137,7 @@ public class IRManager {
         stats.put("units", cache.size());
         stats.put("classes", total);
         int artifacts = 0;
-        for (Map<String, CodPTACArtifact> unitArtifacts : artifactCache.values()) {
+        for (Map<String, Artifact> unitArtifacts : artifactCache.values()) {
             artifacts += unitArtifacts.size();
         }
         stats.put("artifacts", artifacts);
@@ -153,10 +153,10 @@ public class IRManager {
         unitCache.put(className, type);
     }
 
-    private void putArtifactCache(String unit, String className, CodPTACArtifact artifact) {
-        Map<String, CodPTACArtifact> unitCache = artifactCache.get(unit);
+    private void putArtifactCache(String unit, String className, Artifact artifact) {
+        Map<String, Artifact> unitCache = artifactCache.get(unit);
         if (unitCache == null) {
-            unitCache = new HashMap<String, CodPTACArtifact>();
+            unitCache = new HashMap<String, Artifact>();
             artifactCache.put(unit, unitCache);
         }
         unitCache.put(className, artifact);

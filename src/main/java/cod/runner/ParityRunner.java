@@ -6,9 +6,9 @@ import cod.ast.node.Type;
 import cod.interpreter.Index;
 import cod.interpreter.Interpreter;
 import cod.ir.IRManager;
-import cod.ptac.CodPTACArtifact;
-import cod.ptac.CodPTACExecutor;
-import cod.ptac.CodPTACOptions;
+import cod.ptac.Artifact;
+import cod.ptac.Executor;
+import cod.ptac.Options;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FilterInputStream;
@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-public final class CodPTACParityRunner extends BaseRunner {
+public final class ParityRunner extends BaseRunner {
     private static final String NUMBER_REGEX_PATTERN = "[-+]?\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?";
     private static final int DEFAULT_INPUT_LINE_COUNT = 10;
     private static final String DEFAULT_INPUT = buildDefaultInput(DEFAULT_INPUT_LINE_COUNT);
@@ -99,7 +99,7 @@ public final class CodPTACParityRunner extends BaseRunner {
         
         if (files.isEmpty()) {
             System.out.println("No .cod files found.");
-            System.out.println("Usage: CodPTACParityRunner <file.cod> or <directory>");
+            System.out.println("Usage: ParityRunner <file.cod> or <directory>");
             return;
         }
 
@@ -224,7 +224,7 @@ public final class CodPTACParityRunner extends BaseRunner {
         }
         
         manager.save(unitName, entryType);
-        CodPTACArtifact artifact = manager.loadArtifact(unitName, entryType.name);
+        Artifact artifact = manager.loadArtifact(unitName, entryType.name);
         
         if (artifact == null) {
             throw new Exception("Failed to load CodP-TAC artifact for: " + file);
@@ -282,7 +282,7 @@ public final class CodPTACParityRunner extends BaseRunner {
         }
     }
 
-    private String captureOutputPTAC(CodPTACArtifact artifact, Interpreter interpreter) {
+    private String captureOutputPTAC(Artifact artifact, Interpreter interpreter) {
         PrintStream oldOut = System.out;
         PrintStream oldErr = System.err;
         java.io.InputStream oldIn = System.in;
@@ -295,7 +295,7 @@ public final class CodPTACParityRunner extends BaseRunner {
             System.setOut(outReplacement);
             System.setErr(errReplacement);
             System.setIn(new ByteArrayInputStream(DEFAULT_INPUT.getBytes(StandardCharsets.UTF_8)));
-            new CodPTACExecutor(CodPTACOptions.compileExecuteWithFallback(true))
+            new Executor(Options.compileExecuteWithFallback(true))
                 .execute(artifact, interpreter);
             outReplacement.flush();
             errReplacement.flush();
@@ -375,7 +375,7 @@ public final class CodPTACParityRunner extends BaseRunner {
     }
 
     public static void main(String[] args) {
-        CodPTACParityRunner runner = new CodPTACParityRunner();
+        ParityRunner runner = new ParityRunner();
         try {
             runner.run(args);
         } catch (Exception e) {

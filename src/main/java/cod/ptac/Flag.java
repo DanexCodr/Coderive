@@ -1,7 +1,7 @@
 package cod.ptac;
 
 
-public enum CodPTACFlag {
+public enum Flag {
     LAZY,
     TAIL,
     PURE,

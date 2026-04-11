@@ -6,21 +6,21 @@ import cod.debug.DebugSystem;
 import cod.interpreter.Interpreter;
 import cod.interpreter.Index;
 import cod.ir.IRManager;
-import cod.ptac.CodPTACArtifact;
-import cod.ptac.CodPTACExecutor;
-import cod.ptac.CodPTACOptions;
+import cod.ptac.Artifact;
+import cod.ptac.Executor;
+import cod.ptac.Options;
 
 public class CommandRunner extends BaseRunner {
 
     private final Interpreter interpreter;
     private IRManager irManager;
-    private final CodPTACOptions ptacOptions;
+    private final Options ptacOptions;
 
     private static final String NAME = "COMMAND";
 
     public CommandRunner() {
         this.interpreter = new Interpreter();
-        this.ptacOptions = CodPTACOptions.current();
+        this.ptacOptions = Options.current();
     }
 
     @Override
@@ -191,14 +191,14 @@ public class CommandRunner extends BaseRunner {
         if (ptacOptions.isCompileExecuteEnabled() && irManager != null && ast != null && ast.unit != null) {
             Type entryType = findMainType(ast);
             if (entryType != null) {
-                CodPTACArtifact artifact = irManager.loadArtifact(ast.unit.name, entryType.name);
+                Artifact artifact = irManager.loadArtifact(ast.unit.name, entryType.name);
                 if (artifact == null) {
                     irManager.save(ast.unit.name, entryType);
                     artifact = irManager.loadArtifact(ast.unit.name, entryType.name);
                 }
                 if (artifact != null) {
                     DebugSystem.info(NAME + LOG_TAG, "Executing using CodP-TAC executor");
-                    new CodPTACExecutor(ptacOptions).execute(artifact, interpreter);
+                    new Executor(ptacOptions).execute(artifact, interpreter);
                     DebugSystem.info(NAME + LOG_TAG, "Program interpretation completed");
                     return;
                 }

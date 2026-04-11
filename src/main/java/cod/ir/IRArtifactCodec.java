@@ -1,14 +1,14 @@
 package cod.ir;
 
 import cod.ast.node.Type;
-import cod.ptac.CodPTACArtifact;
-import cod.ptac.CodPTACFlag;
-import cod.ptac.CodPTACFunction;
-import cod.ptac.CodPTACInstruction;
-import cod.ptac.CodPTACOperand;
-import cod.ptac.CodPTACOperandKind;
-import cod.ptac.CodPTACOpcode;
-import cod.ptac.CodPTACUnit;
+import cod.ptac.Artifact;
+import cod.ptac.Flag;
+import cod.ptac.Function;
+import cod.ptac.Instruction;
+import cod.ptac.Operand;
+import cod.ptac.OperandKind;
+import cod.ptac.Opcode;
+import cod.ptac.Unit;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -24,12 +24,12 @@ final class IRArtifactCodec {
 
     private IRArtifactCodec() {}
 
-    static void writeArtifact(DataOutput out, CodPTACArtifact artifact) throws IOException {
+    static void writeArtifact(DataOutput out, Artifact artifact) throws IOException {
         IRCodec.writeHeader(out);
         IRCodec.writeValue(out, encodeArtifact(artifact), 0);
     }
 
-    static CodPTACArtifact readArtifact(DataInput in) throws IOException {
+    static Artifact readArtifact(DataInput in) throws IOException {
         IRCodec.readHeader(in);
         Object value = IRCodec.readValue(in, 0);
         if (!(value instanceof Map)) {
@@ -38,7 +38,7 @@ final class IRArtifactCodec {
         return decodeArtifact(castMap(value, "artifact"));
     }
 
-    private static Map<String, Object> encodeArtifact(CodPTACArtifact artifact) {
+    private static Map<String, Object> encodeArtifact(Artifact artifact) {
         Map<String, Object> out = new LinkedHashMap<String, Object>();
         out.put("schemaVersion", Integer.valueOf(ARTIFACT_SCHEMA_VERSION));
         out.put("version", Integer.valueOf(artifact.version));
@@ -49,7 +49,7 @@ final class IRArtifactCodec {
         return out;
     }
 
-    private static Map<String, Object> encodeUnit(CodPTACUnit unit) {
+    private static Map<String, Object> encodeUnit(Unit unit) {
         if (unit == null) return null;
         Map<String, Object> out = new LinkedHashMap<String, Object>();
         out.put("unitName", unit.unitName);
@@ -59,10 +59,10 @@ final class IRArtifactCodec {
         return out;
     }
 
-    private static List<Object> encodeFunctions(List<CodPTACFunction> functions) {
+    private static List<Object> encodeFunctions(List<Function> functions) {
         if (functions == null) return null;
         List<Object> out = new ArrayList<Object>(functions.size());
-        for (CodPTACFunction fn : functions) {
+        for (Function fn : functions) {
             Map<String, Object> value = new LinkedHashMap<String, Object>();
             value.put("name", fn == null ? null : fn.name);
             value.put("parameters", fn == null ? null : new ArrayList<String>(safeStringList(fn.parameters)));
@@ -74,10 +74,10 @@ final class IRArtifactCodec {
         return out;
     }
 
-    private static List<Object> encodeInstructions(List<CodPTACInstruction> instructions) {
+    private static List<Object> encodeInstructions(List<Instruction> instructions) {
         if (instructions == null) return null;
         List<Object> out = new ArrayList<Object>(instructions.size());
-        for (CodPTACInstruction instruction : instructions) {
+        for (Instruction instruction : instructions) {
             Map<String, Object> value = new LinkedHashMap<String, Object>();
             value.put("opcode", instruction == null || instruction.opcode == null ? null : instruction.opcode.name());
             value.put("dest", instruction == null ? null : instruction.dest);
@@ -88,10 +88,10 @@ final class IRArtifactCodec {
         return out;
     }
 
-    private static List<Object> encodeOperands(List<CodPTACOperand> operands) {
+    private static List<Object> encodeOperands(List<Operand> operands) {
         if (operands == null) return null;
         List<Object> out = new ArrayList<Object>(operands.size());
-        for (CodPTACOperand operand : operands) {
+        for (Operand operand : operands) {
             Map<String, Object> value = new LinkedHashMap<String, Object>();
             value.put("kind", operand == null || operand.kind == null ? null : operand.kind.name());
             value.put("value", operand == null ? null : operand.value);
@@ -100,22 +100,22 @@ final class IRArtifactCodec {
         return out;
     }
 
-    private static List<Object> encodeFlags(EnumSet<CodPTACFlag> flags) {
+    private static List<Object> encodeFlags(EnumSet<Flag> flags) {
         if (flags == null) return null;
         List<Object> out = new ArrayList<Object>(flags.size());
-        for (CodPTACFlag flag : flags) {
+        for (Flag flag : flags) {
             out.add(flag == null ? null : flag.name());
         }
         return out;
     }
 
-    private static CodPTACArtifact decodeArtifact(Map<String, Object> map) throws IOException {
+    private static Artifact decodeArtifact(Map<String, Object> map) throws IOException {
         int schemaVersion = readInt(map.get("schemaVersion"), "schemaVersion");
         if (schemaVersion != ARTIFACT_SCHEMA_VERSION) {
             throw new IOException("Unsupported artifact schema version: " + schemaVersion);
         }
 
-        CodPTACArtifact artifact = new CodPTACArtifact();
+        Artifact artifact = new Artifact();
         artifact.version = readInt(map.get("version"), "version");
         artifact.unitName = asString(map.get("unitName"), "unitName");
         artifact.className = asString(map.get("className"), "className");
@@ -124,10 +124,10 @@ final class IRArtifactCodec {
         return artifact;
     }
 
-    private static CodPTACUnit decodeUnit(Object value) throws IOException {
+    private static Unit decodeUnit(Object value) throws IOException {
         if (value == null) return null;
         Map<String, Object> map = castMap(value, "unit");
-        CodPTACUnit unit = new CodPTACUnit();
+        Unit unit = new Unit();
         unit.unitName = asString(map.get("unitName"), "unit.unitName");
         unit.className = asString(map.get("className"), "unit.className");
         unit.entryFunction = asString(map.get("entryFunction"), "unit.entryFunction");
@@ -135,13 +135,13 @@ final class IRArtifactCodec {
         return unit;
     }
 
-    private static List<CodPTACFunction> decodeFunctions(Object value) throws IOException {
-        if (value == null) return new ArrayList<CodPTACFunction>();
+    private static List<Function> decodeFunctions(Object value) throws IOException {
+        if (value == null) return new ArrayList<Function>();
         List<Object> list = castList(value, "unit.functions");
-        List<CodPTACFunction> out = new ArrayList<CodPTACFunction>(list.size());
+        List<Function> out = new ArrayList<Function>(list.size());
         for (Object item : list) {
             Map<String, Object> map = castMap(item, "function");
-            CodPTACFunction function = new CodPTACFunction();
+            Function function = new Function();
             function.name = asString(map.get("name"), "function.name");
             function.parameters = asStringList(map.get("parameters"), "function.parameters");
             function.instructions = decodeInstructions(map.get("instructions"));
@@ -152,65 +152,65 @@ final class IRArtifactCodec {
         return out;
     }
 
-    private static List<CodPTACInstruction> decodeInstructions(Object value) throws IOException {
-        if (value == null) return new ArrayList<CodPTACInstruction>();
+    private static List<Instruction> decodeInstructions(Object value) throws IOException {
+        if (value == null) return new ArrayList<Instruction>();
         List<Object> list = castList(value, "function.instructions");
-        List<CodPTACInstruction> out = new ArrayList<CodPTACInstruction>(list.size());
+        List<Instruction> out = new ArrayList<Instruction>(list.size());
         for (Object item : list) {
             Map<String, Object> map = castMap(item, "instruction");
             String opcodeName = asString(map.get("opcode"), "instruction.opcode");
-            CodPTACOpcode opcode = parseEnum(CodPTACOpcode.class, opcodeName, "instruction.opcode");
+            Opcode opcode = parseEnum(Opcode.class, opcodeName, "instruction.opcode");
             String dest = asString(map.get("dest"), "instruction.dest");
-            List<CodPTACOperand> operands = decodeOperands(map.get("operands"));
-            EnumSet<CodPTACFlag> flags = decodeFlags(map.get("flags"));
-            out.add(new CodPTACInstruction(opcode, dest, operands, flags));
+            List<Operand> operands = decodeOperands(map.get("operands"));
+            EnumSet<Flag> flags = decodeFlags(map.get("flags"));
+            out.add(new Instruction(opcode, dest, operands, flags));
         }
         return out;
     }
 
-    private static List<CodPTACOperand> decodeOperands(Object value) throws IOException {
-        if (value == null) return new ArrayList<CodPTACOperand>();
+    private static List<Operand> decodeOperands(Object value) throws IOException {
+        if (value == null) return new ArrayList<Operand>();
         List<Object> list = castList(value, "instruction.operands");
-        List<CodPTACOperand> out = new ArrayList<CodPTACOperand>(list.size());
+        List<Operand> out = new ArrayList<Operand>(list.size());
         for (Object item : list) {
             Map<String, Object> map = castMap(item, "operand");
             String kindName = asString(map.get("kind"), "operand.kind");
-            CodPTACOperandKind kind = parseEnum(CodPTACOperandKind.class, kindName, "operand.kind");
+            OperandKind kind = parseEnum(OperandKind.class, kindName, "operand.kind");
             Object operandValue = map.get("value");
             out.add(createOperand(kind, operandValue));
         }
         return out;
     }
 
-    private static EnumSet<CodPTACFlag> decodeFlags(Object value) throws IOException {
-        EnumSet<CodPTACFlag> out = EnumSet.noneOf(CodPTACFlag.class);
+    private static EnumSet<Flag> decodeFlags(Object value) throws IOException {
+        EnumSet<Flag> out = EnumSet.noneOf(Flag.class);
         if (value == null) return out;
         List<Object> list = castList(value, "instruction.flags");
         for (Object item : list) {
             String flagName = asString(item, "instruction.flag");
-            CodPTACFlag flag = parseEnum(CodPTACFlag.class, flagName, "instruction.flag");
+            Flag flag = parseEnum(Flag.class, flagName, "instruction.flag");
             out.add(flag);
         }
         return out;
     }
 
-    private static CodPTACOperand createOperand(CodPTACOperandKind kind, Object value) throws IOException {
+    private static Operand createOperand(OperandKind kind, Object value) throws IOException {
         if (kind == null) {
             throw new IOException("operand.kind is null");
         }
         switch (kind) {
             case REGISTER:
-                return CodPTACOperand.register(asString(value, "operand.value"));
+                return Operand.register(asString(value, "operand.value"));
             case IMMEDIATE:
-                return CodPTACOperand.immediate(value);
+                return Operand.immediate(value);
             case LABEL:
-                return CodPTACOperand.label(asString(value, "operand.value"));
+                return Operand.label(asString(value, "operand.value"));
             case FUNCTION:
-                return CodPTACOperand.function(asString(value, "operand.value"));
+                return Operand.function(asString(value, "operand.value"));
             case SLOT:
-                return CodPTACOperand.slot(asString(value, "operand.value"));
+                return Operand.slot(asString(value, "operand.value"));
             case IDENTIFIER:
-                return CodPTACOperand.identifier(asString(value, "operand.value"));
+                return Operand.identifier(asString(value, "operand.value"));
             default:
                 throw new IOException("Unsupported operand kind: " + kind);
         }

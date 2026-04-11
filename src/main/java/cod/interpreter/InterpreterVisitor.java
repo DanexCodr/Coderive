@@ -86,7 +86,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     private final ContextHandler contextHandler;
     private final LambdaInvokingHandler lambdaInvokingHandler;
     private final ArrayOperationHandler arrayOperationHandler;
-    private final PattrrnHandler pattrrnHandler;
+    private final PatternHandler patternHandler;
     private final LoopOptimizationHandler loopOptimizationHandler;
     
     // ========== SIMPLE LOOP OPTIMIZATION CONSTANTS ==========
@@ -113,10 +113,10 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         this.assignmentHandler = new AssignmentHandler(typeSystem, interpreter, expressionHandler, this);
         this.arrayOperationHandler =
             new ArrayOperationHandler(this, interpreter, typeSystem, expressionHandler, contextHandler);
-        this.pattrrnHandler =
-            new PattrrnHandler(this, typeSystem, expressionHandler, arrayOperationHandler);
+        this.patternHandler =
+            new PatternHandler(this, typeSystem, expressionHandler, arrayOperationHandler);
         this.loopOptimizationHandler =
-            new LoopOptimizationHandler(this, typeSystem, expressionHandler, arrayOperationHandler, pattrrnHandler);
+            new LoopOptimizationHandler(this, typeSystem, expressionHandler, arrayOperationHandler, patternHandler);
         this.lambdaInvokingHandler = new LambdaInvokingHandler(typeSystem, this);
     }
     

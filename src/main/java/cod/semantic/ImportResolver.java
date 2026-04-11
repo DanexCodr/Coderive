@@ -9,7 +9,7 @@ import cod.parser.MainParser;
 import cod.debug.DebugSystem;
 import cod.interpreter.Index;
 import cod.ir.IRManager;
-import cod.ptac.CodPTACArtifact;
+import cod.ptac.Artifact;
 
 import java.util.*;
 import java.io.*;
@@ -61,7 +61,7 @@ public class ImportResolver {
     
     // Cache for loaded TypeNodes (bytecode or parsed)
     private Map<String, Type> loadedTypes = createBoundedMap(LOADED_TYPES_CACHE_LIMIT);
-    private Map<String, CodPTACArtifact> loadedArtifacts = createBoundedMap(LOADED_TYPES_CACHE_LIMIT);
+    private Map<String, Artifact> loadedArtifacts = createBoundedMap(LOADED_TYPES_CACHE_LIMIT);
     
     // Filesystem result cache
     private Map<String, CachedFileResult> fileCache = createBoundedMap(FILE_CACHE_LIMIT);
@@ -733,7 +733,7 @@ public class ImportResolver {
         
         // ========== TRY CODE-P-TAC ARTIFACT FIRST (FAST PATH) ==========
         if (irManager != null) {
-            CodPTACArtifact artifact = irManager.loadArtifact(unitName, className);
+            Artifact artifact = irManager.loadArtifact(unitName, className);
             if (artifact != null) {
                 bytecodeCacheHits++;
                 DebugSystem.debug("IR", "Loaded " + className + " CodP-TAC artifact from .codb (cache hit)");
