@@ -8,13 +8,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public final class CodPTACLowerer {
+public final class Lowerer {
     private int tempCounter = 0;
     private int patternCounter = 0;
     private int lambdaCounter = 0;
 
-    public CodPTACUnit lower(String unitName, Type type) {
-        CodPTACUnit unit = new CodPTACUnit();
+    public Unit lower(String unitName, Type type) {
+        Unit unit = new Unit();
         unit.unitName = unitName;
         unit.className = type != null ? type.name : null;
 
@@ -34,8 +34,8 @@ public final class CodPTACLowerer {
         return unit;
     }
 
-    private CodPTACFunction lowerMethod(Method method, CodPTACUnit unit) {
-        CodPTACFunction fn = new CodPTACFunction();
+    private Function lowerMethod(Method method, Unit unit) {
+        Function fn = new Function();
         fn.name = method != null ? method.methodName : "anonymous";
         if (method != null && method.parameters != null) {
             for (Param param : method.parameters) {
@@ -49,22 +49,22 @@ public final class CodPTACLowerer {
         for (Stmt stmt : method.body) {
             lowerStmt(stmt, fn, unit);
         }
-        fn.instructions.add(new CodPTACInstruction(
-            CodPTACOpcode.RETURN,
+        fn.instructions.add(new Instruction(
+            Opcode.RETURN,
             null,
-            Arrays.asList(CodPTACOperand.immediate(null))
+            Arrays.asList(Operand.immediate(null))
         ));
         return fn;
     }
 
-    private void lowerStmt(Stmt stmt, CodPTACFunction fn, CodPTACUnit unit) {
+    private void lowerStmt(Stmt stmt, Function fn, Unit unit) {
         if (stmt == null) return;
 
         if (stmt instanceof Var) {
             Var var = (Var) stmt;
-            CodPTACOperand value = lowerExpr(var.value, fn, unit);
-            fn.instructions.add(new CodPTACInstruction(
-                CodPTACOpcode.ASSIGN,
+            Operand value = lowerExpr(var.value, fn, unit);
+            fn.instructions.add(new Instruction(
+                Opcode.ASSIGN,
                 var.name,
                 Arrays.asList(value)
             ));
@@ -73,19 +73,19 @@ public final class CodPTACLowerer {
 
         if (stmt instanceof Assignment) {
             Assignment assign = (Assignment) stmt;
-            CodPTACOperand rhs = lowerExpr(assign.right, fn, unit);
+            Operand rhs = lowerExpr(assign.right, fn, unit);
             if (assign.left instanceof Identifier) {
-                fn.instructions.add(new CodPTACInstruction(
-                    CodPTACOpcode.ASSIGN,
+                fn.instructions.add(new Instruction(
+                    Opcode.ASSIGN,
                     ((Identifier) assign.left).name,
                     Arrays.asList(rhs)
                 ));
             } else if (assign.left instanceof IndexAccess) {
                 IndexAccess access = (IndexAccess) assign.left;
-                CodPTACOperand arr = lowerExpr(access.array, fn, unit);
-                CodPTACOperand idx = lowerExpr(access.index, fn, unit);
-                fn.instructions.add(new CodPTACInstruction(
-                    CodPTACOpcode.LAZY_SET,
+                Operand arr = lowerExpr(access.array, fn, unit);
+                Operand idx = lowerExpr(access.index, fn, unit);
+                fn.instructions.add(new Instruction(
+                    Opcode.LAZY_SET,
                     null,
                     Arrays.asList(arr, idx, rhs)
                 ));
@@ -95,11 +95,11 @@ public final class CodPTACLowerer {
 
         if (stmt instanceof SlotAssignment) {
             SlotAssignment slot = (SlotAssignment) stmt;
-            fn.instructions.add(new CodPTACInstruction(
-                CodPTACOpcode.SLOT_SET,
+            fn.instructions.add(new Instruction(
+                Opcode.SLOT_SET,
                 null,
                 Arrays.asList(
-                    CodPTACOperand.slot(slot.slotName),
+                    Operand.slot(slot.slotName),
                     lowerExpr(slot.value, fn, unit)
                 )
             ));
@@ -119,16 +119,16 @@ public final class CodPTACLowerer {
         if (stmt instanceof ReturnSlotAssignment) {
             ReturnSlotAssignment ret = (ReturnSlotAssignment) stmt;
             if (ret.methodCall != null) {
-                CodPTACOperand result = lowerExpr(ret.methodCall, fn, unit);
-                fn.instructions.add(new CodPTACInstruction(
-                    CodPTACOpcode.SLOT_UNPACK,
+                Operand result = lowerExpr(ret.methodCall, fn, unit);
+                fn.instructions.add(new Instruction(
+                    Opcode.SLOT_UNPACK,
                     null,
                     Arrays.asList(result)
                 ));
             } else if (ret.lambda != null) {
-                CodPTACOperand lambdaReg = lowerExpr(ret.lambda, fn, unit);
-                fn.instructions.add(new CodPTACInstruction(
-                    CodPTACOpcode.SLOT_UNPACK,
+                Operand lambdaReg = lowerExpr(ret.lambda, fn, unit);
+                fn.instructions.add(new Instruction(
+                    Opcode.SLOT_UNPACK,
                     null,
                     Arrays.asList(lambdaReg)
                 ));
@@ -145,36 +145,36 @@ public final class CodPTACLowerer {
             StmtIf ifStmt = (StmtIf) stmt;
             String thenLabel = "L_then_" + nextTemp();
             String endLabel = "L_end_" + nextTemp();
-            CodPTACOperand cond = lowerExpr(ifStmt.condition, fn, unit);
-            fn.instructions.add(new CodPTACInstruction(
-                CodPTACOpcode.BRANCH_IF,
+            Operand cond = lowerExpr(ifStmt.condition, fn, unit);
+            fn.instructions.add(new Instruction(
+                Opcode.BRANCH_IF,
                 null,
-                Arrays.asList(cond, CodPTACOperand.label(thenLabel))
+                Arrays.asList(cond, Operand.label(thenLabel))
             ));
             if (ifStmt.elseBlock != null && ifStmt.elseBlock.statements != null) {
                 for (Stmt elseStmt : ifStmt.elseBlock.statements) {
                     lowerStmt(elseStmt, fn, unit);
                 }
             }
-            fn.instructions.add(new CodPTACInstruction(
-                CodPTACOpcode.BRANCH,
+            fn.instructions.add(new Instruction(
+                Opcode.BRANCH,
                 null,
-                Arrays.asList(CodPTACOperand.label(endLabel))
+                Arrays.asList(Operand.label(endLabel))
             ));
-            fn.instructions.add(new CodPTACInstruction(
-                CodPTACOpcode.NOP,
+            fn.instructions.add(new Instruction(
+                Opcode.NOP,
                 thenLabel,
-                new ArrayList<CodPTACOperand>()
+                new ArrayList<Operand>()
             ));
             if (ifStmt.thenBlock != null && ifStmt.thenBlock.statements != null) {
                 for (Stmt thenStmt : ifStmt.thenBlock.statements) {
                     lowerStmt(thenStmt, fn, unit);
                 }
             }
-            fn.instructions.add(new CodPTACInstruction(
-                CodPTACOpcode.NOP,
+            fn.instructions.add(new Instruction(
+                Opcode.NOP,
                 endLabel,
-                new ArrayList<CodPTACOperand>()
+                new ArrayList<Operand>()
             ));
             return;
         }
@@ -190,10 +190,10 @@ public final class CodPTACLowerer {
         }
 
         if (stmt instanceof Exit) {
-            fn.instructions.add(new CodPTACInstruction(
-                CodPTACOpcode.RETURN,
+            fn.instructions.add(new Instruction(
+                Opcode.RETURN,
                 null,
-                Arrays.asList(CodPTACOperand.immediate(null))
+                Arrays.asList(Operand.immediate(null))
             ));
             return;
         }
@@ -203,21 +203,21 @@ public final class CodPTACLowerer {
             return;
         }
 
-        fn.instructions.add(new CodPTACInstruction(CodPTACOpcode.NOP, null, new ArrayList<CodPTACOperand>()));
+        fn.instructions.add(new Instruction(Opcode.NOP, null, new ArrayList<Operand>()));
     }
 
-    private void lowerFor(For node, CodPTACFunction fn, CodPTACUnit unit) {
+    private void lowerFor(For node, Function fn, Unit unit) {
         if (node == null || node.range == null) return;
 
         String rangeReg = nextPattern();
-        CodPTACOpcode rangeOpcode = selectRangeOpcode(node.range);
-        List<CodPTACOperand> rangeOps = new ArrayList<CodPTACOperand>();
+        Opcode rangeOpcode = selectRangeOpcode(node.range);
+        List<Operand> rangeOps = new ArrayList<Operand>();
         rangeOps.add(lowerExpr(node.range.start, fn, unit));
         rangeOps.add(lowerExpr(node.range.end, fn, unit));
         if (node.range.step != null) {
             rangeOps.add(lowerExpr(node.range.step, fn, unit));
         }
-        fn.instructions.add(new CodPTACInstruction(rangeOpcode, rangeReg, rangeOps));
+        fn.instructions.add(new Instruction(rangeOpcode, rangeReg, rangeOps));
 
         List<Stmt> body = node.body != null ? node.body.statements : null;
         if (body == null || body.isEmpty()) return;
@@ -231,13 +231,13 @@ public final class CodPTACLowerer {
         if (seq != null && seq.isOptimizable() && cond != null && cond.isOptimizable()) {
             String condLambda = lowerConditionLambda(cond, unit);
             String mapLambda = lowerSequenceLambda(seq, unit);
-            fn.instructions.add(new CodPTACInstruction(
-                CodPTACOpcode.FILTER_MAP,
+            fn.instructions.add(new Instruction(
+                Opcode.FILTER_MAP,
                 nextPattern(),
                 Arrays.asList(
-                    CodPTACOperand.register(rangeReg),
-                    CodPTACOperand.function(condLambda),
-                    CodPTACOperand.function(mapLambda)
+                    Operand.register(rangeReg),
+                    Operand.function(condLambda),
+                    Operand.function(mapLambda)
                 )
             ));
             return;
@@ -245,20 +245,20 @@ public final class CodPTACLowerer {
 
         if (cond != null && cond.isOptimizable()) {
             String condLambda = lowerConditionLambda(cond, unit);
-            fn.instructions.add(new CodPTACInstruction(
-                CodPTACOpcode.FILTER,
+            fn.instructions.add(new Instruction(
+                Opcode.FILTER,
                 nextPattern(),
-                Arrays.asList(CodPTACOperand.register(rangeReg), CodPTACOperand.function(condLambda))
+                Arrays.asList(Operand.register(rangeReg), Operand.function(condLambda))
             ));
             return;
         }
 
         if (seq != null && seq.isOptimizable()) {
             String lambdaName = lowerSequenceLambda(seq, unit);
-            fn.instructions.add(new CodPTACInstruction(
-                CodPTACOpcode.MAP,
+            fn.instructions.add(new Instruction(
+                Opcode.MAP,
                 nextPattern(),
-                Arrays.asList(CodPTACOperand.register(rangeReg), CodPTACOperand.function(lambdaName))
+                Arrays.asList(Operand.register(rangeReg), Operand.function(lambdaName))
             ));
             return;
         }
@@ -268,9 +268,9 @@ public final class CodPTACLowerer {
         }
     }
 
-    private String lowerConditionLambda(ConditionalPattern pattern, CodPTACUnit unit) {
+    private String lowerConditionLambda(ConditionalPattern pattern, Unit unit) {
         String lambdaName = nextLambdaName("cond");
-        CodPTACFunction lambda = new CodPTACFunction();
+        Function lambda = new Function();
         lambda.name = lambdaName;
         lambda.lambdaBlock = true;
         lambda.parameters.add(pattern.indexVar != null ? pattern.indexVar : "p0");
@@ -278,28 +278,28 @@ public final class CodPTACLowerer {
         if (pattern.branches != null && !pattern.branches.isEmpty()) {
             ConditionalPattern.Branch first = pattern.branches.get(0);
             if (first != null && first.condition != null) {
-                CodPTACOperand condition = lowerExpr(first.condition, lambda, unit);
-                lambda.instructions.add(new CodPTACInstruction(
-                    CodPTACOpcode.RETURN,
+                Operand condition = lowerExpr(first.condition, lambda, unit);
+                lambda.instructions.add(new Instruction(
+                    Opcode.RETURN,
                     null,
                     Arrays.asList(condition)
                 ));
             }
         }
         if (lambda.instructions.isEmpty()) {
-            lambda.instructions.add(new CodPTACInstruction(
-                CodPTACOpcode.RETURN,
+            lambda.instructions.add(new Instruction(
+                Opcode.RETURN,
                 null,
-                Arrays.asList(CodPTACOperand.immediate(Boolean.TRUE))
+                Arrays.asList(Operand.immediate(Boolean.TRUE))
             ));
         }
         unit.functions.add(lambda);
         return lambdaName;
     }
 
-    private String lowerSequenceLambda(SequencePattern.Pattern pattern, CodPTACUnit unit) {
+    private String lowerSequenceLambda(SequencePattern.Pattern pattern, Unit unit) {
         String lambdaName = nextLambdaName("seq");
-        CodPTACFunction lambda = new CodPTACFunction();
+        Function lambda = new Function();
         lambda.name = lambdaName;
         lambda.lambdaBlock = true;
         lambda.parameters.add(pattern.indexVar != null ? pattern.indexVar : "p0");
@@ -309,16 +309,16 @@ public final class CodPTACLowerer {
                 if (step == null) {
                     continue;
                 }
-                CodPTACOperand value = lowerExpr(step.expression, lambda, unit);
+                Operand value = lowerExpr(step.expression, lambda, unit);
                 if (step.tempVar != null) {
-                    lambda.instructions.add(new CodPTACInstruction(
-                        CodPTACOpcode.ASSIGN,
+                    lambda.instructions.add(new Instruction(
+                        Opcode.ASSIGN,
                         step.tempVar,
                         Arrays.asList(value)
                     ));
                 } else {
-                    lambda.instructions.add(new CodPTACInstruction(
-                        CodPTACOpcode.RETURN,
+                    lambda.instructions.add(new Instruction(
+                        Opcode.RETURN,
                         null,
                         Arrays.asList(value)
                     ));
@@ -326,92 +326,92 @@ public final class CodPTACLowerer {
             }
         }
         if (lambda.instructions.isEmpty()) {
-            lambda.instructions.add(new CodPTACInstruction(
-                CodPTACOpcode.RETURN,
+            lambda.instructions.add(new Instruction(
+                Opcode.RETURN,
                 null,
-                Arrays.asList(CodPTACOperand.immediate(null))
+                Arrays.asList(Operand.immediate(null))
             ));
         }
         unit.functions.add(lambda);
         return lambdaName;
     }
 
-    private CodPTACOperand lowerExpr(Expr expr, CodPTACFunction fn, CodPTACUnit unit) {
-        if (expr == null) return CodPTACOperand.immediate(null);
+    private Operand lowerExpr(Expr expr, Function fn, Unit unit) {
+        if (expr == null) return Operand.immediate(null);
 
-        if (expr instanceof IntLiteral) return CodPTACOperand.immediate(((IntLiteral) expr).value);
-        if (expr instanceof FloatLiteral) return CodPTACOperand.immediate(((FloatLiteral) expr).value);
-        if (expr instanceof BoolLiteral) return CodPTACOperand.immediate(((BoolLiteral) expr).value);
-        if (expr instanceof TextLiteral) return CodPTACOperand.immediate(((TextLiteral) expr).value);
-        if (expr instanceof NoneLiteral) return CodPTACOperand.immediate(null);
-        if (expr instanceof Identifier) return CodPTACOperand.register(((Identifier) expr).name);
+        if (expr instanceof IntLiteral) return Operand.immediate(((IntLiteral) expr).value);
+        if (expr instanceof FloatLiteral) return Operand.immediate(((FloatLiteral) expr).value);
+        if (expr instanceof BoolLiteral) return Operand.immediate(((BoolLiteral) expr).value);
+        if (expr instanceof TextLiteral) return Operand.immediate(((TextLiteral) expr).value);
+        if (expr instanceof NoneLiteral) return Operand.immediate(null);
+        if (expr instanceof Identifier) return Operand.register(((Identifier) expr).name);
 
         if (expr instanceof Range) {
             Range range = (Range) expr;
             String dest = nextPattern();
-            CodPTACOpcode op = selectRangeOpcode(range);
-            List<CodPTACOperand> ops = new ArrayList<CodPTACOperand>();
+            Opcode op = selectRangeOpcode(range);
+            List<Operand> ops = new ArrayList<Operand>();
             ops.add(lowerExpr(range.start, fn, unit));
             ops.add(lowerExpr(range.end, fn, unit));
             if (range.step != null) ops.add(lowerExpr(range.step, fn, unit));
-            fn.instructions.add(new CodPTACInstruction(op, dest, ops));
-            return CodPTACOperand.register(dest);
+            fn.instructions.add(new Instruction(op, dest, ops));
+            return Operand.register(dest);
         }
 
         if (expr instanceof IndexAccess) {
             IndexAccess access = (IndexAccess) expr;
             String dest = nextTemp();
-            fn.instructions.add(new CodPTACInstruction(
-                CodPTACOpcode.LAZY_GET,
+            fn.instructions.add(new Instruction(
+                Opcode.LAZY_GET,
                 dest,
                 Arrays.asList(
                     lowerExpr(access.array, fn, unit),
                     lowerExpr(access.index, fn, unit)
                 )
             ));
-            return CodPTACOperand.register(dest);
+            return Operand.register(dest);
         }
 
         if (expr instanceof BinaryOp) {
             BinaryOp binary = (BinaryOp) expr;
-            CodPTACOperand left = lowerExpr(binary.left, fn, unit);
-            CodPTACOperand right = lowerExpr(binary.right, fn, unit);
+            Operand left = lowerExpr(binary.left, fn, unit);
+            Operand right = lowerExpr(binary.right, fn, unit);
             String dest = nextTemp();
-            fn.instructions.add(new CodPTACInstruction(
+            fn.instructions.add(new Instruction(
                 mapBinary(binary.op),
                 dest,
                 Arrays.asList(left, right)
             ));
-            return CodPTACOperand.register(dest);
+            return Operand.register(dest);
         }
 
         if (expr instanceof MethodCall) {
             MethodCall call = (MethodCall) expr;
-            List<CodPTACOperand> ops = new ArrayList<CodPTACOperand>();
+            List<Operand> ops = new ArrayList<Operand>();
             if (call.isSelfCall) {
                 for (Expr arg : call.arguments) {
                     ops.add(lowerExpr(arg, fn, unit));
                 }
                 String dest = nextTemp();
-                fn.instructions.add(new CodPTACInstruction(CodPTACOpcode.SELF, dest, ops));
-                return CodPTACOperand.register(dest);
+                fn.instructions.add(new Instruction(Opcode.SELF, dest, ops));
+                return Operand.register(dest);
             }
 
-            ops.add(CodPTACOperand.function(call.name));
+            ops.add(Operand.function(call.name));
             if (call.arguments != null) {
                 for (Expr arg : call.arguments) {
                     ops.add(lowerExpr(arg, fn, unit));
                 }
             }
             String dest = nextTemp();
-            fn.instructions.add(new CodPTACInstruction(CodPTACOpcode.CALL, dest, ops));
-            return CodPTACOperand.register(dest);
+            fn.instructions.add(new Instruction(Opcode.CALL, dest, ops));
+            return Operand.register(dest);
         }
 
         if (expr instanceof Lambda) {
             Lambda lambdaNode = (Lambda) expr;
             String lambdaName = nextLambdaName("inline");
-            CodPTACFunction lambda = new CodPTACFunction();
+            Function lambda = new Function();
             lambda.name = lambdaName;
             lambda.lambdaBlock = true;
             if (lambdaNode.parameters != null) {
@@ -420,45 +420,45 @@ public final class CodPTACLowerer {
                 }
             }
             if (lambdaNode.expressionBody != null) {
-                CodPTACOperand val = lowerExpr(lambdaNode.expressionBody, lambda, unit);
-                lambda.instructions.add(new CodPTACInstruction(CodPTACOpcode.RETURN, null, Arrays.asList(val)));
+                Operand val = lowerExpr(lambdaNode.expressionBody, lambda, unit);
+                lambda.instructions.add(new Instruction(Opcode.RETURN, null, Arrays.asList(val)));
             } else if (lambdaNode.body != null) {
                 lowerStmt(lambdaNode.body, lambda, unit);
             }
             if (lambda.instructions.isEmpty()) {
-                lambda.instructions.add(new CodPTACInstruction(
-                    CodPTACOpcode.RETURN,
+                lambda.instructions.add(new Instruction(
+                    Opcode.RETURN,
                     null,
-                    Arrays.asList(CodPTACOperand.immediate(null))
+                    Arrays.asList(Operand.immediate(null))
                 ));
             }
             unit.functions.add(lambda);
-            return CodPTACOperand.function(lambdaName);
+            return Operand.function(lambdaName);
         }
 
-        return CodPTACOperand.identifier(String.valueOf(expr));
+        return Operand.identifier(String.valueOf(expr));
     }
 
-    private CodPTACOpcode selectRangeOpcode(Range range) {
+    private Opcode selectRangeOpcode(Range range) {
         if (range != null && (range.start instanceof TextLiteral || range.end instanceof TextLiteral)) {
-            return range.step == null ? CodPTACOpcode.RANGE_L : CodPTACOpcode.RANGE_LS;
+            return range.step == null ? Opcode.RANGE_L : Opcode.RANGE_LS;
         }
-        return range != null && range.step != null ? CodPTACOpcode.RANGE_S : CodPTACOpcode.RANGE;
+        return range != null && range.step != null ? Opcode.RANGE_S : Opcode.RANGE;
     }
 
-    private CodPTACOpcode mapBinary(String op) {
-        if ("+".equals(op)) return CodPTACOpcode.ADD;
-        if ("-".equals(op)) return CodPTACOpcode.SUB;
-        if ("*".equals(op)) return CodPTACOpcode.MUL;
-        if ("/".equals(op)) return CodPTACOpcode.DIV;
-        if ("%".equals(op)) return CodPTACOpcode.MOD;
-        if ("==".equals(op)) return CodPTACOpcode.EQ;
-        if ("!=".equals(op)) return CodPTACOpcode.NE;
-        if (">".equals(op)) return CodPTACOpcode.GT;
-        if ("<".equals(op)) return CodPTACOpcode.LT;
-        if (">=".equals(op)) return CodPTACOpcode.GTE;
-        if ("<=".equals(op)) return CodPTACOpcode.LTE;
-        return CodPTACOpcode.NOP;
+    private Opcode mapBinary(String op) {
+        if ("+".equals(op)) return Opcode.ADD;
+        if ("-".equals(op)) return Opcode.SUB;
+        if ("*".equals(op)) return Opcode.MUL;
+        if ("/".equals(op)) return Opcode.DIV;
+        if ("%".equals(op)) return Opcode.MOD;
+        if ("==".equals(op)) return Opcode.EQ;
+        if ("!=".equals(op)) return Opcode.NE;
+        if (">".equals(op)) return Opcode.GT;
+        if ("<".equals(op)) return Opcode.LT;
+        if (">=".equals(op)) return Opcode.GTE;
+        if ("<=".equals(op)) return Opcode.LTE;
+        return Opcode.NOP;
     }
 
     private String nextTemp() {
@@ -473,9 +473,9 @@ public final class CodPTACLowerer {
         return "lambda$" + prefix + "$" + (lambdaCounter++);
     }
 
-    private CodPTACFunction findFunction(CodPTACUnit unit, String name) {
+    private Function findFunction(Unit unit, String name) {
         if (unit == null || unit.functions == null) return null;
-        for (CodPTACFunction fn : unit.functions) {
+        for (Function fn : unit.functions) {
             if (fn != null && name.equals(fn.name)) return fn;
         }
         return null;

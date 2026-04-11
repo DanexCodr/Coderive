@@ -1,7 +1,7 @@
 package cod.ir;
 
 import cod.ast.node.Type;
-import cod.ptac.CodPTACArtifact;
+import cod.ptac.Artifact;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
@@ -11,14 +11,14 @@ import java.io.IOException;
 
 public final class IRReader {
     public Type read(File file) throws IOException {
-        CodPTACArtifact artifact = readArtifact(file);
+        Artifact artifact = readArtifact(file);
         if (artifact == null) {
             return null;
         }
         return artifact.typeSnapshot;
     }
 
-    public CodPTACArtifact readArtifact(File file) throws IOException {
+    public Artifact readArtifact(File file) throws IOException {
         if (file == null) {
             throw new IOException("IR source file is null");
         }

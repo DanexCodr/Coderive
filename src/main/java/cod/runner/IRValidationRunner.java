@@ -5,7 +5,7 @@ import cod.ir.IRManager;
 import cod.ir.IRReader;
 import cod.ir.IRWriter;
 import cod.interpreter.Interpreter;
-import cod.ptac.CodPTACArtifact;
+import cod.ptac.Artifact;
 import cod.semantic.ImportResolver;
 
 import java.io.File;
@@ -40,7 +40,7 @@ public class IRValidationRunner extends BaseRunner {
         IRWriter writer = new IRWriter();
         IRReader reader = new IRReader();
         writer.write(tmp, original);
-        CodPTACArtifact artifact = reader.readArtifact(tmp);
+        Artifact artifact = reader.readArtifact(tmp);
         Type loaded = artifact != null ? artifact.typeSnapshot : null;
 
         assertTrue(loaded != null, "Loaded type is null");
@@ -65,7 +65,7 @@ public class IRValidationRunner extends BaseRunner {
             Type managerLoaded = manager.load(program.unit.name, original.name);
             assertTrue(managerLoaded != null, "IRManager failed to load saved class");
             assertTrue(equalsSafe(original.name, managerLoaded.name), "IRManager loaded wrong class");
-            CodPTACArtifact managerArtifact = manager.loadArtifact(program.unit.name, original.name);
+            Artifact managerArtifact = manager.loadArtifact(program.unit.name, original.name);
             assertTrue(managerArtifact != null, "IRManager failed to load saved CodP-TAC artifact");
             assertTrue(managerArtifact.unit != null, "CodP-TAC unit missing from artifact");
         }
@@ -94,7 +94,7 @@ public class IRValidationRunner extends BaseRunner {
         IRManager manager = new IRManager(codProjectRoot);
         Type internalType = internalProgram.unit.types.get(0);
         manager.save(internalProgram.unit.name, internalType);
-        CodPTACArtifact artifact = manager.loadArtifact(internalProgram.unit.name, internalType.name);
+        Artifact artifact = manager.loadArtifact(internalProgram.unit.name, internalType.name);
         assertTrue(artifact != null, "Failed to save/load internal CodP-TAC artifact");
         
         Interpreter internalMultiRangeInterpreter = new Interpreter();
@@ -107,7 +107,7 @@ public class IRValidationRunner extends BaseRunner {
         
         Type internalMultiRangeType = internalMultiRangeProgram.unit.types.get(0);
         manager.save(internalMultiRangeProgram.unit.name, internalMultiRangeType);
-        CodPTACArtifact multiArtifact = manager.loadArtifact(internalMultiRangeProgram.unit.name, internalMultiRangeType.name);
+        Artifact multiArtifact = manager.loadArtifact(internalMultiRangeProgram.unit.name, internalMultiRangeType.name);
         assertTrue(multiArtifact != null, "Failed to save/load internal multi-range CodP-TAC artifact");
 
         ImportResolver resolver = new ImportResolver();

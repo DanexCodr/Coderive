@@ -1,7 +1,7 @@
 package cod.ptac;
 
 
-public enum CodPTACOperandKind {
+public enum OperandKind {
     REGISTER,
     IMMEDIATE,
     LABEL,

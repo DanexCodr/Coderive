@@ -10,27 +10,27 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public final class CodPTACExecutor {
-    private final CodPTACOptions options;
+public final class Executor {
+    private final Options options;
     private static final Object FALLBACK_SENTINEL = new Object();
 
-    private static final class CodPTACRange {
+    private static final class Range {
         final BigInteger start;
         final BigInteger end;
         final BigInteger step;
 
-        CodPTACRange(BigInteger start, BigInteger end, BigInteger step) {
+        Range(BigInteger start, BigInteger end, BigInteger step) {
             this.start = start;
             this.end = end;
             this.step = step;
         }
     }
 
-    public CodPTACExecutor(CodPTACOptions options) {
-        this.options = options != null ? options : CodPTACOptions.current();
+    public Executor(Options options) {
+        this.options = options != null ? options : Options.current();
     }
 
-    public Object execute(CodPTACArtifact artifact, Interpreter fallbackInterpreter) {
+    public Object execute(Artifact artifact, Interpreter fallbackInterpreter) {
         if (artifact == null) {
             throw new ProgramError("Cannot execute null CodP-TAC artifact");
         }
@@ -39,7 +39,7 @@ public final class CodPTACExecutor {
             return fallback(artifact, fallbackInterpreter, "No executable CodP-TAC unit in artifact");
         }
 
-        CodPTACFunction entry = findEntry(artifact.unit);
+        Function entry = findEntry(artifact.unit);
         if (entry == null) {
             return fallback(artifact, fallbackInterpreter, "No entry function found in CodP-TAC unit");
         }
@@ -48,11 +48,11 @@ public final class CodPTACExecutor {
     }
 
     private Object executeFunction(
-        CodPTACUnit unit,
-        CodPTACFunction function,
+        Unit unit,
+        Function function,
         List<Object> args,
         Interpreter fallbackInterpreter,
-        CodPTACArtifact artifact
+        Artifact artifact
     ) {
         Map<String, Object> registers = new HashMap<String, Object>();
         if (function.parameters != null) {
@@ -64,13 +64,13 @@ public final class CodPTACExecutor {
 
         if (function.instructions == null) return null;
 
-        for (CodPTACInstruction inst : function.instructions) {
+        for (Instruction inst : function.instructions) {
             if (inst == null) continue;
             Object result = runInstruction(unit, inst, registers, fallbackInterpreter, artifact);
             if (result == FALLBACK_SENTINEL) {
                 return FALLBACK_SENTINEL;
             }
-            if (inst.opcode == CodPTACOpcode.RETURN) {
+            if (inst.opcode == Opcode.RETURN) {
                 return result;
             }
         }
@@ -78,13 +78,13 @@ public final class CodPTACExecutor {
     }
 
     private Object runInstruction(
-        CodPTACUnit unit,
-        CodPTACInstruction inst,
+        Unit unit,
+        Instruction inst,
         Map<String, Object> registers,
         Interpreter fallbackInterpreter,
-        CodPTACArtifact artifact
+        Artifact artifact
     ) {
-        if (inst.opcode == CodPTACOpcode.ASSIGN) {
+        if (inst.opcode == Opcode.ASSIGN) {
             Object value = operandValue(inst.operands, 0, registers);
             registers.put(inst.dest, value);
             return value;
@@ -106,65 +106,65 @@ public final class CodPTACExecutor {
             return out;
         }
 
-        if (inst.opcode == CodPTACOpcode.RANGE
-            || inst.opcode == CodPTACOpcode.RANGE_Q
-            || inst.opcode == CodPTACOpcode.RANGE_S
-            || inst.opcode == CodPTACOpcode.RANGE_L
-            || inst.opcode == CodPTACOpcode.RANGE_LS) {
+        if (inst.opcode == Opcode.RANGE
+            || inst.opcode == Opcode.RANGE_Q
+            || inst.opcode == Opcode.RANGE_S
+            || inst.opcode == Opcode.RANGE_L
+            || inst.opcode == Opcode.RANGE_LS) {
             Object start = operandValue(inst.operands, 0, registers);
             Object end = operandValue(inst.operands, 1, registers);
             Object stepVal = inst.operands != null && inst.operands.size() > 2
                 ? operandValue(inst.operands, 2, registers)
                 : 1;
-            CodPTACRange range = new CodPTACRange(toBigInt(start), toBigInt(end), toBigInt(stepVal));
+            Range range = new Range(toBigInt(start), toBigInt(end), toBigInt(stepVal));
             if (inst.dest != null) registers.put(inst.dest, range);
             return range;
         }
 
-        if (inst.opcode == CodPTACOpcode.TAKE) {
-            CodPTACRange source = asRange(operandValue(inst.operands, 0, registers));
+        if (inst.opcode == Opcode.TAKE) {
+            Range source = asRange(operandValue(inst.operands, 0, registers));
             BigInteger n = toBigInt(operandValue(inst.operands, 1, registers));
             List<BigInteger> out = take(source, n);
             if (inst.dest != null) registers.put(inst.dest, out);
             return out;
         }
 
-        if (inst.opcode == CodPTACOpcode.FILTER
-            || inst.opcode == CodPTACOpcode.MAP
-            || inst.opcode == CodPTACOpcode.FILTER_MAP
-            || inst.opcode == CodPTACOpcode.REDUCE
-            || inst.opcode == CodPTACOpcode.SCAN
-            || inst.opcode == CodPTACOpcode.ZIP
-            || inst.opcode == CodPTACOpcode.WHERE
-            || inst.opcode == CodPTACOpcode.FILTER_MAP_REDUCE
-            || inst.opcode == CodPTACOpcode.LAZY_GET
-            || inst.opcode == CodPTACOpcode.LAZY_SET
-            || inst.opcode == CodPTACOpcode.LAZY_COMMIT
-            || inst.opcode == CodPTACOpcode.LAZY_SIZE
-            || inst.opcode == CodPTACOpcode.LAZY_SLICE
-            || inst.opcode == CodPTACOpcode.SLOT_GET
-            || inst.opcode == CodPTACOpcode.SLOT_SET
-            || inst.opcode == CodPTACOpcode.SLOT_RET
-            || inst.opcode == CodPTACOpcode.SLOT_UNPACK
-            || inst.opcode == CodPTACOpcode.SLOT_DIV
-            || inst.opcode == CodPTACOpcode.ANCESTOR
-            || inst.opcode == CodPTACOpcode.SELF
-            || inst.opcode == CodPTACOpcode.TAIL_CALL
-            || inst.opcode == CodPTACOpcode.CLOSURE
-            || inst.opcode == CodPTACOpcode.FORMULA_SEQ
-            || inst.opcode == CodPTACOpcode.FORMULA_COND
-            || inst.opcode == CodPTACOpcode.FORMULA_RECUR
-            || inst.opcode == CodPTACOpcode.FORMULA_FUSE
-            || inst.opcode == CodPTACOpcode.STORE
-            || inst.opcode == CodPTACOpcode.LOAD
-            || inst.opcode == CodPTACOpcode.BRANCH
-            || inst.opcode == CodPTACOpcode.BRANCH_IF) {
+        if (inst.opcode == Opcode.FILTER
+            || inst.opcode == Opcode.MAP
+            || inst.opcode == Opcode.FILTER_MAP
+            || inst.opcode == Opcode.REDUCE
+            || inst.opcode == Opcode.SCAN
+            || inst.opcode == Opcode.ZIP
+            || inst.opcode == Opcode.WHERE
+            || inst.opcode == Opcode.FILTER_MAP_REDUCE
+            || inst.opcode == Opcode.LAZY_GET
+            || inst.opcode == Opcode.LAZY_SET
+            || inst.opcode == Opcode.LAZY_COMMIT
+            || inst.opcode == Opcode.LAZY_SIZE
+            || inst.opcode == Opcode.LAZY_SLICE
+            || inst.opcode == Opcode.SLOT_GET
+            || inst.opcode == Opcode.SLOT_SET
+            || inst.opcode == Opcode.SLOT_RET
+            || inst.opcode == Opcode.SLOT_UNPACK
+            || inst.opcode == Opcode.SLOT_DIV
+            || inst.opcode == Opcode.ANCESTOR
+            || inst.opcode == Opcode.SELF
+            || inst.opcode == Opcode.TAIL_CALL
+            || inst.opcode == Opcode.CLOSURE
+            || inst.opcode == Opcode.FORMULA_SEQ
+            || inst.opcode == Opcode.FORMULA_COND
+            || inst.opcode == Opcode.FORMULA_RECUR
+            || inst.opcode == Opcode.FORMULA_FUSE
+            || inst.opcode == Opcode.STORE
+            || inst.opcode == Opcode.LOAD
+            || inst.opcode == Opcode.BRANCH
+            || inst.opcode == Opcode.BRANCH_IF) {
             return fallback(artifact, fallbackInterpreter, "Opcode not yet natively executed: " + inst.opcode);
         }
 
-        if (inst.opcode == CodPTACOpcode.CALL) {
+        if (inst.opcode == Opcode.CALL) {
             String functionName = String.valueOf(operandValue(inst.operands, 0, registers));
-            CodPTACFunction target = findFunction(unit, functionName);
+            Function target = findFunction(unit, functionName);
             if (target == null) {
                 return fallback(artifact, fallbackInterpreter, "Unknown function: " + functionName);
             }
@@ -180,14 +180,14 @@ public final class CodPTACExecutor {
             return result;
         }
 
-        if (inst.opcode == CodPTACOpcode.RETURN) {
+        if (inst.opcode == Opcode.RETURN) {
             return operandValue(inst.operands, 0, registers);
         }
 
         return null;
     }
 
-    private Object fallback(CodPTACArtifact artifact, Interpreter fallbackInterpreter, String reason) {
+    private Object fallback(Artifact artifact, Interpreter fallbackInterpreter, String reason) {
         if (!options.isFallbackEnabled()) {
             throw new ProgramError("CodP-TAC execution failed without fallback: " + reason);
         }
@@ -205,62 +205,62 @@ public final class CodPTACExecutor {
         throw new ProgramError("CodP-TAC fallback unavailable: " + reason);
     }
 
-    private CodPTACFunction findEntry(CodPTACUnit unit) {
+    private Function findEntry(Unit unit) {
         if (unit.entryFunction != null) {
-            CodPTACFunction explicit = findFunction(unit, unit.entryFunction);
+            Function explicit = findFunction(unit, unit.entryFunction);
             if (explicit != null) return explicit;
         }
         return findFunction(unit, "main");
     }
 
-    private CodPTACFunction findFunction(CodPTACUnit unit, String name) {
+    private Function findFunction(Unit unit, String name) {
         if (unit == null || unit.functions == null || name == null) return null;
-        for (CodPTACFunction fn : unit.functions) {
+        for (Function fn : unit.functions) {
             if (fn != null && name.equals(fn.name)) return fn;
         }
         return null;
     }
 
-    private Object operandValue(List<CodPTACOperand> operands, int index, Map<String, Object> registers) {
+    private Object operandValue(List<Operand> operands, int index, Map<String, Object> registers) {
         if (operands == null || index >= operands.size()) return null;
-        CodPTACOperand operand = operands.get(index);
+        Operand operand = operands.get(index);
         if (operand == null) return null;
-        if (operand.kind == CodPTACOperandKind.REGISTER && operand.value instanceof String) {
+        if (operand.kind == OperandKind.REGISTER && operand.value instanceof String) {
             return registers.get(operand.value);
         }
         return operand.value;
     }
 
-    private boolean isMath(CodPTACOpcode opcode) {
-        return opcode == CodPTACOpcode.ADD
-            || opcode == CodPTACOpcode.SUB
-            || opcode == CodPTACOpcode.MUL
-            || opcode == CodPTACOpcode.DIV
-            || opcode == CodPTACOpcode.MOD;
+    private boolean isMath(Opcode opcode) {
+        return opcode == Opcode.ADD
+            || opcode == Opcode.SUB
+            || opcode == Opcode.MUL
+            || opcode == Opcode.DIV
+            || opcode == Opcode.MOD;
     }
 
-    private boolean isCompare(CodPTACOpcode opcode) {
-        return opcode == CodPTACOpcode.EQ
-            || opcode == CodPTACOpcode.NE
-            || opcode == CodPTACOpcode.GT
-            || opcode == CodPTACOpcode.LT
-            || opcode == CodPTACOpcode.GTE
-            || opcode == CodPTACOpcode.LTE;
+    private boolean isCompare(Opcode opcode) {
+        return opcode == Opcode.EQ
+            || opcode == Opcode.NE
+            || opcode == Opcode.GT
+            || opcode == Opcode.LT
+            || opcode == Opcode.GTE
+            || opcode == Opcode.LTE;
     }
 
-    private Object evaluateMath(CodPTACOpcode opcode, Object a, Object b) {
+    private Object evaluateMath(Opcode opcode, Object a, Object b) {
         BigInteger left = toBigInt(a);
         BigInteger right = toBigInt(b);
-        if (opcode == CodPTACOpcode.ADD) return left.add(right);
-        if (opcode == CodPTACOpcode.SUB) return left.subtract(right);
-        if (opcode == CodPTACOpcode.MUL) return left.multiply(right);
-        if (opcode == CodPTACOpcode.DIV) {
+        if (opcode == Opcode.ADD) return left.add(right);
+        if (opcode == Opcode.SUB) return left.subtract(right);
+        if (opcode == Opcode.MUL) return left.multiply(right);
+        if (opcode == Opcode.DIV) {
             if (right.equals(BigInteger.ZERO)) {
                 throw new ProgramError("CodP-TAC division by zero");
             }
             return left.divide(right);
         }
-        if (opcode == CodPTACOpcode.MOD) {
+        if (opcode == Opcode.MOD) {
             if (right.equals(BigInteger.ZERO)) {
                 throw new ProgramError("CodP-TAC modulo by zero");
             }
@@ -269,25 +269,25 @@ public final class CodPTACExecutor {
         return BigInteger.ZERO;
     }
 
-    private Boolean evaluateCompare(CodPTACOpcode opcode, Object a, Object b) {
+    private Boolean evaluateCompare(Opcode opcode, Object a, Object b) {
         BigInteger left = toBigInt(a);
         BigInteger right = toBigInt(b);
         int cmp = left.compareTo(right);
-        if (opcode == CodPTACOpcode.EQ) return cmp == 0;
-        if (opcode == CodPTACOpcode.NE) return cmp != 0;
-        if (opcode == CodPTACOpcode.GT) return cmp > 0;
-        if (opcode == CodPTACOpcode.LT) return cmp < 0;
-        if (opcode == CodPTACOpcode.GTE) return cmp >= 0;
-        if (opcode == CodPTACOpcode.LTE) return cmp <= 0;
+        if (opcode == Opcode.EQ) return cmp == 0;
+        if (opcode == Opcode.NE) return cmp != 0;
+        if (opcode == Opcode.GT) return cmp > 0;
+        if (opcode == Opcode.LT) return cmp < 0;
+        if (opcode == Opcode.GTE) return cmp >= 0;
+        if (opcode == Opcode.LTE) return cmp <= 0;
         return false;
     }
 
-    private CodPTACRange asRange(Object value) {
-        if (value instanceof CodPTACRange) return (CodPTACRange) value;
-        return new CodPTACRange(BigInteger.ZERO, BigInteger.ZERO, BigInteger.ONE);
+    private Range asRange(Object value) {
+        if (value instanceof Range) return (Range) value;
+        return new Range(BigInteger.ZERO, BigInteger.ZERO, BigInteger.ONE);
     }
 
-    private List<BigInteger> take(CodPTACRange range, BigInteger n) {
+    private List<BigInteger> take(Range range, BigInteger n) {
         List<BigInteger> out = new ArrayList<BigInteger>();
         if (range == null || n == null || n.compareTo(BigInteger.ZERO) <= 0) return out;
 

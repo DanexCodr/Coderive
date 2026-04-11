@@ -1,7 +1,7 @@
 package cod.ptac;
 
 
-public enum CodPTACLayer {
+public enum Layer {
     CORE_TAC,
     PATTERN
 }

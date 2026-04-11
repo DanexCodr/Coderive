@@ -6,9 +6,9 @@ import cod.ast.node.Type;
 import cod.interpreter.Index;
 import cod.interpreter.Interpreter;
 import cod.ir.IRManager;
-import cod.ptac.CodPTACArtifact;
-import cod.ptac.CodPTACExecutor;
-import cod.ptac.CodPTACOptions;
+import cod.ptac.Artifact;
+import cod.ptac.Executor;
+import cod.ptac.Options;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FilterInputStream;
@@ -224,7 +224,7 @@ public final class CodPTACParityRunner extends BaseRunner {
         }
         
         manager.save(unitName, entryType);
-        CodPTACArtifact artifact = manager.loadArtifact(unitName, entryType.name);
+        Artifact artifact = manager.loadArtifact(unitName, entryType.name);
         
         if (artifact == null) {
             throw new Exception("Failed to load CodP-TAC artifact for: " + file);
@@ -282,7 +282,7 @@ public final class CodPTACParityRunner extends BaseRunner {
         }
     }
 
-    private String captureOutputPTAC(CodPTACArtifact artifact, Interpreter interpreter) {
+    private String captureOutputPTAC(Artifact artifact, Interpreter interpreter) {
         PrintStream oldOut = System.out;
         PrintStream oldErr = System.err;
         java.io.InputStream oldIn = System.in;
@@ -295,7 +295,7 @@ public final class CodPTACParityRunner extends BaseRunner {
             System.setOut(outReplacement);
             System.setErr(errReplacement);
             System.setIn(new ByteArrayInputStream(DEFAULT_INPUT.getBytes(StandardCharsets.UTF_8)));
-            new CodPTACExecutor(CodPTACOptions.compileExecuteWithFallback(true))
+            new Executor(Options.compileExecuteWithFallback(true))
                 .execute(artifact, interpreter);
             outReplacement.flush();
             errReplacement.flush();
