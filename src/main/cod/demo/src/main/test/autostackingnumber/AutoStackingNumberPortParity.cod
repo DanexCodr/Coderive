@@ -1,0 +1,48 @@
+unit test.autostackingnumber
+
+use {math.AutoStackingNumber}
+
+share AutoStackingNumberPortParity {
+    share expect(label: text, actual: int|float, expected: int|float) {
+        if actual == expected {
+            out("PASS " + label + " -> " + actual)
+        } else {
+            out("FAIL " + label + " -> actual=" + actual + ", expected=" + expected)
+        }
+    }
+
+    share main() {
+        out("=== AutoStackingNumber Coderive parity ===")
+
+        AutoStackingNumberPortParity.expect("zero", AutoStackingNumber.zero(), 0)
+        AutoStackingNumberPortParity.expect("one", AutoStackingNumber.one(), 1)
+        AutoStackingNumberPortParity.expect("minusOne", AutoStackingNumber.minusOne(), -1)
+        AutoStackingNumberPortParity.expect("fromLong", AutoStackingNumber.fromLong(42), 42)
+        AutoStackingNumberPortParity.expect("fromDouble", AutoStackingNumber.fromDouble(12.5), 12.5)
+
+        AutoStackingNumberPortParity.expect("add-int", AutoStackingNumber.add(123456789, 987654321), 1111111110)
+        AutoStackingNumberPortParity.expect("subtract-int", AutoStackingNumber.subtract(987654321, 123456789), 864197532)
+        AutoStackingNumberPortParity.expect("multiply-int", AutoStackingNumber.multiply(12345, 3), 37035)
+        AutoStackingNumberPortParity.expect("divide-int", AutoStackingNumber.divide(12345, 3), 4115)
+        AutoStackingNumberPortParity.expect("remainder-int", AutoStackingNumber.remainder(987654321, 7), 3)
+
+        AutoStackingNumberPortParity.expect("add-float", AutoStackingNumber.add(12.5, 3.25), 15.75)
+        AutoStackingNumberPortParity.expect("subtract-float", AutoStackingNumber.subtract(12.5, 3.25), 9.25)
+        AutoStackingNumberPortParity.expect("multiply-float", AutoStackingNumber.multiply(12.5, 3.25), 40.625)
+        AutoStackingNumberPortParity.expect("divide-float", AutoStackingNumber.divide(12.5, 0.5), 25)
+        AutoStackingNumberPortParity.expect("remainder-float", AutoStackingNumber.remainder(12.5, 0.5), 0)
+
+        AutoStackingNumberPortParity.expect("negate", AutoStackingNumber.negate(42), -42)
+        AutoStackingNumberPortParity.expect("abs-positive", AutoStackingNumber.abs(42), 42)
+        AutoStackingNumberPortParity.expect("abs-negative", AutoStackingNumber.abs(-42), 42)
+        AutoStackingNumberPortParity.expect("shiftLeft", AutoStackingNumber.shiftLeft(5, 3), 40)
+        AutoStackingNumberPortParity.expect("shiftRight", AutoStackingNumber.shiftRight(40, 3), 5)
+        AutoStackingNumberPortParity.expect("compare-lt", AutoStackingNumber.compare(1, 2), -1)
+        AutoStackingNumberPortParity.expect("compare-eq", AutoStackingNumber.compare(2, 2), 0)
+        AutoStackingNumberPortParity.expect("compare-gt", AutoStackingNumber.compare(3, 2), 1)
+        AutoStackingNumberPortParity.expect("pow-positive", AutoStackingNumber.pow(2, 10), 1024)
+        AutoStackingNumberPortParity.expect("pow-negative", AutoStackingNumber.pow(2, -2), 0.25)
+
+        out("=== parity done ===")
+    }
+}
