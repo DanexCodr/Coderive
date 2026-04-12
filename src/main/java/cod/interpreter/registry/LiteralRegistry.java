@@ -591,18 +591,22 @@ public class LiteralRegistry {
     }
     
     @SuppressWarnings("unchecked")
-    private List<Object> asList(Object literal) {
+    private List<Object> asConcreteList(Object literal) {
+        if (literal instanceof List) {
+            return (List<Object>) literal;
+        }
+        throw new ProgramError("Expected list literal target");
+    }
+
+    private NaturalArray asNaturalArray(Object literal) {
         if (literal instanceof NaturalArray) {
             NaturalArray arr = (NaturalArray) literal;
             if (arr.hasPendingUpdates()) {
                 arr.commitUpdates();
             }
-            return arr.toList();
+            return arr;
         }
-        if (literal instanceof List) {
-            return (List<Object>) literal;
-        }
-        throw new ProgramError("Expected array literal target");
+        return null;
     }
     
     private Object invokeArrayCallback(Object callbackObj, String methodName, ExecutionContext ctx, Object... args) {
@@ -619,16 +623,24 @@ public class LiteralRegistry {
         if (arguments == null || arguments.isEmpty()) {
             throw new ProgramError("map expects a callback or (operator, operand)");
         }
-        List<Object> source = asList(literal);
+        final NaturalArray naturalArray = asNaturalArray(literal);
+        List<Object> source = naturalArray == null ? asConcreteList(literal) : null;
         
         if (looksLikeOperatorMap(arguments)) {
-            String op = String.valueOf(arguments.get(0));
-            Object operand = arguments.get(1);
-            TypeHandler typeHandler = ctx.getTypeHandler();
+            final String op = String.valueOf(arguments.get(0));
+            final Object operand = arguments.get(1);
+            final TypeHandler typeHandler = ctx.getTypeHandler();
+            if (naturalArray != null) {
+                return new LazyNaturalArrayMapView(naturalArray, new NaturalArrayMapper() {
+                    @Override
+                    public Object map(long index, Object value) {
+                        return applyOperator(typeHandler, value, op, operand);
+                    }
+                });
+            }
             List<Object> result = new ArrayList<Object>(source.size());
             for (int i = 0; i < source.size(); i++) {
-                Object value = source.get(i);
-                result.add(applyOperator(typeHandler, value, op, operand));
+                result.add(applyOperator(typeHandler, source.get(i), op, operand));
             }
             return result;
         }
@@ -636,12 +648,18 @@ public class LiteralRegistry {
         if (arguments.size() != 1) {
             throw new ProgramError("map callback mode expects exactly one argument");
         }
-        
+        final Object callback = arguments.get(0);
+        if (naturalArray != null) {
+            return new LazyNaturalArrayMapView(naturalArray, new NaturalArrayMapper() {
+                @Override
+                public Object map(long index, Object value) {
+                    return invokeArrayCallback(callback, "map", ctx, value, Integer.valueOf((int) index));
+                }
+            });
+        }
         List<Object> result = new ArrayList<Object>(source.size());
         for (int i = 0; i < source.size(); i++) {
-            Object value = source.get(i);
-            Object mapped = invokeArrayCallback(arguments.get(0), "map", ctx, value, i);
-            result.add(mapped);
+            result.add(invokeArrayCallback(callback, "map", ctx, source.get(i), Integer.valueOf(i)));
         }
         return result;
     }
@@ -650,12 +668,22 @@ public class LiteralRegistry {
         if (arguments == null || arguments.isEmpty()) {
             throw new ProgramError("filter expects a callback or (operator, operand)");
         }
-        List<Object> source = asList(literal);
+        final NaturalArray naturalArray = asNaturalArray(literal);
+        List<Object> source = naturalArray == null ? asConcreteList(literal) : null;
         
         if (looksLikeOperatorFilter(arguments)) {
-            String op = String.valueOf(arguments.get(0));
-            Object operand = arguments.get(1);
-            TypeHandler typeHandler = ctx.getTypeHandler();
+            final String op = String.valueOf(arguments.get(0));
+            final Object operand = arguments.get(1);
+            final TypeHandler typeHandler = ctx.getTypeHandler();
+            if (naturalArray != null) {
+                return new LazyNaturalArrayFilterView(naturalArray, new NaturalArrayPredicate() {
+                    @Override
+                    public boolean test(long index, Object value) {
+                        Object comparison = compareWithOperator(typeHandler, value, op, operand);
+                        return isTruthy(comparison);
+                    }
+                });
+            }
             List<Object> result = new ArrayList<Object>();
             for (int i = 0; i < source.size(); i++) {
                 Object value = source.get(i);
@@ -670,11 +698,20 @@ public class LiteralRegistry {
         if (arguments.size() != 1) {
             throw new ProgramError("filter callback mode expects exactly one argument");
         }
-        
+        final Object callback = arguments.get(0);
+        if (naturalArray != null) {
+            return new LazyNaturalArrayFilterView(naturalArray, new NaturalArrayPredicate() {
+                @Override
+                public boolean test(long index, Object value) {
+                    Object keep = invokeArrayCallback(callback, "filter", ctx, value, Integer.valueOf((int) index));
+                    return isTruthy(keep);
+                }
+            });
+        }
         List<Object> result = new ArrayList<Object>();
         for (int i = 0; i < source.size(); i++) {
             Object value = source.get(i);
-            Object keep = invokeArrayCallback(arguments.get(0), "filter", ctx, value, i);
+            Object keep = invokeArrayCallback(callback, "filter", ctx, value, Integer.valueOf(i));
             if (isTruthy(keep)) {
                 result.add(value);
             }
@@ -686,8 +723,14 @@ public class LiteralRegistry {
         if (arguments == null || arguments.isEmpty() || arguments.size() > 2) {
             throw new ProgramError("reduce expects callback/op and optional initial value");
         }
-        List<Object> source = asList(literal);
-        if (source.isEmpty() && arguments.size() < 2) {
+        NaturalArray naturalArray = asNaturalArray(literal);
+        List<Object> source = naturalArray == null ? asConcreteList(literal) : null;
+        long sourceSizeLong = naturalArray != null ? naturalArray.size() : source.size();
+        if (sourceSizeLong > Integer.MAX_VALUE) {
+            throw new ProgramError("reduce source size too large: " + sourceSizeLong);
+        }
+        int sourceSize = (int) sourceSizeLong;
+        if (sourceSize == 0 && arguments.size() < 2) {
             throw new ProgramError("reduce on empty array requires an initial value");
         }
         
@@ -699,12 +742,13 @@ public class LiteralRegistry {
                 accumulator = arguments.get(1);
                 startIndex = 0;
             } else {
-                accumulator = source.get(0);
+                accumulator = naturalArray != null ? naturalArray.get(0L) : source.get(0);
                 startIndex = 1;
             }
             TypeHandler typeHandler = ctx.getTypeHandler();
-            for (int i = startIndex; i < source.size(); i++) {
-                accumulator = applyOperator(typeHandler, accumulator, op, source.get(i));
+            for (int i = startIndex; i < sourceSize; i++) {
+                Object next = naturalArray != null ? naturalArray.get((long) i) : source.get(i);
+                accumulator = applyOperator(typeHandler, accumulator, op, next);
             }
             return accumulator;
         }
@@ -715,15 +759,118 @@ public class LiteralRegistry {
             accumulator = arguments.get(1);
             startIndex = 0;
         } else {
-            accumulator = source.get(0);
+            accumulator = naturalArray != null ? naturalArray.get(0L) : source.get(0);
             startIndex = 1;
         }
         
-        for (int i = startIndex; i < source.size(); i++) {
-            Object value = source.get(i);
-            accumulator = invokeArrayCallback(arguments.get(0), "reduce", ctx, accumulator, value, i);
+        for (int i = startIndex; i < sourceSize; i++) {
+            Object value = naturalArray != null ? naturalArray.get((long) i) : source.get(i);
+            accumulator = invokeArrayCallback(arguments.get(0), "reduce", ctx, accumulator, value, Integer.valueOf(i));
         }
         return accumulator;
+    }
+
+    private interface NaturalArrayMapper {
+        Object map(long index, Object value);
+    }
+
+    private interface NaturalArrayPredicate {
+        boolean test(long index, Object value);
+    }
+
+    private static final class LazyNaturalArrayMapView extends AbstractList<Object> {
+        private final NaturalArray source;
+        private final NaturalArrayMapper mapper;
+        private final int size;
+
+        private LazyNaturalArrayMapView(NaturalArray source, NaturalArrayMapper mapper) {
+            this.source = source;
+            this.mapper = mapper;
+            long sourceSize = source.size();
+            if (sourceSize > Integer.MAX_VALUE) {
+                throw new ProgramError("Mapped array size too large: " + sourceSize);
+            }
+            this.size = (int) sourceSize;
+        }
+
+        @Override
+        public Object get(int index) {
+            if (index < 0 || index >= size) {
+                throw new ProgramError("Index: " + index + ", Size: " + size);
+            }
+            Object value = source.get((long) index);
+            return mapper.map((long) index, value);
+        }
+
+        @Override
+        public int size() {
+            return size;
+        }
+    }
+
+    private static final class LazyNaturalArrayFilterView extends AbstractList<Object> {
+        private final NaturalArray source;
+        private final NaturalArrayPredicate predicate;
+        private final List<Long> acceptedSourceIndices;
+        private long scanned;
+        private final long sourceSize;
+        private boolean fullyScanned;
+
+        private LazyNaturalArrayFilterView(NaturalArray source, NaturalArrayPredicate predicate) {
+            this.source = source;
+            this.predicate = predicate;
+            this.acceptedSourceIndices = new ArrayList<Long>();
+            this.scanned = 0L;
+            this.sourceSize = source.size();
+            this.fullyScanned = false;
+        }
+
+        @Override
+        public Object get(int index) {
+            if (index < 0) {
+                throw new ProgramError("Negative index: " + index);
+            }
+            ensureAcceptedIndex(index);
+            if (index >= acceptedSourceIndices.size()) {
+                throw new ProgramError("Index: " + index + ", Size: " + acceptedSourceIndices.size());
+            }
+            long sourceIndex = acceptedSourceIndices.get(index).longValue();
+            return source.get(sourceIndex);
+        }
+
+        @Override
+        public int size() {
+            scanToEnd();
+            return acceptedSourceIndices.size();
+        }
+
+        private void ensureAcceptedIndex(int index) {
+            while (!fullyScanned && acceptedSourceIndices.size() <= index) {
+                scanNext();
+            }
+        }
+
+        private void scanToEnd() {
+            while (!fullyScanned) {
+                scanNext();
+            }
+        }
+
+        private void scanNext() {
+            if (fullyScanned) return;
+            if (scanned >= sourceSize) {
+                fullyScanned = true;
+                return;
+            }
+            Object value = source.get(scanned);
+            if (predicate.test(scanned, value)) {
+                acceptedSourceIndices.add(Long.valueOf(scanned));
+            }
+            scanned++;
+            if (scanned >= sourceSize) {
+                fullyScanned = true;
+            }
+        }
     }
     
     private boolean looksLikeOperatorMap(List<Object> arguments) {
