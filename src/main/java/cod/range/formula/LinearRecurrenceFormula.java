@@ -15,7 +15,6 @@ public class LinearRecurrenceFormula {
     private final boolean hasConstantTerm;
     private final LinearRecurrenceFormula newerFormula;
     private final LinearRecurrenceFormula olderFormula;
-    private final Object rollingStateLock = new Object();
     private transient long rollingIndex = Long.MIN_VALUE;
     private transient AutoStackingNumber[] rollingState = null;
     private static final AutoStackingNumber ZERO = AutoStackingNumber.fromLong(0L);
@@ -100,7 +99,7 @@ public class LinearRecurrenceFormula {
             return null;
         }
 
-        synchronized (rollingStateLock) {
+        synchronized (this) {
             if (rollingState != null && index == rollingIndex) {
                 return rollingState[0];
             }
@@ -120,7 +119,7 @@ public class LinearRecurrenceFormula {
 
         AutoStackingNumber[][] power = matrixPow(transition, steps);
         AutoStackingNumber[] result = multiply(power, state);
-        synchronized (rollingStateLock) {
+        synchronized (this) {
             rollingState = copyState(result);
             rollingIndex = index;
         }
