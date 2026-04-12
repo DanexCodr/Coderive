@@ -49,7 +49,7 @@ public class VectorRecurrenceFormula {
         return index >= start && index <= end;
     }
 
-    public Object evaluate(long index, int sequenceIndex) {
+    public synchronized Object evaluate(long index, int sequenceIndex) {
         if (sequenceIndex < 0 || sequenceIndex >= dimension) {
             return null;
         }
@@ -76,15 +76,13 @@ public class VectorRecurrenceFormula {
             return seedValues[sequenceIndex][seedOffset.intValue()];
         }
 
-        synchronized (this) {
-            if (rollingState != null && index == rollingIndex) {
-                return rollingState[sequenceIndex];
-            }
-            if (rollingState != null && index == rollingIndex + 1L) {
-                advanceRollingState();
-                rollingIndex = index;
-                return rollingState[sequenceIndex];
-            }
+        if (rollingState != null && index == rollingIndex) {
+            return rollingState[sequenceIndex];
+        }
+        if (rollingState != null && index == rollingIndex + 1L) {
+            advanceRollingState();
+            rollingIndex = index;
+            return rollingState[sequenceIndex];
         }
 
         long lastSeedIndex = recurrenceStart - 1L;
@@ -97,11 +95,9 @@ public class VectorRecurrenceFormula {
         AutoStackingNumber[][] power = matrixPow(transition, steps);
         AutoStackingNumber[] result = multiply(power, state);
 
-        synchronized (this) {
-            rollingState = Arrays.copyOf(result, baseDim);
-            rollingIndex = index;
-            return rollingState[sequenceIndex];
-        }
+        rollingState = Arrays.copyOf(result, baseDim);
+        rollingIndex = index;
+        return rollingState[sequenceIndex];
     }
 
     private AutoStackingNumber[][] buildTransition(int baseDim, int matrixDim) {

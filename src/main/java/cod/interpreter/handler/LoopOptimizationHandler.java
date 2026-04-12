@@ -22,6 +22,7 @@ import java.util.*;
 public class LoopOptimizationHandler {
     private static final int LAZY_THRESHOLD = 10;
     private static final int MAX_SUPPORTED_LAG = 64;
+    private static final int MIN_VECTOR_SEQUENCES = 2;
     private static final int MAX_VECTOR_SEQUENCES = 64;
 
     private final InterpreterVisitor dispatcher;
@@ -301,7 +302,7 @@ public class LoopOptimizationHandler {
         }
 
         List<Assignment> assignments = collectVectorAssignments(node);
-        if (assignments.size() < 2 || assignments.size() > MAX_VECTOR_SEQUENCES) {
+        if (assignments.size() < MIN_VECTOR_SEQUENCES || assignments.size() > MAX_VECTOR_SEQUENCES) {
             return results;
         }
 
@@ -336,6 +337,7 @@ public class LoopOptimizationHandler {
         }
 
         int dimension = assignments.size();
+        // coeffByLag[targetRow][lag][sourceColumn]
         AutoStackingNumber[][][] coeffByLag = new AutoStackingNumber[dimension][MAX_SUPPORTED_LAG + 1][dimension];
         AutoStackingNumber[] constants = new AutoStackingNumber[dimension];
         for (int row = 0; row < dimension; row++) {
