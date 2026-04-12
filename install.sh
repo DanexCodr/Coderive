@@ -26,7 +26,7 @@ warn() { echo -e "  ${YELLOW}⚠${RESET}  $*"; }
 fail() { echo -e "  ${RED}✘${RESET}  $*" >&2; exit 1; }
 
 # ── Config ───────────────────────────────────────────────────────────────────
-VERSION="$(cat "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || pwd)/VERSION" 2>/dev/null || echo "0.8.0")"
+VERSION="$(cat "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || pwd)/VERSION" 2>/dev/null || echo "0.8.4")"
 INSTALL_DIR="${CODERIVE_HOME:-$HOME/.coderive}"
 BIN_DIR="${CODERIVE_BIN:-$HOME/.local/bin}"
 JAR_NAME="Coderive.jar"
