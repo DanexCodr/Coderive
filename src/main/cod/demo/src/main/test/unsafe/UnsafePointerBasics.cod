@@ -1,0 +1,24 @@
+unit test.unsafe (main: this)
+
+x: int = 42
+
+unsafe LowLevel {
+    ptr: *u8
+    buffer: u8[1024]
+
+    method() :: int {
+        buffer[0] = 42
+        ptr = &buffer[0]
+        value := *ptr
+        ptr = ptr + 16
+        ~> (value)
+    }
+}
+
+share UnsafePointerMain {
+    share main() {
+        low: LowLevel = safe(LowLevel())
+        out(low.method())
+        out(x)
+    }
+}

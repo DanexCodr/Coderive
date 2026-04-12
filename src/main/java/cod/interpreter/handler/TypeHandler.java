@@ -7,6 +7,8 @@ import cod.math.AutoStackingNumber;
 import cod.range.NaturalArray;
 import static cod.syntax.Keyword.*;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.AbstractList;
 import java.util.List;
@@ -99,11 +101,63 @@ public class TypeHandler {
             return Objects.hash(value, activeType, declaredType);
         }
     }
+
+    public static class PointerValue {
+        public final Object container;
+        public final long index;
+        public final String pointedType;
+
+        public PointerValue(Object container, long index, String pointedType) {
+            this.container = container;
+            this.index = index;
+            this.pointedType = pointedType;
+        }
+
+        @Override
+        public String toString() {
+            return "&" + pointedType + "@" + index;
+        }
+    }
     
     // AutoStackingNumber constants
     private static final AutoStackingNumber ZERO = AutoStackingNumber.valueOf("0");
     private static final AutoStackingNumber ONE = AutoStackingNumber.valueOf("1");
     private static final int LAZY_ARRAY_MEMO_MAX_SIZE = 8192;
+    private static final String[] UNSAFE_NUMERIC_TYPES = {
+        "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64"
+    };
+
+    public boolean isPointerType(String type) {
+        return type != null && type.startsWith("*") && type.length() > 1;
+    }
+
+    public boolean isSizedArrayType(String type) {
+        if (type == null) return false;
+        int l = type.lastIndexOf('[');
+        int r = type.lastIndexOf(']');
+        if (l <= 0 || r != type.length() - 1) return false;
+        String sizePart = type.substring(l + 1, r).trim();
+        if (sizePart.isEmpty()) return false;
+        for (int i = 0; i < sizePart.length(); i++) {
+            if (!Character.isDigit(sizePart.charAt(i))) return false;
+        }
+        return true;
+    }
+
+    public String getSizedArrayElementType(String type) {
+        if (!isSizedArrayType(type)) return null;
+        return type.substring(0, type.lastIndexOf('['));
+    }
+
+    public int getSizedArrayLength(String type) {
+        if (!isSizedArrayType(type)) return -1;
+        String sizePart = type.substring(type.lastIndexOf('[') + 1, type.length() - 1).trim();
+        try {
+            return Integer.parseInt(sizePart);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
 
     // Helper to check if value is none
     public boolean isNoneValue(Object obj) {
@@ -183,8 +237,30 @@ public class TypeHandler {
     public boolean isTypeLiteral(String str) {
         return str.equals("int") || str.equals("float") || str.equals("text") || 
                str.equals("bool") || str.equals("type") || str.equals("none") || 
+               isPointerType(str) || isSizedArrayType(str) ||
+               isUnsafeNumericType(str) ||
                str.equals("[]") || str.startsWith("[") || 
                str.startsWith("(") || str.contains("|");
+    }
+
+    public boolean isUnsafeNumericType(String type) {
+        if (type == null) return false;
+        for (String unsafeType : UNSAFE_NUMERIC_TYPES) {
+            if (unsafeType.equals(type)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public Object normalizeForDeclaredType(String declaredType, Object value) {
+        if (declaredType == null) return value;
+        String normalized = declaredType.trim();
+        if (!isUnsafeNumericType(normalized)) {
+            return value;
+        }
+        Object converted = convertType(value, normalized);
+        return new Value(converted, normalized, normalized);
     }
     
     public Object processTypeLiteral(String typeLiteral) {
@@ -192,6 +268,16 @@ public class TypeHandler {
             return new NoneLiteral();
         }
         return Value.createTypeValue(typeLiteral);
+    }
+
+    private String normalizeTypeSignature(String typeSig) {
+        if (typeSig == null) return null;
+        String trimmed = typeSig.trim();
+        if (isSizedArrayType(trimmed)) {
+            String inner = normalizeTypeSignature(getSizedArrayElementType(trimmed));
+            return "[" + inner + "]";
+        }
+        return trimmed;
     }
     
     // === TypeHandler Validation with Special Cases ===
@@ -910,6 +996,23 @@ public class TypeHandler {
         if (targetType.equals("none")) {
             return new NoneLiteral();
         }
+
+        if (isUnsafeNumericType(targetType)) {
+            return convertUnsafeNumeric(value, targetType);
+        }
+
+        if (isPointerType(targetType)) {
+            Object unwrapped = unwrap(value);
+            if (unwrapped instanceof PointerValue) {
+                PointerValue pointer = (PointerValue) unwrapped;
+                String expectedPointedType = normalizeTypeSignature(targetType.substring(1));
+                String actualPointedType = normalizeTypeSignature(pointer.pointedType);
+                if (expectedPointedType.equals(actualPointedType)) {
+                    return pointer;
+                }
+            }
+            throw new ProgramError("Cannot convert '" + value + "' to pointer type " + targetType);
+        }
         
         if (value instanceof FloatLiteral) {
             AutoStackingNumber num = ((FloatLiteral) value).value;
@@ -1026,6 +1129,64 @@ public class TypeHandler {
             "), targetType=" + targetType
         );
     }
+
+    private Object convertUnsafeNumeric(Object value, String targetType) {
+        if (targetType.equals("f32")) {
+            double numeric = toDouble(value);
+            return AutoStackingNumber.fromDouble((double) ((float) numeric));
+        }
+        if (targetType.equals("f64")) {
+            double numeric = toDouble(value);
+            return AutoStackingNumber.fromDouble(numeric);
+        }
+        BigInteger integral = toIntegralBigInteger(value);
+        return wrapIntegerUnsafe(integral, targetType);
+    }
+
+    private BigInteger toIntegralBigInteger(Object value) {
+        Object unwrapped = unwrap(value);
+        if (unwrapped instanceof IntLiteral) {
+            return new BigInteger(((IntLiteral) unwrapped).value.toString());
+        }
+        if (unwrapped instanceof FloatLiteral) {
+            AutoStackingNumber n = ((FloatLiteral) unwrapped).value;
+            return new BigDecimal(n.toString()).toBigInteger();
+        }
+        if (unwrapped instanceof AutoStackingNumber) {
+            return new BigDecimal(((AutoStackingNumber) unwrapped).toString()).toBigInteger();
+        }
+        if (unwrapped instanceof Integer || unwrapped instanceof Long) {
+            return BigInteger.valueOf(((Number) unwrapped).longValue());
+        }
+        if (unwrapped instanceof Float || unwrapped instanceof Double) {
+            return BigDecimal.valueOf(((Number) unwrapped).doubleValue()).toBigInteger();
+        }
+        throw new ProgramError(
+            "Unsafe numeric types require int or float values, got: " + getConcreteType(unwrapped));
+    }
+
+    private AutoStackingNumber wrapIntegerUnsafe(BigInteger value, String targetType) {
+        int bits = 64;
+        boolean signed = true;
+        if (targetType.equals("i8")) bits = 8;
+        else if (targetType.equals("i16")) bits = 16;
+        else if (targetType.equals("i32")) bits = 32;
+        else if (targetType.equals("i64")) bits = 64;
+        else if (targetType.equals("u8")) { bits = 8; signed = false; }
+        else if (targetType.equals("u16")) { bits = 16; signed = false; }
+        else if (targetType.equals("u32")) { bits = 32; signed = false; }
+        else if (targetType.equals("u64")) { bits = 64; signed = false; }
+
+        BigInteger modulus = BigInteger.ONE.shiftLeft(bits);
+        BigInteger wrapped = value.mod(modulus);
+        if (signed) {
+            BigInteger signBoundary = BigInteger.ONE.shiftLeft(bits - 1);
+            if (wrapped.compareTo(signBoundary) >= 0) {
+                wrapped = wrapped.subtract(modulus);
+            }
+        }
+        return AutoStackingNumber.valueOf(wrapped.toString());
+    }
         
     public String getConcreteType(Object value) {
     if (value instanceof Value) {
@@ -1046,6 +1207,10 @@ public class TypeHandler {
         }
         // Return the element type of the array, not "list"
         return arr.getElementType();
+    }
+
+    if (value instanceof PointerValue) {
+        return "*" + ((PointerValue) value).pointedType;
     }
     
     if (value instanceof IntLiteral) return INT.toString();
@@ -1074,7 +1239,10 @@ public class TypeHandler {
 }
 
     public boolean validateType(String typeSig, Object value) {
-        String typeSigTrimmed = typeSig.trim();
+        if (typeSig == null) {
+            return true;
+        }
+        String typeSigTrimmed = normalizeTypeSignature(typeSig);
         if (typeSigTrimmed.contains("|")) {
             if (!isTypeStructurallyValid(typeSigTrimmed)) {
                 throw new ProgramError("Union type contains illegal keywords: " + typeSig);
@@ -1128,7 +1296,7 @@ public class TypeHandler {
 
     private boolean validateTypeInternal(String typeSig, Object rawValue, String concreteType) {
         if (typeSig == null) return true;
-        String type = typeSig.trim();
+        String type = normalizeTypeSignature(typeSig);
 
         if (type.equals(ANY.toString())) return true;
         
@@ -1154,6 +1322,16 @@ public class TypeHandler {
 
         if (type.equals("none")) {
             return isNoneValue;
+        }
+
+        if (isPointerType(type)) {
+            if (isNoneValue(rawValue)) return false;
+            Object unwrapped = unwrap(rawValue);
+            if (!(unwrapped instanceof PointerValue)) return false;
+            PointerValue pointer = (PointerValue) unwrapped;
+            String pointedType = normalizeTypeSignature(pointer.pointedType);
+            String expectedPointedType = normalizeTypeSignature(type.substring(1));
+            return expectedPointedType.equals(pointedType);
         }
 
         if (type.startsWith("[") && type.endsWith("]")) {
@@ -1206,9 +1384,17 @@ public class TypeHandler {
 
     private boolean isValidTypeSignature(String str) {
         if (str == null || str.isEmpty()) return false;
+
+        if (isPointerType(str)) {
+            return isValidTypeSignature(str.substring(1));
+        }
+        if (isSizedArrayType(str)) {
+            return isValidTypeSignature(getSizedArrayElementType(str));
+        }
         
         if (str.equals("int") || str.equals("float") || str.equals("text") || 
-            str.equals("bool") || str.equals("type") || str.equals("none")) {
+            str.equals("bool") || str.equals("type") || str.equals("none") ||
+            isUnsafeNumericType(str)) {
             return true;
         }
         
@@ -1256,6 +1442,13 @@ public class TypeHandler {
         }
         String type = typeSig.trim();
         if (type.isEmpty()) return false;
+
+        if (isPointerType(type)) {
+            return isTypeStructurallyValid(type.substring(1));
+        }
+        if (isSizedArrayType(type)) {
+            return isTypeStructurallyValid(getSizedArrayElementType(type));
+        }
         
         if (type.startsWith("[") && type.endsWith("]")) {
             String inner = type.substring(1, type.length() - 1);
@@ -1272,7 +1465,8 @@ public class TypeHandler {
         
         if (type.equals(INT.toString()) || type.equals(FLOAT.toString()) || 
             type.equals(TEXT.toString()) || type.equals(BOOL.toString()) || 
-            type.equals(ANY.toString()) || type.equals("none")) {
+            type.equals(ANY.toString()) || type.equals("none") ||
+            isUnsafeNumericType(type)) {
             return true;
         }
         if (Character.isUpperCase(type.charAt(0))) return true;
@@ -1280,6 +1474,11 @@ public class TypeHandler {
     }
 
     private boolean checkPrimitiveMatch(String type, Object rawValue) {
+        if (isPointerType(type)) {
+            Object unwrapped = unwrap(rawValue);
+            return unwrapped instanceof PointerValue;
+        }
+        
         if (type.startsWith("[") && type.endsWith("]")) {
             if (type.equals("[]")) {
                 return rawValue instanceof List || rawValue instanceof NaturalArray;
@@ -1306,6 +1505,15 @@ public class TypeHandler {
                    rawValue instanceof Boolean;
         } else if (type.equals("none")) {
             return isNoneValue(rawValue);
+        } else if (isUnsafeNumericType(type)) {
+            return rawValue instanceof IntLiteral
+                || rawValue instanceof FloatLiteral
+                || rawValue instanceof Integer
+                || rawValue instanceof Long
+                || rawValue instanceof Float
+                || rawValue instanceof Double
+                || rawValue instanceof AutoStackingNumber
+                || (rawValue instanceof Value && isUnsafeNumericType(((Value) rawValue).activeType));
         }
         return false; 
     }

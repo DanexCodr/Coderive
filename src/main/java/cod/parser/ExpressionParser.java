@@ -1321,7 +1321,7 @@ public class ExpressionParser extends BaseParser {
             }
         }
         
-        if (is(BANG, PLUS, MINUS)) {
+        if (is(BANG, PLUS, MINUS, AMPERSAND, MUL)) {
             Token opToken = consume();
             Expr operand = parsePrecedence(PREC_UNARY);
             return ASTFactory.createUnaryOp(opToken.getText(), operand, opToken);

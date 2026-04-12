@@ -33,10 +33,17 @@ public class ExecutionContext {
     
     // ========== THREAD LOCAL CONTEXT ==========
     private static final ThreadLocal<ExecutionContext> currentContext = new ThreadLocal<ExecutionContext>();
+    private static final ThreadLocal<Integer> unsafeCommitDepth = new ThreadLocal<Integer>() {
+        @Override
+        protected Integer initialValue() {
+            return 0;
+        }
+    };
     
     // ========== OPTIMIZED LOOP CONTEXT ==========
     private boolean inOptimizedLoop = false;
     private List<Object> pendingOutputs = new ArrayList<Object>();
+    private boolean unsafeExecutionContext = false;
     
     // ========== TYPE HANDLER ==========
     private final TypeHandler typeHandler;
@@ -72,6 +79,19 @@ public Map<String, Object> getLocalsMap() {
      */
     public static void clearCurrentContext() {
         currentContext.remove();
+    }
+
+    public static void enterUnsafeCommitAllowance() {
+        unsafeCommitDepth.set(unsafeCommitDepth.get() + 1);
+    }
+
+    public static void exitUnsafeCommitAllowance() {
+        int current = unsafeCommitDepth.get();
+        unsafeCommitDepth.set(current > 0 ? current - 1 : 0);
+    }
+
+    public static boolean isUnsafeCommitAllowed() {
+        return unsafeCommitDepth.get() > 0;
     }
     
     /**
@@ -113,6 +133,14 @@ public Map<String, Object> getLocalsMap() {
         List<Object> outputs = new ArrayList<Object>(pendingOutputs);
         pendingOutputs.clear();
         return outputs;
+    }
+
+    public boolean isUnsafeExecutionContext() {
+        return unsafeExecutionContext;
+    }
+
+    public void setUnsafeExecutionContext(boolean unsafeExecutionContext) {
+        this.unsafeExecutionContext = unsafeExecutionContext;
     }
     
     public ExecutionContext(ObjectInstance obj, Map<String, Object> locals, 

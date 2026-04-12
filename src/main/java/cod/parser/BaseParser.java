@@ -271,9 +271,31 @@ public abstract class BaseParser {
   }
 
   protected boolean isTypeStart(Token token) {
-    return any(is(token, INT, TEXT, FLOAT, BOOL, TYPE),
+    return any(is(token, INT, TEXT, FLOAT, BOOL, TYPE, I8, I16, I32, I64, U8, U16, U32, U64, F32, F64),
            is(token, ID),
-           is(token, LPAREN, LBRACKET));
+           is(token, LPAREN, LBRACKET, MUL));
+  }
+
+  protected boolean isUnsafeTypeContext() {
+    return ctx.isInUnsafeDeclaration();
+  }
+
+  protected boolean isUnsafeNumericTypeKeyword(Token token) {
+    return is(token, I8, I16, I32, I64, U8, U16, U32, U64, F32, F64);
+  }
+
+  protected boolean isUnsafeNumericTypeName(String typeName) {
+    if (typeName == null) return false;
+    return typeName.equals("i8")
+        || typeName.equals("i16")
+        || typeName.equals("i32")
+        || typeName.equals("i64")
+        || typeName.equals("u8")
+        || typeName.equals("u16")
+        || typeName.equals("u32")
+        || typeName.equals("u64")
+        || typeName.equals("f32")
+        || typeName.equals("f64");
   }
 
   protected String parseQualifiedName() {
@@ -303,7 +325,13 @@ public abstract class BaseParser {
   protected String parseTypeReference() {
     StringBuilder type = new StringBuilder();
 
-    if (is(LBRACKET)) {
+    if (is(MUL)) {
+      Token pointerToken = expect(MUL);
+      if (!isUnsafeTypeContext()) {
+        throw error("Pointer types can only be used inside an unsafe class or method", pointerToken);
+      }
+      type.append("*").append(parseTypeReference());
+    } else if (is(LBRACKET)) {
       expect(LBRACKET);
       if (is(RBRACKET)) {
         expect(RBRACKET);
@@ -319,10 +347,28 @@ public abstract class BaseParser {
       Token typeToken = now();
       if (isTypeStart(typeToken) && !is(typeToken, LBRACKET)) {
         String typeName = consume().getText();
+        if (isUnsafeNumericTypeName(typeName) && !isUnsafeTypeContext()) {
+          throw error(
+              "Unsafe type '" + typeName + "' can only be used inside an unsafe class or method",
+              typeToken);
+        }
         type.append(typeName);
       } else {
         throw error("Expected type name");
       }
+    }
+
+    while (is(LBRACKET)) {
+      Token lbracketToken = expect(LBRACKET);
+      if (!isUnsafeTypeContext()) {
+        throw error("Sized array types can only be used inside an unsafe class or method", lbracketToken);
+      }
+      if (is(INT_LIT)) {
+        type.append("[").append(expect(INT_LIT).getText()).append("]");
+      } else {
+        type.append("[]");
+      }
+      expect(RBRACKET);
     }
 
     if (consume(QUESTION)) {
@@ -381,12 +427,12 @@ public abstract class BaseParser {
       return false;
     }
     return any(is(t, INT_LIT, FLOAT_LIT, TEXT_LIT, BOOL_LIT, ID),
-         is(t, LPAREN, LBRACKET, BANG, PLUS, MINUS, DOLLAR),
+         is(t, LPAREN, LBRACKET, BANG, PLUS, MINUS, DOLLAR, AMPERSAND, MUL),
          is(t, NONE, TRUE, FALSE, SUPER, THIS));
   }
 
   protected boolean isClassStart() {
-    if (is(SHARE, LOCAL)) {
+    if (is(SHARE, LOCAL, UNSAFE)) {
       return true;
     }
 

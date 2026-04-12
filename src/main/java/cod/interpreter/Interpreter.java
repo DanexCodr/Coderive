@@ -923,6 +923,8 @@ public void run(Object entryPoint) {
         ctx.currentClass = associatedClass;
       }
     }
+    boolean unsafeContext = node.isUnsafe || (ctx.currentClass != null && ctx.currentClass.isUnsafe);
+    ctx.setUnsafeExecutionContext(unsafeContext);
     
     visitor.pushContext(ctx);
     Object result = null;
@@ -985,6 +987,14 @@ public void run(Object entryPoint) {
             return globalRegistry.executeGlobal(call.name, (List<Object>)(List<?>)call.arguments);
         }
         throw new ProgramError("Method not found: " + call.name);
+    }
+
+    ExecutionContext callerCtx = ExecutionContext.getCurrentContext();
+    if (method.isUnsafe && !isUnsafeExecutionContext(callerCtx) && !ExecutionContext.isUnsafeCommitAllowed()) {
+        throw new ProgramError(
+            "Unsafe method '" + method.methodName + "' cannot be called in a safe context. Use safe("
+                + call.name
+                + "(...)).");
     }
     
     boolean hasSingleSlot = method.returnSlots != null && method.returnSlots.size() == 1;
@@ -1075,6 +1085,8 @@ public void run(Object entryPoint) {
             }
         }
 
+        argValue = typeSystem.normalizeForDeclaredType(paramType, argValue);
+
         if (paramType.contains("|")) {
             String activeType = typeSystem.getConcreteType(typeSystem.unwrap(argValue));
             argValue = new TypeHandler.Value(argValue, activeType, paramType);
@@ -1120,6 +1132,8 @@ public void run(Object entryPoint) {
             ctx.currentClass = classType;
         }
     }
+    boolean unsafeContext = method.isUnsafe || (ctx.currentClass != null && ctx.currentClass.isUnsafe);
+    ctx.setUnsafeExecutionContext(unsafeContext);
 
     visitor.pushContext(ctx);
     boolean calledMethodHasSlots = method.returnSlots != null && !method.returnSlots.isEmpty();
@@ -1224,6 +1238,23 @@ public void run(Object entryPoint) {
       DebugSystem.debug("INTERPRETER", "Type not found in imports (may be local): " + className);
       return null;
     }
+  }
+
+  private boolean isUnsafeExecutionContext(ExecutionContext ctx) {
+    if (ctx == null) return false;
+    if (ctx.currentClass != null && ctx.currentClass.isUnsafe) {
+      return true;
+    }
+    if (ctx.currentMethodName == null || ctx.currentMethodName.isEmpty()) {
+      return false;
+    }
+    Type searchType = ctx.currentClass;
+    if (searchType == null && ctx.objectInstance != null) {
+      searchType = ctx.objectInstance.type;
+    }
+    if (searchType == null) return false;
+    Method currentMethod = constructorResolver.findMethodInHierarchy(searchType, ctx.currentMethodName, ctx);
+    return currentMethod != null && currentMethod.isUnsafe;
   }
   
   public void clearAllCaches() {

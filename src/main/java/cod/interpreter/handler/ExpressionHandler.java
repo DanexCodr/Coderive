@@ -44,6 +44,10 @@ public class ExpressionHandler {
         switch (node.op) {
             case "+":
             case "+=":
+                if (typeSystem.unwrap(left) instanceof TypeHandler.PointerValue
+                    || typeSystem.unwrap(right) instanceof TypeHandler.PointerValue) {
+                    return handlePointerArithmetic(left, right, true, ctx);
+                }
                 if (left instanceof String || right instanceof String ||
                     left instanceof TextLiteral || right instanceof TextLiteral) {
                     
@@ -78,6 +82,10 @@ public class ExpressionHandler {
 
             case "-":
             case "-=":
+                if (typeSystem.unwrap(left) instanceof TypeHandler.PointerValue
+                    || typeSystem.unwrap(right) instanceof TypeHandler.PointerValue) {
+                    return handlePointerArithmetic(left, right, false, ctx);
+                }
                 result = typeSystem.subtractNumbers(left, right);
                 break;
 
@@ -142,6 +150,14 @@ public class ExpressionHandler {
         }
         
         try {
+            if ("&".equals(node.op)) {
+                ensureUnsafeContext(ctx, "Address-of operator '&'");
+                if (!(node.operand instanceof IndexAccess)) {
+                    throw new ProgramError("Address-of operator '&' requires an index expression like '&buffer[0]'");
+                }
+                return createPointerFromIndexAccess((IndexAccess) node.operand, ctx);
+            }
+
             Object operand = dispatcher.dispatch(node.operand);
 
             switch (node.op) {
@@ -151,6 +167,9 @@ public class ExpressionHandler {
                     return operand;
                 case "!":
                     return !typeSystem.isTruthy(operand);
+                case "*":
+                    ensureUnsafeContext(ctx, "Pointer dereference '*'");
+                    return dereferencePointer(operand);
                 default:
                     throw new ProgramError("Unknown unary operator: " + node.op);
             }
@@ -159,6 +178,99 @@ public class ExpressionHandler {
         } catch (Exception e) {
             throw new InternalError("Unary operation failed: " + node.op, e);
         }
+    }
+
+    private void ensureUnsafeContext(ExecutionContext ctx, String featureName) {
+        boolean unsafe = ctx.isUnsafeExecutionContext()
+            || (ctx.currentClass != null && ctx.currentClass.isUnsafe);
+        if (!unsafe) {
+            throw new ProgramError(featureName + " is only available inside unsafe class/method contexts");
+        }
+    }
+
+    private TypeHandler.PointerValue createPointerFromIndexAccess(IndexAccess access, ExecutionContext ctx) {
+        Object container = dispatcher.dispatch(access.array);
+        container = typeSystem.unwrap(container);
+        Object indexObj = dispatcher.dispatch(access.index);
+        indexObj = typeSystem.unwrap(indexObj);
+
+        if (container instanceof NaturalArray) {
+            long idx = toLongIndex(indexObj);
+            NaturalArray arr = (NaturalArray) container;
+            if (idx < 0 || idx >= arr.size()) {
+                throw new ProgramError("Pointer address index out of bounds: " + idx);
+            }
+            return new TypeHandler.PointerValue(arr, idx, arr.getElementType());
+        }
+
+        if (container instanceof List) {
+            long idx = toLongIndex(indexObj);
+            List<?> list = (List<?>) container;
+            if (idx < 0 || idx >= list.size()) {
+                throw new ProgramError("Pointer address index out of bounds: " + idx);
+            }
+            String pointedType = "any";
+            Object pointedValue = list.get((int) idx);
+            if (pointedValue != null) {
+                pointedType = typeSystem.getConcreteType(typeSystem.unwrap(pointedValue));
+            }
+            return new TypeHandler.PointerValue(list, idx, pointedType);
+        }
+
+        throw new ProgramError("Address-of operator '&' only supports array/list index targets");
+    }
+
+    private Object dereferencePointer(Object pointerObj) {
+        Object unwrapped = typeSystem.unwrap(pointerObj);
+        if (!(unwrapped instanceof TypeHandler.PointerValue)) {
+            throw new ProgramError("Dereference '*' expects a pointer value");
+        }
+        TypeHandler.PointerValue pointer = (TypeHandler.PointerValue) unwrapped;
+        if (pointer.container instanceof NaturalArray) {
+            return ((NaturalArray) pointer.container).get(pointer.index);
+        }
+        if (pointer.container instanceof List) {
+            List<?> list = (List<?>) pointer.container;
+            int idx = Math.toIntExact(pointer.index);
+            if (idx < 0 || idx >= list.size()) {
+                throw new ProgramError("Pointer dereference out of bounds: " + idx);
+            }
+            return list.get(idx);
+        }
+        throw new ProgramError("Unsupported pointer target");
+    }
+
+    private Object handlePointerArithmetic(Object left, Object right, boolean addition, ExecutionContext ctx) {
+        ensureUnsafeContext(ctx, "Pointer arithmetic");
+        Object leftUnwrapped = typeSystem.unwrap(left);
+        Object rightUnwrapped = typeSystem.unwrap(right);
+
+        TypeHandler.PointerValue pointer;
+        long offset;
+
+        if (leftUnwrapped instanceof TypeHandler.PointerValue && !(rightUnwrapped instanceof TypeHandler.PointerValue)) {
+            pointer = (TypeHandler.PointerValue) leftUnwrapped;
+            offset = toLongIndex(rightUnwrapped);
+        } else if (rightUnwrapped instanceof TypeHandler.PointerValue && !(leftUnwrapped instanceof TypeHandler.PointerValue) && addition) {
+            pointer = (TypeHandler.PointerValue) rightUnwrapped;
+            offset = toLongIndex(leftUnwrapped);
+        } else {
+            throw new ProgramError("Pointer arithmetic expects pointer +/- integer");
+        }
+
+        long nextIndex = addition ? pointer.index + offset : pointer.index - offset;
+        if (pointer.container instanceof NaturalArray) {
+            NaturalArray arr = (NaturalArray) pointer.container;
+            if (nextIndex < 0 || nextIndex >= arr.size()) {
+                throw new ProgramError("Pointer arithmetic out of bounds: " + nextIndex);
+            }
+        } else if (pointer.container instanceof List) {
+            int size = ((List<?>) pointer.container).size();
+            if (nextIndex < 0 || nextIndex >= size) {
+                throw new ProgramError("Pointer arithmetic out of bounds: " + nextIndex);
+            }
+        }
+        return new TypeHandler.PointerValue(pointer.container, nextIndex, pointer.pointedType);
     }
     
     public Object handleTypeCast(TypeCast node, ExecutionContext ctx) {

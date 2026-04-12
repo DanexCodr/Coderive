@@ -266,6 +266,17 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
         
         try {
+            ExecutionContext ctx = getCurrentContext();
+            Type targetType = interpreter.getImportResolver().findType(node.className);
+            if (targetType != null
+                && targetType.isUnsafe
+                && !isUnsafeExecutionContext(ctx)
+                && !ExecutionContext.isUnsafeCommitAllowed()) {
+                throw new ProgramError(
+                    "Unsafe class '" + targetType.name + "' cannot be constructed in a safe context. Use safe("
+                        + targetType.name
+                        + "(...)).");
+            }
             return interpreter.getConstructorResolver().resolveAndCreate(node, getCurrentContext());
         } catch (ProgramError e) {
             throw e;
@@ -1439,6 +1450,100 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         return evaluatedArgs;
     }
 
+    private boolean isUnsafeExecutionContext(ExecutionContext ctx) {
+        if (ctx == null) return false;
+        if (ctx.currentClass != null && ctx.currentClass.isUnsafe) {
+            return true;
+        }
+        Method currentMethod = resolveCurrentContextMethod(ctx);
+        return currentMethod != null && currentMethod.isUnsafe;
+    }
+
+    private Method resolveCurrentContextMethod(ExecutionContext ctx) {
+        if (ctx == null || ctx.currentMethodName == null || ctx.currentMethodName.isEmpty()) {
+            return null;
+        }
+        Type searchType = ctx.currentClass;
+        if (searchType == null && ctx.objectInstance != null) {
+            searchType = ctx.objectInstance.type;
+        }
+        if (searchType == null) {
+            return null;
+        }
+        return interpreter.getConstructorResolver().findMethodInHierarchy(searchType, ctx.currentMethodName, ctx);
+    }
+
+    private Method resolveMethodForCall(MethodCall node, ExecutionContext ctx) {
+        Method method = null;
+        String callName = node.name;
+        String callQualifiedName = node.qualifiedName;
+
+        if (ctx.currentClass != null) {
+            method = interpreter.getConstructorResolver().findMethodInHierarchy(ctx.currentClass, callName, ctx);
+        }
+
+        if (method == null && ctx.objectInstance != null && ctx.objectInstance.type != null) {
+            method = interpreter.getConstructorResolver().findMethodInHierarchy(ctx.objectInstance.type, callName, ctx);
+        }
+
+        if (method == null) {
+            String qName = callQualifiedName;
+            if (qName != null && qName.contains(".")) {
+                String[] parts = qName.split("\\.");
+                if (parts.length == 2) {
+                    String receiver = parts[0];
+                    String methodName = parts[1];
+                    if (ctx.locals().containsKey(receiver)) {
+                        Object receiverObj = ctx.locals().get(receiver);
+                        if (receiverObj instanceof ObjectInstance) {
+                            ObjectInstance objInst = (ObjectInstance) receiverObj;
+                            if (objInst.type != null) {
+                                qName = objInst.type.name + "." + methodName;
+                            }
+                        }
+                    }
+                }
+            }
+            if (qName == null) qName = callName;
+            method = interpreter.getImportResolver().findMethod(qName);
+        }
+
+        return method;
+    }
+
+    private Object executeSafeCommit(MethodCall node, ExecutionContext ctx) {
+        if (isUnsafeExecutionContext(ctx)) {
+            throw new ProgramError(
+                "safe() is not allowed inside unsafe classes or methods; these contexts already have permission to execute unsafe code");
+        }
+        if (node.arguments == null || node.arguments.size() != 1) {
+            throw new ProgramError("safe() expects exactly one argument");
+        }
+
+        Expr argument = node.arguments.get(0);
+        boolean unsafeTarget = false;
+
+        if (argument instanceof MethodCall) {
+            Method targetMethod = resolveMethodForCall((MethodCall) argument, ctx);
+            unsafeTarget = targetMethod != null && targetMethod.isUnsafe;
+        } else if (argument instanceof ConstructorCall) {
+            Type targetType = interpreter.getImportResolver().findType(((ConstructorCall) argument).className);
+            unsafeTarget = targetType != null && targetType.isUnsafe;
+        }
+
+        if (!unsafeTarget) {
+            throw new ProgramError(
+                "safe() requires an unsafe method call or unsafe class constructor as its argument, but the provided expression is not marked unsafe");
+        }
+
+        ExecutionContext.enterUnsafeCommitAllowance();
+        try {
+            return dispatch(argument);
+        } finally {
+            ExecutionContext.exitUnsafeCommitAllowance();
+        }
+    }
+
     @Override
     public Object visit(Identifier node) {
         if (node == null) {
@@ -1827,6 +1932,10 @@ public Object visit(TextLiteral node) {
                     }
                 }
             }
+
+            if ("safe".equals(callName) && (callQualifiedName == null || "safe".equals(callQualifiedName))) {
+                return executeSafeCommit(node, ctx);
+            }
             
             // Evaluate all arguments first
             List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
@@ -1883,6 +1992,13 @@ public Object visit(TextLiteral node) {
         // If method not found after all attempts, throw error
         if (method == null) {
             throw new ProgramError("Method not found: " + callName);
+        }
+
+        if (method.isUnsafe && !isUnsafeExecutionContext(ctx) && !ExecutionContext.isUnsafeCommitAllowed()) {
+            throw new ProgramError(
+                "Unsafe method '" + method.methodName + "' cannot be called in a safe context. Use safe("
+                    + callName
+                    + "(...)).");
         }
 
         // Check if this is a single-slot call

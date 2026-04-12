@@ -162,6 +162,11 @@ public class ConstructorResolver {
                     "Available types: " + getAvailableTypes(ctx)
                 );
             }
+
+            if (type.isUnsafe && !isUnsafeExecutionContext(ctx) && !ExecutionContext.isUnsafeCommitAllowed()) {
+                throw new ProgramError(
+                    "Unsafe class '" + type.name + "' cannot be constructed in a safe context. Use safe(" + type.name + "(...)).");
+            }
             
             validateInheritanceHierarchy(type, ctx);
             
@@ -359,6 +364,7 @@ public class ConstructorResolver {
                     if (!typeSystem.validateType(param.type, argValue)) {
                         return null;
                     }
+                    argValue = typeSystem.normalizeForDeclaredType(param.type, argValue);
                     argValues.put(param.name, argValue);
                 } else if (!param.hasDefaultValue) {
                     return null;
@@ -381,6 +387,7 @@ public class ConstructorResolver {
                 if (!typeSystem.validateType(param.type, argValue)) {
                     return null;
                 }
+                argValue = typeSystem.normalizeForDeclaredType(param.type, argValue);
                 argValues.put(param.name, argValue);
             } else if (!param.hasDefaultValue) {
                 return null;
@@ -430,6 +437,7 @@ public class ConstructorResolver {
                 if (!typeSystem.validateType(param.type, argValue)) {
                     return null;
                 }
+                argValue = typeSystem.normalizeForDeclaredType(param.type, argValue);
                 
                 argumentValues.put(param.name, argValue);
                 
@@ -439,6 +447,9 @@ public class ConstructorResolver {
                 }
             } else if (param.hasDefaultValue) {
                 Object defaultValue = evaluateDefaultValue(evaluator, param, ctx);
+                if (param.type != null) {
+                    defaultValue = typeSystem.normalizeForDeclaredType(param.type, defaultValue);
+                }
                 argumentValues.put(param.name, defaultValue);
                 conversionScore++;
             } else {
@@ -483,6 +494,9 @@ public class ConstructorResolver {
                         return null;
                     }
                     Object defaultValue = evaluateDefaultValue(evaluator, param, ctx);
+                    if (param.type != null) {
+                        defaultValue = typeSystem.normalizeForDeclaredType(param.type, defaultValue);
+                    }
                     argumentValues.put(param.name, defaultValue);
                     conversionScore++;
                 } else {
@@ -495,6 +509,7 @@ public class ConstructorResolver {
                     if (!typeSystem.validateType(param.type, argValue)) {
                         return null;
                     }
+                    argValue = typeSystem.normalizeForDeclaredType(param.type, argValue);
                     
                     argumentValues.put(param.name, argValue);
                     
@@ -506,6 +521,9 @@ public class ConstructorResolver {
                 argIndex++;
             } else if (param.hasDefaultValue) {
                 Object defaultValue = evaluateDefaultValue(evaluator, param, ctx);
+                if (param.type != null) {
+                    defaultValue = typeSystem.normalizeForDeclaredType(param.type, defaultValue);
+                }
                 argumentValues.put(param.name, defaultValue);
                 conversionScore++;
             } else {
@@ -550,6 +568,8 @@ public class ConstructorResolver {
                 }
                 return null;
             }
+
+            argValue = typeSystem.normalizeForDeclaredType(param.type, argValue);
             
             if (param.type.contains("|")) {
                 String activeType = typeSystem.getConcreteType(typeSystem.unwrap(argValue));
@@ -580,6 +600,23 @@ public class ConstructorResolver {
         } catch (Exception e) {
             throw new InternalError("Default value evaluation failed for parameter: " + param.name, e);
         }
+    }
+
+    private boolean isUnsafeExecutionContext(ExecutionContext ctx) {
+        if (ctx == null) return false;
+        if (ctx.currentClass != null && ctx.currentClass.isUnsafe) {
+            return true;
+        }
+        if (ctx.currentMethodName == null || ctx.currentMethodName.isEmpty()) {
+            return false;
+        }
+        Type searchType = ctx.currentClass;
+        if (searchType == null && ctx.objectInstance != null) {
+            searchType = ctx.objectInstance.type;
+        }
+        if (searchType == null) return false;
+        Method currentMethod = findMethodInHierarchy(searchType, ctx.currentMethodName, ctx);
+        return currentMethod != null && currentMethod.isUnsafe;
     }
     
     private boolean isUnderscore(Expr expr) {
@@ -703,6 +740,8 @@ public class ConstructorResolver {
             }
             
             ExecutionContext constrCtx = new ExecutionContext(obj, new HashMap<String, Object>(), null, null, ctx.getTypeHandler());
+            constrCtx.currentClass = type;
+            constrCtx.setUnsafeExecutionContext(type.isUnsafe);
             
             for (Map.Entry<String, Object> entry : match.argumentValues.entrySet()) {
                 constrCtx.setVariable(entry.getKey(), entry.getValue());
@@ -857,13 +896,36 @@ public class ConstructorResolver {
                         obj.fields.put(field.name, defaultValue);
                     } else {
                         String fieldType = field.type;
-                        if (fieldType.contains(INT.toString())) {
+                        if (fieldType != null && typeSystem.isSizedArrayType(fieldType)) {
+                            int length = typeSystem.getSizedArrayLength(fieldType);
+                            int sizedLength = Math.max(length, 0);
+                            String elementType = typeSystem.getSizedArrayElementType(fieldType);
+                            List<Object> initialized = new ArrayList<Object>(sizedLength);
+                            Object elementDefault = 0;
+                            if (elementType != null && typeSystem.isUnsafeNumericType(elementType)) {
+                                elementDefault = typeSystem.convertType(0, elementType);
+                            } else if (elementType != null && elementType.contains(FLOAT.toString())) {
+                                elementDefault = 0.0;
+                            } else if (elementType != null && elementType.contains(TEXT.toString())) {
+                                elementDefault = "";
+                            } else if (elementType != null && elementType.contains(BOOL.toString())) {
+                                elementDefault = false;
+                            }
+                            for (int i = 0; i < sizedLength; i++) {
+                                initialized.add(elementDefault);
+                            }
+                            obj.fields.put(field.name, initialized);
+                        } else if (fieldType != null && typeSystem.isPointerType(fieldType)) {
+                            obj.fields.put(field.name, null);
+                        } else if (fieldType != null && typeSystem.isUnsafeNumericType(fieldType)) {
+                            obj.fields.put(field.name, typeSystem.convertType(0, fieldType));
+                        } else if (fieldType != null && fieldType.contains(INT.toString())) {
                             obj.fields.put(field.name, 0);
-                        } else if (fieldType.contains(FLOAT.toString())) {
+                        } else if (fieldType != null && fieldType.contains(FLOAT.toString())) {
                             obj.fields.put(field.name, 0.0);
-                        } else if (fieldType.contains(TEXT.toString())) {
+                        } else if (fieldType != null && fieldType.contains(TEXT.toString())) {
                             obj.fields.put(field.name, "");
-                        } else if (fieldType.contains(BOOL.toString())) {
+                        } else if (fieldType != null && fieldType.contains(BOOL.toString())) {
                             obj.fields.put(field.name, false);
                         } else {
                             obj.fields.put(field.name, null);
