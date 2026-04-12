@@ -1023,7 +1023,7 @@ public class LiteralRegistry {
             long zippedSize = Math.min(left.size(), right.size());
             if (zippedSize > Integer.MAX_VALUE) {
                 throw new ProgramError(
-                    "Zipped array size exceeds Integer.MAX_VALUE (" + Integer.MAX_VALUE + "): " + zippedSize
+                    "Zipped array size " + zippedSize + " exceeds Integer.MAX_VALUE"
                 );
             }
             this.size = (int) zippedSize;

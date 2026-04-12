@@ -155,9 +155,9 @@ public class ConditionalFormula {
         for (int i = indicatorExpressions.size() - 1; i >= 0; i--) {
             Expr indicator = cloneExpr(indicatorExpressions.get(i));
             Expr branchExpr = cloneExpr(branchExpressions.get(i));
-            Expr inverse = simplifyExpr(ASTFactory.createBinaryOp(one(), "-", indicator, null));
+            Expr complementIndicator = simplifyExpr(ASTFactory.createBinaryOp(one(), "-", indicator, null));
             Expr leftTerm = simplifyExpr(ASTFactory.createBinaryOp(indicator, "*", branchExpr, null));
-            Expr rightTerm = simplifyExpr(ASTFactory.createBinaryOp(inverse, "*", unified, null));
+            Expr rightTerm = simplifyExpr(ASTFactory.createBinaryOp(complementIndicator, "*", unified, null));
             unified = simplifyExpr(ASTFactory.createBinaryOp(leftTerm, "+", rightTerm, null));
         }
         return simplifyExpr(unified);
@@ -465,15 +465,15 @@ public class ConditionalFormula {
         if (!(left instanceof IntLiteral) || !(right instanceof IntLiteral)) {
             return null;
         }
-        long l = ((IntLiteral) left).value.longValue();
-        long r = ((IntLiteral) right).value.longValue();
-        if ("+".equals(op)) return ASTFactory.createLongLiteral(l + r, null);
-        if ("-".equals(op)) return ASTFactory.createLongLiteral(l - r, null);
-        if ("*".equals(op)) return ASTFactory.createLongLiteral(l * r, null);
+        long leftValue = ((IntLiteral) left).value.longValue();
+        long rightValue = ((IntLiteral) right).value.longValue();
+        if ("+".equals(op)) return ASTFactory.createLongLiteral(leftValue + rightValue, null);
+        if ("-".equals(op)) return ASTFactory.createLongLiteral(leftValue - rightValue, null);
+        if ("*".equals(op)) return ASTFactory.createLongLiteral(leftValue * rightValue, null);
         if ("/".equals(op)) {
-            if (r == 0L) return null;
-            if (l % r != 0L) return null;
-            return ASTFactory.createLongLiteral(l / r, null);
+            if (rightValue == 0L) return null;
+            if (leftValue % rightValue != 0L) return null;
+            return ASTFactory.createLongLiteral(leftValue / rightValue, null);
         }
         return null;
     }
@@ -547,7 +547,9 @@ public class ConditionalFormula {
         if (!a.getClass().equals(b.getClass())) return false;
 
         if (a instanceof Identifier) {
-            return ((Identifier) a).name.equals(((Identifier) b).name);
+            String leftName = ((Identifier) a).name;
+            String rightName = ((Identifier) b).name;
+            return leftName != null ? leftName.equals(rightName) : rightName == null;
         }
         if (a instanceof IntLiteral) {
             return ((IntLiteral) a).value.equals(((IntLiteral) b).value);
@@ -658,9 +660,9 @@ public class ConditionalFormula {
             return Integer.valueOf(((cod.math.AutoStackingNumber) left).compareTo((cod.math.AutoStackingNumber) right));
         }
         if (left instanceof Boolean && right instanceof Boolean) {
-            boolean l = ((Boolean) left).booleanValue();
-            boolean r = ((Boolean) right).booleanValue();
-            return Integer.valueOf(l == r ? 0 : (l ? 1 : -1));
+            boolean leftBool = ((Boolean) left).booleanValue();
+            boolean rightBool = ((Boolean) right).booleanValue();
+            return Integer.valueOf(leftBool == rightBool ? 0 : (leftBool ? 1 : -1));
         }
         if (left instanceof String && right instanceof String) {
             return Integer.valueOf(((String) left).compareTo((String) right));
