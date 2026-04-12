@@ -1407,7 +1407,14 @@ public class NaturalArray {
             ArrayTracker.recordFormulaApplication(this);
         }
         
-        conditionalFormulas.add(formula);
+        if (conditionalFormulas.isEmpty()) {
+            conditionalFormulas.add(formula);
+        } else {
+            ConditionalFormula current = conditionalFormulas.get(conditionalFormulas.size() - 1);
+            ConditionalFormula merged = ConditionalFormula.compose(formula, current);
+            conditionalFormulas.clear();
+            conditionalFormulas.add(merged);
+        }
         clearCache();
     }
 

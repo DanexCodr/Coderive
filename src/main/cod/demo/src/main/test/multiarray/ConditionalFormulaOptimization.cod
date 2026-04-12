@@ -1,0 +1,38 @@
+unit test.multiarray
+
+local isUnderThreshold(value: int, threshold: int) :: ok: bool {
+    ~> (ok: value < threshold)
+}
+
+share main() {
+    out("=== Conditional formula optimization ===")
+
+    optimized := [0 to 60]
+    for i of [0 to 60] {
+        if i % 2 == 0 {
+            base := i * 3
+            optimized[i] = base + 1
+        } elif i % 5 == 0 {
+            shifted := i + 7
+            optimized[i] = shifted * 2
+        } else {
+            optimized[i] = i - 1
+        }
+    }
+
+    out("optimized[10]=" + optimized[10] + " expected=31")
+    out("optimized[25]=" + optimized[25] + " expected=64")
+    out("optimized[7]=" + optimized[7] + " expected=6")
+
+    fallback := [0 to 40]
+    for i of [0 to 40] {
+        if isUnderThreshold(i, 12) {
+            fallback[i] = i + 100
+        } else {
+            fallback[i] = i - 100
+        }
+    }
+
+    out("fallback[5]=" + fallback[5] + " expected=105")
+    out("fallback[20]=" + fallback[20] + " expected=-80")
+}
