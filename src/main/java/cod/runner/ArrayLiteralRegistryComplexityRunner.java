@@ -107,8 +107,8 @@ public final class ArrayLiteralRegistryComplexityRunner {
             long start = System.nanoTime();
             List<Object> source = array.toList();
             List<Object> mapped = new ArrayList<Object>(source.size());
-            for (int j = 0; j < source.size(); j++) {
-                mapped.add(typeHandler.addNumbers(source.get(j), Integer.valueOf(1)));
+            for (int sourceIndex = 0; sourceIndex < source.size(); sourceIndex++) {
+                mapped.add(typeHandler.addNumbers(source.get(sourceIndex), Integer.valueOf(1)));
             }
             consume(mapped.size());
             out.add(Long.valueOf(System.nanoTime() - start));
@@ -141,8 +141,8 @@ public final class ArrayLiteralRegistryComplexityRunner {
             long start = System.nanoTime();
             List<Object> source = array.toList();
             List<Object> filtered = new ArrayList<Object>();
-            for (int j = 0; j < source.size(); j++) {
-                Object value = source.get(j);
+            for (int sourceIndex = 0; sourceIndex < source.size(); sourceIndex++) {
+                Object value = source.get(sourceIndex);
                 if (typeHandler.compare(value, Integer.valueOf(2)) > 0) {
                     filtered.add(value);
                 }
@@ -178,8 +178,8 @@ public final class ArrayLiteralRegistryComplexityRunner {
             long start = System.nanoTime();
             List<Object> source = array.toList();
             Object accumulator = Integer.valueOf(0);
-            for (int j = 0; j < source.size(); j++) {
-                accumulator = typeHandler.addNumbers(accumulator, source.get(j));
+            for (int sourceIndex = 0; sourceIndex < source.size(); sourceIndex++) {
+                accumulator = typeHandler.addNumbers(accumulator, source.get(sourceIndex));
             }
             consume(accumulator.toString().length());
             out.add(Long.valueOf(System.nanoTime() - start));
