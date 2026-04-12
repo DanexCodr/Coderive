@@ -43,6 +43,7 @@ public class ExecutionContext {
     // ========== OPTIMIZED LOOP CONTEXT ==========
     private boolean inOptimizedLoop = false;
     private List<Object> pendingOutputs = new ArrayList<Object>();
+    private boolean unsafeExecutionContext = false;
     
     // ========== TYPE HANDLER ==========
     private final TypeHandler typeHandler;
@@ -132,6 +133,14 @@ public Map<String, Object> getLocalsMap() {
         List<Object> outputs = new ArrayList<Object>(pendingOutputs);
         pendingOutputs.clear();
         return outputs;
+    }
+
+    public boolean isUnsafeExecutionContext() {
+        return unsafeExecutionContext;
+    }
+
+    public void setUnsafeExecutionContext(boolean unsafeExecutionContext) {
+        this.unsafeExecutionContext = unsafeExecutionContext;
     }
     
     public ExecutionContext(ObjectInstance obj, Map<String, Object> locals, 

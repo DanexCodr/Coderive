@@ -740,6 +740,8 @@ public class ConstructorResolver {
             }
             
             ExecutionContext constrCtx = new ExecutionContext(obj, new HashMap<String, Object>(), null, null, ctx.getTypeHandler());
+            constrCtx.currentClass = type;
+            constrCtx.setUnsafeExecutionContext(type.isUnsafe);
             
             for (Map.Entry<String, Object> entry : match.argumentValues.entrySet()) {
                 constrCtx.setVariable(entry.getKey(), entry.getValue());
@@ -894,13 +896,35 @@ public class ConstructorResolver {
                         obj.fields.put(field.name, defaultValue);
                     } else {
                         String fieldType = field.type;
-                        if (fieldType.contains(INT.toString())) {
+                        if (fieldType != null && typeSystem.isSizedArrayType(fieldType)) {
+                            int length = typeSystem.getSizedArrayLength(fieldType);
+                            String elementType = typeSystem.getSizedArrayElementType(fieldType);
+                            List<Object> initialized = new ArrayList<Object>(Math.max(length, 0));
+                            Object elementDefault = 0;
+                            if (elementType != null && typeSystem.isUnsafeNumericType(elementType)) {
+                                elementDefault = typeSystem.convertType(0, elementType);
+                            } else if (elementType != null && elementType.contains(FLOAT.toString())) {
+                                elementDefault = 0.0;
+                            } else if (elementType != null && elementType.contains(TEXT.toString())) {
+                                elementDefault = "";
+                            } else if (elementType != null && elementType.contains(BOOL.toString())) {
+                                elementDefault = false;
+                            }
+                            for (int i = 0; i < Math.max(length, 0); i++) {
+                                initialized.add(elementDefault);
+                            }
+                            obj.fields.put(field.name, initialized);
+                        } else if (fieldType != null && typeSystem.isPointerType(fieldType)) {
+                            obj.fields.put(field.name, null);
+                        } else if (fieldType != null && typeSystem.isUnsafeNumericType(fieldType)) {
+                            obj.fields.put(field.name, typeSystem.convertType(0, fieldType));
+                        } else if (fieldType != null && fieldType.contains(INT.toString())) {
                             obj.fields.put(field.name, 0);
-                        } else if (fieldType.contains(FLOAT.toString())) {
+                        } else if (fieldType != null && fieldType.contains(FLOAT.toString())) {
                             obj.fields.put(field.name, 0.0);
-                        } else if (fieldType.contains(TEXT.toString())) {
+                        } else if (fieldType != null && fieldType.contains(TEXT.toString())) {
                             obj.fields.put(field.name, "");
-                        } else if (fieldType.contains(BOOL.toString())) {
+                        } else if (fieldType != null && fieldType.contains(BOOL.toString())) {
                             obj.fields.put(field.name, false);
                         } else {
                             obj.fields.put(field.name, null);

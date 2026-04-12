@@ -923,6 +923,8 @@ public void run(Object entryPoint) {
         ctx.currentClass = associatedClass;
       }
     }
+    boolean unsafeContext = node.isUnsafe || (ctx.currentClass != null && ctx.currentClass.isUnsafe);
+    ctx.setUnsafeExecutionContext(unsafeContext);
     
     visitor.pushContext(ctx);
     Object result = null;
@@ -1130,6 +1132,8 @@ public void run(Object entryPoint) {
             ctx.currentClass = classType;
         }
     }
+    boolean unsafeContext = method.isUnsafe || (ctx.currentClass != null && ctx.currentClass.isUnsafe);
+    ctx.setUnsafeExecutionContext(unsafeContext);
 
     visitor.pushContext(ctx);
     boolean calledMethodHasSlots = method.returnSlots != null && !method.returnSlots.isEmpty();

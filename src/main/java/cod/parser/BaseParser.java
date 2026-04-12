@@ -273,7 +273,7 @@ public abstract class BaseParser {
   protected boolean isTypeStart(Token token) {
     return any(is(token, INT, TEXT, FLOAT, BOOL, TYPE, I8, I16, I32, I64, U8, U16, U32, U64, F32, F64),
            is(token, ID),
-           is(token, LPAREN, LBRACKET));
+           is(token, LPAREN, LBRACKET, MUL));
   }
 
   protected boolean isUnsafeTypeContext() {
@@ -325,7 +325,13 @@ public abstract class BaseParser {
   protected String parseTypeReference() {
     StringBuilder type = new StringBuilder();
 
-    if (is(LBRACKET)) {
+    if (is(MUL)) {
+      Token pointerToken = expect(MUL);
+      if (!isUnsafeTypeContext()) {
+        throw error("Pointer types can only be used inside an unsafe class or method", pointerToken);
+      }
+      type.append("*").append(parseTypeReference());
+    } else if (is(LBRACKET)) {
       expect(LBRACKET);
       if (is(RBRACKET)) {
         expect(RBRACKET);
@@ -350,6 +356,19 @@ public abstract class BaseParser {
       } else {
         throw error("Expected type name");
       }
+    }
+
+    while (is(LBRACKET)) {
+      Token lbracketToken = expect(LBRACKET);
+      if (!isUnsafeTypeContext()) {
+        throw error("Sized array types can only be used inside an unsafe class or method", lbracketToken);
+      }
+      if (is(INT_LIT)) {
+        type.append("[").append(expect(INT_LIT).getText()).append("]");
+      } else {
+        type.append("[]");
+      }
+      expect(RBRACKET);
     }
 
     if (consume(QUESTION)) {
@@ -408,7 +427,7 @@ public abstract class BaseParser {
       return false;
     }
     return any(is(t, INT_LIT, FLOAT_LIT, TEXT_LIT, BOOL_LIT, ID),
-         is(t, LPAREN, LBRACKET, BANG, PLUS, MINUS, DOLLAR),
+         is(t, LPAREN, LBRACKET, BANG, PLUS, MINUS, DOLLAR, AMPERSAND, MUL),
          is(t, NONE, TRUE, FALSE, SUPER, THIS));
   }
 

@@ -238,12 +238,6 @@ public class DeclarationParser extends BaseParser {
     Token visibilityToken = null;
     boolean isUnsafeType = false;
 
-    if (is(UNSAFE)) {
-      throw error(
-          "Class declaration cannot start with 'unsafe'. Expected: [share|local] unsafe ClassName",
-          now());
-    }
-
     if (is(SHARE, LOCAL)) {
         visibilityToken = now();
         Token currentVisibility = consume();
@@ -261,9 +255,6 @@ public class DeclarationParser extends BaseParser {
     }
 
     if (is(UNSAFE)) {
-        if (visibility == null) {
-            throw error("Unsafe class declarations require an explicit visibility modifier before 'unsafe'", now());
-        }
         consume();
         isUnsafeType = true;
     }
