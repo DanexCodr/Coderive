@@ -1514,7 +1514,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     private Object executeSafeCommit(MethodCall node, ExecutionContext ctx) {
         if (isUnsafeExecutionContext(ctx)) {
             throw new ProgramError(
-                "safe() cannot be used inside unsafe classes or methods because those contexts already run in unsafe mode");
+                "safe() is not allowed inside unsafe classes or methods; these contexts already have permission to execute unsafe code");
         }
         if (node.arguments == null || node.arguments.size() != 1) {
             throw new ProgramError("safe() expects exactly one argument");
@@ -1533,8 +1533,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
 
         if (!unsafeTarget) {
             throw new ProgramError(
-                "safe() can only commit calls to unsafe methods or constructors of unsafe classes. "
-                    + "The provided target is not marked unsafe");
+                "safe() requires an unsafe method call or unsafe class constructor as its argument, but the provided expression is not marked unsafe");
         }
 
         ExecutionContext.enterUnsafeCommitAllowance();

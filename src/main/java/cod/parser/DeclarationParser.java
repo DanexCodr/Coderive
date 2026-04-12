@@ -240,8 +240,7 @@ public class DeclarationParser extends BaseParser {
 
     if (is(UNSAFE)) {
       throw error(
-          "Visibility modifier (share/local) must appear before 'unsafe' in class declarations. "
-              + "Expected: [share|local] unsafe ClassName",
+          "Class declaration cannot start with 'unsafe'. Expected: [share|local] unsafe ClassName",
           now());
     }
 
