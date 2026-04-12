@@ -305,8 +305,7 @@ public class ConditionalFormula {
     }
 
     private Expr buildNumericIndicator(Expr condition) {
-        Expr numeric = simplifyExpr(convertBooleanToNumeric(cloneExpr(condition)));
-        return numeric != null ? numeric : null;
+        return simplifyExpr(convertBooleanToNumeric(cloneExpr(condition)));
     }
 
     private Expr convertBooleanToNumeric(Expr condition) {
@@ -337,8 +336,12 @@ public class ConditionalFormula {
                 Expr left = convertBooleanToNumeric(binary.left);
                 Expr right = convertBooleanToNumeric(binary.right);
                 if (left == null || right == null) return null;
-                Expr sum = ASTFactory.createBinaryOp(left, "+", right, null);
-                Expr prod = ASTFactory.createBinaryOp(cloneExpr(left), "*", cloneExpr(right), null);
+                Expr leftCloneA = cloneExpr(left);
+                Expr rightCloneA = cloneExpr(right);
+                Expr leftCloneB = cloneExpr(left);
+                Expr rightCloneB = cloneExpr(right);
+                Expr sum = ASTFactory.createBinaryOp(leftCloneA, "+", rightCloneA, null);
+                Expr prod = ASTFactory.createBinaryOp(leftCloneB, "*", rightCloneB, null);
                 return ASTFactory.createBinaryOp(sum, "-", prod, null);
             }
         }
@@ -460,7 +463,13 @@ public class ConditionalFormula {
     private Expr cloneExpr(Expr expr) {
         if (expr == null) return null;
         if (expr instanceof Identifier) return ASTFactory.createIdentifier(((Identifier) expr).name, null);
-        if (expr instanceof IntLiteral) return ASTFactory.createLongLiteral(((IntLiteral) expr).value.longValue(), null);
+        if (expr instanceof IntLiteral) {
+            long value = ((IntLiteral) expr).value.longValue();
+            if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
+                return ASTFactory.createIntLiteral((int) value, null);
+            }
+            return ASTFactory.createLongLiteral(value, null);
+        }
         if (expr instanceof FloatLiteral) return ASTFactory.createFloatLiteral(((FloatLiteral) expr).value, null);
         if (expr instanceof BoolLiteral) return ASTFactory.createBoolLiteral(((BoolLiteral) expr).value, null);
         if (expr instanceof TextLiteral) return ASTFactory.createTextLiteral(((TextLiteral) expr).value, null);
