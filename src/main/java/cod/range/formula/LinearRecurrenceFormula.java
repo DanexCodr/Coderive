@@ -15,6 +15,7 @@ public class LinearRecurrenceFormula {
     private final boolean hasConstantTerm;
     private final LinearRecurrenceFormula newerFormula;
     private final LinearRecurrenceFormula olderFormula;
+    private final Object rollingStateLock = new Object();
     private transient long rollingIndex = Long.MIN_VALUE;
     private transient AutoStackingNumber[] rollingState = null;
     private static final AutoStackingNumber ZERO = AutoStackingNumber.fromLong(0L);
@@ -40,6 +41,7 @@ public class LinearRecurrenceFormula {
         this.hasConstantTerm = !this.constantTerm.isZero();
         this.newerFormula = null;
         this.olderFormula = null;
+        resetRollingState();
     }
 
     private LinearRecurrenceFormula(long start, long end,
@@ -56,6 +58,7 @@ public class LinearRecurrenceFormula {
         this.hasConstantTerm = false;
         this.newerFormula = newerFormula;
         this.olderFormula = olderFormula;
+        resetRollingState();
     }
 
     public static LinearRecurrenceFormula compose(LinearRecurrenceFormula newerFormula, LinearRecurrenceFormula olderFormula) {
@@ -74,7 +77,7 @@ public class LinearRecurrenceFormula {
         return index >= start && index <= end;
     }
 
-    public synchronized Object evaluate(long index) {
+    public Object evaluate(long index) {
         if (isComposite()) {
             if (newerFormula != null && newerFormula.contains(index)) {
                 return newerFormula.evaluate(index);
@@ -97,14 +100,15 @@ public class LinearRecurrenceFormula {
             return null;
         }
 
-        if (rollingState != null && index == rollingIndex) {
-            return rollingState[0];
-        }
-
-        if (rollingState != null && index == rollingIndex + 1L) {
-            advanceRollingState();
-            rollingIndex = index;
-            return rollingState[0];
+        synchronized (rollingStateLock) {
+            if (rollingState != null && index == rollingIndex) {
+                return rollingState[0];
+            }
+            if (rollingState != null && index == rollingIndex + 1L) {
+                advanceRollingState();
+                rollingIndex = index;
+                return rollingState[0];
+            }
         }
 
         long lastSeedIndex = recurrenceStart - 1L;
@@ -116,8 +120,10 @@ public class LinearRecurrenceFormula {
 
         AutoStackingNumber[][] power = matrixPow(transition, steps);
         AutoStackingNumber[] result = multiply(power, state);
-        rollingState = copyState(result);
-        rollingIndex = index;
+        synchronized (rollingStateLock) {
+            rollingState = copyState(result);
+            rollingIndex = index;
+        }
         return result[0];
     }
 
@@ -173,16 +179,21 @@ public class LinearRecurrenceFormula {
             }
         }
 
-        AutoStackingNumber[] nextState = Arrays.copyOf(rollingState, rollingState.length);
-        for (int i = order - 1; i >= 1; i--) {
+        AutoStackingNumber[] nextState = new AutoStackingNumber[rollingState.length];
+        nextState[0] = next;
+        for (int i = 1; i < order; i++) {
             nextState[i] = rollingState[i - 1];
         }
-        nextState[0] = next;
 
         if (hasConstantTerm) {
             nextState[nextState.length - 1] = ONE;
         }
         rollingState = nextState;
+    }
+
+    private void resetRollingState() {
+        rollingIndex = Long.MIN_VALUE;
+        rollingState = null;
     }
 
     private AutoStackingNumber[][] matrixPow(AutoStackingNumber[][] base, long exp) {
