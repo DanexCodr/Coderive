@@ -2,6 +2,13 @@
 
 All notable changes to Coderive are documented in this file.
 
+## [v0.8.4] - Formula Lock-In - April 12, 2026
+
+### ✨ Major Updates
+- **LinearRecurrenceFormula moved to constant-space evaluation** — Removed range-sized recurrence precomputation tables so recurrence evaluation no longer allocates memory proportional to covered range size.
+- **Linear recurrence composition in NaturalArray** — `addLinearRecurrenceFormula(...)` now composes newly added formulas with existing recurrence formulas (newer-over-older), mirroring the optimized conditional formula path.
+- **Recurrence lookup cache cleanup** — Removed per-index recurrence-formula index caching to avoid linear growth of recurrence metadata with random index access.
+
 ## [v0.8.0] - Fancy Machine - April 07, 2026
 
 ### ✨ Major Updates

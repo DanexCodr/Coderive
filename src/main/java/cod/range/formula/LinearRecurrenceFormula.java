@@ -12,7 +12,8 @@ public class LinearRecurrenceFormula {
     public final AutoStackingNumber[] seedValues;
     public final long seedStartIndex;
     private final boolean hasConstantTerm;
-    private final AutoStackingNumber[] precomputedValues;
+    private final LinearRecurrenceFormula newerFormula;
+    private final LinearRecurrenceFormula olderFormula;
     private static final AutoStackingNumber ZERO = AutoStackingNumber.fromLong(0L);
     private static final AutoStackingNumber ONE = AutoStackingNumber.fromLong(1L);
 
@@ -34,19 +35,51 @@ public class LinearRecurrenceFormula {
         this.seedStartIndex = seedStartIndex;
         this.order = coefficientsByLag != null ? coefficientsByLag.length : 0;
         this.hasConstantTerm = !this.constantTerm.isZero();
-        this.precomputedValues = buildPrecomputedValues();
+        this.newerFormula = null;
+        this.olderFormula = null;
+    }
+
+    private LinearRecurrenceFormula(long start, long end,
+                                    LinearRecurrenceFormula newerFormula,
+                                    LinearRecurrenceFormula olderFormula) {
+        this.start = start;
+        this.end = end;
+        this.recurrenceStart = 0L;
+        this.order = 0;
+        this.coefficientsByLag = null;
+        this.constantTerm = ZERO;
+        this.seedValues = null;
+        this.seedStartIndex = 0L;
+        this.hasConstantTerm = false;
+        this.newerFormula = newerFormula;
+        this.olderFormula = olderFormula;
+    }
+
+    public static LinearRecurrenceFormula compose(LinearRecurrenceFormula newerFormula, LinearRecurrenceFormula olderFormula) {
+        if (newerFormula == null) return olderFormula;
+        if (olderFormula == null) return newerFormula;
+        long mergedStart = Math.min(newerFormula.start, olderFormula.start);
+        long mergedEnd = Math.max(newerFormula.end, olderFormula.end);
+        return new LinearRecurrenceFormula(mergedStart, mergedEnd, newerFormula, olderFormula);
     }
 
     public boolean contains(long index) {
+        if (isComposite()) {
+            return (newerFormula != null && newerFormula.contains(index))
+                || (olderFormula != null && olderFormula.contains(index));
+        }
         return index >= start && index <= end;
     }
 
     public Object evaluate(long index) {
-        if (precomputedValues != null) {
-            if (index < start || index > end) {
-                return null;
+        if (isComposite()) {
+            if (newerFormula != null && newerFormula.contains(index)) {
+                return newerFormula.evaluate(index);
             }
-            return precomputedValues[(int) (index - start)];
+            if (olderFormula != null && olderFormula.contains(index)) {
+                return olderFormula.evaluate(index);
+            }
+            return null;
         }
 
         if (order <= 0 || seedValues == null || seedValues.length != order) {
@@ -98,60 +131,8 @@ public class LinearRecurrenceFormula {
         return result[0];
     }
 
-    private AutoStackingNumber[] buildPrecomputedValues() {
-        if (order <= 0 || seedValues == null || seedValues.length != order) {
-            return null;
-        }
-
-        long total = end - start + 1L;
-        if (total <= 0L || total > Integer.MAX_VALUE) {
-            return null;
-        }
-
-        int size = (int) total;
-        AutoStackingNumber[] table = new AutoStackingNumber[size];
-        java.util.HashMap<Long, AutoStackingNumber> values = new java.util.HashMap<Long, AutoStackingNumber>();
-
-        for (int i = 0; i < seedValues.length; i++) {
-            values.put(seedStartIndex + i, seedValues[i]);
-        }
-
-        long computeStart = Math.min(start, seedStartIndex);
-        for (long idx = computeStart; idx <= end; idx++) {
-            AutoStackingNumber value = values.get(idx);
-            boolean hasIndex = values.containsKey(idx);
-            if (value == null && !hasIndex) {
-                if (idx >= recurrenceStart) {
-                    AutoStackingNumber sum = hasConstantTerm ? constantTerm : ZERO;
-                    for (int lag = 1; lag <= order; lag++) {
-                        long prevIndex = idx - lag;
-                        AutoStackingNumber prev = values.get(prevIndex);
-                        boolean hasPrev = values.containsKey(prevIndex);
-                        if (prev == null && !hasPrev) {
-                            sum = null;
-                            break;
-                        }
-                        AutoStackingNumber coeff = coefficientsByLag[lag - 1];
-                        AutoStackingNumber safeCoeff = coeff != null ? coeff : ZERO;
-                        if (prev == null) {
-                            sum = null;
-                            break;
-                        }
-                        sum = sum.add(safeCoeff.multiply(prev));
-                    }
-                    value = sum;
-                } else {
-                    value = null;
-                }
-                values.put(idx, value);
-            }
-
-            if (idx >= start) {
-                table[(int) (idx - start)] = value;
-            }
-        }
-
-        return table;
+    private boolean isComposite() {
+        return newerFormula != null || olderFormula != null;
     }
 
     private AutoStackingNumber[][] matrixPow(AutoStackingNumber[][] base, long exp) {

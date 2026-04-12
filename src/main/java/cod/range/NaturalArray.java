@@ -63,7 +63,6 @@ public class NaturalArray {
     private List<SequenceFormula> sequenceFormulas = new ArrayList<SequenceFormula>();
     private List<ConditionalFormula> conditionalFormulas = new ArrayList<ConditionalFormula>();
     private List<LinearRecurrenceFormula> linearRecurrenceFormulas = new ArrayList<LinearRecurrenceFormula>();
-    private Map<Long, Integer> linearRecurrenceFormulaIndexCache = new HashMap<Long, Integer>();
     private Map<Long, Object> computedCache = new HashMap<Long, Object>();
     
     // Pending updates for lazy assignment
@@ -1427,16 +1426,20 @@ public class NaturalArray {
             ArrayTracker.recordFormulaApplication(this);
         }
         
-        linearRecurrenceFormulas.add(formula);
+        if (linearRecurrenceFormulas.isEmpty()) {
+            linearRecurrenceFormulas.add(formula);
+        } else {
+            int lastIndex = linearRecurrenceFormulas.size() - 1;
+            LinearRecurrenceFormula current = linearRecurrenceFormulas.get(lastIndex);
+            LinearRecurrenceFormula merged = LinearRecurrenceFormula.compose(formula, current);
+            linearRecurrenceFormulas.set(lastIndex, merged);
+        }
         clearCache();
     }
 
     public void clearCache() {
         if (computedCache != null) {
             computedCache.clear();
-        }
-        if (linearRecurrenceFormulaIndexCache != null) {
-            linearRecurrenceFormulaIndexCache.clear();
         }
         clearRecentCache();
         lastIndex = null;
@@ -1507,32 +1510,6 @@ public class NaturalArray {
     private Object evaluateLinearRecurrenceFormulas(long index) {
         if (linearRecurrenceFormulas.isEmpty()) return null;
 
-        Integer cachedFormulaIndex = linearRecurrenceFormulaIndexCache.get(index);
-        if (cachedFormulaIndex != null) {
-            int idx = cachedFormulaIndex.intValue();
-            if (idx >= 0 && idx < linearRecurrenceFormulas.size()) {
-                LinearRecurrenceFormula cachedFormula = linearRecurrenceFormulas.get(idx);
-                if (cachedFormula != null && cachedFormula.contains(index)) {
-                    try {
-                        Object cachedResult = cachedFormula.evaluate(index);
-                        if (cachedResult != null) {
-                            if (computedCache == null) {
-                                computedCache = new HashMap<Long, Object>();
-                            }
-                            computedCache.put(index, cachedResult);
-                            return cachedResult;
-                        }
-                    } catch (ProgramError e) {
-                        throw e;
-                    } catch (Exception e) {
-                        throw new InternalError(
-                            "Linear recurrence formula evaluation failed at index " + index, e);
-                    }
-                }
-            }
-            linearRecurrenceFormulaIndexCache.remove(index);
-        }
-
         for (int i = linearRecurrenceFormulas.size() - 1; i >= 0; i--) {
             LinearRecurrenceFormula formula = linearRecurrenceFormulas.get(i);
             if (formula == null) {
@@ -1547,10 +1524,6 @@ public class NaturalArray {
                             computedCache = new HashMap<Long, Object>();
                         }
                         computedCache.put(index, result);
-                        if (linearRecurrenceFormulaIndexCache == null) {
-                            linearRecurrenceFormulaIndexCache = new HashMap<Long, Integer>();
-                        }
-                        linearRecurrenceFormulaIndexCache.put(index, i);
                     }
                     return result;
                 } catch (ProgramError e) {
