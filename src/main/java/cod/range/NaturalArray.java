@@ -63,6 +63,7 @@ public class NaturalArray {
     private List<SequenceFormula> sequenceFormulas = new ArrayList<SequenceFormula>();
     private List<ConditionalFormula> conditionalFormulas = new ArrayList<ConditionalFormula>();
     private List<LinearRecurrenceFormula> linearRecurrenceFormulas = new ArrayList<LinearRecurrenceFormula>();
+    private List<VectorRecurrenceBinding> vectorRecurrenceFormulas = new ArrayList<VectorRecurrenceBinding>();
     private Map<Long, Object> computedCache = new HashMap<Long, Object>();
     
     // Pending updates for lazy assignment
@@ -233,6 +234,16 @@ public class NaturalArray {
             if (this.range.start < other.range.start) return -1;
             if (this.range.start > other.range.start) return 1;
             return 0;
+        }
+    }
+
+    private static class VectorRecurrenceBinding {
+        final VectorRecurrenceFormula formula;
+        final int sequenceIndex;
+
+        VectorRecurrenceBinding(VectorRecurrenceFormula formula, int sequenceIndex) {
+            this.formula = formula;
+            this.sequenceIndex = sequenceIndex;
         }
     }
 
@@ -832,6 +843,15 @@ public class NaturalArray {
         }
         
         // Then linear recurrence formulas
+        Object vectorRecurrenceResult = evaluateVectorRecurrenceFormulas(index);
+        if (vectorRecurrenceResult != null) {
+            lastIndex = index;
+            lastValue = vectorRecurrenceResult;
+            updateRecentCache(index, vectorRecurrenceResult);
+            return maybeConvert(vectorRecurrenceResult);
+        }
+
+        // Then scalar linear recurrence formulas
         Object recurrenceResult = evaluateLinearRecurrenceFormulas(index);
         if (recurrenceResult != null) {
             lastIndex = index;
@@ -1437,6 +1457,22 @@ public class NaturalArray {
         clearCache();
     }
 
+    public void addVectorRecurrenceFormula(VectorRecurrenceFormula formula, int sequenceIndex) {
+        if (formula == null) {
+            throw new InternalError("Attempted to add null VectorRecurrenceFormula");
+        }
+        if (sequenceIndex < 0 || sequenceIndex >= formula.dimension) {
+            throw new ProgramError("Invalid vector recurrence sequence index: " + sequenceIndex);
+        }
+
+        if (tracked) {
+            ArrayTracker.recordFormulaApplication(this);
+        }
+
+        vectorRecurrenceFormulas.add(new VectorRecurrenceBinding(formula, sequenceIndex));
+        clearCache();
+    }
+
     public void clearCache() {
         if (computedCache != null) {
             computedCache.clear();
@@ -1531,6 +1567,35 @@ public class NaturalArray {
                 } catch (Exception e) {
                     throw new InternalError(
                         "Linear recurrence formula evaluation failed at index " + index, e);
+                }
+            }
+        }
+        return null;
+    }
+
+    private Object evaluateVectorRecurrenceFormulas(long index) {
+        if (vectorRecurrenceFormulas.isEmpty()) return null;
+
+        for (int i = vectorRecurrenceFormulas.size() - 1; i >= 0; i--) {
+            VectorRecurrenceBinding binding = vectorRecurrenceFormulas.get(i);
+            if (binding == null || binding.formula == null) {
+                throw new InternalError("Null VectorRecurrenceFormula binding in list");
+            }
+            if (binding.formula.contains(index)) {
+                try {
+                    Object result = binding.formula.evaluate(index, binding.sequenceIndex);
+                    if (result != null) {
+                        if (computedCache == null) {
+                            computedCache = new HashMap<Long, Object>();
+                        }
+                        computedCache.put(index, result);
+                    }
+                    return result;
+                } catch (ProgramError e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new InternalError(
+                        "Vector recurrence formula evaluation failed at index " + index, e);
                 }
             }
         }
@@ -1693,6 +1758,9 @@ public class NaturalArray {
             }
             if (!linearRecurrenceFormulas.isEmpty()) {
                 sb.append("\n  Linear recurrence formulas: ").append(linearRecurrenceFormulas.size());
+            }
+            if (!vectorRecurrenceFormulas.isEmpty()) {
+                sb.append("\n  Vector recurrence formulas: ").append(vectorRecurrenceFormulas.size());
             }
             return sb.toString();
             

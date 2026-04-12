@@ -10,6 +10,7 @@ import cod.range.NaturalArray;
 import cod.range.formula.ConditionalFormula;
 import cod.range.formula.LinearRecurrenceFormula;
 import cod.range.formula.SequenceFormula;
+import cod.range.formula.VectorRecurrenceFormula;
 import cod.range.pattern.ConditionalPattern;
 import cod.range.pattern.SequencePattern;
 
@@ -19,7 +20,8 @@ public class PatternHandler {
     public enum PatternType {
         CONDITIONAL,
         SEQUENCE,
-        LINEAR_RECURRENCE
+        LINEAR_RECURRENCE,
+        VECTOR_LINEAR_RECURRENCE
     }
 
     public static class PatternResult {
@@ -65,6 +67,40 @@ public class PatternHandler {
         }
     }
 
+    public static class VectorRecurrencePattern {
+        public final List<Expr> targetArrays;
+        public final int dimension;
+        public final int order;
+        public final AutoStackingNumber[][] coefficients;
+        public final AutoStackingNumber[] constantTerms;
+        public final long recurrenceStart;
+        public final long seedStart;
+        public final AutoStackingNumber[][] seedValues;
+        public final Map<String, Integer> targetIndexByName;
+
+        public VectorRecurrencePattern(
+            List<Expr> targetArrays,
+            int dimension,
+            int order,
+            AutoStackingNumber[][] coefficients,
+            AutoStackingNumber[] constantTerms,
+            long recurrenceStart,
+            long seedStart,
+            AutoStackingNumber[][] seedValues,
+            Map<String, Integer> targetIndexByName
+        ) {
+            this.targetArrays = targetArrays;
+            this.dimension = dimension;
+            this.order = order;
+            this.coefficients = coefficients;
+            this.constantTerms = constantTerms;
+            this.recurrenceStart = recurrenceStart;
+            this.seedStart = seedStart;
+            this.seedValues = seedValues;
+            this.targetIndexByName = targetIndexByName;
+        }
+    }
+
     private final InterpreterVisitor dispatcher;
     private final TypeHandler typeSystem;
     private final ExpressionHandler expressionHandler;
@@ -95,6 +131,10 @@ public class PatternHandler {
         }
 
         try {
+            if (isVectorRecurrencePatternSet(patterns)) {
+                return applyVectorRecurrencePatterns(node, patterns);
+            }
+
             List<NaturalArray> targetArrays = new ArrayList<NaturalArray>();
             List<List<PatternResult>> groupedPatterns = new ArrayList<List<PatternResult>>();
             Map<Integer, Integer> arrayIdToGroupIndex = new HashMap<Integer, Integer>();
@@ -284,5 +324,104 @@ public class PatternHandler {
         } catch (Exception e) {
             throw new InternalError("Failed to apply linear recurrence pattern", e);
         }
+    }
+
+    private boolean isVectorRecurrencePatternSet(List<PatternResult> patterns) {
+        if (patterns == null || patterns.isEmpty()) return false;
+        for (PatternResult result : patterns) {
+            if (result == null || result.type != PatternType.VECTOR_LINEAR_RECURRENCE) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Object applyVectorRecurrencePatterns(For node, List<PatternResult> patterns) {
+        PatternResult first = patterns.get(0);
+        if (!(first.pattern instanceof VectorRecurrencePattern)) {
+            throw new InternalError("Invalid vector recurrence pattern payload");
+        }
+        VectorRecurrencePattern pattern = (VectorRecurrencePattern) first.pattern;
+
+        long start = 0L;
+        long end = 0L;
+        boolean boundsFound = false;
+
+        if (node.range != null) {
+            Object startObj = dispatcher.dispatch(node.range.start);
+            Object endObj = dispatcher.dispatch(node.range.end);
+            start = expressionHandler.toLong(startObj);
+            end = expressionHandler.toLong(endObj);
+            boundsFound = true;
+        } else if (node.arraySource != null) {
+            Object sourceObj = dispatcher.dispatch(node.arraySource);
+            sourceObj = typeSystem.unwrap(sourceObj);
+            if (sourceObj instanceof NaturalArray) {
+                NaturalArray sourceArr = (NaturalArray) sourceObj;
+                if (sourceArr.size() > 0) {
+                    start = 0L;
+                    end = sourceArr.size() - 1L;
+                    boundsFound = true;
+                }
+            } else if (sourceObj instanceof List) {
+                List<?> sourceList = (List<?>) sourceObj;
+                if (!sourceList.isEmpty()) {
+                    start = 0L;
+                    end = sourceList.size() - 1L;
+                    boundsFound = true;
+                }
+            }
+        }
+
+        if (!boundsFound) {
+            DebugSystem.debug("OPTIMIZER", "Vector recurrence: unable to resolve loop bounds");
+            return arrayOperationHandler.executeForLoopNormally(node);
+        }
+
+        long min = Math.min(start, end);
+        long max = Math.max(start, end);
+        long formulaStart = Math.max(min, pattern.seedStart);
+        long formulaEnd = max;
+        if (formulaEnd < formulaStart) {
+            return arrayOperationHandler.executeForLoopNormally(node);
+        }
+
+        VectorRecurrenceFormula formula = new VectorRecurrenceFormula(
+            formulaStart,
+            formulaEnd,
+            pattern.recurrenceStart,
+            pattern.seedStart,
+            pattern.dimension,
+            pattern.order,
+            pattern.coefficients,
+            pattern.constantTerms,
+            pattern.seedValues
+        );
+
+        List<NaturalArray> attachedArrays = new ArrayList<NaturalArray>();
+        for (Expr targetExpr : pattern.targetArrays) {
+            Object resolvedArray = dispatcher.dispatch(targetExpr);
+            resolvedArray = typeSystem.unwrap(resolvedArray);
+            if (!(resolvedArray instanceof NaturalArray)) {
+                DebugSystem.debug("OPTIMIZER", "Vector recurrence target not NaturalArray; fallback");
+                return arrayOperationHandler.executeForLoopNormally(node);
+            }
+            NaturalArray arr = (NaturalArray) resolvedArray;
+            if (!(targetExpr instanceof Identifier)) {
+                return arrayOperationHandler.executeForLoopNormally(node);
+            }
+            String name = ((Identifier) targetExpr).name;
+            Integer seqIndex = pattern.targetIndexByName.get(name);
+            if (seqIndex == null) {
+                return arrayOperationHandler.executeForLoopNormally(node);
+            }
+            arr.addVectorRecurrenceFormula(formula, seqIndex.intValue());
+            attachedArrays.add(arr);
+        }
+
+        if (attachedArrays.isEmpty()) {
+            return arrayOperationHandler.executeForLoopNormally(node);
+        }
+        return attachedArrays.get(attachedArrays.size() - 1);
     }
 }
