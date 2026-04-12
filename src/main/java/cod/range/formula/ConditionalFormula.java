@@ -585,7 +585,7 @@ public class ConditionalFormula {
                 && structurallyEqual(x.thenExpr, y.thenExpr)
                 && structurallyEqual(x.elseExpr, y.elseExpr);
         }
-        return a.toString().equals(b.toString());
+        return false;
     }
 
     private Boolean evaluateConstantBoolean(Expr expr) {

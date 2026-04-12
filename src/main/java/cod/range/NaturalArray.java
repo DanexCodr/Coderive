@@ -1410,10 +1410,10 @@ public class NaturalArray {
         if (conditionalFormulas.isEmpty()) {
             conditionalFormulas.add(formula);
         } else {
-            ConditionalFormula current = conditionalFormulas.get(conditionalFormulas.size() - 1);
+            int lastIndex = conditionalFormulas.size() - 1;
+            ConditionalFormula current = conditionalFormulas.get(lastIndex);
             ConditionalFormula merged = ConditionalFormula.compose(formula, current);
-            conditionalFormulas.clear();
-            conditionalFormulas.add(merged);
+            conditionalFormulas.set(lastIndex, merged);
         }
         clearCache();
     }
