@@ -14,6 +14,8 @@ public class LinearRecurrenceFormula {
     private final boolean hasConstantTerm;
     private final LinearRecurrenceFormula newerFormula;
     private final LinearRecurrenceFormula olderFormula;
+    private transient long rollingIndex = Long.MIN_VALUE;
+    private transient AutoStackingNumber[] rollingState = null;
     private static final AutoStackingNumber ZERO = AutoStackingNumber.fromLong(0L);
     private static final AutoStackingNumber ONE = AutoStackingNumber.fromLong(1L);
 
@@ -94,10 +96,35 @@ public class LinearRecurrenceFormula {
             return null;
         }
 
+        if (rollingState != null && index == rollingIndex) {
+            return rollingState[0];
+        }
+
+        if (rollingState != null && index == rollingIndex + 1L) {
+            advanceRollingState();
+            rollingIndex = index;
+            return rollingState[0];
+        }
+
         long lastSeedIndex = recurrenceStart - 1L;
         long steps = index - lastSeedIndex;
 
         int dim = hasConstantTerm ? order + 1 : order;
+        AutoStackingNumber[][] transition = buildTransition(dim);
+        AutoStackingNumber[] state = buildBaseState(dim);
+
+        AutoStackingNumber[][] power = matrixPow(transition, steps);
+        AutoStackingNumber[] result = multiply(power, state);
+        rollingState = copyState(result);
+        rollingIndex = index;
+        return result[0];
+    }
+
+    private boolean isComposite() {
+        return newerFormula != null || olderFormula != null;
+    }
+
+    private AutoStackingNumber[][] buildTransition(int dim) {
         AutoStackingNumber[][] transition = new AutoStackingNumber[dim][dim];
         for (int i = 0; i < dim; i++) {
             for (int j = 0; j < dim; j++) {
@@ -118,6 +145,10 @@ public class LinearRecurrenceFormula {
             transition[last][last] = ONE;
         }
 
+        return transition;
+    }
+
+    private AutoStackingNumber[] buildBaseState(int dim) {
         AutoStackingNumber[] state = new AutoStackingNumber[dim];
         for (int j = 0; j < order; j++) {
             state[j] = seedValues[order - 1 - j];
@@ -125,14 +156,34 @@ public class LinearRecurrenceFormula {
         if (hasConstantTerm) {
             state[dim - 1] = ONE;
         }
-
-        AutoStackingNumber[][] power = matrixPow(transition, steps);
-        AutoStackingNumber[] result = multiply(power, state);
-        return result[0];
+        return state;
     }
 
-    private boolean isComposite() {
-        return newerFormula != null || olderFormula != null;
+    private AutoStackingNumber[] copyState(AutoStackingNumber[] state) {
+        AutoStackingNumber[] out = new AutoStackingNumber[state.length];
+        for (int i = 0; i < state.length; i++) {
+            out[i] = state[i];
+        }
+        return out;
+    }
+
+    private void advanceRollingState() {
+        AutoStackingNumber next = hasConstantTerm ? constantTerm : ZERO;
+        for (int lag = 1; lag <= order; lag++) {
+            AutoStackingNumber coeff = coefficientsByLag[lag - 1];
+            if (coeff != null && !coeff.isZero()) {
+                next = next.add(coeff.multiply(rollingState[lag - 1]));
+            }
+        }
+
+        for (int i = order - 1; i >= 1; i--) {
+            rollingState[i] = rollingState[i - 1];
+        }
+        rollingState[0] = next;
+
+        if (hasConstantTerm) {
+            rollingState[rollingState.length - 1] = ONE;
+        }
     }
 
     private AutoStackingNumber[][] matrixPow(AutoStackingNumber[][] base, long exp) {
