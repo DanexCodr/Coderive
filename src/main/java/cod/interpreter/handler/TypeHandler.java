@@ -1058,15 +1058,16 @@ public class TypeHandler {
     }
 
     private Object convertUnsafeNumeric(Object value, String targetType) {
-        if (!(targetType.equals("f32") || targetType.equals("f64"))) {
-            BigInteger integral = toIntegralBigInteger(value);
-            return wrapIntegerUnsafe(integral, targetType);
-        }
-        double numeric = toDouble(value);
         if (targetType.equals("f32")) {
+            double numeric = toDouble(value);
             return AutoStackingNumber.fromDouble((double) ((float) numeric));
         }
-        return AutoStackingNumber.fromDouble(numeric);
+        if (targetType.equals("f64")) {
+            double numeric = toDouble(value);
+            return AutoStackingNumber.fromDouble(numeric);
+        }
+        BigInteger integral = toIntegralBigInteger(value);
+        return wrapIntegerUnsafe(integral, targetType);
     }
 
     private BigInteger toIntegralBigInteger(Object value) {
@@ -1088,7 +1089,7 @@ public class TypeHandler {
             return BigDecimal.valueOf(((Number) unwrapped).doubleValue()).toBigInteger();
         }
         throw new ProgramError(
-            "Unsafe numeric types only accept safe int/float values, got: " + getConcreteType(unwrapped));
+            "Unsafe numeric types require int or float values, got: " + getConcreteType(unwrapped));
     }
 
     private AutoStackingNumber wrapIntegerUnsafe(BigInteger value, String targetType) {

@@ -239,7 +239,10 @@ public class DeclarationParser extends BaseParser {
     boolean isUnsafeType = false;
 
     if (is(UNSAFE)) {
-      throw error("Visibility modifier must appear before 'unsafe' in class declarations", now());
+      throw error(
+          "Visibility modifier (share/local) must appear before 'unsafe' in class declarations. "
+              + "Expected: [share|local] unsafe ClassName",
+          now());
     }
 
     if (is(SHARE, LOCAL)) {
@@ -508,10 +511,6 @@ public class DeclarationParser extends BaseParser {
     Token visibilityToken = null;
     boolean sawVisibility = false;
 
-    if (is(UNSAFE, BUILTIN, POLICY) && is(next(), SHARE, LOCAL)) {
-      throw error("Visibility modifier must appear before other modifiers in method declarations", now());
-    }
-
     if (is(SHARE, LOCAL)) {
       sawVisibility = true;
       visibilityToken = now();
@@ -557,7 +556,10 @@ public class DeclarationParser extends BaseParser {
     }
 
     if (isUnsafeMethod && !sawVisibility) {
-      throw error("Unsafe methods require an explicit visibility modifier before 'unsafe'", startToken);
+      throw error(
+          "Unsafe methods require an explicit visibility modifier before 'unsafe'. "
+              + "Expected: [share|local] unsafe methodName(...)",
+          startToken);
     }
 
     if (isPolicyMethod && !sawVisibility) {
