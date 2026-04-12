@@ -110,6 +110,26 @@ public class LiteralRegistry {
             NaturalArray.class, List.class
         );
 
+        define("scan",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleArrayScan(literal, arguments);
+                }
+            },
+            NaturalArray.class, List.class
+        );
+
+        define("zip",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleArrayZip(literal, arguments, ctx);
+                }
+            },
+            NaturalArray.class, List.class
+        );
+
         define("has",
             new MethodHandler() {
                 @Override
@@ -194,10 +214,10 @@ public class LiteralRegistry {
             new MethodHandler() {
                 @Override
                 public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
-                    return handleStringIsEmpty(literal, arguments);
+                    return handleIsEmpty(literal, arguments);
                 }
             },
-            String.class
+            String.class, NaturalArray.class, List.class
         );
 
         define("isBlank",
@@ -524,6 +544,22 @@ public class LiteralRegistry {
         return target.isEmpty();
     }
 
+    @SuppressWarnings("unchecked")
+    private Object handleIsEmpty(Object literal, List<Object> arguments) {
+        requireArgCount("isEmpty", arguments, 0);
+        if (literal instanceof String) {
+            return ((String) literal).isEmpty();
+        }
+        NaturalArray naturalArray = asNaturalArray(literal);
+        if (naturalArray != null) {
+            return naturalArray.size() == 0L;
+        }
+        if (literal instanceof List) {
+            return ((List<Object>) literal).isEmpty();
+        }
+        throw new ProgramError("isEmpty is not supported on " + literal.getClass().getSimpleName());
+    }
+
     private Object handleStringIsBlank(Object literal, List<Object> arguments) {
         requireArgCount("isBlank", arguments, 0);
         String target = requireStringTarget(literal, "isBlank");
@@ -773,12 +809,88 @@ public class LiteralRegistry {
         return accumulator;
     }
 
+    private Object handleArrayScan(Object literal, List<Object> arguments) {
+        requireArgCount("scan", arguments, 0);
+        NaturalArray naturalArray = asNaturalArray(literal);
+        if (naturalArray != null) {
+            return new LazyNaturalArrayMapView(naturalArray, new NaturalArrayMapper() {
+                @Override
+                public Object map(long index, Object value) {
+                    return value;
+                }
+            });
+        }
+        return asConcreteList(literal);
+    }
+
+    private Object handleArrayZip(Object literal, List<Object> arguments, ExecutionContext ctx) {
+        if (arguments == null || arguments.size() < 1 || arguments.size() > 2) {
+            throw new ProgramError("zip expects (otherArray) or (otherArray, callback)");
+        }
+        ArrayZipSource left = toZipSource(literal);
+        ArrayZipSource right = toZipSource(arguments.get(0));
+        final Object callback = arguments.size() == 2 ? arguments.get(1) : null;
+        return new LazyArrayZipView(left, right, callback, ctx);
+    }
+
     private interface NaturalArrayMapper {
         Object map(long index, Object value);
     }
 
     private interface NaturalArrayPredicate {
         boolean test(long index, Object value);
+    }
+
+    private interface ArrayZipSource {
+        long size();
+        Object get(long index);
+    }
+
+    private ArrayZipSource toZipSource(Object obj) {
+        NaturalArray natural = asNaturalArray(obj);
+        if (natural != null) {
+            return new NaturalArrayZipSource(natural);
+        }
+        if (obj instanceof List) {
+            return new ListZipSource(asConcreteList(obj));
+        }
+        throw new ProgramError("zip expects list or NaturalArray as source");
+    }
+
+    private static final class NaturalArrayZipSource implements ArrayZipSource {
+        private final NaturalArray source;
+
+        private NaturalArrayZipSource(NaturalArray source) {
+            this.source = source;
+        }
+
+        @Override
+        public long size() {
+            return source.size();
+        }
+
+        @Override
+        public Object get(long index) {
+            return source.get(index);
+        }
+    }
+
+    private static final class ListZipSource implements ArrayZipSource {
+        private final List<Object> source;
+
+        private ListZipSource(List<Object> source) {
+            this.source = source;
+        }
+
+        @Override
+        public long size() {
+            return source.size();
+        }
+
+        @Override
+        public Object get(long index) {
+            return source.get((int) index);
+        }
     }
 
     private static final class LazyNaturalArrayMapView extends AbstractList<Object> {
@@ -805,6 +917,50 @@ public class LiteralRegistry {
             }
             Object value = source.get((long) index);
             return mapper.map((long) index, value);
+        }
+
+        @Override
+        public int size() {
+            return size;
+        }
+    }
+
+    private final class LazyArrayZipView extends AbstractList<Object> {
+        private final ArrayZipSource left;
+        private final ArrayZipSource right;
+        private final Object callback;
+        private final ExecutionContext ctx;
+        private final int size;
+
+        private LazyArrayZipView(ArrayZipSource left, ArrayZipSource right, Object callback, ExecutionContext ctx) {
+            this.left = left;
+            this.right = right;
+            this.callback = callback;
+            this.ctx = ctx;
+            long zippedSize = Math.min(left.size(), right.size());
+            if (zippedSize > Integer.MAX_VALUE) {
+                throw new ProgramError(
+                    "Zipped array size exceeds Integer.MAX_VALUE (" + Integer.MAX_VALUE + "): " + zippedSize
+                );
+            }
+            this.size = (int) zippedSize;
+        }
+
+        @Override
+        public Object get(int index) {
+            if (index < 0 || index >= size) {
+                throw new ProgramError("Index: " + index + ", Size: " + size);
+            }
+            long idx = (long) index;
+            Object leftValue = left.get(idx);
+            Object rightValue = right.get(idx);
+            if (callback != null) {
+                return invokeArrayCallback(callback, "zip", ctx, leftValue, rightValue, Integer.valueOf(index));
+            }
+            List<Object> pair = new ArrayList<Object>(2);
+            pair.add(leftValue);
+            pair.add(rightValue);
+            return pair;
         }
 
         @Override
