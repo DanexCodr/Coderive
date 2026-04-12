@@ -89,7 +89,9 @@ public class MainParser extends BaseParser {
         
         // DIRECT CHECK: If we see "local" or "share" text, try to parse as method first
         if (currentToken != null && 
-            ("local".equals(currentToken.getText()) || "share".equals(currentToken.getText()))) {
+            ("local".equals(currentToken.getText())
+                || "share".equals(currentToken.getText())
+                || "unsafe".equals(currentToken.getText()))) {
             ParserState savedState = getCurrentState();
             try {
                 Method method = declarationParser.parseMethod();
@@ -183,7 +185,10 @@ public class MainParser extends BaseParser {
             public Boolean parse() throws ParseError {
                 ParserState savedState = getCurrentState();
                 try {
-                    if (is(SHARE, LOCAL)) {
+                    if (is(SHARE, LOCAL, UNSAFE)) {
+                        consume();
+                    }
+                    while (is(BUILTIN, POLICY, UNSAFE)) {
                         consume();
                     }
                     
@@ -342,12 +347,20 @@ public class MainParser extends BaseParser {
             Token first = now();
             if (first == null) return false;
             
-            if (is(first, LOCAL, SHARE, BUILTIN, POLICY)) {
-                Token second = next();
-                if (is(second, ID) || canBeMethod(second)) {
-                    Token third = next(2);
-                    return is(third, LPAREN);
-                }
+            int offset = 0;
+            Token token = next(offset);
+
+            if (is(token, LOCAL, SHARE, UNSAFE, BUILTIN, POLICY)) {
+                offset++;
+                token = next(offset);
+            }
+            while (is(token, BUILTIN, POLICY, UNSAFE)) {
+                offset++;
+                token = next(offset);
+            }
+            if (is(token, ID) || canBeMethod(token)) {
+                Token afterName = next(offset + 1);
+                return is(afterName, LPAREN);
             }
             return false;
         } finally {

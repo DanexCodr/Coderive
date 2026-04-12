@@ -13,6 +13,7 @@ import java.util.Stack;
 public final class ParserContext {
   private ParserState state;
   private final Stack<ParserState> backtrackStack = new Stack<>();
+  private int unsafeDeclarationDepth = 0;
 
   public ParserContext(ParserState initialState) {
     this.state = initialState;
@@ -162,6 +163,20 @@ public final class ParserContext {
 
   public List<Token> getTokens() {
     return state.getTokens();
+  }
+
+  public void enterUnsafeDeclaration() {
+    unsafeDeclarationDepth++;
+  }
+
+  public void exitUnsafeDeclaration() {
+    if (unsafeDeclarationDepth > 0) {
+      unsafeDeclarationDepth--;
+    }
+  }
+
+  public boolean isInUnsafeDeclaration() {
+    return unsafeDeclarationDepth > 0;
   }
 
   @Override

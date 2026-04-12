@@ -7,6 +7,8 @@ import cod.math.AutoStackingNumber;
 import cod.range.NaturalArray;
 import static cod.syntax.Keyword.*;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.AbstractList;
 import java.util.List;
@@ -104,6 +106,9 @@ public class TypeHandler {
     private static final AutoStackingNumber ZERO = AutoStackingNumber.valueOf("0");
     private static final AutoStackingNumber ONE = AutoStackingNumber.valueOf("1");
     private static final int LAZY_ARRAY_MEMO_MAX_SIZE = 8192;
+    private static final String[] UNSAFE_NUMERIC_TYPES = {
+        "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64"
+    };
 
     // Helper to check if value is none
     public boolean isNoneValue(Object obj) {
@@ -183,8 +188,29 @@ public class TypeHandler {
     public boolean isTypeLiteral(String str) {
         return str.equals("int") || str.equals("float") || str.equals("text") || 
                str.equals("bool") || str.equals("type") || str.equals("none") || 
+               isUnsafeNumericType(str) ||
                str.equals("[]") || str.startsWith("[") || 
                str.startsWith("(") || str.contains("|");
+    }
+
+    public boolean isUnsafeNumericType(String type) {
+        if (type == null) return false;
+        for (String unsafeType : UNSAFE_NUMERIC_TYPES) {
+            if (unsafeType.equals(type)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public Object normalizeForDeclaredType(String declaredType, Object value) {
+        if (declaredType == null) return value;
+        String normalized = declaredType.trim();
+        if (!isUnsafeNumericType(normalized)) {
+            return value;
+        }
+        Object converted = convertType(value, normalized);
+        return new Value(converted, normalized, normalized);
     }
     
     public Object processTypeLiteral(String typeLiteral) {
@@ -910,6 +936,10 @@ public class TypeHandler {
         if (targetType.equals("none")) {
             return new NoneLiteral();
         }
+
+        if (isUnsafeNumericType(targetType)) {
+            return convertUnsafeNumeric(value, targetType);
+        }
         
         if (value instanceof FloatLiteral) {
             AutoStackingNumber num = ((FloatLiteral) value).value;
@@ -1025,6 +1055,63 @@ public class TypeHandler {
             " (type=" + (value != null ? value.getClass().getName() : "null") + 
             "), targetType=" + targetType
         );
+    }
+
+    private Object convertUnsafeNumeric(Object value, String targetType) {
+        if (!(targetType.equals("f32") || targetType.equals("f64"))) {
+            BigInteger integral = toIntegralBigInteger(value);
+            return wrapIntegerUnsafe(integral, targetType);
+        }
+        double numeric = toDouble(value);
+        if (targetType.equals("f32")) {
+            return AutoStackingNumber.fromDouble((double) ((float) numeric));
+        }
+        return AutoStackingNumber.fromDouble(numeric);
+    }
+
+    private BigInteger toIntegralBigInteger(Object value) {
+        Object unwrapped = unwrap(value);
+        if (unwrapped instanceof IntLiteral) {
+            return new BigInteger(((IntLiteral) unwrapped).value.toString());
+        }
+        if (unwrapped instanceof FloatLiteral) {
+            AutoStackingNumber n = ((FloatLiteral) unwrapped).value;
+            return new BigDecimal(n.toString()).toBigInteger();
+        }
+        if (unwrapped instanceof AutoStackingNumber) {
+            return new BigDecimal(((AutoStackingNumber) unwrapped).toString()).toBigInteger();
+        }
+        if (unwrapped instanceof Integer || unwrapped instanceof Long) {
+            return BigInteger.valueOf(((Number) unwrapped).longValue());
+        }
+        if (unwrapped instanceof Float || unwrapped instanceof Double) {
+            return BigDecimal.valueOf(((Number) unwrapped).doubleValue()).toBigInteger();
+        }
+        throw new ProgramError(
+            "Unsafe numeric types only accept safe int/float values, got: " + getConcreteType(unwrapped));
+    }
+
+    private AutoStackingNumber wrapIntegerUnsafe(BigInteger value, String targetType) {
+        int bits = 64;
+        boolean signed = true;
+        if (targetType.equals("i8")) bits = 8;
+        else if (targetType.equals("i16")) bits = 16;
+        else if (targetType.equals("i32")) bits = 32;
+        else if (targetType.equals("i64")) bits = 64;
+        else if (targetType.equals("u8")) { bits = 8; signed = false; }
+        else if (targetType.equals("u16")) { bits = 16; signed = false; }
+        else if (targetType.equals("u32")) { bits = 32; signed = false; }
+        else if (targetType.equals("u64")) { bits = 64; signed = false; }
+
+        BigInteger modulus = BigInteger.ONE.shiftLeft(bits);
+        BigInteger wrapped = value.mod(modulus);
+        if (signed) {
+            BigInteger signBoundary = BigInteger.ONE.shiftLeft(bits - 1);
+            if (wrapped.compareTo(signBoundary) >= 0) {
+                wrapped = wrapped.subtract(modulus);
+            }
+        }
+        return AutoStackingNumber.valueOf(wrapped.toString());
     }
         
     public String getConcreteType(Object value) {
@@ -1208,7 +1295,8 @@ public class TypeHandler {
         if (str == null || str.isEmpty()) return false;
         
         if (str.equals("int") || str.equals("float") || str.equals("text") || 
-            str.equals("bool") || str.equals("type") || str.equals("none")) {
+            str.equals("bool") || str.equals("type") || str.equals("none") ||
+            isUnsafeNumericType(str)) {
             return true;
         }
         
@@ -1272,7 +1360,8 @@ public class TypeHandler {
         
         if (type.equals(INT.toString()) || type.equals(FLOAT.toString()) || 
             type.equals(TEXT.toString()) || type.equals(BOOL.toString()) || 
-            type.equals(ANY.toString()) || type.equals("none")) {
+            type.equals(ANY.toString()) || type.equals("none") ||
+            isUnsafeNumericType(type)) {
             return true;
         }
         if (Character.isUpperCase(type.charAt(0))) return true;
@@ -1306,6 +1395,15 @@ public class TypeHandler {
                    rawValue instanceof Boolean;
         } else if (type.equals("none")) {
             return isNoneValue(rawValue);
+        } else if (isUnsafeNumericType(type)) {
+            return rawValue instanceof IntLiteral
+                || rawValue instanceof FloatLiteral
+                || rawValue instanceof Integer
+                || rawValue instanceof Long
+                || rawValue instanceof Float
+                || rawValue instanceof Double
+                || rawValue instanceof AutoStackingNumber
+                || (rawValue instanceof Value && isUnsafeNumericType(((Value) rawValue).activeType));
         }
         return false; 
     }

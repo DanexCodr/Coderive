@@ -23,6 +23,7 @@ public class DeclarationParser extends BaseParser {
   private final PolicyValidator policyValidator;
 
   private Type currentParsingClass = null;
+  private Method currentParsingMethod = null;
   public DeclarationParser(
       ParserContext ctx, StatementParser statementParser, ImportResolver importResolver) {
     super(ctx);
@@ -46,6 +47,21 @@ public class DeclarationParser extends BaseParser {
 
   private Type getCurrentParsingClass() {
     return currentParsingClass;
+  }
+
+  private void setCurrentParsingMethod(Method method) {
+    currentParsingMethod = method;
+  }
+
+  @Override
+  protected boolean isUnsafeTypeContext() {
+    if (super.isUnsafeTypeContext()) {
+      return true;
+    }
+    if (currentParsingMethod != null && currentParsingMethod.isUnsafe) {
+      return true;
+    }
+    return currentParsingClass != null && currentParsingClass.isUnsafe;
   }
 
 
@@ -220,6 +236,11 @@ public class DeclarationParser extends BaseParser {
   public Type parseType() {
     Keyword visibility = null;
     Token visibilityToken = null;
+    boolean isUnsafeType = false;
+
+    if (is(UNSAFE)) {
+      throw error("Visibility modifier must appear before 'unsafe' in class declarations", now());
+    }
 
     if (is(SHARE, LOCAL)) {
         visibilityToken = now();
@@ -235,6 +256,14 @@ public class DeclarationParser extends BaseParser {
                     + "'",
                 visibilityToken);
         }
+    }
+
+    if (is(UNSAFE)) {
+        if (visibility == null) {
+            throw error("Unsafe class declarations require an explicit visibility modifier before 'unsafe'", now());
+        }
+        consume();
+        isUnsafeType = true;
     }
 
     Token typeNameToken = now();
@@ -281,6 +310,7 @@ public class DeclarationParser extends BaseParser {
     }
 
     Type type = ASTFactory.createType(typeName, visibility, extendName, typeNameToken);
+    type.isUnsafe = isUnsafeType;
     type.implementedPolicies = implementedPolicies;
     type.policyTokens = policyTokens;
     type.extendToken = extendToken;
@@ -288,25 +318,32 @@ public class DeclarationParser extends BaseParser {
 
     setCurrentParsingClass(type);
 
-    expect(LBRACE);
-    while (!is(RBRACE)) {
-        if (isFieldDeclaration()) {
-            type.fields.add(parseField());
-        } else if (isConstructorDeclaration()) {
-            Constructor constructor = parseConstructor();
-            type.constructors.add(constructor);
-        } else if (isMethodDeclaration()) {
-            Method method = parseMethod();
-            method.associatedClass = type.name;
-            type.methods.add(method);
-        } else {
-            type.statements.add(statementParser.parseStmt());
-        }
+    if (type.isUnsafe) {
+      ctx.enterUnsafeDeclaration();
     }
-
-    setCurrentParsingClass(null);
-
-    expect(RBRACE);
+    try {
+      expect(LBRACE);
+      while (!is(RBRACE)) {
+          if (isFieldDeclaration()) {
+              type.fields.add(parseField());
+          } else if (isConstructorDeclaration()) {
+              Constructor constructor = parseConstructor();
+              type.constructors.add(constructor);
+          } else if (isMethodDeclaration()) {
+              Method method = parseMethod();
+              method.associatedClass = type.name;
+              type.methods.add(method);
+          } else {
+              type.statements.add(statementParser.parseStmt());
+          }
+        }
+      expect(RBRACE);
+    } finally {
+      if (type.isUnsafe) {
+        ctx.exitUnsafeDeclaration();
+      }
+      setCurrentParsingClass(null);
+    }
     return type;
 }
 
@@ -467,38 +504,69 @@ public class DeclarationParser extends BaseParser {
     boolean isBuiltin = false;
     Keyword visibility = Keyword.SHARE;
     boolean isPolicyMethod = false;
+    boolean isUnsafeMethod = false;
     Token visibilityToken = null;
+    boolean sawVisibility = false;
 
-    if (is(POLICY)) {
+    if (is(UNSAFE, BUILTIN, POLICY) && is(next(), SHARE, LOCAL)) {
+      throw error("Visibility modifier must appear before other modifiers in method declarations", now());
+    }
+
+    if (is(SHARE, LOCAL)) {
+      sawVisibility = true;
+      visibilityToken = now();
+      Token currentVisibility = consume();
+
+      if (is(currentVisibility, SHARE)) {
+        visibility = Keyword.SHARE;
+      } else if (is(currentVisibility, LOCAL)) {
+        visibility = Keyword.LOCAL;
+      } else {
+        throw error(
+            "Internal parser error: isVisibilityModifier() returned true for non-visibility keyword: '"
+                + currentVisibility.getText()
+                + "'",
+            visibilityToken);
+      }
+    }
+
+    boolean consumedModifier = true;
+    while (consumedModifier) {
+      consumedModifier = false;
+      if (is(POLICY)) {
         expect(POLICY);
         isPolicyMethod = true;
-
-        Type currentClass = getCurrentParsingClass();
-        if (!nil(currentClass)) {
-            visibility = currentClass.visibility;
-        } else {
-            visibility = Keyword.SHARE;
-        }
-
-    } else if (is(BUILTIN)) {
+        consumedModifier = true;
+        continue;
+      }
+      if (is(BUILTIN)) {
         expect(BUILTIN);
         isBuiltin = true;
-        visibility = Keyword.SHARE;
-    } else if (is(SHARE, LOCAL)) {
-        visibilityToken = now();
-        Token currentVisibility = consume();
+        consumedModifier = true;
+        continue;
+      }
+      if (is(UNSAFE)) {
+        expect(UNSAFE);
+        isUnsafeMethod = true;
+        consumedModifier = true;
+      }
+    }
 
-        if (is(currentVisibility, SHARE)) {
-            visibility = Keyword.SHARE;
-        } else if (is(currentVisibility, LOCAL)) {
-            visibility = Keyword.LOCAL;
-        } else {
-            throw error(
-                "Internal parser error: isVisibilityModifier() returned true for non-visibility keyword: '"
-                    + currentVisibility.getText()
-                    + "'",
-                visibilityToken);
-        }
+    if (is(SHARE, LOCAL)) {
+      throw error("Visibility modifier must appear before other modifiers in method declarations", now());
+    }
+
+    if (isUnsafeMethod && !sawVisibility) {
+      throw error("Unsafe methods require an explicit visibility modifier before 'unsafe'", startToken);
+    }
+
+    if (isPolicyMethod && !sawVisibility) {
+      Type currentClass = getCurrentParsingClass();
+      if (!nil(currentClass)) {
+        visibility = currentClass.visibility;
+      } else {
+        visibility = Keyword.SHARE;
+      }
     }
 
     String methodName;
@@ -518,100 +586,113 @@ public class DeclarationParser extends BaseParser {
     Method method = ASTFactory.createMethod(methodName, visibility, null, nameToken);
     method.isBuiltin = isBuiltin;
     method.isPolicyMethod = isPolicyMethod;
+    method.isUnsafe = isUnsafeMethod;
 
-    expect(LPAREN);
-
-    if (isBuiltin) {
-        int parenDepth = 1;
-        while (!is(EOF) && parenDepth > 0) {
-            Token t = now();
-            if (is(t, LPAREN)) {
-                parenDepth++;
-            } else if (is(t, RPAREN)) {
-                parenDepth--;
-                if (parenDepth == 0) {
-                    expect(RPAREN);
-                    break;
-                }
-            }
-            consume();
-        }
-    } else {
-        if (!is(RPAREN)) {
-            method.parameters.add(parseParameter());
-            while (consume(COMMA)) {
-                method.parameters.add(parseParameter());
-            }
-        }
-        expect(RPAREN);
+    if (method.isUnsafe) {
+      ctx.enterUnsafeDeclaration();
     }
+    setCurrentParsingMethod(method);
 
-    // Parse slot contract if present (:: syntax)
-    if (isSlotDeclaration()) {
-        method.returnSlots = slotParser.parseSlotContract();
-    } else {
-        method.returnSlots = new ArrayList<Slot>();
-    }
+    try {
+      expect(LPAREN);
 
-    if (isBuiltin) {
-        while (getPosition() < tokens.size()) {
-            Token current = now();
+      if (isBuiltin) {
+          int parenDepth = 1;
+          while (!is(EOF) && parenDepth > 0) {
+              Token t = now();
+              if (is(t, LPAREN)) {
+                  parenDepth++;
+              } else if (is(t, RPAREN)) {
+                  parenDepth--;
+                  if (parenDepth == 0) {
+                      expect(RPAREN);
+                      break;
+                  }
+              }
+              consume();
+          }
+      } else {
+          if (!is(RPAREN)) {
+              method.parameters.add(parseParameter());
+              while (consume(COMMA)) {
+                  method.parameters.add(parseParameter());
+              }
+          }
+          expect(RPAREN);
+      }
 
-            if (is(current, RBRACE)
-                || is(current, SHARE, LOCAL, BUILTIN, POLICY)) {
-                break;
-            }
+      // Parse slot contract if present (:: syntax)
+      if (isSlotDeclaration()) {
+          method.returnSlots = slotParser.parseSlotContract();
+      } else {
+          method.returnSlots = new ArrayList<Slot>();
+      }
 
-            consume();
-        }
+      if (isBuiltin) {
+          while (getPosition() < tokens.size()) {
+              Token current = now();
 
-        if (is(TILDE_ARROW, LBRACE)) {
-            Token current = now();
-            throw error(
-                "Builtin method '"
-                    + methodName
-                    + "' cannot have a body. "
-                    + "Builtin methods are only declarations, not implementations.\n"
-                    + "Remove '~>' or '{...}' after builtin method signature.",
-                current);
-        }
+              if (is(current, RBRACE)
+                  || is(current, SHARE, LOCAL, BUILTIN, POLICY, UNSAFE)) {
+                  break;
+              }
 
-        return method;
-    }
+              consume();
+          }
 
-    // Parse method body
-    if (is(TILDE_ARROW)) {
-        Token tildeArrowToken = now();
-        expect(TILDE_ARROW);
+          if (is(TILDE_ARROW, LBRACE)) {
+              Token current = now();
+              throw error(
+                  "Builtin method '"
+                      + methodName
+                      + "' cannot have a body. "
+                      + "Builtin methods are only declarations, not implementations.\n"
+                      + "Remove '~>' or '{...}' after builtin method signature.",
+                  current);
+          }
 
-        List<SlotAssignment> slotAssignments =
-            slotParser.parseParenthesizedSlotAssignments(tildeArrowToken);
+          return method;
+      }
 
-        if (slotAssignments.size() == 1) {
-            method.body.add(slotAssignments.get(0));
-        } else {
-            MultipleSlotAssignment multiAssign =
-                ASTFactory.createMultipleSlotAsmt(slotAssignments, tildeArrowToken);
-            method.body.add(multiAssign);
-        }
+      // Parse method body
+      if (is(TILDE_ARROW)) {
+          Token tildeArrowToken = now();
+          expect(TILDE_ARROW);
 
-    } else if (is(LBRACE)) {
-        expect(LBRACE);
-        while (!is(RBRACE)) {
-            method.body.add(statementParser.parseStmt());
-        }
-        expect(RBRACE);
-        
-        ReturnContractValidator.validateMethodReturnContract(method, currentParsingClass, startToken);
-    } else {
-        Token current = now();
-        throw error(
-            "Expected '~>' or '{' after method signature, but found "
-                + getTypeName(current.type)
-                + " ('"
-                + current.getText()
-                + "')",
-            current);
+          List<SlotAssignment> slotAssignments =
+              slotParser.parseParenthesizedSlotAssignments(tildeArrowToken);
+
+          if (slotAssignments.size() == 1) {
+              method.body.add(slotAssignments.get(0));
+          } else {
+              MultipleSlotAssignment multiAssign =
+                  ASTFactory.createMultipleSlotAsmt(slotAssignments, tildeArrowToken);
+              method.body.add(multiAssign);
+          }
+
+      } else if (is(LBRACE)) {
+          expect(LBRACE);
+          while (!is(RBRACE)) {
+              method.body.add(statementParser.parseStmt());
+          }
+          expect(RBRACE);
+          
+          ReturnContractValidator.validateMethodReturnContract(method, currentParsingClass, startToken);
+      } else {
+          Token current = now();
+          throw error(
+              "Expected '~>' or '{' after method signature, but found "
+                  + getTypeName(current.type)
+                  + " ('"
+                  + current.getText()
+                  + "')",
+              current);
+      }
+    } finally {
+      setCurrentParsingMethod(null);
+      if (method.isUnsafe) {
+        ctx.exitUnsafeDeclaration();
+      }
     }
 
     return method;
@@ -822,9 +903,15 @@ public class DeclarationParser extends BaseParser {
             Token first = next(offset);
             if (nil(first)) return false;
 
-            if (is(first, SHARE, LOCAL, BUILTIN, POLICY)) {
+            if (is(first, SHARE, LOCAL, BUILTIN, POLICY, UNSAFE)) {
               offset++;
               while (wsComments(offset)) offset++;
+              Token maybeMoreModifier = next(offset);
+              while (is(maybeMoreModifier, BUILTIN, POLICY, UNSAFE)) {
+                offset++;
+                while (wsComments(offset)) offset++;
+                maybeMoreModifier = next(offset);
+              }
             }
 
             Token nameToken = next(offset);
@@ -862,11 +949,6 @@ public class DeclarationParser extends BaseParser {
             expect(COLON);
 
             if (!isTypeStart(now())) {
-                return false;
-            }
-
-            String type = parseTypeReference();
-            if (nil(type)) {
                 return false;
             }
 

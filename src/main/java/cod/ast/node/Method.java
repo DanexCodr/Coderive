@@ -15,6 +15,7 @@ public class Method extends Base {
     public List<Stmt> body = new ArrayList<Stmt>();
     public boolean isBuiltin = false;
     public boolean isPolicyMethod = false;
+    public boolean isUnsafe = false;
     
                @Override
         public final <T> T accept(VisitorImpl<T> visitor) {

@@ -162,6 +162,11 @@ public class ConstructorResolver {
                     "Available types: " + getAvailableTypes(ctx)
                 );
             }
+
+            if (type.isUnsafe && !isUnsafeExecutionContext(ctx) && !ExecutionContext.isUnsafeCommitAllowed()) {
+                throw new ProgramError(
+                    "Unsafe class '" + type.name + "' cannot be constructed in a safe context. Use safe(" + type.name + "(...)).");
+            }
             
             validateInheritanceHierarchy(type, ctx);
             
@@ -359,6 +364,7 @@ public class ConstructorResolver {
                     if (!typeSystem.validateType(param.type, argValue)) {
                         return null;
                     }
+                    argValue = typeSystem.normalizeForDeclaredType(param.type, argValue);
                     argValues.put(param.name, argValue);
                 } else if (!param.hasDefaultValue) {
                     return null;
@@ -381,6 +387,7 @@ public class ConstructorResolver {
                 if (!typeSystem.validateType(param.type, argValue)) {
                     return null;
                 }
+                argValue = typeSystem.normalizeForDeclaredType(param.type, argValue);
                 argValues.put(param.name, argValue);
             } else if (!param.hasDefaultValue) {
                 return null;
@@ -430,6 +437,7 @@ public class ConstructorResolver {
                 if (!typeSystem.validateType(param.type, argValue)) {
                     return null;
                 }
+                argValue = typeSystem.normalizeForDeclaredType(param.type, argValue);
                 
                 argumentValues.put(param.name, argValue);
                 
@@ -439,6 +447,9 @@ public class ConstructorResolver {
                 }
             } else if (param.hasDefaultValue) {
                 Object defaultValue = evaluateDefaultValue(evaluator, param, ctx);
+                if (param.type != null) {
+                    defaultValue = typeSystem.normalizeForDeclaredType(param.type, defaultValue);
+                }
                 argumentValues.put(param.name, defaultValue);
                 conversionScore++;
             } else {
@@ -483,6 +494,9 @@ public class ConstructorResolver {
                         return null;
                     }
                     Object defaultValue = evaluateDefaultValue(evaluator, param, ctx);
+                    if (param.type != null) {
+                        defaultValue = typeSystem.normalizeForDeclaredType(param.type, defaultValue);
+                    }
                     argumentValues.put(param.name, defaultValue);
                     conversionScore++;
                 } else {
@@ -495,6 +509,7 @@ public class ConstructorResolver {
                     if (!typeSystem.validateType(param.type, argValue)) {
                         return null;
                     }
+                    argValue = typeSystem.normalizeForDeclaredType(param.type, argValue);
                     
                     argumentValues.put(param.name, argValue);
                     
@@ -506,6 +521,9 @@ public class ConstructorResolver {
                 argIndex++;
             } else if (param.hasDefaultValue) {
                 Object defaultValue = evaluateDefaultValue(evaluator, param, ctx);
+                if (param.type != null) {
+                    defaultValue = typeSystem.normalizeForDeclaredType(param.type, defaultValue);
+                }
                 argumentValues.put(param.name, defaultValue);
                 conversionScore++;
             } else {
@@ -550,6 +568,8 @@ public class ConstructorResolver {
                 }
                 return null;
             }
+
+            argValue = typeSystem.normalizeForDeclaredType(param.type, argValue);
             
             if (param.type.contains("|")) {
                 String activeType = typeSystem.getConcreteType(typeSystem.unwrap(argValue));
@@ -580,6 +600,23 @@ public class ConstructorResolver {
         } catch (Exception e) {
             throw new InternalError("Default value evaluation failed for parameter: " + param.name, e);
         }
+    }
+
+    private boolean isUnsafeExecutionContext(ExecutionContext ctx) {
+        if (ctx == null) return false;
+        if (ctx.currentClass != null && ctx.currentClass.isUnsafe) {
+            return true;
+        }
+        if (ctx.currentMethodName == null || ctx.currentMethodName.isEmpty()) {
+            return false;
+        }
+        Type searchType = ctx.currentClass;
+        if (searchType == null && ctx.objectInstance != null) {
+            searchType = ctx.objectInstance.type;
+        }
+        if (searchType == null) return false;
+        Method currentMethod = findMethodInHierarchy(searchType, ctx.currentMethodName, ctx);
+        return currentMethod != null && currentMethod.isUnsafe;
     }
     
     private boolean isUnderscore(Expr expr) {

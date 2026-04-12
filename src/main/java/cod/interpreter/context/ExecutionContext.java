@@ -33,6 +33,12 @@ public class ExecutionContext {
     
     // ========== THREAD LOCAL CONTEXT ==========
     private static final ThreadLocal<ExecutionContext> currentContext = new ThreadLocal<ExecutionContext>();
+    private static final ThreadLocal<Integer> unsafeCommitDepth = new ThreadLocal<Integer>() {
+        @Override
+        protected Integer initialValue() {
+            return 0;
+        }
+    };
     
     // ========== OPTIMIZED LOOP CONTEXT ==========
     private boolean inOptimizedLoop = false;
@@ -72,6 +78,19 @@ public Map<String, Object> getLocalsMap() {
      */
     public static void clearCurrentContext() {
         currentContext.remove();
+    }
+
+    public static void enterUnsafeCommitAllowance() {
+        unsafeCommitDepth.set(unsafeCommitDepth.get() + 1);
+    }
+
+    public static void exitUnsafeCommitAllowance() {
+        int current = unsafeCommitDepth.get();
+        unsafeCommitDepth.set(current > 0 ? current - 1 : 0);
+    }
+
+    public static boolean isUnsafeCommitAllowed() {
+        return unsafeCommitDepth.get() > 0;
     }
     
     /**

@@ -19,6 +19,7 @@ public class Type extends Base {
   public List<Stmt> statements = new ArrayList<Stmt>();
   public List<Constructor> constructors = new ArrayList<Constructor>();
   public List<String> implementedPolicies = new ArrayList<String>();
+  public boolean isUnsafe = false;
   
   // Make Token fields transient
   public transient Token extendToken;

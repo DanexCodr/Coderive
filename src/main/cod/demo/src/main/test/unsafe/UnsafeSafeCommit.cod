@@ -1,0 +1,22 @@
+unit test.unsafe (main: this)
+
+share unsafe UnsafeBox {
+    value: i8 = 0
+
+    share unsafe this(v: int) {
+        value = v
+    }
+
+    share unsafe unbox(v: int) :: i8 {
+        wrapped: i8 = v
+        ~> (wrapped)
+    }
+}
+
+share UnsafeMain {
+    share main() {
+        box: UnsafeBox = safe(UnsafeBox(260))
+        n: int = safe(box.unbox(260))
+        out(n)
+    }
+}
