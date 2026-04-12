@@ -400,8 +400,8 @@ public class LoopOptimizationHandler {
         for (int seq = 0; seq < dimension; seq++) {
             NaturalArray arr = targetArrays.get(seq);
             for (int offset = 0; offset < maxLag; offset++) {
-                long idxSeed = seedStart + offset;
-                Object seedObj = arr.get(idxSeed);
+                long seedIndex = seedStart + offset;
+                Object seedObj = arr.get(seedIndex);
                 AutoStackingNumber seedNum = typeSystem.toAutoStackingNumber(seedObj);
                 if (seedNum == null) {
                     return new ArrayList<PatternHandler.PatternResult>();
@@ -527,8 +527,8 @@ public class LoopOptimizationHandler {
         AutoStackingNumber[] seed = new AutoStackingNumber[order];
         long seedStart = recurrenceStart - order;
         for (int i = 0; i < order; i++) {
-            long idxSeed = seedStart + i;
-            Object vObj = targetArray.get(idxSeed);
+            long seedIndex = seedStart + i;
+            Object vObj = targetArray.get(seedIndex);
             AutoStackingNumber v = typeSystem.toAutoStackingNumber(vObj);
             if (v == null) {
                 return null;
