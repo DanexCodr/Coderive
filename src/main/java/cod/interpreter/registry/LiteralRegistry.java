@@ -728,8 +728,8 @@ public class LiteralRegistry {
         long sourceSizeLong = naturalArray != null ? naturalArray.size() : source.size();
         if (sourceSizeLong > Integer.MAX_VALUE) {
             throw new ProgramError(
-                "Reduce operation cannot process arrays larger than Integer.MAX_VALUE elements. Current size: "
-                    + sourceSizeLong
+                "Reduce operation cannot process arrays larger than Integer.MAX_VALUE ("
+                    + Integer.MAX_VALUE + ") elements. Current size: " + sourceSizeLong
             );
         }
         int sourceSize = (int) sourceSizeLong;
@@ -791,7 +791,9 @@ public class LiteralRegistry {
             this.mapper = mapper;
             long sourceSize = source.size();
             if (sourceSize > Integer.MAX_VALUE) {
-                throw new ProgramError("Mapped array size exceeds Integer.MAX_VALUE: " + sourceSize);
+                throw new ProgramError(
+                    "Mapped array size exceeds Integer.MAX_VALUE (" + Integer.MAX_VALUE + "): " + sourceSize
+                );
             }
             this.size = (int) sourceSize;
         }
