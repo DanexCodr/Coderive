@@ -898,8 +898,9 @@ public class ConstructorResolver {
                         String fieldType = field.type;
                         if (fieldType != null && typeSystem.isSizedArrayType(fieldType)) {
                             int length = typeSystem.getSizedArrayLength(fieldType);
+                            int sizedLength = Math.max(length, 0);
                             String elementType = typeSystem.getSizedArrayElementType(fieldType);
-                            List<Object> initialized = new ArrayList<Object>(Math.max(length, 0));
+                            List<Object> initialized = new ArrayList<Object>(sizedLength);
                             Object elementDefault = 0;
                             if (elementType != null && typeSystem.isUnsafeNumericType(elementType)) {
                                 elementDefault = typeSystem.convertType(0, elementType);
@@ -910,7 +911,7 @@ public class ConstructorResolver {
                             } else if (elementType != null && elementType.contains(BOOL.toString())) {
                                 elementDefault = false;
                             }
-                            for (int i = 0; i < Math.max(length, 0); i++) {
+                            for (int i = 0; i < sizedLength; i++) {
                                 initialized.add(elementDefault);
                             }
                             obj.fields.put(field.name, initialized);

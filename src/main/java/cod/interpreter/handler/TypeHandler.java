@@ -1239,9 +1239,12 @@ public class TypeHandler {
 }
 
     public boolean validateType(String typeSig, Object value) {
-        String typeSigTrimmed = normalizeTypeSignature(typeSig);
-        if (typeSigTrimmed == null) {
+        if (typeSig == null) {
             return true;
+        }
+        String typeSigTrimmed = normalizeTypeSignature(typeSig);
+        if (typeSigTrimmed == null || typeSigTrimmed.isEmpty()) {
+            throw new ProgramError("Invalid type signature: " + typeSig);
         }
         if (typeSigTrimmed.contains("|")) {
             if (!isTypeStructurallyValid(typeSigTrimmed)) {

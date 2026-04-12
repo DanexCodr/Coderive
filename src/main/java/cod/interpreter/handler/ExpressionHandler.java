@@ -258,6 +258,17 @@ public class ExpressionHandler {
         }
 
         long nextIndex = addition ? pointer.index + offset : pointer.index - offset;
+        if (pointer.container instanceof NaturalArray) {
+            NaturalArray arr = (NaturalArray) pointer.container;
+            if (nextIndex < 0 || nextIndex >= arr.size()) {
+                throw new ProgramError("Pointer arithmetic out of bounds: " + nextIndex);
+            }
+        } else if (pointer.container instanceof List) {
+            int size = ((List<?>) pointer.container).size();
+            if (nextIndex < 0 || nextIndex >= size) {
+                throw new ProgramError("Pointer arithmetic out of bounds: " + nextIndex);
+            }
+        }
         return new TypeHandler.PointerValue(pointer.container, nextIndex, pointer.pointedType);
     }
     

@@ -944,6 +944,12 @@ public class DeclarationParser extends BaseParser {
                 return false;
             }
 
+            try {
+                parseTypeReference();
+            } catch (ParseError e) {
+                return false;
+            }
+
             if (is(LPAREN)) {
                 return false;
             }
