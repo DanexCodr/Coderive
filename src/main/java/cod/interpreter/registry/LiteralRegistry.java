@@ -825,7 +825,7 @@ public class LiteralRegistry {
 
     private Object handleArrayZip(Object literal, List<Object> arguments, ExecutionContext ctx) {
         if (arguments == null || arguments.size() < 1 || arguments.size() > 2) {
-            throw new ProgramError("zip expects (otherArray) or (otherArray, callback)");
+            throw new ProgramError("zip expects (list or NaturalArray) or (list or NaturalArray, callback)");
         }
         ArrayZipSource left = toZipSource(literal);
         ArrayZipSource right = toZipSource(arguments.get(0));
@@ -955,12 +955,9 @@ public class LiteralRegistry {
             Object leftValue = left.get(idx);
             Object rightValue = right.get(idx);
             if (callback != null) {
-                return invokeArrayCallback(callback, "zip", ctx, leftValue, rightValue, Integer.valueOf(index));
+                return invokeArrayCallback(callback, "zip", ctx, leftValue, rightValue, index);
             }
-            List<Object> pair = new ArrayList<Object>(2);
-            pair.add(leftValue);
-            pair.add(rightValue);
-            return pair;
+            return Arrays.asList(leftValue, rightValue);
         }
 
         @Override
