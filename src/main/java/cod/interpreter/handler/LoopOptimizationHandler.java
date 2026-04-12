@@ -528,8 +528,8 @@ public class LoopOptimizationHandler {
         long seedStart = recurrenceStart - order;
         for (int i = 0; i < order; i++) {
             long seedIndex = seedStart + i;
-            Object vObj = targetArray.get(seedIndex);
-            AutoStackingNumber v = typeSystem.toAutoStackingNumber(vObj);
+            Object seedValue = targetArray.get(seedIndex);
+            AutoStackingNumber v = typeSystem.toAutoStackingNumber(seedValue);
             if (v == null) {
                 return null;
             }

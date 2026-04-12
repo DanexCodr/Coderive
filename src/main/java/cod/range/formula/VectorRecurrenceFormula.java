@@ -66,15 +66,14 @@ public class VectorRecurrenceFormula {
         }
 
         if (index < recurrenceStart) {
-            Long offsetLong = safeToIntOffset(index - seedStartIndex);
-            if (offsetLong == null) {
+            Integer seedOffset = validateOffsetInIntRange(index - seedStartIndex);
+            if (seedOffset == null) {
                 return null;
             }
-            int offset = offsetLong.intValue();
-            if (offset >= order) {
+            if (seedOffset.intValue() >= order) {
                 return null;
             }
-            return seedValues[sequenceIndex][offset];
+            return seedValues[sequenceIndex][seedOffset.intValue()];
         }
 
         synchronized (this) {
@@ -150,13 +149,12 @@ public class VectorRecurrenceFormula {
         }
         for (int block = 0; block < order; block++) {
             long sourceIndex = (recurrenceStart - 1L) - block;
-            Long seedOffsetLong = safeToIntOffset(sourceIndex - seedStartIndex);
-            if (seedOffsetLong == null) {
+            Integer seedOffset = validateOffsetInIntRange(sourceIndex - seedStartIndex);
+            if (seedOffset == null) {
                 return null;
             }
-            int seedOffset = seedOffsetLong.intValue();
             for (int seq = 0; seq < dimension; seq++) {
-                state[(block * dimension) + seq] = seedValues[seq][seedOffset];
+                state[(block * dimension) + seq] = seedValues[seq][seedOffset.intValue()];
             }
         }
         if (hasConstantTerm) {
@@ -261,11 +259,11 @@ public class VectorRecurrenceFormula {
         return out;
     }
 
-    private Long safeToIntOffset(long value) {
+    private Integer validateOffsetInIntRange(long value) {
         if (value < 0L || value > Integer.MAX_VALUE) {
             return null;
         }
-        return Long.valueOf(value);
+        return Integer.valueOf((int) value);
     }
 
     private void resetRollingState() {
