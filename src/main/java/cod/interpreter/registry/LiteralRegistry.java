@@ -659,6 +659,9 @@ public class LiteralRegistry {
         if (arguments == null || arguments.isEmpty()) {
             throw new ProgramError("map expects a callback or (operator, operand)");
         }
+        final LazyNaturalArrayMapView sourceMapView = literal instanceof LazyNaturalArrayMapView
+            ? (LazyNaturalArrayMapView) literal
+            : null;
         final NaturalArray naturalArray = asNaturalArray(literal);
         List<Object> source = naturalArray == null ? asConcreteList(literal) : null;
         
@@ -666,6 +669,14 @@ public class LiteralRegistry {
             final String op = String.valueOf(arguments.get(0));
             final Object operand = arguments.get(1);
             final TypeHandler typeHandler = ctx.getTypeHandler();
+            if (sourceMapView != null) {
+                return sourceMapView.compose(new NaturalArrayMapper() {
+                    @Override
+                    public Object map(long index, Object value) {
+                        return applyOperator(typeHandler, value, op, operand);
+                    }
+                });
+            }
             if (naturalArray != null) {
                 return new LazyNaturalArrayMapView(naturalArray, new NaturalArrayMapper() {
                     @Override
@@ -685,6 +696,14 @@ public class LiteralRegistry {
             throw new ProgramError("map callback mode expects exactly one argument");
         }
         final Object callback = arguments.get(0);
+        if (sourceMapView != null) {
+            return sourceMapView.compose(new NaturalArrayMapper() {
+                @Override
+                public Object map(long index, Object value) {
+                    return invokeArrayCallback(callback, "map", ctx, value, Integer.valueOf((int) index));
+                }
+            });
+        }
         if (naturalArray != null) {
             return new LazyNaturalArrayMapView(naturalArray, new NaturalArrayMapper() {
                 @Override
@@ -704,6 +723,9 @@ public class LiteralRegistry {
         if (arguments == null || arguments.isEmpty()) {
             throw new ProgramError("filter expects a callback or (operator, operand)");
         }
+        final LazyNaturalArrayFilterView sourceFilterView = literal instanceof LazyNaturalArrayFilterView
+            ? (LazyNaturalArrayFilterView) literal
+            : null;
         final NaturalArray naturalArray = asNaturalArray(literal);
         List<Object> source = naturalArray == null ? asConcreteList(literal) : null;
         
@@ -711,6 +733,15 @@ public class LiteralRegistry {
             final String op = String.valueOf(arguments.get(0));
             final Object operand = arguments.get(1);
             final TypeHandler typeHandler = ctx.getTypeHandler();
+            if (sourceFilterView != null) {
+                return sourceFilterView.compose(new NaturalArrayPredicate() {
+                    @Override
+                    public boolean test(long index, Object value) {
+                        Object comparison = compareWithOperator(typeHandler, value, op, operand);
+                        return isTruthy(comparison);
+                    }
+                });
+            }
             if (naturalArray != null) {
                 return new LazyNaturalArrayFilterView(naturalArray, new NaturalArrayPredicate() {
                     @Override
@@ -851,6 +882,12 @@ public class LiteralRegistry {
         if (natural != null) {
             return new NaturalArrayZipSource(natural);
         }
+        if (obj instanceof LazyNaturalArrayMapView) {
+            return new LazyMapZipSource((LazyNaturalArrayMapView) obj);
+        }
+        if (obj instanceof LazyNaturalArrayFilterView) {
+            return new LazyFilterZipSource((LazyNaturalArrayFilterView) obj);
+        }
         if (obj instanceof List) {
             return new ListZipSource(asConcreteList(obj));
         }
@@ -893,6 +930,42 @@ public class LiteralRegistry {
         }
     }
 
+    private static final class LazyMapZipSource implements ArrayZipSource {
+        private final LazyNaturalArrayMapView source;
+
+        private LazyMapZipSource(LazyNaturalArrayMapView source) {
+            this.source = source;
+        }
+
+        @Override
+        public long size() {
+            return source.size();
+        }
+
+        @Override
+        public Object get(long index) {
+            return source.get((int) index);
+        }
+    }
+
+    private static final class LazyFilterZipSource implements ArrayZipSource {
+        private final LazyNaturalArrayFilterView source;
+
+        private LazyFilterZipSource(LazyNaturalArrayFilterView source) {
+            this.source = source;
+        }
+
+        @Override
+        public long size() {
+            return source.size();
+        }
+
+        @Override
+        public Object get(long index) {
+            return source.get((int) index);
+        }
+    }
+
     private static final class LazyNaturalArrayMapView extends AbstractList<Object> {
         private final NaturalArray source;
         private final NaturalArrayMapper mapper;
@@ -908,6 +981,16 @@ public class LiteralRegistry {
                 );
             }
             this.size = (int) sourceSize;
+        }
+
+        private LazyNaturalArrayMapView compose(final NaturalArrayMapper nextMapper) {
+            return new LazyNaturalArrayMapView(source, new NaturalArrayMapper() {
+                @Override
+                public Object map(long index, Object value) {
+                    Object current = mapper.map(index, value);
+                    return nextMapper.map(index, current);
+                }
+            });
         }
 
         @Override
@@ -981,6 +1064,15 @@ public class LiteralRegistry {
             this.scanned = 0L;
             this.sourceSize = source.size();
             this.fullyScanned = false;
+        }
+
+        private LazyNaturalArrayFilterView compose(final NaturalArrayPredicate nextPredicate) {
+            return new LazyNaturalArrayFilterView(source, new NaturalArrayPredicate() {
+                @Override
+                public boolean test(long index, Object value) {
+                    return predicate.test(index, value) && nextPredicate.test(index, value);
+                }
+            });
         }
 
         @Override

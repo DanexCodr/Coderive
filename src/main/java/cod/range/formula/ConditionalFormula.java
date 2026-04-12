@@ -311,6 +311,11 @@ public class ConditionalFormula {
     private Expr convertBooleanToNumeric(Expr condition) {
         if (condition == null) return null;
 
+        Boolean constant = evaluateConstantBoolean(condition);
+        if (constant != null) {
+            return constant.booleanValue() ? one() : zero();
+        }
+
         if (condition instanceof BoolLiteral) {
             return ((BoolLiteral) condition).value ? one() : zero();
         }
@@ -425,6 +430,11 @@ public class ConditionalFormula {
         Expr left = simplifyExpr(op.left);
         Expr right = simplifyExpr(op.right);
 
+        Expr folded = foldNumericConstants(op.op, left, right);
+        if (folded != null) {
+            return folded;
+        }
+
         if ("*".equals(op.op)) {
             if (isZero(left) || isZero(right)) return zero();
             if (isOne(left)) return right;
@@ -432,12 +442,230 @@ public class ConditionalFormula {
         } else if ("+".equals(op.op)) {
             if (isZero(left)) return right;
             if (isZero(right)) return left;
+            if (structurallyEqual(left, right)) {
+                return ASTFactory.createBinaryOp(ASTFactory.createIntLiteral(2, null), "*", left, null);
+            }
+            Expr factored = tryFactorCommonTerm(left, right);
+            if (factored != null) {
+                return simplifyExpr(factored);
+            }
+            Expr branchCollapse = tryCollapseEquivalentBranchMix(left, right);
+            if (branchCollapse != null) {
+                return branchCollapse;
+            }
         } else if ("-".equals(op.op)) {
             if (isZero(right)) return left;
-            if (sameLiteral(left, right)) return zero();
+            if (sameLiteral(left, right) || structurallyEqual(left, right)) return zero();
         }
 
         return ASTFactory.createBinaryOp(left, op.op, right, null);
+    }
+
+    private Expr foldNumericConstants(String op, Expr left, Expr right) {
+        if (!(left instanceof IntLiteral) || !(right instanceof IntLiteral)) {
+            return null;
+        }
+        long l = ((IntLiteral) left).value.longValue();
+        long r = ((IntLiteral) right).value.longValue();
+        if ("+".equals(op)) return ASTFactory.createLongLiteral(l + r, null);
+        if ("-".equals(op)) return ASTFactory.createLongLiteral(l - r, null);
+        if ("*".equals(op)) return ASTFactory.createLongLiteral(l * r, null);
+        if ("/".equals(op)) {
+            if (r == 0L) return null;
+            if (l % r != 0L) return null;
+            return ASTFactory.createLongLiteral(l / r, null);
+        }
+        return null;
+    }
+
+    private Expr tryFactorCommonTerm(Expr left, Expr right) {
+        if (!(left instanceof BinaryOp) || !(right instanceof BinaryOp)) {
+            return null;
+        }
+        BinaryOp leftBin = (BinaryOp) left;
+        BinaryOp rightBin = (BinaryOp) right;
+        if (!"*".equals(leftBin.op) || !"*".equals(rightBin.op)) {
+            return null;
+        }
+
+        if (structurallyEqual(leftBin.left, rightBin.left)) {
+            Expr sum = simplifyExpr(ASTFactory.createBinaryOp(leftBin.right, "+", rightBin.right, null));
+            return ASTFactory.createBinaryOp(leftBin.left, "*", sum, null);
+        }
+        if (structurallyEqual(leftBin.left, rightBin.right)) {
+            Expr sum = simplifyExpr(ASTFactory.createBinaryOp(leftBin.right, "+", rightBin.left, null));
+            return ASTFactory.createBinaryOp(leftBin.left, "*", sum, null);
+        }
+        if (structurallyEqual(leftBin.right, rightBin.left)) {
+            Expr sum = simplifyExpr(ASTFactory.createBinaryOp(leftBin.left, "+", rightBin.right, null));
+            return ASTFactory.createBinaryOp(leftBin.right, "*", sum, null);
+        }
+        if (structurallyEqual(leftBin.right, rightBin.right)) {
+            Expr sum = simplifyExpr(ASTFactory.createBinaryOp(leftBin.left, "+", rightBin.left, null));
+            return ASTFactory.createBinaryOp(leftBin.right, "*", sum, null);
+        }
+        return null;
+    }
+
+    private Expr tryCollapseEquivalentBranchMix(Expr left, Expr right) {
+        Expr[] leftParts = splitProduct(left);
+        Expr[] rightParts = splitProduct(right);
+        if (leftParts == null || rightParts == null) {
+            return null;
+        }
+
+        Expr leftCoefficient = leftParts[0];
+        Expr leftValue = leftParts[1];
+        Expr rightCoefficient = rightParts[0];
+        Expr rightValue = rightParts[1];
+
+        if (!structurallyEqual(leftValue, rightValue)) {
+            return null;
+        }
+        if (isComplementIndicator(leftCoefficient, rightCoefficient)) {
+            return leftValue;
+        }
+        return null;
+    }
+
+    private Expr[] splitProduct(Expr expr) {
+        if (!(expr instanceof BinaryOp)) return null;
+        BinaryOp op = (BinaryOp) expr;
+        if (!"*".equals(op.op)) return null;
+        return new Expr[] { op.left, op.right };
+    }
+
+    private boolean isComplementIndicator(Expr a, Expr b) {
+        if (!(b instanceof BinaryOp)) return false;
+        BinaryOp bOp = (BinaryOp) b;
+        return "-".equals(bOp.op) && isOne(bOp.left) && structurallyEqual(a, bOp.right);
+    }
+
+    private boolean structurallyEqual(Expr a, Expr b) {
+        if (a == b) return true;
+        if (a == null || b == null) return false;
+        if (!a.getClass().equals(b.getClass())) return false;
+
+        if (a instanceof Identifier) {
+            return ((Identifier) a).name.equals(((Identifier) b).name);
+        }
+        if (a instanceof IntLiteral) {
+            return ((IntLiteral) a).value.equals(((IntLiteral) b).value);
+        }
+        if (a instanceof FloatLiteral) {
+            return ((FloatLiteral) a).value.equals(((FloatLiteral) b).value);
+        }
+        if (a instanceof BoolLiteral) {
+            return ((BoolLiteral) a).value == ((BoolLiteral) b).value;
+        }
+        if (a instanceof TextLiteral) {
+            return Objects.equals(((TextLiteral) a).value, ((TextLiteral) b).value);
+        }
+        if (a instanceof NoneLiteral) {
+            return true;
+        }
+        if (a instanceof BinaryOp) {
+            BinaryOp x = (BinaryOp) a;
+            BinaryOp y = (BinaryOp) b;
+            return Objects.equals(x.op, y.op)
+                && structurallyEqual(x.left, y.left)
+                && structurallyEqual(x.right, y.right);
+        }
+        if (a instanceof Unary) {
+            Unary x = (Unary) a;
+            Unary y = (Unary) b;
+            return Objects.equals(x.op, y.op) && structurallyEqual(x.operand, y.operand);
+        }
+        if (a instanceof ExprIf) {
+            ExprIf x = (ExprIf) a;
+            ExprIf y = (ExprIf) b;
+            return structurallyEqual(x.condition, y.condition)
+                && structurallyEqual(x.thenExpr, y.thenExpr)
+                && structurallyEqual(x.elseExpr, y.elseExpr);
+        }
+        return a.toString().equals(b.toString());
+    }
+
+    private Boolean evaluateConstantBoolean(Expr expr) {
+        if (expr == null) return null;
+
+        if (expr instanceof BoolLiteral) {
+            return Boolean.valueOf(((BoolLiteral) expr).value);
+        }
+        if (expr instanceof Unary) {
+            Unary unary = (Unary) expr;
+            if ("!".equals(unary.op)) {
+                Boolean inner = evaluateConstantBoolean(unary.operand);
+                return inner != null ? Boolean.valueOf(!inner.booleanValue()) : null;
+            }
+        }
+        if (expr instanceof BinaryOp) {
+            BinaryOp op = (BinaryOp) expr;
+            if ("&&".equals(op.op) || "and".equals(op.op)) {
+                Boolean left = evaluateConstantBoolean(op.left);
+                Boolean right = evaluateConstantBoolean(op.right);
+                if (left != null && right != null) {
+                    return Boolean.valueOf(left.booleanValue() && right.booleanValue());
+                }
+                return null;
+            }
+            if ("||".equals(op.op) || "or".equals(op.op)) {
+                Boolean left = evaluateConstantBoolean(op.left);
+                Boolean right = evaluateConstantBoolean(op.right);
+                if (left != null && right != null) {
+                    return Boolean.valueOf(left.booleanValue() || right.booleanValue());
+                }
+                return null;
+            }
+
+            Object leftConst = constantValue(op.left);
+            Object rightConst = constantValue(op.right);
+            if (leftConst == null || rightConst == null) {
+                return null;
+            }
+
+            if ("==".equals(op.op)) return Boolean.valueOf(leftConst.equals(rightConst));
+            if ("!=".equals(op.op)) return Boolean.valueOf(!leftConst.equals(rightConst));
+
+            Integer cmp = compareConstants(leftConst, rightConst);
+            if (cmp == null) return null;
+            if (">".equals(op.op)) return Boolean.valueOf(cmp.intValue() > 0);
+            if ("<".equals(op.op)) return Boolean.valueOf(cmp.intValue() < 0);
+            if (">=".equals(op.op)) return Boolean.valueOf(cmp.intValue() >= 0);
+            if ("<=".equals(op.op)) return Boolean.valueOf(cmp.intValue() <= 0);
+        }
+        return null;
+    }
+
+    private Object constantValue(Expr expr) {
+        if (expr instanceof IntLiteral) {
+            return ((IntLiteral) expr).value;
+        }
+        if (expr instanceof FloatLiteral) {
+            return ((FloatLiteral) expr).value;
+        }
+        if (expr instanceof BoolLiteral) {
+            return Boolean.valueOf(((BoolLiteral) expr).value);
+        }
+        if (expr instanceof TextLiteral) {
+            return ((TextLiteral) expr).value;
+        }
+        return null;
+    }
+
+    private Integer compareConstants(Object left, Object right) {
+        if (left instanceof cod.math.AutoStackingNumber && right instanceof cod.math.AutoStackingNumber) {
+            return Integer.valueOf(((cod.math.AutoStackingNumber) left).compareTo((cod.math.AutoStackingNumber) right));
+        }
+        if (left instanceof Boolean && right instanceof Boolean) {
+            boolean l = ((Boolean) left).booleanValue();
+            boolean r = ((Boolean) right).booleanValue();
+            return Integer.valueOf(l == r ? 0 : (l ? 1 : -1));
+        }
+        if (left instanceof String && right instanceof String) {
+            return Integer.valueOf(((String) left).compareTo((String) right));
+        }
+        return null;
     }
 
     private boolean isZero(Expr expr) {

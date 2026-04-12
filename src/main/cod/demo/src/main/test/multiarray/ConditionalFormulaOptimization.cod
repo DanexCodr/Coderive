@@ -35,4 +35,34 @@ share main() {
 
     out("fallback[5]=" + fallback[5] + " expected=105")
     out("fallback[20]=" + fallback[20] + " expected=-80")
+
+    constantTrue := [0 to 12]
+    for i of [0 to 12] {
+        if true {
+            constantTrue[i] = i + 9
+        } else {
+            constantTrue[i] = i - 9
+        }
+    }
+    out("constantTrue[3]=" + constantTrue[3] + " expected=12")
+
+    constantFalse := [0 to 12]
+    for i of [0 to 12] {
+        if false {
+            constantFalse[i] = i + 9
+        } else {
+            constantFalse[i] = i - 9
+        }
+    }
+    out("constantFalse[3]=" + constantFalse[3] + " expected=-6")
+
+    fusedMapped := optimized.map(\(x) x + 3).map(\(x) x * 2)
+    fusedFiltered := fusedMapped.filter(">=", 40).filter("<=", 150)
+    out("fusedMapped[0]=" + fusedMapped[0] + " expected=8")
+    out("fusedMapped[1]=" + fusedMapped[1] + " expected=6")
+    out("fusedFiltered[0]=" + fusedFiltered[0] + " expected=54")
+
+    zippedFused := optimized.map(\(x) x + 1).zip(optimized.map(\(x) x + 2), \(left, right) left + right)
+    out("zippedFused[0]=" + zippedFused[0] + " expected=5")
+    out("zippedFused[1]=" + zippedFused[1] + " expected=3")
 }
