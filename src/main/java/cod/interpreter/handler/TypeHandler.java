@@ -1243,9 +1243,6 @@ public class TypeHandler {
             return true;
         }
         String typeSigTrimmed = normalizeTypeSignature(typeSig);
-        if (typeSigTrimmed == null || typeSigTrimmed.isEmpty()) {
-            throw new ProgramError("Invalid type signature: " + typeSig);
-        }
         if (typeSigTrimmed.contains("|")) {
             if (!isTypeStructurallyValid(typeSigTrimmed)) {
                 throw new ProgramError("Union type contains illegal keywords: " + typeSig);

@@ -210,8 +210,9 @@ public class ExpressionHandler {
                 throw new ProgramError("Pointer address index out of bounds: " + idx);
             }
             String pointedType = "any";
-            if (!list.isEmpty() && list.get(0) != null) {
-                pointedType = typeSystem.getConcreteType(typeSystem.unwrap(list.get(0)));
+            Object pointedValue = list.get((int) idx);
+            if (pointedValue != null) {
+                pointedType = typeSystem.getConcreteType(typeSystem.unwrap(pointedValue));
             }
             return new TypeHandler.PointerValue(list, idx, pointedType);
         }

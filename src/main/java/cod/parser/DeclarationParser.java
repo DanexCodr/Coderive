@@ -548,7 +548,7 @@ public class DeclarationParser extends BaseParser {
     if (isUnsafeMethod && !sawVisibility) {
       throw error(
           "Unsafe methods require an explicit visibility modifier before 'unsafe'. "
-              + "Expected: [share|local] unsafe methodName(...)",
+              + "Expected: share unsafe methodName(...) or local unsafe methodName(...)",
           startToken);
     }
 
