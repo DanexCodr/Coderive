@@ -1,6 +1,7 @@
 package cod.range.formula;
 
 import cod.math.AutoStackingNumber;
+import java.util.Arrays;
 
 public class LinearRecurrenceFormula {
     public final long start;
@@ -73,7 +74,7 @@ public class LinearRecurrenceFormula {
         return index >= start && index <= end;
     }
 
-    public Object evaluate(long index) {
+    public synchronized Object evaluate(long index) {
         if (isComposite()) {
             if (newerFormula != null && newerFormula.contains(index)) {
                 return newerFormula.evaluate(index);
@@ -160,11 +161,7 @@ public class LinearRecurrenceFormula {
     }
 
     private AutoStackingNumber[] copyState(AutoStackingNumber[] state) {
-        AutoStackingNumber[] out = new AutoStackingNumber[state.length];
-        for (int i = 0; i < state.length; i++) {
-            out[i] = state[i];
-        }
-        return out;
+        return Arrays.copyOf(state, state.length);
     }
 
     private void advanceRollingState() {
@@ -176,14 +173,16 @@ public class LinearRecurrenceFormula {
             }
         }
 
+        AutoStackingNumber[] nextState = Arrays.copyOf(rollingState, rollingState.length);
         for (int i = order - 1; i >= 1; i--) {
-            rollingState[i] = rollingState[i - 1];
+            nextState[i] = rollingState[i - 1];
         }
-        rollingState[0] = next;
+        nextState[0] = next;
 
         if (hasConstantTerm) {
-            rollingState[rollingState.length - 1] = ONE;
+            nextState[nextState.length - 1] = ONE;
         }
+        rollingState = nextState;
     }
 
     private AutoStackingNumber[][] matrixPow(AutoStackingNumber[][] base, long exp) {
