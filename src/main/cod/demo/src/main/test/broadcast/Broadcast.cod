@@ -40,6 +40,24 @@ Broadcaster {
         out("reduced = " + reduced + " (expect 10)")
         out("reducedNamed = " + reducedNamed + " (expect 10)")
         out("reduceResult = " + reduceResult + " (expect 10)")
+
+        scanned := [4, 5, 6].scan()
+        out("scanned[1] = " + scanned[1] + " (expect 5)")
+
+        zipped := [1, 2, 3].zip([10, 20, 30])
+        out("zipped[0][0] = " + zipped[0][0] + " (expect 1)")
+        out("zipped[0][1] = " + zipped[0][1] + " (expect 10)")
+        out("zipped[2][0] = " + zipped[2][0] + " (expect 3)")
+        out("zipped[2][1] = " + zipped[2][1] + " (expect 30)")
+
+        zippedCombined := [1, 2, 3].zip([10, 20, 30], \(left, right) left + right)
+        out("zippedCombined[0] = " + zippedCombined[0] + " (expect 11)")
+        out("zippedCombined[2] = " + zippedCombined[2] + " (expect 33)")
+
+        emptyArr := []
+        nonEmptyArr := [1]
+        out("emptyArr.isEmpty() = " + emptyArr.isEmpty() + " (expect true)")
+        out("nonEmptyArr.isEmpty() = " + nonEmptyArr.isEmpty() + " (expect false)")
     }
 
 }
