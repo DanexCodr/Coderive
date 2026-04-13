@@ -150,16 +150,16 @@ public final class Index {
      * @return true if saved successfully, false otherwise
      */
     public boolean save() {
+        if (projectRoot == null) {
+            return false;
+        }
+
         IndexDocument merged = loadExistingDocument(unit);
         merged.timestamp = timestamp;
         merged.generator = (generator == null || generator.isEmpty()) ? DEFAULT_GENERATOR : generator;
         merged.unitMappings.put(unit, new HashMap<String, String>(classes));
 
         String documentText = writeDocumentText(merged);
-
-        if (projectRoot == null) {
-            return false;
-        }
 
         IRManager manager = new IRManager(projectRoot);
         try {
