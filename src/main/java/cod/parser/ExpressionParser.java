@@ -19,6 +19,16 @@ import java.util.Set;
 public class ExpressionParser extends BaseParser {
     private static final String SELF_CALL_PLACEHOLDER = "<~";
     
+    private static final class UnicodeEscapeParseResult {
+        private final String text;
+        private final int nextPos;
+        
+        private UnicodeEscapeParseResult(String text, int nextPos) {
+            this.text = text;
+            this.nextPos = nextPos;
+        }
+    }
+    
     private static final int PREC_ASSIGNMENT = 10;
     private static final int PREC_EQUALITY = 50;
     private static final int PREC_CHAIN = 55;
@@ -1034,6 +1044,12 @@ public class ExpressionParser extends BaseParser {
                     case '\\': current.append('\\'); break;
                     case '"': current.append('"'); break;
                     case '{': current.append('{'); break;
+                    case 'u':
+                        UnicodeEscapeParseResult unicodeResult = decodeUnicodeEscape(text, pos, token);
+                        current.append(unicodeResult.text);
+                        pos = unicodeResult.nextPos;
+                        inEscape = false;
+                        continue;
                     default: current.append('\\').append(c); break;
                 }
                 inEscape = false;
@@ -1087,6 +1103,58 @@ public class ExpressionParser extends BaseParser {
         }
         
         return result;
+    }
+    
+    private int hexValue(char ch) {
+        if (ch >= '0' && ch <= '9') return ch - '0';
+        if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
+        if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
+        return -1;
+    }
+    
+    private int parseUnicodeUnit(String text, int start, Token token) {
+        if (start + 4 > text.length()) {
+            throw error("Incomplete Unicode escape in text literal", token);
+        }
+        
+        int value = 0;
+        for (int i = 0; i < 4; i++) {
+            int digit = hexValue(text.charAt(start + i));
+            if (digit < 0) {
+                throw error("Invalid Unicode escape in text literal", token);
+            }
+            value = (value << 4) + digit;
+        }
+        return value;
+    }
+    
+    private UnicodeEscapeParseResult decodeUnicodeEscape(String text, int escapePos, Token token) {
+        int firstUnit = parseUnicodeUnit(text, escapePos + 1, token);
+        int nextPos = escapePos + 5;
+        
+        if (Character.isLowSurrogate((char)firstUnit)) {
+            throw error("Unexpected low surrogate in text Unicode escape", token);
+        }
+        
+        if (Character.isHighSurrogate((char)firstUnit)) {
+            if (nextPos + 5 >= text.length()) {
+                throw error("Missing low surrogate in text Unicode escape", token);
+            }
+            if (text.charAt(nextPos) != '\\' || text.charAt(nextPos + 1) != 'u') {
+                throw error("Expected low surrogate Unicode escape", token);
+            }
+            
+            int secondUnit = parseUnicodeUnit(text, nextPos + 2, token);
+            if (!Character.isLowSurrogate((char)secondUnit)) {
+                throw error("Invalid low surrogate in text Unicode escape", token);
+            }
+            
+            return new UnicodeEscapeParseResult(
+                new String(new char[] {(char)firstUnit, (char)secondUnit}),
+                nextPos + 6);
+        }
+        
+        return new UnicodeEscapeParseResult(String.valueOf((char)firstUnit), nextPos);
     }
 
     private Expr parseInterpolationExpressionDirectly(String exprText, Token textToken) {
