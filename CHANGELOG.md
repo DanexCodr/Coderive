@@ -4,6 +4,16 @@ All notable changes to Coderive are documented in this file.
 
 ## [v0.9.0] - Platform Snapshot - April 13, 2026
 
+### 🔀 Merge Coverage for This Snapshot
+- **Linear recurrence refactor/composition and v0.8.4 version alignment** — recurrence formula refactor/composition updates and version alignment work.
+- **Rolling/vector recurrence execution improvements** — rolling/vector linear recurrence execution upgrades and related parity-path updates.
+- **`.codc` container write/read hardening** — custom zip-container behavior and container stability improvements.
+- **Shared index consolidation in project container root** — import index consolidation into project container root entry (`HOOK.toml`).
+- **Unit-path structure fixes and deterministic lowering reset** — `.codb`/`.codc` path structure fixes plus deterministic PTAC lowering counter reset behavior.
+- **`CommandRunner` full compile mode and summary polish** — `-f`/`--full` support and compile summary output improvements.
+- **Borrow-check enforcement for unsafe indexed mutation** — borrow safety checks extended into unsafe indexed mutation paths.
+- **Active-borrow tracking performance upgrades** — zero-cost/O(1) active-borrow tracking improvements.
+
 ### 🚨 Breaking / Behavioral Changes
 - **Unsafe declaration ordering enforced** — Unsafe declarations require explicit visibility before `unsafe` (`share unsafe ...` or `local unsafe ...`).  
   Migration example: `unsafe share MyType { ... }` → `share unsafe MyType { ... }`.
