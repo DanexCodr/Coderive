@@ -200,7 +200,8 @@ public class CommandRunner extends BaseRunner {
                     continue;
                 }
                 String unitName = fileAst.unit.name;
-                // Units without explicit declarations are "default" and don't map to stable unit paths.
+                // Files parsed as the synthetic "default" unit have no stable unit path in src/bin,
+                // so they are intentionally skipped during full-compilation artifact emission.
                 if (unitName == null || "default".equals(unitName)) {
                     continue;
                 }
@@ -214,7 +215,7 @@ public class CommandRunner extends BaseRunner {
             }
         }
 
-        out("Full compilation complete: " + compiled + " class(es) compiled from " + scanned + " file(s)");
+        out(String.format("Full compilation complete: %d class(es) compiled from %d file(s)", compiled, scanned));
         if (failed > 0) {
             outE("Warning: " + failed + " file(s) failed during full compilation");
         }
