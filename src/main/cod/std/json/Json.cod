@@ -28,7 +28,7 @@ share JsonValue {
     share asString() :: text { ~> (this.textData) }
     share error() :: text { ~> (this.errorData) }
 
-    share size() :: int|float {
+    share size() :: int {
         if this.kind == 4 { ~> (this.arrayData.size) }
         if this.kind == 5 { ~> (this.objectKeys.size) }
         ~> (0)
