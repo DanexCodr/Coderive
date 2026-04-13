@@ -423,7 +423,7 @@ share JsonParser {
                     this.index = this.index + 4
                     firstText := "\\u" + Unicode.hex4(firstUnit)
 
-                    if this.isHighSurrogateUnit(firstUnit) {
+                    if Unicode.isHighSurrogate(firstUnit) {
                         if this.index + 5 >= this.source.length {
                             ~> (JsonValue.makeError("missing low surrogate at index " + this.index))
                         }
@@ -432,7 +432,7 @@ share JsonParser {
                         }
                         this.index = this.index + 2
                         secondUnit := this.parseHex4At(this.index)
-                        if any[secondUnit < 0, !this.isLowSurrogateUnit(secondUnit)] {
+                        if any[secondUnit < 0, !Unicode.isLowSurrogate(secondUnit)] {
                             ~> (JsonValue.makeError("invalid low surrogate at index " + this.index))
                         }
                         this.index = this.index + 4
@@ -440,7 +440,7 @@ share JsonParser {
                         continue
                     }
 
-                    if this.isLowSurrogateUnit(firstUnit) {
+                    if Unicode.isLowSurrogate(firstUnit) {
                         ~> (JsonValue.makeError("unexpected low surrogate at index " + (this.index - 4)))
                     }
 
@@ -645,11 +645,4 @@ share JsonParser {
         ~> (value)
     }
 
-    share isHighSurrogateUnit(unit: int) :: bool {
-        ~> (all[unit >= 55296, unit <= 56319])
-    }
-
-    share isLowSurrogateUnit(unit: int) :: bool {
-        ~> (all[unit >= 56320, unit <= 57343])
-    }
 }
