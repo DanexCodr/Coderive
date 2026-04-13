@@ -187,11 +187,10 @@ public class CommandRunner extends BaseRunner {
         collectCodFiles(new File(srcMainRoot), codFiles);
 
         int compiled = 0;
-        int scanned = 0;
+        int scanned = codFiles.size();
         int failed = 0;
 
         for (File file : codFiles) {
-            scanned++;
             try {
                 Interpreter fileInterpreter = new Interpreter();
                 fileInterpreter.setFilePath(file.getAbsolutePath());
@@ -200,7 +199,7 @@ public class CommandRunner extends BaseRunner {
                     continue;
                 }
                 String unitName = fileAst.unit.name;
-                // Files parsed as the synthetic "default" unit have no stable unit path in src/bin,
+                // Files parsed as the synthetic "default" unit have no stable entry path in project.codc,
                 // so they are intentionally skipped during full-compilation artifact emission.
                 if (unitName == null || "default".equals(unitName)) {
                     continue;
@@ -215,7 +214,7 @@ public class CommandRunner extends BaseRunner {
             }
         }
 
-        out(String.format("Full compilation complete: %d class(es) compiled from %d file(s)", compiled, scanned));
+        out(String.format("Full compilation complete: %d type(s) compiled from %d file(s)", compiled, scanned));
         if (failed > 0) {
             outE("Warning: " + failed + " file(s) failed during full compilation");
         }
