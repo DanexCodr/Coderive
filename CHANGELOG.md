@@ -4,10 +4,13 @@ All notable changes to Coderive are documented in this file.
 
 ## [v0.9.0] - Platform Snapshot - April 13, 2026
 
-### ✨ Major Updates
-- **Version bump to v0.9.0** — Updated repository release version to `0.9.0`.
-- **README refresh for current platform scope** — Reworked the README to clearly describe what Coderive offers today across language design, lazy range execution, safety model, runtime pipeline, CLI workflows, and docs/playground experience.
-- **Release documentation alignment** — Synced changelog and version metadata with the new v0.9.0 release.
+### ✨ Major Updates Since v0.8.x
+- **Unsafe execution model tightened** — Safe contexts now strictly block unsafe class/method usage unless explicitly wrapped with `safe(...)`, while `safe(...)` is disallowed inside unsafe contexts.
+- **Unsafe pointer support introduced** — Added pointer-oriented unsafe syntax and execution support, including pointer types, address/dereference operations, and guarded pointer arithmetic.
+- **Project-wide compile mode in CLI** — Added `-f` / `--full` support in `CommandRunner` to compile all `.cod` files under `src/main` in a single command.
+- **Deterministic PTAC lowering output** — Lowering counters now reset per lowering pass so generated temporary/pattern/lambda register names remain stable per artifact.
+- **IR artifact path normalization** — Dotted unit names are normalized into slash paths for IR artifact storage and lookup consistency.
+- **Lazy range composition improvements** — NaturalArray and literal array operations now compose conditional/recurrence formulas and chained lazy map/filter views more efficiently.
 
 ## [v0.8.4] - Formula Lock-In - April 12, 2026
 
