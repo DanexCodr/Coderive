@@ -1,19 +1,23 @@
 package cod.interpreter;
 
 import cod.error.ProgramError;
+import cod.ir.IRManager;
 import cod.lexer.*;
 import static cod.lexer.TokenType.*;
 import static cod.syntax.Symbol.*;
 import static cod.syntax.Keyword.*;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
  * Index file for Coderive units.
  * Stores classname → filename mappings for O(1) import resolution.
  * 
- * File format: {projectRoot}/src/idx/{unit}.toml
+ * File format (preferred): {projectRoot}/src/bin/{rootUnit}.codc -> idx/{rootUnit}.toml
+ * Standalone fallback: {projectRoot}/src/bin/s_idx/{rootUnit}.toml
+ * Legacy fallback: {projectRoot}/src/idx/{unit}.toml
  * 
  * Example:
  * # unit sample
@@ -30,9 +34,14 @@ import java.util.*;
 public final class Index {
     
     private static final String IDX_DIR_NAME = "idx";
+    private static final String STANDALONE_IDX_DIR_NAME = "s_idx";
     private static final String SRC_DIR_NAME = "src";
+    private static final String BIN_DIR_NAME = "bin";
+    private static final String CODC_EXTENSION = ".codc";
+    private static final String CODB_EXTENSION = ".codb";
     private static final String FILE_EXTENSION = ".toml";
     private static final String CLASSES_SECTION = "classes";
+    private static final String CLASSES_SECTION_PREFIX = CLASSES_SECTION + ":";
     private static final String DEFAULT_GENERATOR = "Coderive 1.0";
     
     private final String unit;
@@ -82,15 +91,38 @@ public final class Index {
         return projectRoot;
     }
     
-    /**
-     * Gets the index file path for a unit.
-     */
-    private static File getIndexFile(String unitName) {
+    private static String getRootUnit(String unitName) {
+        if (unitName == null || unitName.isEmpty()) return "default";
+        int dot = unitName.indexOf('.');
+        if (dot < 0) return unitName;
+        if (dot == 0) return "default";
+        return unitName.substring(0, dot);
+    }
+
+    private static String getUnitSectionName(String unitName) {
+        return CLASSES_SECTION_PREFIX + unitName;
+    }
+
+    private static File getLegacyIndexFile(String unitName) {
         if (projectRoot == null) {
             return new File("src/" + IDX_DIR_NAME + "/" + unitName + FILE_EXTENSION);
         }
-        return new File(projectRoot + File.separator + SRC_DIR_NAME + 
+        return new File(projectRoot + File.separator + SRC_DIR_NAME +
                         File.separator + IDX_DIR_NAME + File.separator + unitName + FILE_EXTENSION);
+    }
+
+    private static File getStandaloneIndexFile(String rootUnit) {
+        if (projectRoot == null) {
+            return new File("src/" + BIN_DIR_NAME + "/" + STANDALONE_IDX_DIR_NAME + "/" + rootUnit + FILE_EXTENSION);
+        }
+        return new File(projectRoot + File.separator + SRC_DIR_NAME + File.separator + BIN_DIR_NAME +
+                        File.separator + STANDALONE_IDX_DIR_NAME + File.separator + rootUnit + FILE_EXTENSION);
+    }
+
+    private static File getCodcFile(String rootUnit) {
+        if (projectRoot == null) return null;
+        return new File(projectRoot + File.separator + SRC_DIR_NAME + File.separator + BIN_DIR_NAME +
+                        File.separator + rootUnit + CODC_EXTENSION);
     }
     
     /**
@@ -134,71 +166,24 @@ public final class Index {
         if (unitName == null || unitName.trim().isEmpty()) {
             return null;
         }
-        
-        File file = getIndexFile(unitName);
-        if (!file.exists()) {
+        String rootUnit = getRootUnit(unitName);
+        String docText = loadPreferredDocumentText(unitName, rootUnit);
+        if (docText == null) {
+            docText = loadLegacyDocumentText(unitName, rootUnit);
+        }
+        if (docText == null) {
             return null;
         }
-        
-        BufferedReader reader = null;
-        try {
-            reader = new BufferedReader(new FileReader(file));
-            Index index = new Index(unitName);
-            String currentSection = "";
-            String line;
-            
-            while ((line = reader.readLine()) != null) {
-                line = line.trim();
-                
-                if (line.isEmpty() || line.startsWith("#")) {
-                    continue;
-                }
-                
-                if (line.startsWith("[") && line.endsWith("]")) {
-                    currentSection = line.substring(1, line.length() - 1);
-                    continue;
-                }
-                
-                int eq = line.indexOf('=');
-                if (eq == -1) {
-                    continue;
-                }
-                
-                String key = line.substring(0, eq).trim();
-                String value = line.substring(eq + 1).trim();
-                
-                if (value.startsWith("\"") && value.endsWith("\"")) {
-                    value = value.substring(1, value.length() - 1);
-                }
-                
-                if (currentSection.isEmpty()) {
-                    if ("timestamp".equals(key)) {
-                        try {
-                            index.timestamp = Long.parseLong(value);
-                        } catch (NumberFormatException e) {
-                            // Keep existing timestamp
-                        }
-                    } else if ("generator".equals(key)) {
-                        index.generator = value;
-                    }
-                } else if (CLASSES_SECTION.equals(currentSection)) {
-                    index.classes.put(key, value);
-                }
-            }
-            
-            return index;
-            
-        } catch (IOException e) {
+
+        IndexDocument doc = parseDocument(docText, unitName);
+        Map<String, String> unitMappings = doc.unitMappings.get(unitName);
+        if (unitMappings == null || unitMappings.isEmpty()) {
             return null;
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    // Ignore
-                }
-            }
         }
+
+        Index index = new Index(unitName, doc.timestamp, doc.generator);
+        index.classes.putAll(unitMappings);
+        return index;
     }
     
     /**
@@ -207,42 +192,28 @@ public final class Index {
      * @return true if saved successfully, false otherwise
      */
     public boolean save() {
-        File file = getIndexFile(unit);
-        
-        File parent = file.getParentFile();
-        if (parent != null && !parent.exists()) {
-            if (!parent.mkdirs()) {
-                return false;
-            }
+        String rootUnit = getRootUnit(unit);
+        IndexDocument merged = loadExistingDocument(unit, rootUnit);
+        merged.timestamp = timestamp;
+        merged.generator = (generator == null || generator.isEmpty()) ? DEFAULT_GENERATOR : generator;
+        merged.unitMappings.put(unit, new HashMap<String, String>(classes));
+
+        String documentText = writeDocumentText(rootUnit, merged);
+
+        if (projectRoot == null) {
+            return saveLegacyFallback(unit, documentText);
         }
-        
-        PrintWriter writer = null;
+
+        if (shouldUseStandaloneIndex(rootUnit)) {
+            return saveStandaloneIndex(rootUnit, documentText);
+        }
+
+        IRManager manager = new IRManager(projectRoot);
         try {
-            writer = new PrintWriter(new FileWriter(file));
-            
-            writer.println("# unit " + unit);
-            writer.println("timestamp = \"" + timestamp + "\"");
-            writer.println("generator = \"" + generator + "\"");
-            writer.println();
-            writer.println("[" + CLASSES_SECTION + "]");
-            
-            List<String> sorted = new ArrayList<String>(classes.keySet());
-            Collections.sort(sorted);
-            
-            for (String className : sorted) {
-                String fileName = classes.get(className);
-                writer.println(className + " = \"" + fileName + "\"");
-            }
-            
-            writer.flush();
+            manager.saveIndex(unit, documentText);
             return true;
-            
         } catch (IOException e) {
-            return false;
-        } finally {
-            if (writer != null) {
-                writer.close();
-            }
+            return saveStandaloneIndex(rootUnit, documentText);
         }
     }
     
@@ -562,10 +533,232 @@ public final class Index {
     }
     
     // ========== Private Helpers ==========
-    
+
+    private static String loadPreferredDocumentText(String unitName, String rootUnit) {
+        if (projectRoot == null) {
+            return null;
+        }
+
+        IRManager manager = new IRManager(projectRoot);
+        String content = manager.loadIndex(unitName);
+        if (content != null) {
+            return content;
+        }
+
+        File standalone = getStandaloneIndexFile(rootUnit);
+        if (standalone.exists()) {
+            try {
+                return readFileToString(standalone);
+            } catch (IOException ignored) {}
+        }
+        return null;
+    }
+
+    private static String loadLegacyDocumentText(String unitName, String rootUnit) {
+        File unitLegacy = getLegacyIndexFile(unitName);
+        if (unitLegacy.exists()) {
+            try {
+                return readFileToString(unitLegacy);
+            } catch (IOException ignored) {}
+        }
+
+        if (!rootUnit.equals(unitName)) {
+            File rootLegacy = getLegacyIndexFile(rootUnit);
+            if (rootLegacy.exists()) {
+                try {
+                    return readFileToString(rootLegacy);
+                } catch (IOException ignored) {}
+            }
+        }
+        return null;
+    }
+
+    private static IndexDocument loadExistingDocument(String unitName, String rootUnit) {
+        String content = loadPreferredDocumentText(unitName, rootUnit);
+        if (content == null) {
+            content = loadLegacyDocumentText(unitName, rootUnit);
+        }
+        if (content == null) {
+            return new IndexDocument(System.currentTimeMillis(), DEFAULT_GENERATOR, new HashMap<String, Map<String, String>>());
+        }
+        return parseDocument(content, unitName);
+    }
+
+    private static boolean shouldUseStandaloneIndex(String rootUnit) {
+        File codc = getCodcFile(rootUnit);
+        if (codc != null && codc.exists()) {
+            return false;
+        }
+        return hasStandaloneArtifacts(rootUnit);
+    }
+
+    private static boolean hasStandaloneArtifacts(String rootUnit) {
+        if (projectRoot == null) return false;
+        File binDir = new File(projectRoot + File.separator + SRC_DIR_NAME + File.separator + BIN_DIR_NAME);
+        if (!binDir.exists() || !binDir.isDirectory()) {
+            return false;
+        }
+
+        File[] children = binDir.listFiles();
+        if (children == null) return false;
+
+        for (File child : children) {
+            if (!child.isDirectory()) continue;
+            String name = child.getName();
+            if (!(name.equals(rootUnit) || name.startsWith(rootUnit + "."))) {
+                continue;
+            }
+            if (containsCodb(child)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean containsCodb(File dir) {
+        File[] files = dir.listFiles();
+        if (files == null) return false;
+        for (File file : files) {
+            if (file.isDirectory()) {
+                if (containsCodb(file)) return true;
+            } else if (file.getName().endsWith(CODB_EXTENSION)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean saveStandaloneIndex(String rootUnit, String content) {
+        File file = getStandaloneIndexFile(rootUnit);
+        File parent = file.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            return false;
+        }
+        return writeStringToFile(file, content);
+    }
+
+    private static boolean saveLegacyFallback(String unitName, String content) {
+        File file = getLegacyIndexFile(unitName);
+        File parent = file.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            return false;
+        }
+        return writeStringToFile(file, content);
+    }
+
+    private static boolean writeStringToFile(File file, String content) {
+        PrintWriter writer = null;
+        try {
+            writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8));
+            writer.print(content);
+            writer.flush();
+            return true;
+        } catch (IOException e) {
+            return false;
+        } finally {
+            if (writer != null) {
+                writer.close();
+            }
+        }
+    }
+
+    private static String writeDocumentText(String rootUnit, IndexDocument doc) {
+        StringBuilder out = new StringBuilder();
+        out.append("# root-unit ").append(rootUnit).append("\n");
+        out.append("timestamp = \"").append(doc.timestamp).append("\"\n");
+        out.append("generator = \"").append(doc.generator).append("\"\n");
+        out.append("\n");
+
+        List<String> units = new ArrayList<String>(doc.unitMappings.keySet());
+        Collections.sort(units);
+        for (String unitName : units) {
+            out.append("[").append(getUnitSectionName(unitName)).append("]\n");
+            Map<String, String> mappings = doc.unitMappings.get(unitName);
+            List<String> classNames = new ArrayList<String>(mappings.keySet());
+            Collections.sort(classNames);
+            for (String className : classNames) {
+                out.append(className).append(" = \"").append(mappings.get(className)).append("\"\n");
+            }
+            out.append("\n");
+        }
+        return out.toString();
+    }
+
+    private static IndexDocument parseDocument(String content, String fallbackUnitName) {
+        IndexDocument doc = new IndexDocument(System.currentTimeMillis(), DEFAULT_GENERATOR, new HashMap<String, Map<String, String>>());
+        if (content == null) return doc;
+
+        BufferedReader reader = new BufferedReader(new StringReader(content));
+        String currentSection = "";
+        try {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+                if (line.startsWith("[") && line.endsWith("]")) {
+                    currentSection = line.substring(1, line.length() - 1);
+                    continue;
+                }
+
+                int eq = line.indexOf('=');
+                if (eq == -1) {
+                    continue;
+                }
+
+                String key = line.substring(0, eq).trim();
+                String value = line.substring(eq + 1).trim();
+                if (value.startsWith("\"") && value.endsWith("\"")) {
+                    value = value.substring(1, value.length() - 1);
+                }
+
+                if (currentSection.isEmpty()) {
+                    if ("timestamp".equals(key)) {
+                        try {
+                            doc.timestamp = Long.parseLong(value);
+                        } catch (NumberFormatException ignored) {}
+                    } else if ("generator".equals(key)) {
+                        doc.generator = value;
+                    }
+                    continue;
+                }
+
+                String targetUnit = null;
+                if (CLASSES_SECTION.equals(currentSection)) {
+                    targetUnit = fallbackUnitName;
+                } else if (currentSection.startsWith(CLASSES_SECTION_PREFIX)) {
+                    targetUnit = currentSection.substring(CLASSES_SECTION_PREFIX.length());
+                }
+                if (targetUnit == null || targetUnit.isEmpty()) continue;
+
+                Map<String, String> map = doc.unitMappings.get(targetUnit);
+                if (map == null) {
+                    map = new HashMap<String, String>();
+                    doc.unitMappings.put(targetUnit, map);
+                }
+                map.put(key, value);
+            }
+        } catch (IOException ignored) {}
+
+        return doc;
+    }
+
+    private static final class IndexDocument {
+        long timestamp;
+        String generator;
+        Map<String, Map<String, String>> unitMappings;
+
+        IndexDocument(long timestamp, String generator, Map<String, Map<String, String>> unitMappings) {
+            this.timestamp = timestamp;
+            this.generator = generator;
+            this.unitMappings = unitMappings;
+        }
+    }
+     
     private static String readFileToString(File file) throws IOException {
         StringBuilder content = new StringBuilder();
-        BufferedReader reader = new BufferedReader(new FileReader(file));
+        BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8));
         try {
             String line;
             while ((line = reader.readLine()) != null) {
