@@ -21,6 +21,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -31,6 +32,7 @@ public class IRManager {
     private static final String IR_EXT = ".codb";
     private static final String CONTAINER_EXT = ".codc";
     private static final int BUFFER_SIZE = 8192;
+    private static final Map<String, Object> CONTAINER_LOCKS = new ConcurrentHashMap<String, Object>();
 
     private final String projectRoot;
     private final IRWriter writer;
@@ -241,37 +243,56 @@ public class IRManager {
             throw new IOException("Failed to create IR container directory: " + parent.getAbsolutePath());
         }
 
-        Map<String, byte[]> entries = readContainerEntries(container);
-        entries.put(getContainerEntryName(unit, className), writeArtifactToBytes(artifact));
+        Object containerLock = getContainerLock(container);
+        synchronized (containerLock) {
+            Map<String, byte[]> entries = readContainerEntries(container);
+            entries.put(getContainerEntryName(unit, className), writeArtifactToBytes(artifact));
 
-        File temp = new File(container.getAbsolutePath() + ".tmp");
-        ZipOutputStream out = null;
-        try {
-            out = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(temp)));
-            out.setLevel(0);
-            for (Map.Entry<String, byte[]> e : entries.entrySet()) {
-                byte[] value = e.getValue();
-                CRC32 crc = new CRC32();
-                crc.update(value);
-                ZipEntry zipEntry = new ZipEntry(e.getKey());
-                zipEntry.setMethod(ZipEntry.STORED);
-                zipEntry.setSize(value.length);
-                zipEntry.setCompressedSize(value.length);
-                zipEntry.setCrc(crc.getValue());
-                out.putNextEntry(zipEntry);
-                out.write(value);
-                out.closeEntry();
-            }
-            out.finish();
-        } finally {
-            if (out != null) {
-                try {
-                    out.close();
-                } catch (IOException ignored) {}
+            File temp = new File(container.getAbsolutePath() + ".tmp");
+            ZipOutputStream out = null;
+            boolean moved = false;
+            try {
+                out = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(temp)));
+                out.setLevel(0);
+                for (Map.Entry<String, byte[]> e : entries.entrySet()) {
+                    byte[] value = e.getValue();
+                    CRC32 crc = new CRC32();
+                    crc.update(value);
+                    ZipEntry zipEntry = new ZipEntry(e.getKey());
+                    // .codc is intentionally an uncompressed zip container (level 0, STORED entries).
+                    zipEntry.setMethod(ZipEntry.STORED);
+                    zipEntry.setSize(value.length);
+                    zipEntry.setCompressedSize(value.length);
+                    zipEntry.setCrc(crc.getValue());
+                    out.putNextEntry(zipEntry);
+                    out.write(value);
+                    out.closeEntry();
+                }
+                out.finish();
+                Files.move(temp.toPath(), container.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                moved = true;
+            } finally {
+                if (out != null) {
+                    try {
+                        out.close();
+                    } catch (IOException ignored) {}
+                }
+                if (!moved && temp.exists()) {
+                    try {
+                        Files.delete(temp.toPath());
+                    } catch (IOException ignored) {}
+                }
             }
         }
+    }
 
-        Files.move(temp.toPath(), container.toPath(), StandardCopyOption.REPLACE_EXISTING);
+    private Object getContainerLock(File container) {
+        String key = container.getAbsolutePath();
+        Object lock = CONTAINER_LOCKS.get(key);
+        if (lock != null) return lock;
+        Object created = new Object();
+        Object existing = CONTAINER_LOCKS.putIfAbsent(key, created);
+        return existing != null ? existing : created;
     }
 
     private Map<String, byte[]> readContainerEntries(File container) throws IOException {
