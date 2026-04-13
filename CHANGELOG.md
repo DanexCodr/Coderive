@@ -13,17 +13,18 @@ All notable changes to Coderive are documented in this file.
 - **`CommandRunner` full compile mode and summary polish** — `-f`/`--full` support and compile summary output improvements.
 - **Borrow-check enforcement for unsafe indexed mutation** — borrow safety checks extended into unsafe indexed mutation paths.
 - **Active-borrow tracking performance upgrades** — zero-cost/O(1) active-borrow tracking improvements.
+- **Unsafe operation boundary model implementation** — `unsafe` class/method modifier support with `safe(...)` wrapping for calling unsafe operations from safe contexts.
 
 ### 🚨 Breaking / Behavioral Changes
 - **Unsafe declaration ordering enforced** — Unsafe declarations require explicit visibility before `unsafe` (`share unsafe ...` or `local unsafe ...`).  
   Migration example: `unsafe share MyType { ... }` → `share unsafe MyType { ... }`.
-- **Safe ↔ unsafe boundary rules enforced** — Unsafe constructors/methods are blocked in safe contexts unless wrapped with `safe(...)`; `safe(...)` is not allowed inside unsafe contexts.
+- **Unsafe operation boundary model enforced** — `unsafe` is supported as a class/method modifier, and unsafe constructors/methods must be wrapped with `safe(...)` when called from safe contexts; `safe(...)` is not allowed inside unsafe contexts.
 - **Borrow checks tightened in unsafe mutation paths** — Unsafe indexed mutation now participates in borrow-safety enforcement.
 
 ### ✨ Major Features
 - **Unsafe pointer model added** — Unsafe contexts support pointer-oriented syntax/runtime behavior (`*T`, `T[n]`, `&`, `*`, and pointer arithmetic with bounds checks).
 - **Full-project compile mode in CLI** — `CommandRunner` supports `-f` / `--full` to compile all `.cod` files under `src/main`.
-- **Zero-cost active-borrow tracking** — Borrow-state tracking moved to O(1)-style active tracking for lower runtime overhead.
+- **O(1) borrow checking via active-borrow tracking** — Borrow-state checking moved to O(1)-style active tracking for lower runtime overhead.
 
 ### 🔧 Runtime / PTAC / IR Improvements
 - **Deterministic lowering register naming** — PTAC lowering counters reset per `lower()` call to keep generated naming stable per artifact.
