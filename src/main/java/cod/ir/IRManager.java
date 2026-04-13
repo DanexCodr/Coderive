@@ -30,6 +30,7 @@ public class IRManager {
     private static final String BIN_DIR = "bin";
     private static final String IR_EXT = ".codb";
     private static final String CONTAINER_EXT = ".codc";
+    private static final int BUFFER_SIZE = 8192;
 
     private final String projectRoot;
     private final IRWriter writer;
@@ -195,7 +196,8 @@ public class IRManager {
     private String getRootUnit(String unit) {
         if (unit == null || unit.isEmpty()) return "default";
         int dot = unit.indexOf('.');
-        if (dot <= 0) return unit;
+        if (dot < 0) return unit;
+        if (dot == 0) return "default";
         return unit.substring(0, dot);
     }
 
@@ -330,7 +332,7 @@ public class IRManager {
 
     private byte[] readAllBytes(InputStream in) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] buffer = new byte[8192];
+        byte[] buffer = new byte[BUFFER_SIZE];
         int read;
         while ((read = in.read(buffer)) >= 0) {
             if (read > 0) {
