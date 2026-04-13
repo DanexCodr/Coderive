@@ -18,14 +18,14 @@ share JsonValue {
     share isNull() :: bool { ~> (this.kind == 0) }
     share isBool() :: bool { ~> (this.kind == 1) }
     share isNumber() :: bool { ~> (this.kind == 2) }
-    share isString() :: bool { ~> (this.kind == 3) }
+    share isText() :: bool { ~> (this.kind == 3) }
     share isArray() :: bool { ~> (this.kind == 4) }
     share isObject() :: bool { ~> (this.kind == 5) }
     share isError() :: bool { ~> (this.kind == 6) }
 
     share asBool() :: bool { ~> (this.boolData) }
     share asNumberText() :: text { ~> (this.textData) }
-    share asString() :: text { ~> (this.textData) }
+    share asText() :: text { ~> (this.textData) }
     share error() :: text { ~> (this.errorData) }
 
     share size() :: int {
@@ -92,8 +92,8 @@ share JsonValue {
         ~> (this.objectValues[index])
     }
 
-    share toJson() :: text { ~> (Json.stringifyValue(this, false, 0)) }
-    share toJsonPretty() :: text { ~> (Json.stringifyValue(this, true, 0)) }
+    share toJson() :: text { ~> (Json.serializeValue(this, false, 0)) }
+    share toJsonPretty() :: text { ~> (Json.serializeValue(this, true, 0)) }
 
     share makeNull() :: JsonValue {
         v := JsonValue(0)
@@ -112,7 +112,7 @@ share JsonValue {
         ~> (v)
     }
 
-    share makeString(textValue: text) :: JsonValue {
+    share makeText(textValue: text) :: JsonValue {
         v := JsonValue(3)
         v.textData = textValue
         ~> (v)
@@ -144,25 +144,25 @@ share Json {
         ~> (parser.parseRoot())
     }
 
-    share stringify(value: JsonValue) :: text {
-        ~> (Json.stringifyValue(value, false, 0))
+    share serialize(value: JsonValue) :: text {
+        ~> (Json.serializeValue(value, false, 0))
     }
 
-    share stringifyPretty(value: JsonValue) :: text {
-        ~> (Json.stringifyValue(value, true, 0))
+    share serializePretty(value: JsonValue) :: text {
+        ~> (Json.serializeValue(value, true, 0))
     }
 
     share nullValue() :: JsonValue { ~> (JsonValue.makeNull()) }
     share bool(value: bool) :: JsonValue { ~> (JsonValue.makeBool(value)) }
     share number(value: int|float) :: JsonValue { ~> (JsonValue.makeNumber("" + value)) }
     share numberText(value: text) :: JsonValue { ~> (JsonValue.makeNumber(value)) }
-    share string(value: text) :: JsonValue { ~> (JsonValue.makeString(value)) }
+    share text(value: text) :: JsonValue { ~> (JsonValue.makeText(value)) }
     share array() :: JsonValue { ~> (JsonValue.makeArray([])) }
     share object() :: JsonValue { ~> (JsonValue.makeObject([], [])) }
 
-    share stringifyValue(value: JsonValue, pretty: bool, depth: int) :: text {
+    share serializeValue(value: JsonValue, pretty: bool, depth: int) :: text {
         if value.isError() {
-            ~> ("\"<json-error: " + Json.escapeString(value.error()) + ">\"")
+            ~> ("\"<json-error: " + Json.escapeText(value.error()) + ">\"")
         }
 
         if value.isNull() {
@@ -180,8 +180,8 @@ share Json {
             ~> (raw)
         }
 
-        if value.isString() {
-            ~> ("\"" + Json.escapeString(value.asString()) + "\"")
+        if value.isText() {
+            ~> ("\"" + Json.escapeText(value.asText()) + "\"")
         }
 
         if value.isArray() {
@@ -193,7 +193,7 @@ share Json {
                 for i of 0 to count - 1 {
                     outText = outText + Json.indent(depth + 1)
                     item := value.get(i)
-                    outText = outText + Json.stringifyValue(item, true, depth + 1)
+                    outText = outText + Json.serializeValue(item, true, depth + 1)
                     if i < count - 1 { outText = outText + "," }
                     outText = outText + "\n"
                 }
@@ -204,7 +204,7 @@ share Json {
             outText := "["
             for i of 0 to count - 1 {
                 item := value.get(i)
-                outText = outText + Json.stringifyValue(item, false, depth + 1)
+                outText = outText + Json.serializeValue(item, false, depth + 1)
                 if i < count - 1 { outText = outText + "," }
             }
             outText = outText + "]"
@@ -221,8 +221,8 @@ share Json {
                     key := value.keyAt(i)
                     item := value.valueAt(i)
                     outText = outText + Json.indent(depth + 1)
-                    outText = outText + "\"" + Json.escapeString(key) + "\": "
-                    outText = outText + Json.stringifyValue(item, true, depth + 1)
+                    outText = outText + "\"" + Json.escapeText(key) + "\": "
+                    outText = outText + Json.serializeValue(item, true, depth + 1)
                     if i < count - 1 { outText = outText + "," }
                     outText = outText + "\n"
                 }
@@ -234,8 +234,8 @@ share Json {
             for i of 0 to count - 1 {
                 key := value.keyAt(i)
                 item := value.valueAt(i)
-                outText = outText + "\"" + Json.escapeString(key) + "\":"
-                outText = outText + Json.stringifyValue(item, false, depth + 1)
+                outText = outText + "\"" + Json.escapeText(key) + "\":"
+                outText = outText + Json.serializeValue(item, false, depth + 1)
                 if i < count - 1 { outText = outText + "," }
             }
             outText = outText + "}"
@@ -245,7 +245,7 @@ share Json {
         ~> ("null")
     }
 
-    share escapeString(raw: text) :: text {
+    share escapeText(raw: text) :: text {
         outText := ""
         for i of 0 to raw.length - 1 {
             ch := raw[i]
@@ -387,7 +387,7 @@ share JsonParser {
         if ch == "n" { ~> (this.parseNull()) }
         if ch == "t" { ~> (this.parseTrue()) }
         if ch == "f" { ~> (this.parseFalse()) }
-        if ch == "\"" { ~> (this.parseString()) }
+        if ch == "\"" { ~> (this.parseText()) }
         if ch == "[" { ~> (this.parseArray()) }
         if ch == "{" { ~> (this.parseObject()) }
         if any[ch == "-", this.isDigit(ch)] { ~> (this.parseNumber()) }
@@ -419,9 +419,9 @@ share JsonParser {
         ~> (JsonValue.makeError("invalid token, expected false at index " + this.index))
     }
 
-    share parseString() :: JsonValue {
+    share parseText() :: JsonValue {
         if this.source[this.index] != "\"" {
-            ~> (JsonValue.makeError("expected string at index " + this.index))
+            ~> (JsonValue.makeError("expected text at index " + this.index))
         }
 
         this.index = this.index + 1
@@ -429,14 +429,14 @@ share JsonParser {
 
         for i of this.index to this.source.length {
             if this.index >= this.source.length {
-                ~> (JsonValue.makeError("unterminated string"))
+                ~> (JsonValue.makeError("unterminated text"))
             }
 
             ch := this.source[this.index]
             this.index = this.index + 1
 
             if ch == "\"" {
-                ~> (JsonValue.makeString(outText))
+                ~> (JsonValue.makeText(outText))
             }
 
             if ch == "\\" {
@@ -495,7 +495,7 @@ share JsonParser {
             outText = outText + ch
         }
 
-        ~> (JsonValue.makeError("unterminated string"))
+        ~> (JsonValue.makeError("unterminated text"))
     }
 
     share parseNumber() :: JsonValue {
@@ -613,9 +613,9 @@ share JsonParser {
 
         for n of 0 to this.source.length {
             this.skipWhitespace()
-            keyValue := this.parseString()
+            keyValue := this.parseText()
             if keyValue.isError() { ~> (keyValue) }
-            key := keyValue.asString()
+            key := keyValue.asText()
 
             this.skipWhitespace()
             if any[this.index >= this.source.length, this.source[this.index] != ":"] {
