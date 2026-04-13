@@ -223,7 +223,7 @@ public class IRManager {
         return toUnitPath(unit) + "/" + className + IR_EXT;
     }
 
-    private String toUnitPath(String unit) {
+    public static String toUnitPath(String unit) {
         if (unit == null) return "";
         return unit.replace('.', '/');
     }

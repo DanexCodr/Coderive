@@ -312,7 +312,7 @@ public class TestRunner extends BaseRunner {
             try {
                 irManager.save(unitName, type);
                 compiled++;
-                String unitPath = toUnitPath(unitName);
+                String unitPath = IRManager.toUnitPath(unitName);
                 DebugSystem.debug(NAME + LOG_TAG, "Compiled CodP-TAC artifact: " + type.name + " → <project>.codc/" + unitPath + "/" + type.name + ".codb");
             } catch (Exception e) {
                 DebugSystem.warn(NAME + LOG_TAG, "Failed to compile " + type.name + ": " + e.getMessage());
@@ -388,7 +388,4 @@ public class TestRunner extends BaseRunner {
         return !ast.unit.types.isEmpty() ? ast.unit.types.get(0) : null;
     }
 
-    private String toUnitPath(String unitName) {
-        return unitName == null ? "" : unitName.replace('.', '/');
-    }
 }
