@@ -18,7 +18,7 @@ All notable changes to Coderive are documented in this file.
 ### 🚨 Breaking / Behavioral Changes
 - **Unsafe declaration ordering enforced** — Unsafe declarations require explicit visibility before `unsafe` (`share unsafe ...` or `local unsafe ...`).  
   Migration example: `unsafe share MyType { ... }` → `share unsafe MyType { ... }`.
-- **Unsafe operation boundary model enforced** — `unsafe` is supported as a class/method modifier, and unsafe constructors/methods must be wrapped with `safe(...)` when called from safe contexts; `safe(...)` is not allowed inside unsafe contexts.
+- **Unsafe operation boundary model enforced** — `unsafe` is supported as a class/method modifier, and unsafe constructors/methods must be wrapped with `safe(...)` when called from safe contexts. `safe(...)` is not allowed inside unsafe contexts.
 - **Borrow checks tightened in unsafe mutation paths** — Unsafe indexed mutation now participates in borrow-safety enforcement.
 
 ### ✨ Major Features
