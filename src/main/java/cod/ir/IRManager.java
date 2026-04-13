@@ -33,6 +33,8 @@ public class IRManager {
     private static final String IR_EXT = ".codb";
     private static final String CONTAINER_EXT = ".codc";
     private static final String INDEX_DIR = "idx/";
+    private static final String PROJECT_CONTAINER_NAME = "project";
+    private static final String PROJECT_INDEX_FILE_NAME = "project.toml";
     private static final int BUFFER_SIZE = 8192;
     private static final Map<String, Object> CONTAINER_LOCKS = new ConcurrentHashMap<String, Object>();
 
@@ -158,8 +160,7 @@ public class IRManager {
 
     public String loadIndex(String unit) {
         if (unit == null || unit.isEmpty()) return null;
-        String rootUnit = getRootUnit(unit);
-        String entryName = getIndexEntryName(rootUnit);
+        String entryName = getProjectIndexEntryName();
         try {
             byte[] data = readContainerEntry(unit, entryName);
             if (data == null) return null;
@@ -171,8 +172,7 @@ public class IRManager {
 
     public void saveIndex(String unit, String indexContent) throws IOException {
         if (unit == null || unit.isEmpty() || indexContent == null) return;
-        String rootUnit = getRootUnit(unit);
-        String entryName = getIndexEntryName(rootUnit);
+        String entryName = getProjectIndexEntryName();
         writeContainerEntry(unit, entryName, indexContent.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -216,25 +216,16 @@ public class IRManager {
     }
 
     private File getContainerFile(String unit) {
-        String rootUnit = getRootUnit(unit);
-        String path = projectRoot + "/src/" + BIN_DIR + "/" + rootUnit + CONTAINER_EXT;
+        String path = projectRoot + "/src/" + BIN_DIR + "/" + PROJECT_CONTAINER_NAME + CONTAINER_EXT;
         return new File(path);
-    }
-
-    private String getRootUnit(String unit) {
-        if (unit == null || unit.isEmpty()) return "default";
-        int dot = unit.indexOf('.');
-        if (dot < 0) return unit;
-        if (dot == 0) return "default";
-        return unit.substring(0, dot);
     }
 
     private String getContainerEntryName(String unit, String className) {
         return unit + "/" + className + IR_EXT;
     }
 
-    private String getIndexEntryName(String rootUnit) {
-        return INDEX_DIR + rootUnit + ".toml";
+    private String getProjectIndexEntryName() {
+        return INDEX_DIR + PROJECT_INDEX_FILE_NAME;
     }
 
     private Artifact readArtifactFromContainer(String unit, String className) throws IOException {

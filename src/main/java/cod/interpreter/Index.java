@@ -15,8 +15,7 @@ import java.util.*;
  * Index file for Coderive units.
  * Stores classname → filename mappings for O(1) import resolution.
  * 
- * File format (preferred): {projectRoot}/src/bin/{rootUnit}.codc -> idx/{rootUnit}.toml
- * Standalone fallback: {projectRoot}/src/bin/s_idx/{rootUnit}.toml
+ * File format (preferred): {projectRoot}/src/bin/project.codc -> idx/project.toml
  * 
  * Example:
  * # unit sample
@@ -32,14 +31,11 @@ import java.util.*;
  */
 public final class Index {
     
-    private static final String STANDALONE_IDX_DIR_NAME = "s_idx";
-    private static final String SRC_DIR_NAME = "src";
-    private static final String BIN_DIR_NAME = "bin";
-    private static final String CODC_EXTENSION = ".codc";
-    private static final String CODB_EXTENSION = ".codb";
     private static final String FILE_EXTENSION = ".toml";
     private static final String CLASSES_SECTION = "classes";
     private static final String CLASSES_SECTION_PREFIX = CLASSES_SECTION + ":";
+    private static final String PROJECT_INDEX_NAME = "project";
+    private static final String SRC_DIR_NAME = "src";
     private static final String DEFAULT_GENERATOR = "Coderive 1.0";
     
     private final String unit;
@@ -89,30 +85,8 @@ public final class Index {
         return projectRoot;
     }
     
-    private static String getRootUnit(String unitName) {
-        if (unitName == null || unitName.isEmpty()) return "default";
-        int dot = unitName.indexOf('.');
-        if (dot < 0) return unitName;
-        if (dot == 0) return "default";
-        return unitName.substring(0, dot);
-    }
-
     private static String getUnitSectionName(String unitName) {
         return CLASSES_SECTION_PREFIX + unitName;
-    }
-
-    private static File getStandaloneIndexFile(String rootUnit) {
-        if (projectRoot == null) {
-            return new File("src/" + BIN_DIR_NAME + "/" + STANDALONE_IDX_DIR_NAME + "/" + rootUnit + FILE_EXTENSION);
-        }
-        return new File(projectRoot + File.separator + SRC_DIR_NAME + File.separator + BIN_DIR_NAME +
-                        File.separator + STANDALONE_IDX_DIR_NAME + File.separator + rootUnit + FILE_EXTENSION);
-    }
-
-    private static File getCodcFile(String rootUnit) {
-        if (projectRoot == null) return null;
-        return new File(projectRoot + File.separator + SRC_DIR_NAME + File.separator + BIN_DIR_NAME +
-                        File.separator + rootUnit + CODC_EXTENSION);
     }
     
     /**
@@ -156,8 +130,7 @@ public final class Index {
         if (unitName == null || unitName.trim().isEmpty()) {
             return null;
         }
-        String rootUnit = getRootUnit(unitName);
-        String docText = loadPreferredDocumentText(unitName, rootUnit);
+        String docText = loadPreferredDocumentText(unitName);
         if (docText == null) {
             return null;
         }
@@ -179,20 +152,15 @@ public final class Index {
      * @return true if saved successfully, false otherwise
      */
     public boolean save() {
-        String rootUnit = getRootUnit(unit);
-        IndexDocument merged = loadExistingDocument(unit, rootUnit);
+        IndexDocument merged = loadExistingDocument(unit);
         merged.timestamp = timestamp;
         merged.generator = (generator == null || generator.isEmpty()) ? DEFAULT_GENERATOR : generator;
         merged.unitMappings.put(unit, new HashMap<String, String>(classes));
 
-        String documentText = writeDocumentText(rootUnit, merged);
+        String documentText = writeDocumentText(merged);
 
         if (projectRoot == null) {
             return false;
-        }
-
-        if (shouldUseStandaloneIndex(rootUnit)) {
-            return saveStandaloneIndex(rootUnit, documentText);
         }
 
         IRManager manager = new IRManager(projectRoot);
@@ -200,7 +168,7 @@ public final class Index {
             manager.saveIndex(unit, documentText);
             return true;
         } catch (IOException e) {
-            return saveStandaloneIndex(rootUnit, documentText);
+            return false;
         }
     }
     
@@ -521,106 +489,26 @@ public final class Index {
     
     // ========== Private Helpers ==========
 
-    private static String loadPreferredDocumentText(String unitName, String rootUnit) {
+    private static String loadPreferredDocumentText(String unitName) {
         if (projectRoot == null) {
             return null;
         }
 
         IRManager manager = new IRManager(projectRoot);
-        String content = manager.loadIndex(unitName);
-        if (content != null) {
-            return content;
-        }
-
-        File standalone = getStandaloneIndexFile(rootUnit);
-        if (standalone.exists()) {
-            try {
-                return readFileToString(standalone);
-            } catch (IOException ignored) {}
-        }
-        return null;
+        return manager.loadIndex(unitName);
     }
 
-    private static IndexDocument loadExistingDocument(String unitName, String rootUnit) {
-        String content = loadPreferredDocumentText(unitName, rootUnit);
+    private static IndexDocument loadExistingDocument(String unitName) {
+        String content = loadPreferredDocumentText(unitName);
         if (content == null) {
             return new IndexDocument(System.currentTimeMillis(), DEFAULT_GENERATOR, new HashMap<String, Map<String, String>>());
         }
         return parseDocument(content, unitName);
     }
 
-    private static boolean shouldUseStandaloneIndex(String rootUnit) {
-        File codc = getCodcFile(rootUnit);
-        if (codc != null && codc.exists()) {
-            return false;
-        }
-        return hasStandaloneArtifacts(rootUnit);
-    }
-
-    private static boolean hasStandaloneArtifacts(String rootUnit) {
-        if (projectRoot == null) return false;
-        File binDir = new File(projectRoot + File.separator + SRC_DIR_NAME + File.separator + BIN_DIR_NAME);
-        if (!binDir.exists() || !binDir.isDirectory()) {
-            return false;
-        }
-
-        File[] children = binDir.listFiles();
-        if (children == null) return false;
-
-        for (File child : children) {
-            if (!child.isDirectory()) continue;
-            String name = child.getName();
-            if (!(name.equals(rootUnit) || name.startsWith(rootUnit + "."))) {
-                continue;
-            }
-            if (containsCodb(child)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean containsCodb(File dir) {
-        File[] files = dir.listFiles();
-        if (files == null) return false;
-        for (File file : files) {
-            if (file.isDirectory()) {
-                if (containsCodb(file)) return true;
-            } else if (file.getName().endsWith(CODB_EXTENSION)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean saveStandaloneIndex(String rootUnit, String content) {
-        File file = getStandaloneIndexFile(rootUnit);
-        File parent = file.getParentFile();
-        if (parent != null && !parent.exists() && !parent.mkdirs()) {
-            return false;
-        }
-        return writeStringToFile(file, content);
-    }
-
-    private static boolean writeStringToFile(File file, String content) {
-        PrintWriter writer = null;
-        try {
-            writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8));
-            writer.print(content);
-            writer.flush();
-            return true;
-        } catch (IOException e) {
-            return false;
-        } finally {
-            if (writer != null) {
-                writer.close();
-            }
-        }
-    }
-
-    private static String writeDocumentText(String rootUnit, IndexDocument doc) {
+    private static String writeDocumentText(IndexDocument doc) {
         StringBuilder out = new StringBuilder();
-        out.append("# root-unit ").append(rootUnit).append("\n");
+        out.append("# project-index ").append(PROJECT_INDEX_NAME).append(FILE_EXTENSION).append("\n");
         out.append("timestamp = \"").append(doc.timestamp).append("\"\n");
         out.append("generator = \"").append(doc.generator).append("\"\n");
         out.append("\n");

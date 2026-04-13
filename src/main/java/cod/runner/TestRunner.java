@@ -312,7 +312,7 @@ public class TestRunner extends BaseRunner {
             try {
                 irManager.save(unitName, type);
                 compiled++;
-                DebugSystem.debug(NAME + LOG_TAG, "Compiled CodP-TAC artifact: " + type.name + " → <root-unit>.codc/" + unitName + "/" + type.name + ".codb");
+                DebugSystem.debug(NAME + LOG_TAG, "Compiled CodP-TAC artifact: " + type.name + " → <project>.codc/" + unitName + "/" + type.name + ".codb");
             } catch (Exception e) {
                 DebugSystem.warn(NAME + LOG_TAG, "Failed to compile " + type.name + ": " + e.getMessage());
             }
