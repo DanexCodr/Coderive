@@ -719,7 +719,7 @@ public class LiteralRegistry {
         return result;
     }
     
-    private Object handleArrayFilter(Object literal, List<Object> arguments, ExecutionContext ctx) {
+    private Object handleArrayFilter(Object literal, List<Object> arguments, final ExecutionContext ctx) {
         if (arguments == null || arguments.isEmpty()) {
             throw new ProgramError("filter expects a callback or (operator, operand)");
         }
