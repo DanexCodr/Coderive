@@ -66,6 +66,8 @@ public class IRManager {
         try {
             Artifact artifact = readArtifactFromContainer(unit, className);
             if (artifact == null) {
+                // Standalone .codb files are a permanent supported format.
+                // .codc containers are additive grouping, not a replacement.
                 File file = getIRFile(unit, className);
                 if (!file.exists()) {
                     return null;
@@ -111,6 +113,8 @@ public class IRManager {
         try {
             Artifact artifact = readArtifactFromContainer(unit, className);
             if (artifact == null) {
+                // Standalone .codb files are a permanent supported format.
+                // .codc containers are additive grouping, not a replacement.
                 File file = getIRFile(unit, className);
                 if (!file.exists()) {
                     return null;
