@@ -15,7 +15,7 @@ import java.util.*;
  * Index file for Coderive units.
  * Stores classname → filename mappings for O(1) import resolution.
  * 
- * File format (preferred): {projectRoot}/src/bin/project.codc -> idx/project.toml
+ * File format (preferred): {projectRoot}/src/bin/project.codc -> HOOK.toml
  * 
  * Example:
  * # unit sample

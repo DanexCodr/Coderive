@@ -32,9 +32,8 @@ public class IRManager {
     private static final String BIN_DIR = "bin";
     private static final String IR_EXT = ".codb";
     private static final String CONTAINER_EXT = ".codc";
-    private static final String INDEX_DIR = "idx/";
     private static final String PROJECT_CONTAINER_NAME = "project";
-    private static final String PROJECT_INDEX_FILE_NAME = "project.toml";
+    private static final String PROJECT_INDEX_FILE_NAME = "HOOK.toml";
     private static final int BUFFER_SIZE = 8192;
     private static final Map<String, Object> CONTAINER_LOCKS = new ConcurrentHashMap<String, Object>();
 
@@ -225,7 +224,7 @@ public class IRManager {
     }
 
     private String getProjectIndexEntryName() {
-        return INDEX_DIR + PROJECT_INDEX_FILE_NAME;
+        return PROJECT_INDEX_FILE_NAME;
     }
 
     private Artifact readArtifactFromContainer(String unit, String className) throws IOException {
