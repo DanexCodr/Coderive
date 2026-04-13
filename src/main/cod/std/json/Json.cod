@@ -1,5 +1,7 @@
 unit json
 
+use {unicode}
+
 // JSON standard library for Coderive.
 // Supports parsing, mutation, and compact/pretty serialization of JSON values.
 share JsonValue {
@@ -287,58 +289,15 @@ share Json {
         ~> (outText)
     }
 
-    share hex4(value: int) :: text {
-        x: int = value
-        if x < 0 { x = 0 }
-        if x > 65535 { x = x % 65536 }
-        d0 := (x / 4096) % 16
-        d1 := (x / 256) % 16
-        d2 := (x / 16) % 16
-        d3 := x % 16
-        ~> (
-            Json.hexDigit(d0) +
-            Json.hexDigit(d1) +
-            Json.hexDigit(d2) +
-            Json.hexDigit(d3)
-        )
-    }
-
-    share hexDigit(value: int) :: text {
-        if value == 0 { ~> ("0") }
-        if value == 1 { ~> ("1") }
-        if value == 2 { ~> ("2") }
-        if value == 3 { ~> ("3") }
-        if value == 4 { ~> ("4") }
-        if value == 5 { ~> ("5") }
-        if value == 6 { ~> ("6") }
-        if value == 7 { ~> ("7") }
-        if value == 8 { ~> ("8") }
-        if value == 9 { ~> ("9") }
-        if value == 10 { ~> ("A") }
-        if value == 11 { ~> ("B") }
-        if value == 12 { ~> ("C") }
-        if value == 13 { ~> ("D") }
-        if value == 14 { ~> ("E") }
-        ~> ("F")
-    }
-
     share isUnicodeEscapeAt(raw: text, start: int) :: bool {
         if start + 5 >= raw.length { ~> (false) }
         if raw[start] != "\\" { ~> (false) }
         if raw[start + 1] != "u" { ~> (false) }
-        if !Json.isHexDigit(raw[start + 2]) { ~> (false) }
-        if !Json.isHexDigit(raw[start + 3]) { ~> (false) }
-        if !Json.isHexDigit(raw[start + 4]) { ~> (false) }
-        if !Json.isHexDigit(raw[start + 5]) { ~> (false) }
+        if !Unicode.isHexDigit(raw[start + 2]) { ~> (false) }
+        if !Unicode.isHexDigit(raw[start + 3]) { ~> (false) }
+        if !Unicode.isHexDigit(raw[start + 4]) { ~> (false) }
+        if !Unicode.isHexDigit(raw[start + 5]) { ~> (false) }
         ~> (true)
-    }
-
-    share isHexDigit(ch: text) :: bool {
-        ~> (any[
-            any[ch == "0", ch == "1", ch == "2", ch == "3", ch == "4", ch == "5", ch == "6", ch == "7", ch == "8", ch == "9"],
-            any[ch == "a", ch == "b", ch == "c", ch == "d", ch == "e", ch == "f"],
-            any[ch == "A", ch == "B", ch == "C", ch == "D", ch == "E", ch == "F"]
-        ])
     }
 
     share indent(depth: int) :: text {
@@ -462,7 +421,7 @@ share JsonParser {
                         ~> (JsonValue.makeError("invalid unicode escape at index " + this.index))
                     }
                     this.index = this.index + 4
-                    firstText := "\\u" + Json.hex4(firstUnit)
+                    firstText := "\\u" + Unicode.hex4(firstUnit)
 
                     if this.isHighSurrogateUnit(firstUnit) {
                         if this.index + 5 >= this.source.length {
@@ -477,7 +436,7 @@ share JsonParser {
                             ~> (JsonValue.makeError("invalid low surrogate at index " + this.index))
                         }
                         this.index = this.index + 4
-                        outText = outText + firstText + "\\u" + Json.hex4(secondUnit)
+                        outText = outText + firstText + "\\u" + Unicode.hex4(secondUnit)
                         continue
                     }
 
@@ -690,53 +649,15 @@ share JsonParser {
         ])
     }
 
-    share isHexDigit(ch: text) :: bool {
-        ~> (any[
-            this.isDigit(ch),
-            ch == "a",
-            ch == "b",
-            ch == "c",
-            ch == "d",
-            ch == "e",
-            ch == "f",
-            ch == "A",
-            ch == "B",
-            ch == "C",
-            ch == "D",
-            ch == "E",
-            ch == "F"
-        ])
-    }
-
     share parseHex4At(start: int) :: int {
         if start + 3 >= this.source.length { ~> (-1) }
         value: int = 0
         for j of 0 to 3 {
-            digit := this.hexDigitValue(this.source[start + j])
+            digit := Unicode.hexValue(this.source[start + j])
             if digit < 0 { ~> (-1) }
             value = value * 16 + digit
         }
         ~> (value)
-    }
-
-    share hexDigitValue(ch: text) :: int {
-        if ch == "0" { ~> (0) }
-        if ch == "1" { ~> (1) }
-        if ch == "2" { ~> (2) }
-        if ch == "3" { ~> (3) }
-        if ch == "4" { ~> (4) }
-        if ch == "5" { ~> (5) }
-        if ch == "6" { ~> (6) }
-        if ch == "7" { ~> (7) }
-        if ch == "8" { ~> (8) }
-        if ch == "9" { ~> (9) }
-        if any[ch == "a", ch == "A"] { ~> (10) }
-        if any[ch == "b", ch == "B"] { ~> (11) }
-        if any[ch == "c", ch == "C"] { ~> (12) }
-        if any[ch == "d", ch == "D"] { ~> (13) }
-        if any[ch == "e", ch == "E"] { ~> (14) }
-        if any[ch == "f", ch == "F"] { ~> (15) }
-        ~> (-1)
     }
 
     share isHighSurrogateUnit(unit: int) :: bool {
