@@ -349,7 +349,7 @@ share JsonParser {
         if ch == "\"" { ~> (this.parseText()) }
         if ch == "[" { ~> (this.parseArray()) }
         if ch == "{" { ~> (this.parseObject()) }
-        if any[ch == "-", this.isDigit(ch)] { ~> (this.parseNumber()) }
+        if any[ch == "-", Unicode.isDigit(ch)] { ~> (this.parseNumber()) }
 
         ~> (JsonValue.makeError("invalid json value at index " + this.index))
     }
@@ -470,24 +470,24 @@ share JsonParser {
         if this.source[this.index] == "0" {
             this.index = this.index + 1
         } else {
-            if !this.isDigit(this.source[this.index]) {
+            if !Unicode.isDigit(this.source[this.index]) {
                 ~> (JsonValue.makeError("invalid number at index " + start))
             }
             for i of this.index to this.source.length {
                 if this.index >= this.source.length { break }
-                if !this.isDigit(this.source[this.index]) { break }
+                if !Unicode.isDigit(this.source[this.index]) { break }
                 this.index = this.index + 1
             }
         }
 
         if all[this.index < this.source.length, this.source[this.index] == "."] {
             this.index = this.index + 1
-            if any[this.index >= this.source.length, !this.isDigit(this.source[this.index])] {
+            if any[this.index >= this.source.length, !Unicode.isDigit(this.source[this.index])] {
                 ~> (JsonValue.makeError("invalid number fraction at index " + start))
             }
             for i of this.index to this.source.length {
                 if this.index >= this.source.length { break }
-                if !this.isDigit(this.source[this.index]) { break }
+                if !Unicode.isDigit(this.source[this.index]) { break }
                 this.index = this.index + 1
             }
         }
@@ -497,12 +497,12 @@ share JsonParser {
             if all[this.index < this.source.length, any[this.source[this.index] == "+", this.source[this.index] == "-"]] {
                 this.index = this.index + 1
             }
-            if any[this.index >= this.source.length, !this.isDigit(this.source[this.index])] {
+            if any[this.index >= this.source.length, !Unicode.isDigit(this.source[this.index])] {
                 ~> (JsonValue.makeError("invalid number exponent at index " + start))
             }
             for i of this.index to this.source.length {
                 if this.index >= this.source.length { break }
-                if !this.isDigit(this.source[this.index]) { break }
+                if !Unicode.isDigit(this.source[this.index]) { break }
                 this.index = this.index + 1
             }
         }
@@ -632,21 +632,6 @@ share JsonParser {
             }
         }
         ~> (true)
-    }
-
-    share isDigit(ch: text) :: bool {
-        ~> (any[
-            ch == "0",
-            ch == "1",
-            ch == "2",
-            ch == "3",
-            ch == "4",
-            ch == "5",
-            ch == "6",
-            ch == "7",
-            ch == "8",
-            ch == "9"
-        ])
     }
 
     share parseHex4At(start: int) :: int {

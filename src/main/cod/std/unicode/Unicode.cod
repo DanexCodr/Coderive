@@ -1,9 +1,13 @@
 unit unicode
 
 share Unicode {
+    share isDigit(ch: text) :: bool {
+        ~> (any[ch == "0", ch == "1", ch == "2", ch == "3", ch == "4", ch == "5", ch == "6", ch == "7", ch == "8", ch == "9"])
+    }
+
     share isHexDigit(ch: text) :: bool {
         ~> (any[
-            any[ch == "0", ch == "1", ch == "2", ch == "3", ch == "4", ch == "5", ch == "6", ch == "7", ch == "8", ch == "9"],
+            Unicode.isDigit(ch),
             any[ch == "a", ch == "b", ch == "c", ch == "d", ch == "e", ch == "f"],
             any[ch == "A", ch == "B", ch == "C", ch == "D", ch == "E", ch == "F"]
         ])
