@@ -13,3 +13,5 @@ build/
 # Generated runtime artifacts
 src/main/cod/src/bin/
 src/main/cod/src/idx/
+src/main/cod/demo/src/bin/
+src/main/cod/demo/src/idx/
