@@ -13,6 +13,9 @@ import cod.semantic.NamingValidator;
 import java.util.*;
 
 public class AssignmentHandler {
+    private static final String BORROW_MUTATION_VIOLATION =
+        "Borrow checker violation: cannot mutate index %d while it is currently borrowed by an active pointer";
+
     private final TypeHandler typeSystem;
     private final Interpreter interpreter;
     private final ExpressionHandler expressionHandler;
@@ -336,22 +339,20 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
             return;
         }
         if (hasBorrowInLocals(container, index, ctx.getLocalsStack())) {
-            throw new ProgramError(
-                "Borrow checker violation: cannot mutate index " + index
-                    + " while it is currently borrowed by an active pointer");
+            throwBorrowMutationViolation(index);
         }
         if (ctx.objectInstance != null
             && ctx.objectInstance.fields != null
             && hasBorrowInMap(container, index, ctx.objectInstance.fields)) {
-            throw new ProgramError(
-                "Borrow checker violation: cannot mutate index " + index
-                    + " while it is currently borrowed by an active pointer");
+            throwBorrowMutationViolation(index);
         }
         if (ctx.getSlotValues() != null && hasBorrowInMap(container, index, ctx.getSlotValues())) {
-            throw new ProgramError(
-                "Borrow checker violation: cannot mutate index " + index
-                    + " while it is currently borrowed by an active pointer");
+            throwBorrowMutationViolation(index);
         }
+    }
+
+    private void throwBorrowMutationViolation(long index) {
+        throw new ProgramError(String.format(BORROW_MUTATION_VIOLATION, index));
     }
 
     private boolean isBorrowCheckerActive(ExecutionContext ctx) {
