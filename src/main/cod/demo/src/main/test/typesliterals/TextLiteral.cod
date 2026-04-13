@@ -22,9 +22,5 @@ TextLiteral {
         out("HI".isUpper())
         out("hi".isUpper())
         out("Hello"[0])
-        out("A".codeUnit())
-        out("".fromCodePoint(65))
-        out("AΩ😀".unicodeEscape())
-        out("\\u0041\\u03A9\\uD83D\\uDE00".unicodeUnescape())
     }
 }

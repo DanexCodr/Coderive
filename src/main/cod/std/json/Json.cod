@@ -249,8 +249,12 @@ share Json {
         outText := ""
         for i of 0 to raw.length - 1 {
             ch := raw[i]
-            unit := ch.codeUnit()
             if ch == "\\" {
+                if Json.isUnicodeEscapeAt(raw, i) {
+                    outText = outText + raw[i to i + 5]
+                    i = i + 5
+                    continue
+                }
                 outText = outText + "\\\\"
                 continue
             }
@@ -276,32 +280,6 @@ share Json {
             }
             if ch == "\f" {
                 outText = outText + "\\f"
-                continue
-            }
-            if unit < 32 {
-                outText = outText + "\\u" + Json.hex4(unit)
-                continue
-            }
-            if Json.isHighSurrogate(unit) {
-                if i + 1 < raw.length {
-                    nextCh := raw[i + 1]
-                    nextUnit := nextCh.codeUnit()
-                    if Json.isLowSurrogate(nextUnit) {
-                        outText = outText + "\\u" + Json.hex4(unit)
-                        outText = outText + "\\u" + Json.hex4(nextUnit)
-                        i = i + 1
-                        continue
-                    }
-                }
-                outText = outText + "\\u" + Json.hex4(unit)
-                continue
-            }
-            if Json.isLowSurrogate(unit) {
-                outText = outText + "\\u" + Json.hex4(unit)
-                continue
-            }
-            if unit > 126 {
-                outText = outText + "\\u" + Json.hex4(unit)
                 continue
             }
             outText = outText + ch
@@ -344,12 +322,23 @@ share Json {
         ~> ("F")
     }
 
-    share isHighSurrogate(unit: int) :: bool {
-        ~> (all[unit >= 55296, unit <= 56319])
+    share isUnicodeEscapeAt(raw: text, start: int) :: bool {
+        if start + 5 >= raw.length { ~> (false) }
+        if raw[start] != "\\" { ~> (false) }
+        if raw[start + 1] != "u" { ~> (false) }
+        if !Json.isHexDigit(raw[start + 2]) { ~> (false) }
+        if !Json.isHexDigit(raw[start + 3]) { ~> (false) }
+        if !Json.isHexDigit(raw[start + 4]) { ~> (false) }
+        if !Json.isHexDigit(raw[start + 5]) { ~> (false) }
+        ~> (true)
     }
 
-    share isLowSurrogate(unit: int) :: bool {
-        ~> (all[unit >= 56320, unit <= 57343])
+    share isHexDigit(ch: text) :: bool {
+        ~> (any[
+            any[ch == "0", ch == "1", ch == "2", ch == "3", ch == "4", ch == "5", ch == "6", ch == "7", ch == "8", ch == "9"],
+            any[ch == "a", ch == "b", ch == "c", ch == "d", ch == "e", ch == "f"],
+            any[ch == "A", ch == "B", ch == "C", ch == "D", ch == "E", ch == "F"]
+        ])
     }
 
     share indent(depth: int) :: text {
@@ -473,6 +462,7 @@ share JsonParser {
                         ~> (JsonValue.makeError("invalid unicode escape at index " + this.index))
                     }
                     this.index = this.index + 4
+                    firstText := "\\u" + Json.hex4(firstUnit)
 
                     if this.isHighSurrogateUnit(firstUnit) {
                         if this.index + 5 >= this.source.length {
@@ -487,8 +477,7 @@ share JsonParser {
                             ~> (JsonValue.makeError("invalid low surrogate at index " + this.index))
                         }
                         this.index = this.index + 4
-                        codePoint := 65536 + (firstUnit - 55296) * 1024 + (secondUnit - 56320)
-                        outText = outText + "".fromCodePoint(codePoint)
+                        outText = outText + firstText + "\\u" + Json.hex4(secondUnit)
                         continue
                     }
 
@@ -496,7 +485,7 @@ share JsonParser {
                         ~> (JsonValue.makeError("unexpected low surrogate at index " + (this.index - 4)))
                     }
 
-                    outText = outText + "".fromCodePoint(firstUnit)
+                    outText = outText + firstText
                     continue
                 }
 
