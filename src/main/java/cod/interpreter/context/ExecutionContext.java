@@ -44,6 +44,7 @@ public class ExecutionContext {
     private boolean inOptimizedLoop = false;
     private List<Object> pendingOutputs = new ArrayList<Object>();
     private boolean unsafeExecutionContext = false;
+    private IdentityHashMap<Object, Map<Long, Integer>> activeBorrowsByContainer;
     
     // ========== TYPE HANDLER ==========
     private final TypeHandler typeHandler;
@@ -155,6 +156,7 @@ public Map<String, Object> getLocalsMap() {
         this.currentMethodName = null;
         this.currentLambdaClosure = null;
         this.typeHandler = typeHandler;
+        this.activeBorrowsByContainer = new IdentityHashMap<Object, Map<Long, Integer>>();
         
         // Initialize locals
         this.localsStack = new ArrayList<Map<String, Object>>();
@@ -176,6 +178,7 @@ public Map<String, Object> getLocalsMap() {
         
         // Build optimized slot access structures
         optimizeSlotAccess();
+        registerInitialBorrowState(initialLocals);
     }
     
     /**
@@ -236,7 +239,8 @@ public Map<String, Object> getLocalsMap() {
         }
         
         // Update both representations
-        slotValues.put(slotName, value);
+        Object previous = slotValues.put(slotName, value);
+        replaceTrackedValue(previous, value);
         
         if (slotsOptimized && slotIndexMap.containsKey(slotName)) {
             int index = slotIndexMap.get(slotName);
@@ -326,7 +330,10 @@ public Map<String, Object> getLocalsMap() {
     
     public void popScope() {
         if (localsStack.size() > 1) {
-            localsStack.remove(localsStack.size() - 1);
+            Map<String, Object> removedScope = localsStack.remove(localsStack.size() - 1);
+            for (Object value : removedScope.values()) {
+                unregisterBorrowsFromValue(value);
+            }
             localTypesStack.remove(localTypesStack.size() - 1);
         }
     }
@@ -373,14 +380,16 @@ public Map<String, Object> getLocalsMap() {
         for (int i = localsStack.size() - 1; i >= 0; i--) {
             Map<String, Object> scope = localsStack.get(i);
             if (scope.containsKey(name)) {
-                scope.put(name, value);
+                Object previous = scope.put(name, value);
+                replaceTrackedValue(previous, value);
                 return;
             }
         }
         
         // Create in current scope
         Map<String, Object> currentScope = localsStack.get(localsStack.size() - 1);
-        currentScope.put(name, value);
+        Object previous = currentScope.put(name, value);
+        replaceTrackedValue(previous, value);
     }
     
     public String getVariableType(String name) {
@@ -423,7 +432,9 @@ public Object removeVariable(String name) {
     for (int i = localsStack.size() - 1; i >= 0; i--) {
         Map<String, Object> scope = localsStack.get(i);
         if (scope.containsKey(name)) {
-            return scope.remove(name);
+            Object removed = scope.remove(name);
+            unregisterBorrowsFromValue(removed);
+            return removed;
         }
     }
     return null;
@@ -440,7 +451,8 @@ public boolean removeVariableFromAllScopes(String name) {
     for (int i = localsStack.size() - 1; i >= 0; i--) {
         Map<String, Object> scope = localsStack.get(i);
         if (scope.containsKey(name)) {
-            scope.remove(name);
+            Object removed = scope.remove(name);
+            unregisterBorrowsFromValue(removed);
             found = true;
         }
     }
@@ -461,6 +473,29 @@ public boolean removeVariableFromAllScopes(String name) {
         
         return new ExecutionContext(objectInstance, newLocals, slotValues, slotTypes, typeHandler);
     }
+
+    public void setObjectField(String fieldName, Object value) {
+        if (fieldName == null) {
+            throw new InternalError("setObjectField called with null fieldName");
+        }
+        if (objectInstance == null || objectInstance.fields == null) {
+            throw new InternalError("setObjectField called outside object context");
+        }
+        Object previous = objectInstance.fields.put(fieldName, value);
+        replaceTrackedValue(previous, value);
+    }
+
+    public boolean hasActiveBorrow(Object container, long index) {
+        if (container == null) return false;
+        Map<Long, Integer> countsByIndex = activeBorrowsByContainer.get(container);
+        if (countsByIndex == null) return false;
+        Integer count = countsByIndex.get(index);
+        return count != null && count > 0;
+    }
+
+    public void trackValueReplacement(Object oldValue, Object newValue) {
+        replaceTrackedValue(oldValue, newValue);
+    }
     
     // Clear slot optimization (if slots change)
     public void rebuildSlotOptimization() {
@@ -470,5 +505,77 @@ public boolean removeVariableFromAllScopes(String name) {
         this.slotValuesList = null;
         this.slotTypesList = null;
         optimizeSlotAccess();
+    }
+
+    private void registerInitialBorrowState(Map<String, Object> initialLocals) {
+        if (initialLocals != null) {
+            for (Object value : initialLocals.values()) {
+                registerBorrowsFromValue(value);
+            }
+        }
+        if (slotValues != null) {
+            for (Object value : slotValues.values()) {
+                registerBorrowsFromValue(value);
+            }
+        }
+        if (objectInstance != null && objectInstance.fields != null) {
+            for (Object value : objectInstance.fields.values()) {
+                registerBorrowsFromValue(value);
+            }
+        }
+    }
+
+    private void replaceTrackedValue(Object oldValue, Object newValue) {
+        unregisterBorrowsFromValue(oldValue);
+        registerBorrowsFromValue(newValue);
+    }
+
+    private void registerBorrowsFromValue(Object value) {
+        collectBorrowsRecursive(value, 1);
+    }
+
+    private void unregisterBorrowsFromValue(Object value) {
+        collectBorrowsRecursive(value, -1);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void collectBorrowsRecursive(Object value, int delta) {
+        if (value == null) return;
+        Object unwrapped = typeHandler.unwrap(value);
+        if (unwrapped == null) return;
+
+        if (unwrapped instanceof TypeHandler.PointerValue) {
+            TypeHandler.PointerValue pointer = (TypeHandler.PointerValue) unwrapped;
+            updateBorrowCount(pointer.container, pointer.index, delta);
+            return;
+        }
+
+        if (unwrapped instanceof List) {
+            for (Object element : (List<Object>) unwrapped) {
+                collectBorrowsRecursive(element, delta);
+            }
+        }
+    }
+
+    private void updateBorrowCount(Object container, long index, int delta) {
+        if (container == null || delta == 0) return;
+
+        Map<Long, Integer> countsByIndex = activeBorrowsByContainer.get(container);
+        if (countsByIndex == null) {
+            if (delta < 0) return;
+            countsByIndex = new HashMap<Long, Integer>();
+            activeBorrowsByContainer.put(container, countsByIndex);
+        }
+
+        Integer current = countsByIndex.get(index);
+        int next = (current != null ? current : 0) + delta;
+        if (next > 0) {
+            countsByIndex.put(index, next);
+        } else {
+            countsByIndex.remove(index);
+            if (countsByIndex.isEmpty()) {
+                activeBorrowsByContainer.remove(container);
+            }
+        }
     }
 }

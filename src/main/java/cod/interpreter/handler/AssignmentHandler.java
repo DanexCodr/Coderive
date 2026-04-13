@@ -189,7 +189,9 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
                 NaturalArray natural = (NaturalArray) arrayObj;
                 long index = expressionHandler.toLongIndex(indexObj);
                 ensureNoActiveBorrow(arrayObj, index, ctx);
+                Object previous = natural.get(index);
                 natural.set(index, newValue);
+                ctx.trackValueReplacement(previous, newValue);
                 return newValue;
             }
             
@@ -197,7 +199,8 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
                 int intIndex = expressionHandler.toIntIndex(indexObj);
                 ensureNoActiveBorrow(arrayObj, intIndex, ctx);
                 List<Object> list = (List<Object>) arrayObj;
-                list.set(intIndex, newValue);
+                Object previous = list.set(intIndex, newValue);
+                ctx.trackValueReplacement(previous, newValue);
                 return newValue;
             }
             
@@ -338,15 +341,7 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
         if (!isBorrowCheckerActive(ctx)) {
             return;
         }
-        if (hasBorrowInLocals(container, index, ctx.getLocalsStack())) {
-            throwBorrowMutationViolation(index);
-        }
-        if (ctx.objectInstance != null
-            && ctx.objectInstance.fields != null
-            && hasBorrowInMap(container, index, ctx.objectInstance.fields)) {
-            throwBorrowMutationViolation(index);
-        }
-        if (ctx.getSlotValues() != null && hasBorrowInMap(container, index, ctx.getSlotValues())) {
+        if (ctx.hasActiveBorrow(container, index)) {
             throwBorrowMutationViolation(index);
         }
     }
@@ -359,44 +354,6 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
         return ctx != null && (ctx.isUnsafeExecutionContext() || (ctx.currentClass != null && ctx.currentClass.isUnsafe));
     }
 
-    private boolean hasBorrowInLocals(Object container, long index, List<Map<String, Object>> scopes) {
-        if (scopes == null) return false;
-        for (Map<String, Object> scope : scopes) {
-            if (hasBorrowInMap(container, index, scope)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean hasBorrowInMap(Object container, long index, Map<String, Object> values) {
-        if (values == null || values.isEmpty()) return false;
-        for (Object value : values.values()) {
-            if (containsBorrowForLocation(typeSystem.unwrap(value), container, index)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    @SuppressWarnings("unchecked")
-    private boolean containsBorrowForLocation(Object value, Object container, long index) {
-        if (value == null) return false;
-        if (value instanceof TypeHandler.PointerValue) {
-            TypeHandler.PointerValue pointer = (TypeHandler.PointerValue) value;
-            return pointer.container == container && pointer.index == index;
-        }
-        if (value instanceof List) {
-            List<Object> list = (List<Object>) value;
-            for (Object element : list) {
-                if (containsBorrowForLocation(typeSystem.unwrap(element), container, index)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-    
     private Object handleVariableAssignment(Expr target, Object newValue, ExecutionContext ctx) {
         try {
             if (target instanceof PropertyAccess) {
@@ -459,7 +416,7 @@ public Object assignToVariableScoped(String varName, Object newValue, ExecutionC
             if (NamingValidator.isAllCaps(varName)) {
                 throw new ProgramError("Cannot reassign constant field '" + varName + "'");
             }
-            ctx.objectInstance.fields.put(varName, newValue);
+            ctx.setObjectField(varName, newValue);
             return newValue;
         }
     }
@@ -484,7 +441,7 @@ public Object assignToVariableScoped(String varName, Object newValue, ExecutionC
                 newValue = typeSystem.wrapUnionType(newValue, declaredType);
             }
             
-            scope.put(varName, newValue);
+            ctx.setVariable(varName, newValue);
             return newValue;
         } catch (ProgramError e) {
             throw e;
@@ -501,7 +458,7 @@ public Object assignToVariableScoped(String varName, Object newValue, ExecutionC
                 if (NamingValidator.isAllCaps(fieldName)) {
                     throw new ProgramError("Cannot reassign constant field '" + fieldName + "'");
                 }
-                ctx.objectInstance.fields.put(fieldName, newValue);
+                ctx.setObjectField(fieldName, newValue);
                 return newValue;
             } else {
                 throw new ProgramError("Cannot assign to undefined field via this: " + fieldName);
@@ -535,7 +492,7 @@ public Object assignToVariableScoped(String varName, Object newValue, ExecutionC
                 if (NamingValidator.isAllCaps(fieldName)) {
                     throw new ProgramError("Cannot reassign constant field '" + fieldName + "'");
                 }
-                ctx.objectInstance.fields.put(fieldName, newValue);
+                ctx.setObjectField(fieldName, newValue);
                 return newValue;
             }
             throw new ProgramError("Cannot assign to undefined field via super: " + fieldName);
