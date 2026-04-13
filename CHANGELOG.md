@@ -2,6 +2,13 @@
 
 All notable changes to Coderive are documented in this file.
 
+## [v0.9.0] - Platform Snapshot - April 13, 2026
+
+### ✨ Major Updates
+- **Version bump to v0.9.0** — Updated repository release version to `0.9.0`.
+- **README refresh for current platform scope** — Reworked the README to clearly describe what Coderive offers today across language design, lazy range execution, safety model, runtime pipeline, CLI workflows, and docs/playground experience.
+- **Release documentation alignment** — Synced changelog and version metadata with the new v0.9.0 release.
+
 ## [v0.8.4] - Formula Lock-In - April 12, 2026
 
 ### ✨ Major Updates
