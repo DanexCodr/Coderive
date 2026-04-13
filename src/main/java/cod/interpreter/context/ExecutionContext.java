@@ -526,7 +526,6 @@ public boolean removeVariableFromAllScopes(String name) {
     }
 
     private void replaceTrackedValue(Object oldValue, Object newValue) {
-        if (oldValue == newValue) return;
         unregisterBorrowsFromValue(oldValue);
         registerBorrowsFromValue(newValue);
     }
