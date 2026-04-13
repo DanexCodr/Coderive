@@ -31,10 +31,8 @@ import java.util.*;
  */
 public final class Index {
     
-    private static final String FILE_EXTENSION = ".toml";
     private static final String CLASSES_SECTION = "classes";
     private static final String CLASSES_SECTION_PREFIX = CLASSES_SECTION + ":";
-    private static final String PROJECT_INDEX_NAME = "project";
     private static final String SRC_DIR_NAME = "src";
     private static final String DEFAULT_GENERATOR = "Coderive 1.0";
     
@@ -508,7 +506,7 @@ public final class Index {
 
     private static String writeDocumentText(IndexDocument doc) {
         StringBuilder out = new StringBuilder();
-        out.append("# project-index ").append(PROJECT_INDEX_NAME).append(FILE_EXTENSION).append("\n");
+        out.append("# project-wide multi-unit class index\n");
         out.append("timestamp = \"").append(doc.timestamp).append("\"\n");
         out.append("generator = \"").append(doc.generator).append("\"\n");
         out.append("\n");
