@@ -10,6 +10,10 @@ import cod.ptac.Artifact;
 import cod.ptac.Executor;
 import cod.ptac.Options;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
 public class CommandRunner extends BaseRunner {
 
     private final Interpreter interpreter;
@@ -113,11 +117,31 @@ public class CommandRunner extends BaseRunner {
     private void handleCompileCommand(String[] args) throws Exception {
         if (args.length < 2) {
             outE("Error: No source file specified for compilation");
-            outE("Usage: CommandRunner compile <filename>");
+            outE("Usage: CommandRunner compile <filename> [-f|--full]");
             return;
         }
-        
-        String sourceFile = args[1];
+
+        String sourceFile = null;
+        boolean fullCompile = false;
+        for (int i = 1; i < args.length; i++) {
+            String arg = args[i];
+            if ("-f".equals(arg) || "--full".equals(arg)) {
+                fullCompile = true;
+            } else if (sourceFile == null) {
+                sourceFile = arg;
+            } else {
+                outE("Error: Unexpected argument: " + arg);
+                outE("Usage: CommandRunner compile <filename> [-f|--full]");
+                return;
+            }
+        }
+
+        if (sourceFile == null || sourceFile.trim().isEmpty()) {
+            outE("Error: No source file specified for compilation");
+            outE("Usage: CommandRunner compile <filename> [-f|--full]");
+            return;
+        }
+
         DebugSystem.info(NAME + LOG_TAG, "Compiling: " + sourceFile);
         
         Interpreter tempInterpreter = new Interpreter();
@@ -135,7 +159,12 @@ public class CommandRunner extends BaseRunner {
             String projectRoot = Index.getProjectRoot();
             if (projectRoot != null) {
                 IRManager bm = new IRManager(projectRoot);
-                
+
+                if (fullCompile) {
+                    compileAllUnits(bm, srcMainRoot);
+                    return;
+                }
+
                 int compiled = 0;
                 for (Type type : ast.unit.types) {
                     bm.save(ast.unit.name, type);
@@ -150,6 +179,62 @@ public class CommandRunner extends BaseRunner {
             }
         } else {
             outE("Error: Could not find src/main/ structure");
+        }
+    }
+
+    private void compileAllUnits(IRManager bm, String srcMainRoot) {
+        List<File> codFiles = new ArrayList<File>();
+        collectCodFiles(new File(srcMainRoot), codFiles);
+
+        int compiled = 0;
+        int scanned = 0;
+        int failed = 0;
+
+        for (File file : codFiles) {
+            scanned++;
+            try {
+                Interpreter fileInterpreter = new Interpreter();
+                fileInterpreter.setFilePath(file.getAbsolutePath());
+                Program fileAst = parse(file.getAbsolutePath(), fileInterpreter);
+                if (fileAst == null || fileAst.unit == null || fileAst.unit.types == null) {
+                    continue;
+                }
+                String unitName = fileAst.unit.name;
+                if (unitName == null || "default".equals(unitName)) {
+                    continue;
+                }
+                for (Type type : fileAst.unit.types) {
+                    bm.save(unitName, type);
+                    compiled++;
+                }
+            } catch (Exception e) {
+                failed++;
+                DebugSystem.warn(NAME + LOG_TAG, "Failed to compile file " + file.getAbsolutePath() + ": " + e.getMessage());
+            }
+        }
+
+        System.out.println("Full compilation complete: " + compiled + " class(es) compiled from " + scanned + " file(s)");
+        if (failed > 0) {
+            outE("Warning: " + failed + " file(s) failed during full compilation");
+        }
+    }
+
+    private void collectCodFiles(File root, List<File> sink) {
+        if (root == null || sink == null || !root.exists()) {
+            return;
+        }
+        if (root.isFile()) {
+            if (root.getName().endsWith(".cod")) {
+                sink.add(root);
+            }
+            return;
+        }
+        File[] children = root.listFiles();
+        if (children == null) {
+            return;
+        }
+        for (File child : children) {
+            collectCodFiles(child, sink);
         }
     }
 
@@ -243,7 +328,7 @@ public class CommandRunner extends BaseRunner {
     private void printHelp() {
         out("Coderive CommandRunner - Execute Coderive programs");
         out("Usage: CommandRunner <filename> [options]");
-        out("       CommandRunner compile <filename>");
+        out("       CommandRunner compile <filename> [-f|--full]");
         out();
         out("Options:");
         out("  -i, --interpret     Interpret the program (default)");
@@ -255,6 +340,7 @@ public class CommandRunner extends BaseRunner {
         out();
         out("Commands:");
         out("  compile <file>      Compile source to bytecode container (.codc with .codb entries)");
+        out("    -f, --full        Full compile all .cod files under src/main");
         out("Environment flags:");
         out("  COD_PTAC_MODE=interpreter|compile-only|compile-execute");
         out("  COD_PTAC_FALLBACK=true|false");
@@ -263,6 +349,7 @@ public class CommandRunner extends BaseRunner {
         out("  CommandRunner program.cod");
         out("  CommandRunner program.cod -o output.txt");
         out("  CommandRunner compile program.cod");
+        out("  CommandRunner compile program.cod -f");
     }
 
     public static void main(String[] args) {
