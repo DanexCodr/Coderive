@@ -655,7 +655,7 @@ public class LiteralRegistry {
         return evaluator.invokeLambda(callbackObj, callbackArgs, ctx, methodName);
     }
     
-    private Object handleArrayMap(Object literal, List<Object> arguments, ExecutionContext ctx) {
+    private Object handleArrayMap(Object literal, List<Object> arguments, final ExecutionContext ctx) {
         if (arguments == null || arguments.isEmpty()) {
             throw new ProgramError("map expects a callback or (operator, operand)");
         }
