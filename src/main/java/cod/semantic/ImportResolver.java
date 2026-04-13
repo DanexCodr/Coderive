@@ -736,7 +736,7 @@ public class ImportResolver {
             Artifact artifact = irManager.loadArtifact(unitName, className);
             if (artifact != null) {
                 bytecodeCacheHits++;
-                DebugSystem.debug("IR", "Loaded " + className + " CodP-TAC artifact from .codb (cache hit)");
+                DebugSystem.debug("IR", "Loaded " + className + " CodP-TAC artifact from .codc/.codb (cache hit)");
                 loadedArtifacts.put(importName, artifact);
                 if (artifact.typeSnapshot != null) {
                     loadedTypes.put(importName, artifact.typeSnapshot);
@@ -744,7 +744,7 @@ public class ImportResolver {
                 }
             } else {
                 bytecodeCacheMisses++;
-                DebugSystem.debug("IR", ".codb not found for " + className + " (cache miss)");
+                DebugSystem.debug("IR", ".codc/.codb artifact not found for " + className + " (cache miss)");
             }
         }
         // ========== END CodP-TAC CHECK ==========
@@ -771,7 +771,7 @@ public class ImportResolver {
                                 // Save IR for next time
                                 if (irManager != null) {
                                     irManager.save(unitName, type);
-                                    DebugSystem.debug("IR", "Saved " + className + " to .codb");
+                                    DebugSystem.debug("IR", "Saved " + className + " to .codc/.codb");
                                 }
                                 loadedTypes.put(importName, type);
                                 return type;
@@ -908,7 +908,7 @@ public class ImportResolver {
                                 // Save IR
                                 if (irManager != null) {
                                     irManager.save(unitName, type);
-                                    DebugSystem.debug("IR", "Saved " + className + " to .codb");
+                                    DebugSystem.debug("IR", "Saved " + className + " to .codc/.codb");
                                 }
                                 
                                 loadedTypes.put(importName, type);

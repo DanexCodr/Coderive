@@ -5,14 +5,34 @@ import cod.ptac.Artifact;
 import cod.ptac.Compiler;
 import cod.ptac.Unit;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
+import java.util.zip.CRC32;
 
 public class IRManager {
     private static final String BIN_DIR = "bin";
     private static final String IR_EXT = ".codb";
+    private static final String CONTAINER_EXT = ".codc";
+    private static final int BUFFER_SIZE = 8192;
+    private static final Map<String, Object> CONTAINER_LOCKS = new ConcurrentHashMap<String, Object>();
 
     private final String projectRoot;
     private final IRWriter writer;
@@ -43,13 +63,17 @@ public class IRManager {
             }
         }
 
-        File file = getIRFile(unit, className);
-        if (!file.exists()) {
-            return null;
-        }
-
         try {
-            Artifact artifact = reader.readArtifact(file);
+            Artifact artifact = readArtifactFromContainer(unit, className);
+            if (artifact == null) {
+                // Standalone .codb files are a permanent supported format.
+                // .codc containers are additive grouping, not a replacement.
+                File file = getIRFile(unit, className);
+                if (!file.exists()) {
+                    return null;
+                }
+                artifact = reader.readArtifact(file);
+            }
             if (artifact != null) {
                 putArtifactCache(unit, className, artifact);
                 Type type = artifact.typeSnapshot;
@@ -68,10 +92,9 @@ public class IRManager {
         if (type == null || unit == null || type.name == null) {
             return;
         }
-        File file = getIRFile(unit, type.name);
         try {
             Artifact artifact = compiler.compile(unit, type);
-            writer.writeArtifact(file, artifact);
+            writeArtifactToContainer(unit, artifact.className, artifact);
             putCache(unit, type.name, type);
             putArtifactCache(unit, type.name, artifact);
         } catch (IOException ignored) {}
@@ -87,13 +110,17 @@ public class IRManager {
             return unitCache.get(className);
         }
 
-        File file = getIRFile(unit, className);
-        if (!file.exists()) {
-            return null;
-        }
-
         try {
-            Artifact artifact = reader.readArtifact(file);
+            Artifact artifact = readArtifactFromContainer(unit, className);
+            if (artifact == null) {
+                // Standalone .codb files are a permanent supported format.
+                // .codc containers are additive grouping, not a replacement.
+                File file = getIRFile(unit, className);
+                if (!file.exists()) {
+                    return null;
+                }
+                artifact = reader.readArtifact(file);
+            }
             if (artifact != null) {
                 putArtifactCache(unit, className, artifact);
                 if (artifact.typeSnapshot != null) {
@@ -113,9 +140,8 @@ public class IRManager {
 
     public void saveArtifact(String unit, Artifact artifact) {
         if (artifact == null || unit == null || artifact.className == null) return;
-        File file = getIRFile(unit, artifact.className);
         try {
-            writer.writeArtifact(file, artifact);
+            writeArtifactToContainer(unit, artifact.className, artifact);
             putArtifactCache(unit, artifact.className, artifact);
             if (artifact.typeSnapshot != null) {
                 putCache(unit, artifact.className, artifact.typeSnapshot);
@@ -165,5 +191,177 @@ public class IRManager {
     private File getIRFile(String unit, String className) {
         String path = projectRoot + "/src/" + BIN_DIR + "/" + unit + "/" + className + IR_EXT;
         return new File(path);
+    }
+
+    private File getContainerFile(String unit) {
+        String rootUnit = getRootUnit(unit);
+        String path = projectRoot + "/src/" + BIN_DIR + "/" + rootUnit + CONTAINER_EXT;
+        return new File(path);
+    }
+
+    private String getRootUnit(String unit) {
+        if (unit == null || unit.isEmpty()) return "default";
+        int dot = unit.indexOf('.');
+        if (dot < 0) return unit;
+        if (dot == 0) return "default";
+        return unit.substring(0, dot);
+    }
+
+    private String getContainerEntryName(String unit, String className) {
+        return unit + "/" + className + IR_EXT;
+    }
+
+    private Artifact readArtifactFromContainer(String unit, String className) throws IOException {
+        File container = getContainerFile(unit);
+        if (!container.exists() || !container.isFile()) {
+            return null;
+        }
+
+        String targetEntry = getContainerEntryName(unit, className);
+        ZipInputStream in = null;
+        try {
+            in = new ZipInputStream(new BufferedInputStream(new FileInputStream(container)));
+            ZipEntry entry;
+            while ((entry = in.getNextEntry()) != null) {
+                if (!entry.isDirectory() && targetEntry.equals(entry.getName())) {
+                    byte[] data = readAllBytes(in);
+                    return readArtifactFromBytes(data);
+                }
+            }
+            return null;
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    private void writeArtifactToContainer(String unit, String className, Artifact artifact) throws IOException {
+        if (unit == null || className == null || artifact == null) return;
+
+        File container = getContainerFile(unit);
+        File parent = container.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw new IOException("Failed to create IR container directory: " + parent.getAbsolutePath());
+        }
+
+        Object containerLock = getContainerLock(container);
+        synchronized (containerLock) {
+            Map<String, byte[]> entries = readContainerEntries(container);
+            entries.put(getContainerEntryName(unit, className), writeArtifactToBytes(artifact));
+
+            File temp = new File(container.getAbsolutePath() + ".tmp");
+            ZipOutputStream out = null;
+            boolean moved = false;
+            try {
+                out = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(temp)));
+                out.setLevel(0);
+                for (Map.Entry<String, byte[]> e : entries.entrySet()) {
+                    byte[] value = e.getValue();
+                    CRC32 crc = new CRC32();
+                    crc.update(value);
+                    ZipEntry zipEntry = new ZipEntry(e.getKey());
+                    // .codc is intentionally an uncompressed zip container (level 0, STORED entries).
+                    zipEntry.setMethod(ZipEntry.STORED);
+                    zipEntry.setSize(value.length);
+                    zipEntry.setCompressedSize(value.length);
+                    zipEntry.setCrc(crc.getValue());
+                    out.putNextEntry(zipEntry);
+                    out.write(value);
+                    out.closeEntry();
+                }
+                out.finish();
+                Files.move(temp.toPath(), container.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                moved = true;
+            } finally {
+                if (out != null) {
+                    try {
+                        out.close();
+                    } catch (IOException ignored) {}
+                }
+                if (!moved && temp.exists()) {
+                    try {
+                        Files.delete(temp.toPath());
+                    } catch (IOException ignored) {}
+                }
+            }
+        }
+    }
+
+    private Object getContainerLock(File container) {
+        String key = container.getAbsolutePath();
+        Object lock = CONTAINER_LOCKS.get(key);
+        if (lock != null) return lock;
+        Object created = new Object();
+        Object existing = CONTAINER_LOCKS.putIfAbsent(key, created);
+        return existing != null ? existing : created;
+    }
+
+    private Map<String, byte[]> readContainerEntries(File container) throws IOException {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        if (container == null || !container.exists() || !container.isFile()) {
+            return entries;
+        }
+
+        ZipInputStream in = null;
+        try {
+            in = new ZipInputStream(new BufferedInputStream(new FileInputStream(container)));
+            ZipEntry entry;
+            while ((entry = in.getNextEntry()) != null) {
+                if (entry.isDirectory()) continue;
+                entries.put(entry.getName(), readAllBytes(in));
+            }
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException ignored) {}
+            }
+        }
+        return entries;
+    }
+
+    private byte[] writeArtifactToBytes(Artifact artifact) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream out = null;
+        try {
+            out = new DataOutputStream(baos);
+            IRArtifactCodec.writeArtifact(out, artifact);
+            out.flush();
+            return baos.toByteArray();
+        } finally {
+            if (out != null) {
+                try {
+                    out.close();
+                } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    private Artifact readArtifactFromBytes(byte[] data) throws IOException {
+        if (data == null) return null;
+        DataInputStream in = null;
+        try {
+            in = new DataInputStream(new ByteArrayInputStream(data));
+            return IRArtifactCodec.readArtifact(in);
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    private byte[] readAllBytes(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[BUFFER_SIZE];
+        int read;
+        while ((read = in.read(buffer)) >= 0) {
+            out.write(buffer, 0, read);
+        }
+        return out.toByteArray();
     }
 }

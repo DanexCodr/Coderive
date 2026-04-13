@@ -295,7 +295,7 @@ public class TestRunner extends BaseRunner {
     }
     
     /**
-     * Compile all classes in the program to .codb IR files
+     * Compile all classes in the program to .codc IR container entries
      */
     private void compileToBytecode(Program ast) {
         if (ast == null || ast.unit == null || irManager == null) {
@@ -312,7 +312,7 @@ public class TestRunner extends BaseRunner {
             try {
                 irManager.save(unitName, type);
                 compiled++;
-                DebugSystem.debug(NAME + LOG_TAG, "Compiled CodP-TAC artifact: " + type.name + " → " + type.name + ".codb");
+                DebugSystem.debug(NAME + LOG_TAG, "Compiled CodP-TAC artifact: " + type.name + " → <root-unit>.codc/" + unitName + "/" + type.name + ".codb");
             } catch (Exception e) {
                 DebugSystem.warn(NAME + LOG_TAG, "Failed to compile " + type.name + ": " + e.getMessage());
             }
