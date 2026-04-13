@@ -139,7 +139,7 @@ public class CommandRunner extends BaseRunner {
                 int compiled = 0;
                 for (Type type : ast.unit.types) {
                     bm.save(ast.unit.name, type);
-                    System.out.println("Compiled (CodP-TAC artifact): " + type.name + " → " + type.name + ".codb");
+                    System.out.println("Compiled (CodP-TAC artifact): " + type.name + " → <root-unit>.codc/" + ast.unit.name + "/" + type.name + ".codb");
                     compiled++;
                 }
                 
@@ -210,7 +210,7 @@ public class CommandRunner extends BaseRunner {
     }
     
     /**
-     * Compile all classes in the program to .codb IR files
+     * Compile all classes in the program to .codc IR container entries
      */
     private void compileToBytecode(Program ast) {
         if (ast == null || ast.unit == null || irManager == null) {
@@ -227,7 +227,7 @@ public class CommandRunner extends BaseRunner {
             try {
                 irManager.save(unitName, type);
                 compiled++;
-                DebugSystem.debug(NAME + LOG_TAG, "Compiled CodP-TAC artifact: " + type.name + " → " + type.name + ".codb");
+                DebugSystem.debug(NAME + LOG_TAG, "Compiled CodP-TAC artifact: " + type.name + " → <root-unit>.codc/" + unitName + "/" + type.name + ".codb");
             } catch (Exception e) {
                 DebugSystem.warn(NAME + LOG_TAG, "Failed to compile " + type.name + ": " + e.getMessage());
             }
@@ -252,7 +252,7 @@ public class CommandRunner extends BaseRunner {
         out("  -h, --help          Show this help message");
         out();
         out("Commands:");
-        out("  compile <file>      Compile source to bytecode (.codb)");
+        out("  compile <file>      Compile source to bytecode container (.codc with .codb entries)");
         out("Environment flags:");
         out("  COD_PTAC_MODE=interpreter|compile-only|compile-execute");
         out("  COD_PTAC_FALLBACK=true|false");
