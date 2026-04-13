@@ -139,7 +139,8 @@ public class CommandRunner extends BaseRunner {
                 int compiled = 0;
                 for (Type type : ast.unit.types) {
                     bm.save(ast.unit.name, type);
-                    System.out.println("Compiled (CodP-TAC artifact): " + type.name + " → <project>.codc/" + ast.unit.name + "/" + type.name + ".codb");
+                    String unitPath = ast.unit.name == null ? "" : ast.unit.name.replace('.', '/');
+                    System.out.println("Compiled (CodP-TAC artifact): " + type.name + " → <project>.codc/" + unitPath + "/" + type.name + ".codb");
                     compiled++;
                 }
                 
@@ -227,7 +228,8 @@ public class CommandRunner extends BaseRunner {
             try {
                 irManager.save(unitName, type);
                 compiled++;
-                DebugSystem.debug(NAME + LOG_TAG, "Compiled CodP-TAC artifact: " + type.name + " → <project>.codc/" + unitName + "/" + type.name + ".codb");
+                String unitPath = unitName.replace('.', '/');
+                DebugSystem.debug(NAME + LOG_TAG, "Compiled CodP-TAC artifact: " + type.name + " → <project>.codc/" + unitPath + "/" + type.name + ".codb");
             } catch (Exception e) {
                 DebugSystem.warn(NAME + LOG_TAG, "Failed to compile " + type.name + ": " + e.getMessage());
             }

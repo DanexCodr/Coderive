@@ -14,6 +14,7 @@ public final class Lowerer {
     private int lambdaCounter = 0;
 
     public Unit lower(String unitName, Type type) {
+        resetCounters();
         Unit unit = new Unit();
         unit.unitName = unitName;
         unit.className = type != null ? type.name : null;
@@ -32,6 +33,12 @@ public final class Lowerer {
         }
 
         return unit;
+    }
+
+    private void resetCounters() {
+        tempCounter = 0;
+        patternCounter = 0;
+        lambdaCounter = 0;
     }
 
     private Function lowerMethod(Method method, Unit unit) {
