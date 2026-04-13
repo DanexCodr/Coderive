@@ -13,6 +13,9 @@ import cod.semantic.NamingValidator;
 import java.util.*;
 
 public class AssignmentHandler {
+    private static final String BORROW_MUTATION_VIOLATION =
+        "Borrow checker violation: cannot mutate index %d while it is currently borrowed by an active pointer";
+
     private final TypeHandler typeSystem;
     private final Interpreter interpreter;
     private final ExpressionHandler expressionHandler;
@@ -185,12 +188,14 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
             if (arrayObj instanceof NaturalArray) {
                 NaturalArray natural = (NaturalArray) arrayObj;
                 long index = expressionHandler.toLongIndex(indexObj);
+                ensureNoActiveBorrow(arrayObj, index, ctx);
                 natural.set(index, newValue);
                 return newValue;
             }
             
             if (arrayObj instanceof List) {
                 int intIndex = expressionHandler.toIntIndex(indexObj);
+                ensureNoActiveBorrow(arrayObj, intIndex, ctx);
                 List<Object> list = (List<Object>) arrayObj;
                 list.set(intIndex, newValue);
                 return newValue;
@@ -327,6 +332,69 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
             return size + index;
         }
         return index;
+    }
+
+    private void ensureNoActiveBorrow(Object container, long index, ExecutionContext ctx) {
+        if (!isBorrowCheckerActive(ctx)) {
+            return;
+        }
+        if (hasBorrowInLocals(container, index, ctx.getLocalsStack())) {
+            throwBorrowMutationViolation(index);
+        }
+        if (ctx.objectInstance != null
+            && ctx.objectInstance.fields != null
+            && hasBorrowInMap(container, index, ctx.objectInstance.fields)) {
+            throwBorrowMutationViolation(index);
+        }
+        if (ctx.getSlotValues() != null && hasBorrowInMap(container, index, ctx.getSlotValues())) {
+            throwBorrowMutationViolation(index);
+        }
+    }
+
+    private void throwBorrowMutationViolation(long index) {
+        throw new ProgramError(String.format(BORROW_MUTATION_VIOLATION, index));
+    }
+
+    private boolean isBorrowCheckerActive(ExecutionContext ctx) {
+        return ctx != null && (ctx.isUnsafeExecutionContext() || (ctx.currentClass != null && ctx.currentClass.isUnsafe));
+    }
+
+    private boolean hasBorrowInLocals(Object container, long index, List<Map<String, Object>> scopes) {
+        if (scopes == null) return false;
+        for (Map<String, Object> scope : scopes) {
+            if (hasBorrowInMap(container, index, scope)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasBorrowInMap(Object container, long index, Map<String, Object> values) {
+        if (values == null || values.isEmpty()) return false;
+        for (Object value : values.values()) {
+            if (containsBorrowForLocation(typeSystem.unwrap(value), container, index)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean containsBorrowForLocation(Object value, Object container, long index) {
+        if (value == null) return false;
+        if (value instanceof TypeHandler.PointerValue) {
+            TypeHandler.PointerValue pointer = (TypeHandler.PointerValue) value;
+            return pointer.container == container && pointer.index == index;
+        }
+        if (value instanceof List) {
+            List<Object> list = (List<Object>) value;
+            for (Object element : list) {
+                if (containsBorrowForLocation(typeSystem.unwrap(element), container, index)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
     
     private Object handleVariableAssignment(Expr target, Object newValue, ExecutionContext ctx) {
