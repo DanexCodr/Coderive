@@ -275,7 +275,7 @@ public class IRManager {
     }
 
     private Map<String, byte[]> readContainerEntries(File container) throws IOException {
-        Map<String, byte[]> entries = new LinkedHashMap<String, byte[]>();
+        Map<String, byte[]> entries = new LinkedHashMap<>();
         if (container == null || !container.exists() || !container.isFile()) {
             return entries;
         }
@@ -335,9 +335,7 @@ public class IRManager {
         byte[] buffer = new byte[BUFFER_SIZE];
         int read;
         while ((read = in.read(buffer)) >= 0) {
-            if (read > 0) {
-                out.write(buffer, 0, read);
-            }
+            out.write(buffer, 0, read);
         }
         return out.toByteArray();
     }
