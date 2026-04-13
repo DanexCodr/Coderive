@@ -4,10 +4,39 @@ All notable changes to Coderive are documented in this file.
 
 ## [v0.9.0] - Platform Snapshot - April 13, 2026
 
-### ✨ Major Updates
-- **Version bump to v0.9.0** — Updated repository release version to `0.9.0`.
-- **README refresh for current platform scope** — Reworked the README to clearly describe what Coderive offers today across language design, lazy range execution, safety model, runtime pipeline, CLI workflows, and docs/playground experience.
-- **Release documentation alignment** — Synced changelog and version metadata with the new v0.9.0 release.
+### 🔀 Merge Coverage for This Snapshot
+- **Linear recurrence refactor/composition and v0.8.4 version alignment** — recurrence formula refactor/composition updates and version alignment work.
+- **Rolling/vector recurrence execution improvements** — rolling/vector linear recurrence execution upgrades and related parity-path updates.
+- **`.codc` container write/read hardening** — custom zip-container behavior and container stability improvements.
+- **Shared index consolidation in project container root** — import index consolidation into project container root entry (`HOOK.toml`).
+- **Unit-path structure fixes and deterministic lowering reset** — `.codb`/`.codc` path structure fixes plus deterministic PTAC lowering counter reset behavior.
+- **`CommandRunner` full compile mode and summary polish** — `-f`/`--full` support and compile summary output improvements.
+- **Borrow-check enforcement for unsafe indexed mutation** — borrow safety checks extended into unsafe indexed mutation paths.
+- **Active-borrow tracking performance upgrades** — zero-cost/O(1) active-borrow tracking improvements.
+- **Unsafe operation boundary model implementation** — `unsafe` class/method modifier support with enforced `safe(...)` wrapping for calling unsafe operations from safe contexts (direct safe-context calls are rejected).
+
+### 🚨 Breaking / Behavioral Changes
+- **Unsafe declaration ordering enforced** — Unsafe declarations require explicit visibility before `unsafe` (`share unsafe ...` or `local unsafe ...`).  
+  Migration example: `unsafe share MyType { ... }` → `share unsafe MyType { ... }`.
+- **Unsafe operation boundary model enforced** — `unsafe` is supported as a class/method modifier, and unsafe constructors/methods must be wrapped with `safe(...)` when called from safe contexts. `safe(...)` is not allowed inside unsafe contexts.
+- **Borrow checks tightened in unsafe mutation paths** — Unsafe indexed mutation now participates in borrow-safety enforcement.
+
+### ✨ Major Features
+- **Unsafe pointer model added** — Unsafe contexts support pointer-oriented syntax/runtime behavior (`*T`, `T[n]`, `&`, `*`, and pointer arithmetic with bounds checks).
+- **Full-project compile mode in CLI** — `CommandRunner` supports `-f` / `--full` to compile all `.cod` files under `src/main`.
+- **O(1) borrow checking via active-borrow tracking** — Borrow-state checking moved from scan-based checks to O(1)-style active tracking for lower runtime overhead.
+
+### 🔧 Runtime / PTAC / IR Improvements
+- **Deterministic lowering register naming** — PTAC lowering counters reset per `lower()` call to keep generated naming stable per artifact.
+- **IR path normalization for dotted units** — Dotted unit names are normalized into slash paths for both `.codc` entries and standalone `.codb` fallback lookup.
+- **Project-level index container** — Shared index data is stored in `src/bin/project.codc` at root entry `HOOK.toml`.
+- **Container format and write hardening** — `.codc` container behavior was tightened with stronger write/cleanup semantics and stable zip-container handling.
+- **Standalone `.codb` support retained** — Standalone `.codb` artifacts remain a permanent supported format alongside `.codc` grouping.
+
+### ⚡ Lazy Array & Formula Execution
+- **Conditional formula composition in `NaturalArray`** — Conditional formulas compose into a single merged formula path.
+- **Linear recurrence composition and rolling/vector execution upgrades** — Recurrence paths were refactored for better composition, lower memory pressure, and improved recurrence execution behavior.
+- **Lazy map/filter chaining composition** — LiteralRegistry composes chained lazy map/filter views to reduce wrapper layering.
 
 ## [v0.8.4] - Formula Lock-In - April 12, 2026
 
