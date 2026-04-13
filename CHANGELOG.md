@@ -15,7 +15,8 @@ All notable changes to Coderive are documented in this file.
 - **PR #97** — zero-cost/O(1) active-borrow tracking performance improvements.
 
 ### 🚨 Breaking / Behavioral Changes
-- **Unsafe declaration ordering enforced** — Unsafe declarations require explicit visibility before `unsafe` (`share unsafe ...` or `local unsafe ...`).
+- **Unsafe declaration ordering enforced** — Unsafe declarations require explicit visibility before `unsafe` (`share unsafe ...` or `local unsafe ...`).  
+  Migration example: `unsafe share MyType { ... }` → `share unsafe MyType { ... }`.
 - **Safe ↔ unsafe boundary rules enforced** — Unsafe constructors/methods are blocked in safe contexts unless wrapped with `safe(...)`; `safe(...)` is not allowed inside unsafe contexts.
 - **Borrow checks tightened in unsafe mutation paths** — Unsafe indexed mutation now participates in borrow-safety enforcement.
 
