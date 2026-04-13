@@ -10,7 +10,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-0.8.4-536af5?style=flat-square&logo=github)](https://github.com/DanexCodr/Coderive/releases)
+[![Version](https://img.shields.io/badge/version-0.9.0-536af5?style=flat-square&logo=github)](https://github.com/DanexCodr/Coderive/releases)
 [![Java](https://img.shields.io/badge/requires-Java%207%2B-ed8b00?style=flat-square&logo=openjdk&logoColor=white)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-MIT-f5de53?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/DanexCodr/Coderive?style=flat-square&color=7289da&logo=github)](https://github.com/DanexCodr/Coderive/stargazers)
@@ -23,6 +23,7 @@
 ## Table of Contents
 
 - [What is Coderive?](#what-is-coderive)
+- [What Coderive offers today](#what-coderive-offers-today)
 - [Why Coderive?](#why-coderive)
 - [Getting Started](#getting-started)
 - [Language Features](#language-features)
@@ -46,6 +47,32 @@
 Coderive features a fully hand-written, modular lexer-parser pipeline (no ANTLR), a recursive-descent parser with backtracking, and an O(1) range system that can represent a quintillion-element array in a few microseconds.
 
 > **Built on mobile.** Coderive was developed entirely on a phone — Java NIDE, Quickedit, Termux, and AI assistants (DeepSeek, Gemini). Serious language design knows no hardware limits.
+
+---
+
+## What Coderive offers today
+
+Coderive is no longer just a small interpreter demo — it now offers a complete language + tooling stack:
+
+- **Expressive core language design**  
+  Quantifier-first boolean logic (`any[]`, `all[]`), clean slot-based multi-return functions (`::` + `~>`), policy-based contracts, class inheritance, and readable control-flow constructs.
+
+- **High-scale lazy data model**  
+  O(1) NaturalArray/range-backed collections, formula-driven iteration, negative/range indexing, conditional and recurrence composition, and array-oriented transformations without eager materialization.
+
+- **Safe + explicit execution model**  
+  Strong typing semantics, structured visibility (`share`/`local`), explicit safe/unsafe boundaries, and deterministic parser/interpreter behavior built from hand-written language components.
+
+- **Bytecode and runtime pipeline**  
+  Script execution plus PTAC/IR artifact paths for compiled execution flows, with reusable runtime infrastructure for direct execution and parity validation workflows.
+
+- **CLI and project workflows**  
+  One-command installer (`install.sh`), direct JAR invocation support, and repository runners for command execution, parity checks, and complexity/performance-focused validation scenarios.
+
+- **Documentation and browser experience**  
+  A dedicated docs + playground site under `docs/`, enabling interactive language exploration without local installation.
+
+If you want a language that prioritizes readability, scalable lazy execution, and practical ergonomics for real projects, Coderive is built for that.
 
 ---
 
