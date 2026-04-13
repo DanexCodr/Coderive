@@ -37,14 +37,14 @@ public class StringLexer {
     
     private int readUnicodeUnit() {
         if (lexer.getPosition() + 4 > lexer.getInput().length) {
-            throw new RuntimeException("Syntax Error: Incomplete unicode escape at line " + lexer.line);
+            throw new RuntimeException("Syntax Error: Incomplete Unicode escape at line " + lexer.line);
         }
         
         int value = 0;
         for (int i = 0; i < 4; i++) {
             char digit = lexer.peek();
             if (!isHexDigit(digit)) {
-                throw new RuntimeException("Syntax Error: Invalid unicode escape at line " + lexer.line);
+                throw new RuntimeException("Syntax Error: Invalid Unicode escape at line " + lexer.line);
             }
             lexer.consume();
             value = (value << 4) + hexValue(digit);
@@ -58,12 +58,12 @@ public class StringLexer {
         consumed += 4;
         
         if (Character.isLowSurrogate((char)firstUnit)) {
-            throw new RuntimeException("Syntax Error: Unexpected low surrogate in unicode escape at line " + lexer.line);
+            throw new RuntimeException("Syntax Error: Unexpected low surrogate in Unicode escape at line " + lexer.line);
         }
         
         if (Character.isHighSurrogate((char)firstUnit)) {
             if (lexer.getPosition() + 5 >= lexer.getInput().length) {
-                throw new RuntimeException("Syntax Error: Missing low surrogate in unicode escape at line " + lexer.line);
+                throw new RuntimeException("Syntax Error: Missing low surrogate in Unicode escape at line " + lexer.line);
             }
             if (lexer.peek() != '\\' || lexer.peek(1) != 'u') {
                 throw new RuntimeException("Syntax Error: Expected low surrogate escape at line " + lexer.line);
@@ -77,7 +77,7 @@ public class StringLexer {
             consumed += 4;
             
             if (!Character.isLowSurrogate((char)secondUnit)) {
-                throw new RuntimeException("Syntax Error: Invalid low surrogate in unicode escape at line " + lexer.line);
+                throw new RuntimeException("Syntax Error: Invalid low surrogate in Unicode escape at line " + lexer.line);
             }
             
             return new UnicodeEscapeResult(new String(new char[] {(char)firstUnit, (char)secondUnit}), consumed);

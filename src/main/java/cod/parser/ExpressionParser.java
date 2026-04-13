@@ -1114,14 +1114,14 @@ public class ExpressionParser extends BaseParser {
     
     private int parseUnicodeUnit(String text, int start, Token token) {
         if (start + 4 > text.length()) {
-            throw error("Incomplete unicode escape in text literal", token);
+            throw error("Incomplete Unicode escape in text literal", token);
         }
         
         int value = 0;
         for (int i = 0; i < 4; i++) {
             int digit = hexValue(text.charAt(start + i));
             if (digit < 0) {
-                throw error("Invalid unicode escape in text literal", token);
+                throw error("Invalid Unicode escape in text literal", token);
             }
             value = (value << 4) + digit;
         }
@@ -1133,20 +1133,20 @@ public class ExpressionParser extends BaseParser {
         int nextPos = escapePos + 5;
         
         if (Character.isLowSurrogate((char)firstUnit)) {
-            throw error("Unexpected low surrogate in text unicode escape", token);
+            throw error("Unexpected low surrogate in text Unicode escape", token);
         }
         
         if (Character.isHighSurrogate((char)firstUnit)) {
             if (nextPos + 5 >= text.length()) {
-                throw error("Missing low surrogate in text unicode escape", token);
+                throw error("Missing low surrogate in text Unicode escape", token);
             }
             if (text.charAt(nextPos) != '\\' || text.charAt(nextPos + 1) != 'u') {
-                throw error("Expected low surrogate unicode escape", token);
+                throw error("Expected low surrogate Unicode escape", token);
             }
             
             int secondUnit = parseUnicodeUnit(text, nextPos + 2, token);
             if (!Character.isLowSurrogate((char)secondUnit)) {
-                throw error("Invalid low surrogate in text unicode escape", token);
+                throw error("Invalid low surrogate in text Unicode escape", token);
             }
             
             return new UnicodeEscapeParseResult(
