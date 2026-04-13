@@ -269,6 +269,26 @@ public class LiteralRegistry {
             },
             String.class
         );
+
+        define("codeUnit",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringCodeUnit(literal, arguments);
+                }
+            },
+            String.class
+        );
+
+        define("fromCodePoint",
+            new MethodHandler() {
+                @Override
+                public Object handle(Object literal, List<Object> arguments, ExecutionContext ctx) {
+                    return handleStringFromCodePoint(literal, arguments);
+                }
+            },
+            String.class
+        );
         
         // Future definitions:
         // define("isEmpty", isEmptyHandler, String.class, List.class, NaturalArray.class);
@@ -624,6 +644,29 @@ public class LiteralRegistry {
             }
         }
         return seenLetter;
+    }
+
+    private Object handleStringCodeUnit(Object literal, List<Object> arguments) {
+        requireArgCount("codeUnit", arguments, 0);
+        String target = requireStringTarget(literal, "codeUnit");
+        if (target.isEmpty()) {
+            throw new ProgramError("codeUnit expects a non-empty text value");
+        }
+        return (int) target.charAt(0);
+    }
+
+    private Object handleStringFromCodePoint(Object literal, List<Object> arguments) {
+        requireArgCount("fromCodePoint", arguments, 1);
+        requireStringTarget(literal, "fromCodePoint");
+        long rawCodePoint = toLong(arguments.get(0));
+        if (rawCodePoint < 0 || rawCodePoint > Character.MAX_CODE_POINT) {
+            throw new ProgramError("fromCodePoint out of range: " + rawCodePoint);
+        }
+        int codePoint = (int) rawCodePoint;
+        if (codePoint >= 0xD800 && codePoint <= 0xDFFF) {
+            throw new ProgramError("fromCodePoint does not allow surrogate code points: " + rawCodePoint);
+        }
+        return new String(Character.toChars(codePoint));
     }
     
     @SuppressWarnings("unchecked")
