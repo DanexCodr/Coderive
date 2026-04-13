@@ -183,7 +183,7 @@ public class CommandRunner extends BaseRunner {
     }
 
     private void compileAllUnits(IRManager bm, String srcMainRoot) {
-        List<File> codFiles = new ArrayList<File>();
+        List<File> codFiles = new ArrayList<>();
         collectCodFiles(new File(srcMainRoot), codFiles);
 
         int compiled = 0;
@@ -200,6 +200,7 @@ public class CommandRunner extends BaseRunner {
                     continue;
                 }
                 String unitName = fileAst.unit.name;
+                // Units without explicit declarations are "default" and don't map to stable unit paths.
                 if (unitName == null || "default".equals(unitName)) {
                     continue;
                 }
@@ -213,7 +214,7 @@ public class CommandRunner extends BaseRunner {
             }
         }
 
-        System.out.println("Full compilation complete: " + compiled + " class(es) compiled from " + scanned + " file(s)");
+        out("Full compilation complete: " + compiled + " class(es) compiled from " + scanned + " file(s)");
         if (failed > 0) {
             outE("Warning: " + failed + " file(s) failed during full compilation");
         }
