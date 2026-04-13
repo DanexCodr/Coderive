@@ -13,7 +13,7 @@ All notable changes to Coderive are documented in this file.
 - **`CommandRunner` full compile mode and summary polish** — `-f`/`--full` support and compile summary output improvements.
 - **Borrow-check enforcement for unsafe indexed mutation** — borrow safety checks extended into unsafe indexed mutation paths.
 - **Active-borrow tracking performance upgrades** — zero-cost/O(1) active-borrow tracking improvements.
-- **Unsafe operation boundary model implementation** — `unsafe` class/method modifier support with `safe(...)` wrapping for calling unsafe operations from safe contexts.
+- **Unsafe operation boundary model implementation** — `unsafe` class/method modifier support with enforced `safe(...)` wrapping for calling unsafe operations from safe contexts (direct safe-context calls are rejected).
 
 ### 🚨 Breaking / Behavioral Changes
 - **Unsafe declaration ordering enforced** — Unsafe declarations require explicit visibility before `unsafe` (`share unsafe ...` or `local unsafe ...`).  
@@ -24,7 +24,7 @@ All notable changes to Coderive are documented in this file.
 ### ✨ Major Features
 - **Unsafe pointer model added** — Unsafe contexts support pointer-oriented syntax/runtime behavior (`*T`, `T[n]`, `&`, `*`, and pointer arithmetic with bounds checks).
 - **Full-project compile mode in CLI** — `CommandRunner` supports `-f` / `--full` to compile all `.cod` files under `src/main`.
-- **O(1) borrow checking via active-borrow tracking** — Borrow-state checking moved to O(1)-style active tracking for lower runtime overhead.
+- **O(1) borrow checking via active-borrow tracking** — Borrow-state checking moved from scan-based checks to O(1)-style active tracking for lower runtime overhead.
 
 ### 🔧 Runtime / PTAC / IR Improvements
 - **Deterministic lowering register naming** — PTAC lowering counters reset per `lower()` call to keep generated naming stable per artifact.
