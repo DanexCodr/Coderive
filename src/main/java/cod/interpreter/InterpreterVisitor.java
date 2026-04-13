@@ -240,7 +240,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 throw new ProgramError("Cannot redeclare field: " + n.name);
             }
         }
-        ctx.objectInstance.fields.put(n.name, val);
+        ctx.setObjectField(n.name, val);
         return val;
     }
 
