@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -31,6 +32,8 @@ public class IRManager {
     private static final String BIN_DIR = "bin";
     private static final String IR_EXT = ".codb";
     private static final String CONTAINER_EXT = ".codc";
+    private static final String PROJECT_CONTAINER_NAME = "project";
+    private static final String PROJECT_INDEX_FILE_NAME = "HOOK.toml";
     private static final int BUFFER_SIZE = 8192;
     private static final Map<String, Object> CONTAINER_LOCKS = new ConcurrentHashMap<String, Object>();
 
@@ -154,6 +157,24 @@ public class IRManager {
         artifactCache.clear();
     }
 
+    public String loadIndex(String unit) {
+        if (unit == null || unit.isEmpty()) return null;
+        String entryName = getProjectIndexEntryName();
+        try {
+            byte[] data = readContainerEntry(unit, entryName);
+            if (data == null) return null;
+            return new String(data, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    public void saveIndex(String unit, String indexContent) throws IOException {
+        if (unit == null || unit.isEmpty() || indexContent == null) return;
+        String entryName = getProjectIndexEntryName();
+        writeContainerEntry(unit, entryName, indexContent.getBytes(StandardCharsets.UTF_8));
+    }
+
     public Map<String, Object> getCacheStats() {
         Map<String, Object> stats = new HashMap<String, Object>();
         int total = 0;
@@ -194,38 +215,43 @@ public class IRManager {
     }
 
     private File getContainerFile(String unit) {
-        String rootUnit = getRootUnit(unit);
-        String path = projectRoot + "/src/" + BIN_DIR + "/" + rootUnit + CONTAINER_EXT;
+        String path = projectRoot + "/src/" + BIN_DIR + "/" + PROJECT_CONTAINER_NAME + CONTAINER_EXT;
         return new File(path);
-    }
-
-    private String getRootUnit(String unit) {
-        if (unit == null || unit.isEmpty()) return "default";
-        int dot = unit.indexOf('.');
-        if (dot < 0) return unit;
-        if (dot == 0) return "default";
-        return unit.substring(0, dot);
     }
 
     private String getContainerEntryName(String unit, String className) {
         return unit + "/" + className + IR_EXT;
     }
 
+    private String getProjectIndexEntryName() {
+        return PROJECT_INDEX_FILE_NAME;
+    }
+
     private Artifact readArtifactFromContainer(String unit, String className) throws IOException {
+        byte[] data = readContainerEntry(unit, getContainerEntryName(unit, className));
+        if (data == null) return null;
+        return readArtifactFromBytes(data);
+    }
+
+    private void writeArtifactToContainer(String unit, String className, Artifact artifact) throws IOException {
+        if (unit == null || className == null || artifact == null) return;
+        writeContainerEntry(unit, getContainerEntryName(unit, className), writeArtifactToBytes(artifact));
+    }
+
+    private byte[] readContainerEntry(String unit, String entryName) throws IOException {
+        if (unit == null || entryName == null) return null;
         File container = getContainerFile(unit);
         if (!container.exists() || !container.isFile()) {
             return null;
         }
 
-        String targetEntry = getContainerEntryName(unit, className);
         ZipInputStream in = null;
         try {
             in = new ZipInputStream(new BufferedInputStream(new FileInputStream(container)));
             ZipEntry entry;
             while ((entry = in.getNextEntry()) != null) {
-                if (!entry.isDirectory() && targetEntry.equals(entry.getName())) {
-                    byte[] data = readAllBytes(in);
-                    return readArtifactFromBytes(data);
+                if (!entry.isDirectory() && entryName.equals(entry.getName())) {
+                    return readAllBytes(in);
                 }
             }
             return null;
@@ -238,8 +264,8 @@ public class IRManager {
         }
     }
 
-    private void writeArtifactToContainer(String unit, String className, Artifact artifact) throws IOException {
-        if (unit == null || className == null || artifact == null) return;
+    private void writeContainerEntry(String unit, String entryName, byte[] entryData) throws IOException {
+        if (unit == null || entryName == null || entryData == null) return;
 
         File container = getContainerFile(unit);
         File parent = container.getParentFile();
@@ -250,7 +276,7 @@ public class IRManager {
         Object containerLock = getContainerLock(container);
         synchronized (containerLock) {
             Map<String, byte[]> entries = readContainerEntries(container);
-            entries.put(getContainerEntryName(unit, className), writeArtifactToBytes(artifact));
+            entries.put(entryName, entryData);
 
             File temp = new File(container.getAbsolutePath() + ".tmp");
             ZipOutputStream out = null;

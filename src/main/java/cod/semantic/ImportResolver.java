@@ -208,7 +208,7 @@ public class ImportResolver {
                 }
             }
             
-            // Set the project root for Index class (for src/idx/ location)
+            // Set the project root for Index class (for src/bin/project.codc index location)
             Index.setProjectRoot(srcMainRoot);
             DebugSystem.debug("IMPORTS", "Set Index project root from: " + srcMainRoot);
             
