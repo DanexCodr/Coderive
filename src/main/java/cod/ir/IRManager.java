@@ -210,7 +210,7 @@ public class IRManager {
     }
 
     private File getIRFile(String unit, String className) {
-        String path = projectRoot + "/src/" + BIN_DIR + "/" + unit + "/" + className + IR_EXT;
+        String path = projectRoot + "/src/" + BIN_DIR + "/" + toUnitPath(unit) + "/" + className + IR_EXT;
         return new File(path);
     }
 
@@ -220,7 +220,12 @@ public class IRManager {
     }
 
     private String getContainerEntryName(String unit, String className) {
-        return unit + "/" + className + IR_EXT;
+        return toUnitPath(unit) + "/" + className + IR_EXT;
+    }
+
+    public static String toUnitPath(String unit) {
+        if (unit == null) return "";
+        return unit.replace('.', '/');
     }
 
     private String getProjectIndexEntryName() {
