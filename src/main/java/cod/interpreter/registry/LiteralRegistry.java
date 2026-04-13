@@ -269,6 +269,7 @@ public class LiteralRegistry {
             },
             String.class
         );
+
         
         // Future definitions:
         // define("isEmpty", isEmptyHandler, String.class, List.class, NaturalArray.class);
@@ -625,6 +626,7 @@ public class LiteralRegistry {
         }
         return seenLetter;
     }
+
     
     @SuppressWarnings("unchecked")
     private List<Object> asConcreteList(Object literal) {
