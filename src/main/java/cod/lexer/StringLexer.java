@@ -6,10 +6,84 @@ public class StringLexer {
 
     private final MainLexer lexer;
     private final List<String> extractedStrings;
+    
+    private static final class UnicodeEscapeResult {
+        private final String text;
+        private final int consumedChars;
+        
+        private UnicodeEscapeResult(String text, int consumedChars) {
+            this.text = text;
+            this.consumedChars = consumedChars;
+        }
+    }
 
     public StringLexer(MainLexer lexer) {
         this.lexer = lexer;
         this.extractedStrings = new ArrayList<String>();
+    }
+    
+    private boolean isHexDigit(char c) {
+        return (c >= '0' && c <= '9') ||
+               (c >= 'a' && c <= 'f') ||
+               (c >= 'A' && c <= 'F');
+    }
+    
+    private int hexValue(char c) {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    }
+    
+    private int readUnicodeUnit() {
+        if (lexer.getPosition() + 3 >= lexer.getInput().length) {
+            throw new RuntimeException("Syntax Error: Incomplete unicode escape at line " + lexer.line);
+        }
+        
+        int value = 0;
+        for (int i = 0; i < 4; i++) {
+            char digit = lexer.peek();
+            if (!isHexDigit(digit)) {
+                throw new RuntimeException("Syntax Error: Invalid unicode escape at line " + lexer.line);
+            }
+            lexer.consume();
+            value = (value << 4) + hexValue(digit);
+        }
+        return value;
+    }
+    
+    private UnicodeEscapeResult decodeUnicodeEscape() {
+        int consumed = 0;
+        int firstUnit = readUnicodeUnit();
+        consumed += 4;
+        
+        if (Character.isLowSurrogate((char)firstUnit)) {
+            throw new RuntimeException("Syntax Error: Unexpected low surrogate in unicode escape at line " + lexer.line);
+        }
+        
+        if (Character.isHighSurrogate((char)firstUnit)) {
+            if (lexer.getPosition() + 5 >= lexer.getInput().length) {
+                throw new RuntimeException("Syntax Error: Missing low surrogate in unicode escape at line " + lexer.line);
+            }
+            if (lexer.peek() != '\\' || lexer.peek(1) != 'u') {
+                throw new RuntimeException("Syntax Error: Expected low surrogate escape at line " + lexer.line);
+            }
+            
+            lexer.consume();
+            lexer.consume();
+            consumed += 2;
+            
+            int secondUnit = readUnicodeUnit();
+            consumed += 4;
+            
+            if (!Character.isLowSurrogate((char)secondUnit)) {
+                throw new RuntimeException("Syntax Error: Invalid low surrogate in unicode escape at line " + lexer.line);
+            }
+            
+            return new UnicodeEscapeResult(new String(new char[] {(char)firstUnit, (char)secondUnit}), consumed);
+        }
+        
+        return new UnicodeEscapeResult(String.valueOf((char)firstUnit), consumed);
     }
 
     public Token scan() {
@@ -98,20 +172,27 @@ public class StringLexer {
                 char escaped = lexer.consume();
                 length++;
                 
-                // Convert escape sequence to actual character
-                char actualChar;
-                switch (escaped) {
-                    case 'n': actualChar = '\n'; break;
-                    case 't': actualChar = '\t'; break;
-                    case 'r': actualChar = '\r'; break;
-                    case '\\': actualChar = '\\'; break;
-                    case '"': actualChar = '"'; break;
-                    case '{': actualChar = '{'; break;
-                    default: actualChar = escaped; break;
+                // Convert escape sequence to actual character(s)
+                String escapedStr;
+                if (escaped == 'u') {
+                    UnicodeEscapeResult unicodeResult = decodeUnicodeEscape();
+                    escapedStr = unicodeResult.text;
+                    length += unicodeResult.consumedChars;
+                } else {
+                    char actualChar;
+                    switch (escaped) {
+                        case 'n': actualChar = '\n'; break;
+                        case 't': actualChar = '\t'; break;
+                        case 'r': actualChar = '\r'; break;
+                        case '\\': actualChar = '\\'; break;
+                        case '"': actualChar = '"'; break;
+                        case '{': actualChar = '{'; break;
+                        default: actualChar = escaped; break;
+                    }
+                    escapedStr = String.valueOf(actualChar);
                 }
                 
-                // Add escaped character as a text literal (already without quotes)
-                String escapedStr = String.valueOf(actualChar);
+                // Add escaped character(s) as a text literal (already without quotes)
                 Token escapedToken = Token.createTextLiteral(escapedStr, lexer.line, lexer.column - 1);
                 parts.add(escapedToken);
                 childTokens.add(escapedToken);
@@ -406,17 +487,24 @@ public class StringLexer {
                 currentColumnInLine++;
                 
                 // Convert escape sequences to actual characters
-                char actualChar;
-                switch (escaped) {
-                    case 'n': actualChar = '\n'; break;
-                    case 't': actualChar = '\t'; break;
-                    case 'r': actualChar = '\r'; break;
-                    case '\\': actualChar = '\\'; break;
-                    case '"': actualChar = '"'; break;
-                    case '{': actualChar = '{'; break;
-                    default: actualChar = escaped; break;
+                if (escaped == 'u') {
+                    UnicodeEscapeResult unicodeResult = decodeUnicodeEscape();
+                    currentLine.append(unicodeResult.text);
+                    length += unicodeResult.consumedChars;
+                    currentColumnInLine += unicodeResult.consumedChars;
+                } else {
+                    char actualChar;
+                    switch (escaped) {
+                        case 'n': actualChar = '\n'; break;
+                        case 't': actualChar = '\t'; break;
+                        case 'r': actualChar = '\r'; break;
+                        case '\\': actualChar = '\\'; break;
+                        case '"': actualChar = '"'; break;
+                        case '{': actualChar = '{'; break;
+                        default: actualChar = escaped; break;
+                    }
+                    currentLine.append(actualChar);
                 }
-                currentLine.append(actualChar);
                 continue;
             }
             
