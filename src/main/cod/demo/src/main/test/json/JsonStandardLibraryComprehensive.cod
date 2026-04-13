@@ -1,0 +1,110 @@
+unit test.json
+
+use {json}
+
+share JsonStandardLibraryComprehensive {
+    share check(label: text, actual: text, expected: text) {
+        if actual == expected {
+            out("PASS " + label)
+            return
+        }
+        out("FAIL " + label)
+        out("  actual:   " + actual)
+        out("  expected: " + expected)
+    }
+
+    share checkBool(label: text, actual: bool, expected: bool) {
+        if actual == expected {
+            out("PASS " + label)
+            return
+        }
+        out("FAIL " + label)
+        out("  actual:   " + actual)
+        out("  expected: " + expected)
+    }
+
+    share main() {
+        out("== json standard library comprehensive ==")
+
+        nullValue := Json.parse("null")
+        JsonStandardLibraryComprehensive.checkBool("parse null", nullValue.isNull(), true)
+
+        trueValue := Json.parse("true")
+        JsonStandardLibraryComprehensive.checkBool("parse true", trueValue.isBool(), true)
+        JsonStandardLibraryComprehensive.checkBool("true value", trueValue.asBool(), true)
+
+        falseValue := Json.parse("false")
+        JsonStandardLibraryComprehensive.checkBool("parse false", falseValue.isBool(), true)
+        JsonStandardLibraryComprehensive.checkBool("false value", falseValue.asBool(), false)
+
+        numberValue := Json.parse("-12.5e+2")
+        JsonStandardLibraryComprehensive.checkBool("parse number kind", numberValue.isNumber(), true)
+        JsonStandardLibraryComprehensive.check("parse number text", numberValue.asNumberText(), "-12.5e+2")
+
+        stringValue := Json.parse("\"hello \\\"coderive\\\"\\nline\"")
+        JsonStandardLibraryComprehensive.checkBool("parse string kind", stringValue.isString(), true)
+        JsonStandardLibraryComprehensive.check("parse string text", stringValue.asString(), "hello \"coderive\"\nline")
+        JsonStandardLibraryComprehensive.check("stringify string", Json.stringify(stringValue), "\"hello \\\"coderive\\\"\\nline\"")
+
+        mixedArray := Json.parse("[1, true, null, \"x\", [2,3]]")
+        JsonStandardLibraryComprehensive.checkBool("array kind", mixedArray.isArray(), true)
+        JsonStandardLibraryComprehensive.check("array size", "" + mixedArray.size(), "5")
+        JsonStandardLibraryComprehensive.checkBool("array nested kind", mixedArray.get(4).isArray(), true)
+        JsonStandardLibraryComprehensive.check("array nested value", mixedArray.get(4).get(1).asNumberText(), "3")
+
+        objectValue := Json.parse("{\"name\":\"Coderive\",\"ok\":true,\"n\":10,\"tags\":[\"lang\",\"json\"],\"meta\":{\"major\":0}}")
+        JsonStandardLibraryComprehensive.checkBool("object kind", objectValue.isObject(), true)
+        JsonStandardLibraryComprehensive.checkBool("object has name", objectValue.has("name"), true)
+        JsonStandardLibraryComprehensive.check("object name", objectValue.getKey("name").asString(), "Coderive")
+        JsonStandardLibraryComprehensive.checkBool("object ok", objectValue.getKey("ok").asBool(), true)
+        JsonStandardLibraryComprehensive.check("object nested array value", objectValue.getKey("tags").get(1).asString(), "json")
+        JsonStandardLibraryComprehensive.check("object nested object value", objectValue.getKey("meta").getKey("major").asNumberText(), "0")
+
+        compact := Json.stringify(objectValue)
+        JsonStandardLibraryComprehensive.check("compact stringify", compact, "{\"name\":\"Coderive\",\"ok\":true,\"n\":10,\"tags\":[\"lang\",\"json\"],\"meta\":{\"major\":0}}")
+
+        pretty := Json.stringifyPretty(objectValue)
+        JsonStandardLibraryComprehensive.checkBool("pretty has new lines", pretty.has("\n"), true)
+        JsonStandardLibraryComprehensive.checkBool("pretty has indentation", pretty.has("  \"name\""), true)
+
+        created := Json.object()
+        created.set("language", Json.string("Coderive"))
+        created.set("stable", Json.bool(false))
+        versions := Json.array()
+        versions.add(Json.numberText("0.9"))
+        versions.add(Json.numberText("1.0"))
+        created.set("versions", versions)
+        JsonStandardLibraryComprehensive.check("constructed stringify", Json.stringify(created), "{\"language\":\"Coderive\",\"stable\":false,\"versions\":[0.9,1.0]}")
+
+        updateObject := Json.object()
+        updateObject.set("x", Json.numberText("1"))
+        updateObject.set("x", Json.numberText("2"))
+        JsonStandardLibraryComprehensive.check("object key update", Json.stringify(updateObject), "{\"x\":2}")
+
+        roundTripSource := " { \"a\" : [ 1 , 2 , {\"b\":false} ] , \"c\" : null } "
+        roundTrip := Json.parse(roundTripSource)
+        JsonStandardLibraryComprehensive.checkBool("round trip parse ok", roundTrip.isError(), false)
+        JsonStandardLibraryComprehensive.check("round trip compact", Json.stringify(roundTrip), "{\"a\":[1,2,{\"b\":false}],\"c\":null}")
+
+        invalid1 := Json.parse("{\"a\":1,}")
+        JsonStandardLibraryComprehensive.checkBool("invalid trailing comma object", invalid1.isError(), true)
+
+        invalid2 := Json.parse("[1,2,]")
+        JsonStandardLibraryComprehensive.checkBool("invalid trailing comma array", invalid2.isError(), true)
+
+        invalid3 := Json.parse("{\"a\" 1}")
+        JsonStandardLibraryComprehensive.checkBool("invalid missing colon", invalid3.isError(), true)
+
+        invalid4 := Json.parse("\"unterminated")
+        JsonStandardLibraryComprehensive.checkBool("invalid unterminated string", invalid4.isError(), true)
+
+        invalid5 := Json.parse("true false")
+        JsonStandardLibraryComprehensive.checkBool("invalid trailing content", invalid5.isError(), true)
+
+        unicodeEscaped := Json.parse("\"\\u0041\"")
+        JsonStandardLibraryComprehensive.check("unicode escape preserved", unicodeEscaped.asString(), "\\u0041")
+        JsonStandardLibraryComprehensive.check("unicode stringify", Json.stringify(unicodeEscaped), "\"\\\\u0041\"")
+
+        out("== done ==")
+    }
+}

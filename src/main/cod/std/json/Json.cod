@@ -1,0 +1,636 @@
+unit json
+
+// JSON standard library for Coderive.
+// Supports parsing, mutation, and compact/pretty serialization of JSON values.
+share JsonValue {
+    kind: int = 0
+    boolData: bool = false
+    textData: text = ""
+    arrayData: [] = []
+    objectKeys: [text] = []
+    objectValues: [] = []
+    errorData: text = ""
+
+    share this(kindValue: int) {
+        this.kind = kindValue
+    }
+
+    share isNull() :: bool { ~> (this.kind == 0) }
+    share isBool() :: bool { ~> (this.kind == 1) }
+    share isNumber() :: bool { ~> (this.kind == 2) }
+    share isString() :: bool { ~> (this.kind == 3) }
+    share isArray() :: bool { ~> (this.kind == 4) }
+    share isObject() :: bool { ~> (this.kind == 5) }
+    share isError() :: bool { ~> (this.kind == 6) }
+
+    share asBool() :: bool { ~> (this.boolData) }
+    share asNumberText() :: text { ~> (this.textData) }
+    share asString() :: text { ~> (this.textData) }
+    share error() :: text { ~> (this.errorData) }
+
+    share size() :: int|float {
+        if this.kind == 4 { ~> (this.arrayData.size) }
+        if this.kind == 5 { ~> (this.objectKeys.size) }
+        ~> (0)
+    }
+
+    share add(item: JsonValue) {
+        if this.kind != 4 { return }
+        idx: int = this.arrayData.size
+        this.arrayData[idx] = item
+    }
+
+    share get(index: int) :: JsonValue {
+        if this.kind != 4 { ~> (JsonValue.makeError("value is not an array")) }
+        if index < 0 { ~> (JsonValue.makeError("array index out of bounds")) }
+        if index >= this.arrayData.size { ~> (JsonValue.makeError("array index out of bounds")) }
+        ~> (this.arrayData[index])
+    }
+
+    share set(key: text, value: JsonValue) {
+        if this.kind != 5 { return }
+        for i of 0 to this.objectKeys.size - 1 {
+            if this.objectKeys[i] == key {
+                this.objectValues[i] = value
+                return
+            }
+        }
+        idx: int = this.objectKeys.size
+        this.objectKeys[idx] = key
+        this.objectValues[idx] = value
+    }
+
+    share has(key: text) :: bool {
+        if this.kind != 5 { ~> (false) }
+        for i of 0 to this.objectKeys.size - 1 {
+            if this.objectKeys[i] == key { ~> (true) }
+        }
+        ~> (false)
+    }
+
+    share getKey(key: text) :: JsonValue {
+        if this.kind != 5 { ~> (JsonValue.makeError("value is not an object")) }
+        for i of 0 to this.objectKeys.size - 1 {
+            if this.objectKeys[i] == key {
+                ~> (this.objectValues[i])
+            }
+        }
+        ~> (JsonValue.makeError("missing object key: " + key))
+    }
+
+    share keyAt(index: int) :: text {
+        if this.kind != 5 { ~> ("") }
+        if index < 0 { ~> ("") }
+        if index >= this.objectKeys.size { ~> ("") }
+        ~> (this.objectKeys[index])
+    }
+
+    share valueAt(index: int) :: JsonValue {
+        if this.kind != 5 { ~> (JsonValue.makeError("value is not an object")) }
+        if index < 0 { ~> (JsonValue.makeError("object index out of bounds")) }
+        if index >= this.objectValues.size { ~> (JsonValue.makeError("object index out of bounds")) }
+        ~> (this.objectValues[index])
+    }
+
+    share toJson() :: text { ~> (Json.stringifyValue(this, false, 0)) }
+    share toJsonPretty() :: text { ~> (Json.stringifyValue(this, true, 0)) }
+
+    share makeNull() :: JsonValue {
+        v := JsonValue(0)
+        ~> (v)
+    }
+
+    share makeBool(value: bool) :: JsonValue {
+        v := JsonValue(1)
+        v.boolData = value
+        ~> (v)
+    }
+
+    share makeNumber(textValue: text) :: JsonValue {
+        v := JsonValue(2)
+        v.textData = textValue
+        ~> (v)
+    }
+
+    share makeString(textValue: text) :: JsonValue {
+        v := JsonValue(3)
+        v.textData = textValue
+        ~> (v)
+    }
+
+    share makeArray(items: []) :: JsonValue {
+        v := JsonValue(4)
+        v.arrayData = items
+        ~> (v)
+    }
+
+    share makeObject(keys: [text], values: []) :: JsonValue {
+        v := JsonValue(5)
+        v.objectKeys = keys
+        v.objectValues = values
+        ~> (v)
+    }
+
+    share makeError(message: text) :: JsonValue {
+        v := JsonValue(6)
+        v.errorData = message
+        ~> (v)
+    }
+}
+
+share Json {
+    share parse(source: text) :: JsonValue {
+        parser := JsonParser(source)
+        ~> (parser.parseRoot())
+    }
+
+    share stringify(value: JsonValue) :: text {
+        ~> (Json.stringifyValue(value, false, 0))
+    }
+
+    share stringifyPretty(value: JsonValue) :: text {
+        ~> (Json.stringifyValue(value, true, 0))
+    }
+
+    share nullValue() :: JsonValue { ~> (JsonValue.makeNull()) }
+    share bool(value: bool) :: JsonValue { ~> (JsonValue.makeBool(value)) }
+    share number(value: int|float) :: JsonValue { ~> (JsonValue.makeNumber("" + value)) }
+    share numberText(value: text) :: JsonValue { ~> (JsonValue.makeNumber(value)) }
+    share string(value: text) :: JsonValue { ~> (JsonValue.makeString(value)) }
+    share array() :: JsonValue { ~> (JsonValue.makeArray([])) }
+    share object() :: JsonValue { ~> (JsonValue.makeObject([], [])) }
+
+    share stringifyValue(value: JsonValue, pretty: bool, depth: int) :: text {
+        if value.isError() {
+            ~> ("\"<json-error: " + Json.escapeString(value.error()) + ">\"")
+        }
+
+        if value.isNull() {
+            ~> ("null")
+        }
+
+        if value.isBool() {
+            if value.asBool() { ~> ("true") }
+            ~> ("false")
+        }
+
+        if value.isNumber() {
+            raw := value.asNumberText().trim()
+            if raw.isEmpty() { ~> ("0") }
+            ~> (raw)
+        }
+
+        if value.isString() {
+            ~> ("\"" + Json.escapeString(value.asString()) + "\"")
+        }
+
+        if value.isArray() {
+            count := value.size()
+            if count == 0 { ~> ("[]") }
+
+            if pretty {
+                outText := "[\n"
+                for i of 0 to count - 1 {
+                    outText = outText + Json.indent(depth + 1)
+                    item := value.get(i)
+                    outText = outText + Json.stringifyValue(item, true, depth + 1)
+                    if i < count - 1 { outText = outText + "," }
+                    outText = outText + "\n"
+                }
+                outText = outText + Json.indent(depth) + "]"
+                ~> (outText)
+            }
+
+            outText := "["
+            for i of 0 to count - 1 {
+                item := value.get(i)
+                outText = outText + Json.stringifyValue(item, false, depth + 1)
+                if i < count - 1 { outText = outText + "," }
+            }
+            outText = outText + "]"
+            ~> (outText)
+        }
+
+        if value.isObject() {
+            count := value.size()
+            if count == 0 { ~> ("{}") }
+
+            if pretty {
+                outText := "{\n"
+                for i of 0 to count - 1 {
+                    key := value.keyAt(i)
+                    item := value.valueAt(i)
+                    outText = outText + Json.indent(depth + 1)
+                    outText = outText + "\"" + Json.escapeString(key) + "\": "
+                    outText = outText + Json.stringifyValue(item, true, depth + 1)
+                    if i < count - 1 { outText = outText + "," }
+                    outText = outText + "\n"
+                }
+                outText = outText + Json.indent(depth) + "}"
+                ~> (outText)
+            }
+
+            outText := "{"
+            for i of 0 to count - 1 {
+                key := value.keyAt(i)
+                item := value.valueAt(i)
+                outText = outText + "\"" + Json.escapeString(key) + "\":"
+                outText = outText + Json.stringifyValue(item, false, depth + 1)
+                if i < count - 1 { outText = outText + "," }
+            }
+            outText = outText + "}"
+            ~> (outText)
+        }
+
+        ~> ("null")
+    }
+
+    share escapeString(raw: text) :: text {
+        outText := ""
+        for i of 0 to raw.length - 1 {
+            ch := raw[i]
+            if ch == "\\" {
+                outText = outText + "\\\\"
+                continue
+            }
+            if ch == "\"" {
+                outText = outText + "\\\""
+                continue
+            }
+            if ch == "\n" {
+                outText = outText + "\\n"
+                continue
+            }
+            if ch == "\r" {
+                outText = outText + "\\r"
+                continue
+            }
+            if ch == "\t" {
+                outText = outText + "\\t"
+                continue
+            }
+            if ch == "\b" {
+                outText = outText + "\\b"
+                continue
+            }
+            if ch == "\f" {
+                outText = outText + "\\f"
+                continue
+            }
+            outText = outText + ch
+        }
+        ~> (outText)
+    }
+
+    share indent(depth: int) :: text {
+        textValue := ""
+        for i of 1 to depth {
+            textValue = textValue + "  "
+        }
+        ~> (textValue)
+    }
+}
+
+share JsonParser {
+    source: text = ""
+    index: int = 0
+
+    share this(sourceText: text) {
+        this.source = sourceText
+        this.index = 0
+    }
+
+    share parseRoot() :: JsonValue {
+        this.skipWhitespace()
+        if this.index >= this.source.length {
+            ~> (JsonValue.makeError("empty json input"))
+        }
+
+        value := this.parseValue()
+        if value.isError() { ~> (value) }
+
+        this.skipWhitespace()
+        if this.index != this.source.length {
+            ~> (JsonValue.makeError("unexpected trailing content at index " + this.index))
+        }
+
+        ~> (value)
+    }
+
+    share parseValue() :: JsonValue {
+        this.skipWhitespace()
+        if this.index >= this.source.length {
+            ~> (JsonValue.makeError("unexpected end of input"))
+        }
+
+        ch := this.source[this.index]
+
+        if ch == "n" { ~> (this.parseNull()) }
+        if ch == "t" { ~> (this.parseTrue()) }
+        if ch == "f" { ~> (this.parseFalse()) }
+        if ch == "\"" { ~> (this.parseString()) }
+        if ch == "[" { ~> (this.parseArray()) }
+        if ch == "{" { ~> (this.parseObject()) }
+        if any[ch == "-", this.isDigit(ch)] { ~> (this.parseNumber()) }
+
+        ~> (JsonValue.makeError("invalid json value at index " + this.index))
+    }
+
+    share parseNull() :: JsonValue {
+        if this.matchKeyword("null") {
+            this.index = this.index + 4
+            ~> (JsonValue.makeNull())
+        }
+        ~> (JsonValue.makeError("invalid token, expected null at index " + this.index))
+    }
+
+    share parseTrue() :: JsonValue {
+        if this.matchKeyword("true") {
+            this.index = this.index + 4
+            ~> (JsonValue.makeBool(true))
+        }
+        ~> (JsonValue.makeError("invalid token, expected true at index " + this.index))
+    }
+
+    share parseFalse() :: JsonValue {
+        if this.matchKeyword("false") {
+            this.index = this.index + 5
+            ~> (JsonValue.makeBool(false))
+        }
+        ~> (JsonValue.makeError("invalid token, expected false at index " + this.index))
+    }
+
+    share parseString() :: JsonValue {
+        if this.source[this.index] != "\"" {
+            ~> (JsonValue.makeError("expected string at index " + this.index))
+        }
+
+        this.index = this.index + 1
+        outText := ""
+
+        for i of this.index to this.source.length {
+            if this.index >= this.source.length {
+                ~> (JsonValue.makeError("unterminated string"))
+            }
+
+            ch := this.source[this.index]
+            this.index = this.index + 1
+
+            if ch == "\"" {
+                ~> (JsonValue.makeString(outText))
+            }
+
+            if ch == "\\" {
+                if this.index >= this.source.length {
+                    ~> (JsonValue.makeError("unterminated escape sequence"))
+                }
+
+                esc := this.source[this.index]
+                this.index = this.index + 1
+
+                if esc == "\"" { outText = outText + "\"" continue }
+                if esc == "\\" { outText = outText + "\\" continue }
+                if esc == "/" { outText = outText + "/" continue }
+                if esc == "b" { outText = outText + "\b" continue }
+                if esc == "f" { outText = outText + "\f" continue }
+                if esc == "n" { outText = outText + "\n" continue }
+                if esc == "r" { outText = outText + "\r" continue }
+                if esc == "t" { outText = outText + "\t" continue }
+
+                if esc == "u" {
+                    if this.index + 3 >= this.source.length {
+                        ~> (JsonValue.makeError("invalid unicode escape at index " + this.index))
+                    }
+
+                    code := ""
+                    for j of 0 to 3 {
+                        hx := this.source[this.index + j]
+                        if !this.isHexDigit(hx) {
+                            ~> (JsonValue.makeError("invalid unicode escape at index " + this.index))
+                        }
+                        code = code + hx
+                    }
+                    this.index = this.index + 4
+                    outText = outText + "\\u" + code
+                    continue
+                }
+
+                ~> (JsonValue.makeError("invalid escape sequence \\" + esc + " at index " + (this.index - 1)))
+            }
+
+            outText = outText + ch
+        }
+
+        ~> (JsonValue.makeError("unterminated string"))
+    }
+
+    share parseNumber() :: JsonValue {
+        start := this.index
+
+        if this.source[this.index] == "-" {
+            this.index = this.index + 1
+            if this.index >= this.source.length {
+                ~> (JsonValue.makeError("invalid number at index " + start))
+            }
+        }
+
+        if this.source[this.index] == "0" {
+            this.index = this.index + 1
+        } else {
+            if !this.isDigit(this.source[this.index]) {
+                ~> (JsonValue.makeError("invalid number at index " + start))
+            }
+            for i of this.index to this.source.length {
+                if this.index >= this.source.length { break }
+                if !this.isDigit(this.source[this.index]) { break }
+                this.index = this.index + 1
+            }
+        }
+
+        if all[this.index < this.source.length, this.source[this.index] == "."] {
+            this.index = this.index + 1
+            if any[this.index >= this.source.length, !this.isDigit(this.source[this.index])] {
+                ~> (JsonValue.makeError("invalid number fraction at index " + start))
+            }
+            for i of this.index to this.source.length {
+                if this.index >= this.source.length { break }
+                if !this.isDigit(this.source[this.index]) { break }
+                this.index = this.index + 1
+            }
+        }
+
+        if all[this.index < this.source.length, any[this.source[this.index] == "e", this.source[this.index] == "E"]] {
+            this.index = this.index + 1
+            if all[this.index < this.source.length, any[this.source[this.index] == "+", this.source[this.index] == "-"]] {
+                this.index = this.index + 1
+            }
+            if any[this.index >= this.source.length, !this.isDigit(this.source[this.index])] {
+                ~> (JsonValue.makeError("invalid number exponent at index " + start))
+            }
+            for i of this.index to this.source.length {
+                if this.index >= this.source.length { break }
+                if !this.isDigit(this.source[this.index]) { break }
+                this.index = this.index + 1
+            }
+        }
+
+        numberText := this.source[start to this.index - 1]
+        ~> (JsonValue.makeNumber(numberText))
+    }
+
+    share parseArray() :: JsonValue {
+        if this.source[this.index] != "[" {
+            ~> (JsonValue.makeError("expected [ at index " + this.index))
+        }
+
+        arr := JsonValue.makeArray([])
+        this.index = this.index + 1
+        this.skipWhitespace()
+
+        if all[this.index < this.source.length, this.source[this.index] == "]"] {
+            this.index = this.index + 1
+            ~> (arr)
+        }
+
+        for n of 0 to this.source.length {
+            value := this.parseValue()
+            if value.isError() { ~> (value) }
+            arr.add(value)
+
+            this.skipWhitespace()
+            if this.index >= this.source.length {
+                ~> (JsonValue.makeError("unterminated array"))
+            }
+
+            ch := this.source[this.index]
+            if ch == "," {
+                this.index = this.index + 1
+                this.skipWhitespace()
+                if all[this.index < this.source.length, this.source[this.index] == "]"] {
+                    ~> (JsonValue.makeError("trailing comma in array at index " + this.index))
+                }
+                continue
+            }
+
+            if ch == "]" {
+                this.index = this.index + 1
+                ~> (arr)
+            }
+
+            ~> (JsonValue.makeError("expected , or ] in array at index " + this.index))
+        }
+
+        ~> (JsonValue.makeError("unterminated array"))
+    }
+
+    share parseObject() :: JsonValue {
+        if this.source[this.index] != "{" {
+            ~> (JsonValue.makeError("expected { at index " + this.index))
+        }
+
+        obj := JsonValue.makeObject([], [])
+        this.index = this.index + 1
+        this.skipWhitespace()
+
+        if all[this.index < this.source.length, this.source[this.index] == "}"] {
+            this.index = this.index + 1
+            ~> (obj)
+        }
+
+        for n of 0 to this.source.length {
+            this.skipWhitespace()
+            keyValue := this.parseString()
+            if keyValue.isError() { ~> (keyValue) }
+            key := keyValue.asString()
+
+            this.skipWhitespace()
+            if any[this.index >= this.source.length, this.source[this.index] != ":"] {
+                ~> (JsonValue.makeError("expected : after object key at index " + this.index))
+            }
+            this.index = this.index + 1
+
+            value := this.parseValue()
+            if value.isError() { ~> (value) }
+            obj.set(key, value)
+
+            this.skipWhitespace()
+            if this.index >= this.source.length {
+                ~> (JsonValue.makeError("unterminated object"))
+            }
+
+            ch := this.source[this.index]
+            if ch == "," {
+                this.index = this.index + 1
+                this.skipWhitespace()
+                if all[this.index < this.source.length, this.source[this.index] == "}"] {
+                    ~> (JsonValue.makeError("trailing comma in object at index " + this.index))
+                }
+                continue
+            }
+
+            if ch == "}" {
+                this.index = this.index + 1
+                ~> (obj)
+            }
+
+            ~> (JsonValue.makeError("expected , or } in object at index " + this.index))
+        }
+
+        ~> (JsonValue.makeError("unterminated object"))
+    }
+
+    share skipWhitespace() {
+        for n of this.index to this.source.length {
+            if this.index >= this.source.length { return }
+            ch := this.source[this.index]
+            if any[ch == " ", ch == "\n", ch == "\r", ch == "\t"] {
+                this.index = this.index + 1
+                continue
+            }
+            return
+        }
+    }
+
+    share matchKeyword(word: text) :: bool {
+        if this.index + word.length > this.source.length { ~> (false) }
+        for i of 0 to word.length - 1 {
+            if this.source[this.index + i] != word[i] {
+                ~> (false)
+            }
+        }
+        ~> (true)
+    }
+
+    share isDigit(ch: text) :: bool {
+        ~> (any[
+            ch == "0",
+            ch == "1",
+            ch == "2",
+            ch == "3",
+            ch == "4",
+            ch == "5",
+            ch == "6",
+            ch == "7",
+            ch == "8",
+            ch == "9"
+        ])
+    }
+
+    share isHexDigit(ch: text) :: bool {
+        ~> (any[
+            this.isDigit(ch),
+            ch == "a",
+            ch == "b",
+            ch == "c",
+            ch == "d",
+            ch == "e",
+            ch == "f",
+            ch == "A",
+            ch == "B",
+            ch == "C",
+            ch == "D",
+            ch == "E",
+            ch == "F"
+        ])
+    }
+}
