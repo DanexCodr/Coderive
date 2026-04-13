@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
+import java.util.zip.CRC32;
 
 public class IRManager {
     private static final String BIN_DIR = "bin";
@@ -247,9 +248,16 @@ public class IRManager {
             out = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(temp)));
             out.setLevel(0);
             for (Map.Entry<String, byte[]> e : entries.entrySet()) {
+                byte[] value = e.getValue();
+                CRC32 crc = new CRC32();
+                crc.update(value);
                 ZipEntry zipEntry = new ZipEntry(e.getKey());
+                zipEntry.setMethod(ZipEntry.STORED);
+                zipEntry.setSize(value.length);
+                zipEntry.setCompressedSize(value.length);
+                zipEntry.setCrc(crc.getValue());
                 out.putNextEntry(zipEntry);
-                out.write(e.getValue());
+                out.write(value);
                 out.closeEntry();
             }
             out.finish();
