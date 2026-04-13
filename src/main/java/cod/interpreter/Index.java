@@ -17,7 +17,6 @@ import java.util.*;
  * 
  * File format (preferred): {projectRoot}/src/bin/{rootUnit}.codc -> idx/{rootUnit}.toml
  * Standalone fallback: {projectRoot}/src/bin/s_idx/{rootUnit}.toml
- * Legacy fallback: {projectRoot}/src/idx/{unit}.toml
  * 
  * Example:
  * # unit sample
@@ -33,7 +32,6 @@ import java.util.*;
  */
 public final class Index {
     
-    private static final String IDX_DIR_NAME = "idx";
     private static final String STANDALONE_IDX_DIR_NAME = "s_idx";
     private static final String SRC_DIR_NAME = "src";
     private static final String BIN_DIR_NAME = "bin";
@@ -103,14 +101,6 @@ public final class Index {
         return CLASSES_SECTION_PREFIX + unitName;
     }
 
-    private static File getLegacyIndexFile(String unitName) {
-        if (projectRoot == null) {
-            return new File("src/" + IDX_DIR_NAME + "/" + unitName + FILE_EXTENSION);
-        }
-        return new File(projectRoot + File.separator + SRC_DIR_NAME +
-                        File.separator + IDX_DIR_NAME + File.separator + unitName + FILE_EXTENSION);
-    }
-
     private static File getStandaloneIndexFile(String rootUnit) {
         if (projectRoot == null) {
             return new File("src/" + BIN_DIR_NAME + "/" + STANDALONE_IDX_DIR_NAME + "/" + rootUnit + FILE_EXTENSION);
@@ -169,9 +159,6 @@ public final class Index {
         String rootUnit = getRootUnit(unitName);
         String docText = loadPreferredDocumentText(unitName, rootUnit);
         if (docText == null) {
-            docText = loadLegacyDocumentText(unitName, rootUnit);
-        }
-        if (docText == null) {
             return null;
         }
 
@@ -201,7 +188,7 @@ public final class Index {
         String documentText = writeDocumentText(rootUnit, merged);
 
         if (projectRoot == null) {
-            return saveLegacyFallback(unit, documentText);
+            return false;
         }
 
         if (shouldUseStandaloneIndex(rootUnit)) {
@@ -554,30 +541,8 @@ public final class Index {
         return null;
     }
 
-    private static String loadLegacyDocumentText(String unitName, String rootUnit) {
-        File unitLegacy = getLegacyIndexFile(unitName);
-        if (unitLegacy.exists()) {
-            try {
-                return readFileToString(unitLegacy);
-            } catch (IOException ignored) {}
-        }
-
-        if (!rootUnit.equals(unitName)) {
-            File rootLegacy = getLegacyIndexFile(rootUnit);
-            if (rootLegacy.exists()) {
-                try {
-                    return readFileToString(rootLegacy);
-                } catch (IOException ignored) {}
-            }
-        }
-        return null;
-    }
-
     private static IndexDocument loadExistingDocument(String unitName, String rootUnit) {
         String content = loadPreferredDocumentText(unitName, rootUnit);
-        if (content == null) {
-            content = loadLegacyDocumentText(unitName, rootUnit);
-        }
         if (content == null) {
             return new IndexDocument(System.currentTimeMillis(), DEFAULT_GENERATOR, new HashMap<String, Map<String, String>>());
         }
@@ -630,15 +595,6 @@ public final class Index {
 
     private static boolean saveStandaloneIndex(String rootUnit, String content) {
         File file = getStandaloneIndexFile(rootUnit);
-        File parent = file.getParentFile();
-        if (parent != null && !parent.exists() && !parent.mkdirs()) {
-            return false;
-        }
-        return writeStringToFile(file, content);
-    }
-
-    private static boolean saveLegacyFallback(String unitName, String content) {
-        File file = getLegacyIndexFile(unitName);
         File parent = file.getParentFile();
         if (parent != null && !parent.exists() && !parent.mkdirs()) {
             return false;

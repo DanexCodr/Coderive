@@ -274,8 +274,8 @@ public class IRManager {
         }
     }
 
-    private void writeContainerEntry(String unit, String entryName, byte[] value) throws IOException {
-        if (unit == null || entryName == null || value == null) return;
+    private void writeContainerEntry(String unit, String entryName, byte[] entryData) throws IOException {
+        if (unit == null || entryName == null || entryData == null) return;
 
         File container = getContainerFile(unit);
         File parent = container.getParentFile();
@@ -286,7 +286,7 @@ public class IRManager {
         Object containerLock = getContainerLock(container);
         synchronized (containerLock) {
             Map<String, byte[]> entries = readContainerEntries(container);
-            entries.put(entryName, value);
+            entries.put(entryName, entryData);
 
             File temp = new File(container.getAbsolutePath() + ".tmp");
             ZipOutputStream out = null;
