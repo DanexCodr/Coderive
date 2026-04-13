@@ -1105,7 +1105,7 @@ public class ExpressionParser extends BaseParser {
         return result;
     }
     
-    private int hexDigitValue(char ch) {
+    private int hexValue(char ch) {
         if (ch >= '0' && ch <= '9') return ch - '0';
         if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
         if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
@@ -1113,13 +1113,13 @@ public class ExpressionParser extends BaseParser {
     }
     
     private int parseUnicodeUnit(String text, int start, Token token) {
-        if (start + 3 >= text.length()) {
+        if (start + 4 > text.length()) {
             throw error("Incomplete unicode escape in text literal", token);
         }
         
         int value = 0;
         for (int i = 0; i < 4; i++) {
-            int digit = hexDigitValue(text.charAt(start + i));
+            int digit = hexValue(text.charAt(start + i));
             if (digit < 0) {
                 throw error("Invalid unicode escape in text literal", token);
             }

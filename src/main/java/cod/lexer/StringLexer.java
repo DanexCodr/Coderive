@@ -36,7 +36,7 @@ public class StringLexer {
     }
     
     private int readUnicodeUnit() {
-        if (lexer.getPosition() + 3 >= lexer.getInput().length) {
+        if (lexer.getPosition() + 4 > lexer.getInput().length) {
             throw new RuntimeException("Syntax Error: Incomplete unicode escape at line " + lexer.line);
         }
         
