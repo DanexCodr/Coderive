@@ -15,36 +15,39 @@ share Unicode {
 
     share normalizeEscaped(raw: text) :: text {
         outText := ""
-        for i of 0 to raw.length - 1 {
-            ch := raw[i]
+        idx: int = 0
+        for i of 0 to raw.length {
+            if idx >= raw.length { break }
+            ch := raw[idx]
             if ch != "\\" {
                 outText = outText + ch
+                idx = idx + 1
                 continue
             }
 
-            if i + 1 >= raw.length {
+            if idx + 1 >= raw.length {
                 ~> ("")
             }
 
-            if raw[i + 1] != "u" {
-                outText = outText + ch + raw[i + 1]
-                i = i + 1
+            if raw[idx + 1] != "u" {
+                outText = outText + ch + raw[idx + 1]
+                idx = idx + 2
                 continue
             }
 
-            if i + 5 >= raw.length { ~> ("") }
-            first := Unicode.parseHex4(raw, i + 2)
+            if idx + 5 >= raw.length { ~> ("") }
+            first := Unicode.parseHex4(raw, idx + 2)
             if first < 0 { ~> ("") }
             firstText := "\\u" + Unicode.hex4(first)
-            i = i + 5
+            idx = idx + 6
 
             if Unicode.isHighSurrogate(first) {
-                if i + 6 >= raw.length { ~> ("") }
-                if any[raw[i + 1] != "\\", raw[i + 2] != "u"] { ~> ("") }
-                second := Unicode.parseHex4(raw, i + 3)
+                if idx + 5 >= raw.length { ~> ("") }
+                if any[raw[idx] != "\\", raw[idx + 1] != "u"] { ~> ("") }
+                second := Unicode.parseHex4(raw, idx + 2)
                 if any[second < 0, !Unicode.isLowSurrogate(second)] { ~> ("") }
                 outText = outText + firstText + "\\u" + Unicode.hex4(second)
-                i = i + 6
+                idx = idx + 6
                 continue
             }
 

@@ -249,42 +249,52 @@ share Json {
 
     share escapeText(raw: text) :: text {
         outText := ""
-        for i of 0 to raw.length - 1 {
-            ch := raw[i]
+        idx: int = 0
+        for i of 0 to raw.length {
+            if idx >= raw.length { break }
+            ch := raw[idx]
             if ch == "\\" {
-                if Json.isUnicodeEscapeAt(raw, i) {
-                    outText = outText + raw[i to i + 5]
-                    i = i + 5
+                if Json.isUnicodeEscapeAt(raw, idx) {
+                    outText = outText + raw[idx to idx + 5]
+                    idx = idx + 6
                     continue
                 }
                 outText = outText + "\\\\"
+                idx = idx + 1
                 continue
             }
             if ch == "\"" {
                 outText = outText + "\\\""
+                idx = idx + 1
                 continue
             }
             if ch == "\n" {
                 outText = outText + "\\n"
+                idx = idx + 1
                 continue
             }
             if ch == "\r" {
                 outText = outText + "\\r"
+                idx = idx + 1
                 continue
             }
             if ch == "\t" {
                 outText = outText + "\\t"
+                idx = idx + 1
                 continue
             }
             if ch == "\b" {
                 outText = outText + "\\b"
+                idx = idx + 1
                 continue
             }
             if ch == "\f" {
                 outText = outText + "\\f"
+                idx = idx + 1
                 continue
             }
             outText = outText + ch
+            idx = idx + 1
         }
         ~> (outText)
     }
