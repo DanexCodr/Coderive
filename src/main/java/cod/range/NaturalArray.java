@@ -67,7 +67,10 @@ public class NaturalArray {
     private Map<Long, Object> computedCache = new HashMap<Long, Object>();
     
     // Pending updates for lazy assignment
+    private static final int PENDING_UPDATES_TREE_THRESHOLD = 100;
     private List<PendingRangeUpdate> pendingUpdates = new ArrayList<PendingRangeUpdate>();
+    private NavigableMap<Long, List<PendingRangeUpdate>> pendingUpdatesByStart = null;
+    private long nextPendingUpdateOrder = 0L;
     private boolean hasPendingUpdates = false;
     
     // Output cache
@@ -214,15 +217,18 @@ public class NaturalArray {
     private static class PendingRangeUpdate implements Comparable<PendingRangeUpdate> {
         final ProcessedRange range;
         final Object value;
+        final long order;
         
-        PendingRangeUpdate(Object spec, Object value) {
+        PendingRangeUpdate(Object spec, Object value, long order) {
             this.range = new ProcessedRange(spec);  // Process ONCE
             this.value = value;
+            this.order = order;
         }
         
-        PendingRangeUpdate(ProcessedRange range, Object value) {
+        PendingRangeUpdate(ProcessedRange range, Object value, long order) {
             this.range = range;
             this.value = value;
+            this.order = order;
         }
         
         boolean contains(long index) {
@@ -1028,8 +1034,7 @@ public class NaturalArray {
         }
         
         try {
-            pendingUpdates.add(new PendingRangeUpdate(range, value));
-            hasPendingUpdates = true;
+            registerPendingUpdate(new PendingRangeUpdate(range, value, nextPendingUpdateOrder++));
             
             if (!isMutable) {
                 becomeMutable();
@@ -1098,9 +1103,8 @@ public class NaturalArray {
                 if (range == null) {
                     throw new InternalError("Null range in MultiRangeSpec");
                 }
-                pendingUpdates.add(new PendingRangeUpdate(range, value));
+                registerPendingUpdate(new PendingRangeUpdate(range, value, nextPendingUpdateOrder++));
             }
-            hasPendingUpdates = true;
             
             if (!isMutable) {
                 becomeMutable();
@@ -1127,16 +1131,76 @@ public class NaturalArray {
         if (!hasPendingUpdates || pendingUpdates.isEmpty()) {
             return;
         }
-        
+
+        PendingRangeUpdate resolvedUpdate = resolvePendingUpdateForIndex(index);
+        if (resolvedUpdate == null) {
+            return;
+        }
+
+        if (cache == null) {
+            cache = new HashMap<Long, Object>();
+        }
+        cache.put(index, resolvedUpdate.value);
+        invalidateRecentCache(index);
+    }
+
+    private void registerPendingUpdate(PendingRangeUpdate update) {
+        pendingUpdates.add(update);
+        hasPendingUpdates = true;
+
+        if (pendingUpdatesByStart != null) {
+            addPendingUpdateToTree(update);
+            return;
+        }
+
+        if (pendingUpdates.size() >= PENDING_UPDATES_TREE_THRESHOLD) {
+            convertPendingUpdatesToTreeIndex();
+        }
+    }
+
+    private void addPendingUpdateToTree(PendingRangeUpdate update) {
+        if (pendingUpdatesByStart == null) {
+            pendingUpdatesByStart = new TreeMap<Long, List<PendingRangeUpdate>>();
+        }
+        List<PendingRangeUpdate> updatesAtStart = pendingUpdatesByStart.get(update.range.start);
+        if (updatesAtStart == null) {
+            updatesAtStart = new ArrayList<PendingRangeUpdate>();
+            pendingUpdatesByStart.put(update.range.start, updatesAtStart);
+        }
+        updatesAtStart.add(update);
+    }
+
+    private void convertPendingUpdatesToTreeIndex() {
+        pendingUpdatesByStart = new TreeMap<Long, List<PendingRangeUpdate>>();
         for (PendingRangeUpdate update : pendingUpdates) {
-            if (update.contains(index)) {
-                if (cache == null) {
-                    cache = new HashMap<Long, Object>();
+            addPendingUpdateToTree(update);
+        }
+    }
+
+    private PendingRangeUpdate resolvePendingUpdateForIndex(long index) {
+        if (pendingUpdatesByStart == null) {
+            for (int i = pendingUpdates.size() - 1; i >= 0; i--) {
+                PendingRangeUpdate update = pendingUpdates.get(i);
+                if (update.contains(index)) {
+                    return update;
                 }
-                cache.put(index, update.value);
-                invalidateRecentCache(index);
+            }
+            return null;
+        }
+
+        PendingRangeUpdate winner = null;
+        NavigableMap<Long, List<PendingRangeUpdate>> candidatesByStart = pendingUpdatesByStart.headMap(index, true);
+        for (List<PendingRangeUpdate> updatesAtStart : candidatesByStart.values()) {
+            for (PendingRangeUpdate candidate : updatesAtStart) {
+                if (!candidate.contains(index)) {
+                    continue;
+                }
+                if (winner == null || candidate.order > winner.order) {
+                    winner = candidate;
+                }
             }
         }
+        return winner;
     }
     
     public void commitUpdates() {
@@ -1166,7 +1230,7 @@ public class NaturalArray {
             } else if (canMerge(current, update)) {
                 // Extend current range
                 ProcessedRange mergedRange = current.range.merge(update.range);
-                current = new PendingRangeUpdate(mergedRange, current.value);
+                current = new PendingRangeUpdate(mergedRange, current.value, current.order);
             } else {
                 merged.add(current);
                 current = update;
@@ -1180,6 +1244,7 @@ public class NaturalArray {
         }
         
         pendingUpdates.clear();
+        pendingUpdatesByStart = null;
         hasPendingUpdates = false;
     }
 
@@ -1688,6 +1753,7 @@ public class NaturalArray {
     
     public void discardUpdates() {
         pendingUpdates.clear();
+        pendingUpdatesByStart = null;
         hasPendingUpdates = false;
     }
     

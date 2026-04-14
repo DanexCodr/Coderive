@@ -303,6 +303,77 @@ out("arrB[600] == 1200 is {d}") // Should be true
         out("mixedArr[50] = " + mixedArr[50] + " (should be 'middle')")
         out("mixedArr[27] = " + mixedArr[27] + " (should be 'range')")
         out("mixedArr[75] = " + mixedArr[75] + " (should be 75)")
+
+        out()
+        out("15. High-branch conditional fast-path stress:")
+        manyBranches : [int] = [0 to 1Qi]
+        for i of [0 to 1Qi] {
+            if i % 53 == 0 { manyBranches[i] = 53 }
+            elif i % 52 == 0 { manyBranches[i] = 52 }
+            elif i % 51 == 0 { manyBranches[i] = 51 }
+            elif i % 50 == 0 { manyBranches[i] = 50 }
+            elif i % 49 == 0 { manyBranches[i] = 49 }
+            elif i % 48 == 0 { manyBranches[i] = 48 }
+            elif i % 47 == 0 { manyBranches[i] = 47 }
+            elif i % 46 == 0 { manyBranches[i] = 46 }
+            elif i % 45 == 0 { manyBranches[i] = 45 }
+            elif i % 44 == 0 { manyBranches[i] = 44 }
+            elif i % 43 == 0 { manyBranches[i] = 43 }
+            elif i % 42 == 0 { manyBranches[i] = 42 }
+            elif i % 41 == 0 { manyBranches[i] = 41 }
+            elif i % 40 == 0 { manyBranches[i] = 40 }
+            elif i % 39 == 0 { manyBranches[i] = 39 }
+            elif i % 38 == 0 { manyBranches[i] = 38 }
+            elif i % 37 == 0 { manyBranches[i] = 37 }
+            elif i % 36 == 0 { manyBranches[i] = 36 }
+            elif i % 35 == 0 { manyBranches[i] = 35 }
+            elif i % 34 == 0 { manyBranches[i] = 34 }
+            elif i % 33 == 0 { manyBranches[i] = 33 }
+            elif i % 32 == 0 { manyBranches[i] = 32 }
+            elif i % 31 == 0 { manyBranches[i] = 31 }
+            elif i % 30 == 0 { manyBranches[i] = 30 }
+            elif i % 29 == 0 { manyBranches[i] = 29 }
+            elif i % 28 == 0 { manyBranches[i] = 28 }
+            elif i % 27 == 0 { manyBranches[i] = 27 }
+            elif i % 26 == 0 { manyBranches[i] = 26 }
+            elif i % 25 == 0 { manyBranches[i] = 25 }
+            elif i % 24 == 0 { manyBranches[i] = 24 }
+            elif i % 23 == 0 { manyBranches[i] = 23 }
+            elif i % 22 == 0 { manyBranches[i] = 22 }
+            elif i % 21 == 0 { manyBranches[i] = 21 }
+            elif i % 20 == 0 { manyBranches[i] = 20 }
+            elif i % 19 == 0 { manyBranches[i] = 19 }
+            elif i % 18 == 0 { manyBranches[i] = 18 }
+            elif i % 17 == 0 { manyBranches[i] = 17 }
+            elif i % 16 == 0 { manyBranches[i] = 16 }
+            elif i % 15 == 0 { manyBranches[i] = 15 }
+            elif i % 14 == 0 { manyBranches[i] = 14 }
+            elif i % 13 == 0 { manyBranches[i] = 13 }
+            elif i % 12 == 0 { manyBranches[i] = 12 }
+            elif i % 11 == 0 { manyBranches[i] = 11 }
+            elif i % 10 == 0 { manyBranches[i] = 10 }
+            elif i % 9 == 0 { manyBranches[i] = 9 }
+            elif i % 8 == 0 { manyBranches[i] = 8 }
+            elif i % 7 == 0 { manyBranches[i] = 7 }
+            elif i % 6 == 0 { manyBranches[i] = 6 }
+            elif i % 5 == 0 { manyBranches[i] = 5 }
+            elif i % 4 == 0 { manyBranches[i] = 4 }
+            else { manyBranches[i] = 1 }
+        }
+        out("manyBranches[106] = " + manyBranches[106] + " (should be 53)")
+        out("manyBranches[104] = " + manyBranches[104] + " (should be 52)")
+        out("manyBranches[97] = " + manyBranches[97] + " (should be 1)")
+
+        out()
+        out("16. Pending updates scaling + precedence:")
+        pendingScale := [0 to 10K]
+        for i of [0 to 199] {
+            pendingScale[i to 10K by 100] = i
+        }
+        out("pendingScale[500] = " + pendingScale[500] + " (should be 100)")
+        out("pendingScale[150] = " + pendingScale[150] + " (should be 150)")
+        out("pendingScale[250] = " + pendingScale[250] + " (should be 150)")
+        out("pendingScale[199] = " + pendingScale[199] + " (should be 199)")
         out()
         out("=== All tests completed ===")
         
