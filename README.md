@@ -352,7 +352,7 @@ Current demo validation status from `src/main/cod/demo/src/main/test`:
 - `CodP-TAC parity runner` (`cod.runner.CodPTACParityRunner`, excluding `*Invalid*.cod`): **48/48 passed**.
 - `LazyLoop.cod` parity: **passed**.
 - Direct `CommandRunner` scans (same non-invalid set) highlight remaining runtime limitations:
-  - `LazyLoop.cod` previously hit a stack overflow error in conditional-formula-style parity value reads; this update fixes the runtime recursion issue instead of changing the demo behavior.
+  - `LazyLoop.cod` previously hit a stack overflow error during conditional-formula-style parity value reads. This update fixes the runtime recursion issue without changing demo behavior.
   - `ConditionalFormulaOptimization.cod` can still trigger a stack overflow error.
   - Input-driven demos (`Interactive.cod`, `IO.cod`, `Parity.cod`) fail without real stdin values.
   - `HelloWorld.cod`, `JsonStandardLibraryComprehensive.cod`, `OOPConstructor.cod`, `SuperThis.cod`, and `test/unsafe/*` currently expose parser/runtime issues when executed directly via `CommandRunner`.

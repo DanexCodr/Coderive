@@ -773,11 +773,7 @@ public class NaturalArray {
             index = size + index;
         }
 
-        try {
-            checkBounds(index);
-        } catch (ProgramError e) {
-            throw e;
-        }
+        checkBounds(index);
         
         // ========== TRACKING ==========
         if (tracked) {
@@ -889,11 +885,7 @@ public class NaturalArray {
             index = size + index;
         }
 
-        try {
-            checkBounds(index);
-        } catch (ProgramError e) {
-            throw e;
-        }
+        checkBounds(index);
 
         if (isMutable && cache != null && cache.containsKey(index)) {
             return cache.get(index);
