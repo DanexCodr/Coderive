@@ -1238,7 +1238,7 @@ public class NaturalArray {
 
             if (winner != null && pendingUpdateOrderPrefixByStart != null) {
                 Long remainingMaxOrder = pendingUpdateOrderPrefixByStart.get(entry.getKey());
-                if (remainingMaxOrder != null && winner.order >= remainingMaxOrder.longValue()) {
+                if (remainingMaxOrder != null && winner.order >= remainingMaxOrder) {
                     break;
                 }
             }
