@@ -189,7 +189,7 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
                 NaturalArray natural = (NaturalArray) arrayObj;
                 long index = expressionHandler.toLongIndex(indexObj);
                 ensureNoActiveBorrow(arrayObj, index, ctx);
-                Object previous = natural.get(index);
+                Object previous = natural.peekMaterialized(index);
                 natural.set(index, newValue);
                 ctx.trackValueReplacement(previous, newValue);
                 return newValue;

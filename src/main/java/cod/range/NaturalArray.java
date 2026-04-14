@@ -879,6 +879,31 @@ public class NaturalArray {
         return value;
     }
 
+    /**
+     * Returns a previously materialized value for an index without triggering
+     * formula evaluation.
+     */
+    public Object peekMaterialized(long index) {
+        if (index < 0) {
+            long size = size();
+            index = size + index;
+        }
+
+        try {
+            checkBounds(index);
+        } catch (ProgramError e) {
+            throw e;
+        }
+
+        if (isMutable && cache != null && cache.containsKey(index)) {
+            return cache.get(index);
+        }
+        if (computedCache != null && computedCache.containsKey(index)) {
+            return computedCache.get(index);
+        }
+        return null;
+    }
+
     // Convert value to string based on its type
     private Object convertToString(Object value) {
         if (value == null) return "none";

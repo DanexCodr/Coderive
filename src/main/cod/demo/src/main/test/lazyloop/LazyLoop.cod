@@ -48,7 +48,7 @@ out("resultArr[5] = " + resultArr[5] + " (should be 10)")
 out("resultArr[10] = " + resultArr[10] + " (should be 20)")
 out("resultArr[100] = " + resultArr[100] + " (should be 200)")
         
-        // Time large-scale parity assignment
+        // Time the loop optimization
         start := timer()
         for i of [0 to 1Qi] {
             if i % 2 == 0 {
@@ -62,7 +62,10 @@ out("resultArr[100] = " + resultArr[100] + " (should be 200)")
         out("Conditional formula creation time: " + loop_time + " ms")
         out()
         out("Results:")
-        out("Large parity assignment completed.")
+        out("arr[2] = " + arr[2])
+        out("arr[3] = " + arr[3])
+        out("arr[24000] = " + arr[24K])
+        out("arr[24001] = " + arr[24001])
         
         // Test the 2-statement pattern optimization with timing
         out()
