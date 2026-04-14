@@ -26,6 +26,8 @@
 - [Why Coderive?](#why-coderive)
 - [Getting Started](#getting-started)
 - [Language Features](#language-features)
+- [Latest in src](#latest-in-src)
+- [Validation Snapshot](#validation-snapshot)
 - [Examples](#examples)
 - [Web Playground](#web-playground)
 - [License](#license)
@@ -327,6 +329,39 @@ out(report)
 | `1Q`   | 1,000,000,000,000,000 |
 | `1Qi`  | 1,000,000,000,000,000,000 |
 | `1e6`  | 1,000,000 (scientific) |
+
+---
+
+## Latest in src
+
+Recent `src/**/*.cod` programs and std modules now showcase:
+
+- **Unsafe pointers and fixed buffers** (`*T`, `T[n]`, `&`, `*`, pointer arithmetic) in `test/unsafe/*`.
+- **Static imports** for methods/fields in `test/staticimports*`.
+- **Lambda auto-currying** forms like `\(a) \(b) ...` plus classic tuple lambdas in `test/lambda/*`.
+- **Union + runtime type checks** via `int|text` and `is` in `test/typesliterals/*`.
+- **Range and formula optimizations** across lazy arrays, multi-array dependencies, and recurrence tests.
+- **Expanded standard library coverage** in `std/math`, `std/scimath`, and `std/json` with comprehensive demo suites.
+
+---
+
+## Validation Snapshot
+
+Current demo validation status from `src/main/cod/demo/src/main/test`:
+
+- `CodPTACParityRunner` (excluding `*Invalid*.cod`): **48/48 passed**.
+- `LazyLoop.cod` parity: **passed**.
+- Direct `CommandRunner` scans (same non-invalid set) highlight remaining runtime limitations:
+  - `LazyLoop.cod` previously hit a `StackOverflowError` in conditional-formula-style parity value reads (now avoided in the demo output path).
+  - `ConditionalFormulaOptimization.cod` can still trigger a `StackOverflowError`.
+  - Input-driven demos (`Interactive.cod`, `IO.cod`, `Parity.cod`) fail without real stdin values.
+  - `HelloWorld.cod`, `JsonStandardLibraryComprehensive.cod`, `OOPConstructor.cod`, `SuperThis.cod`, and `test/unsafe/*` currently expose parser/runtime issues when executed directly via `CommandRunner`.
+
+Checked invalid demos (`*Invalid*.cod`) confirm currently unsupported/invalid patterns:
+
+- Reassigning constants after declaration.
+- Declaring constants without initializer.
+- Malformed self-call forms (`<~` without call target/parentheses, or invalid level-call syntax in methods).
 
 ---
 
