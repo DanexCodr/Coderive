@@ -14,6 +14,12 @@ share main() {
     out("fib[10]=" + fib[10] + " expected=55")
     out("fib[20]=" + fib[20] + " expected=6765")
     out("fib[30]=" + fib[30] + " expected=832040")
+    out("fib[100]=" + fib[100] + " expected=354224848179261915075")
+    out("fib[500]=" + fib[500])
+    out("fib[1000]=" + fib[1000])
+    out("fib[1500]=" + fib[1500])
+    out("fib[1999]=" + fib[1999])
+    out("fib[2000]=" + fib[2000])
 
     jac := [0 to 2000]
     jac[0] = 0
@@ -33,5 +39,14 @@ share main() {
     out("shift[2]=" + shift[2] + " expected=6")
     out("shift[3]=" + shift[3] + " expected=12")
     out("shift[10]=" + shift[10] + " expected=495")
+
+    ramp := [0 to 2000]
+    ramp[0] = 1
+    for i of [1 to 2000] {
+        ramp[i] = ramp[i-1] + 7
+    }
+    out("ramp[10]=" + ramp[10] + " expected=71")
+    out("ramp[1000]=" + ramp[1000] + " expected=7001")
+    out("ramp[2000]=" + ramp[2000] + " expected=14001")
     out("elapsed_ms=" + (timer() - start))
 }

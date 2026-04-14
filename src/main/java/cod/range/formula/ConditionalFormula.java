@@ -9,12 +9,14 @@ import cod.interpreter.handler.TypeHandler;
 import java.util.*;
 
 public class ConditionalFormula {
+    private static final int MAX_FAST_PATH_EXPR_NODES = 4096;
+
     public final long start;
     public final long end;
     public final String indexVar;
 
     private final Expr unifiedExpression;
-    private final boolean usesUnifiedExpression;
+    private final boolean hasFastPathExpression;
 
     private final List<Expr> conditions;
     private final List<List<Stmt>> branchStatements;
@@ -36,9 +38,9 @@ public class ConditionalFormula {
         this.newerFormula = null;
         this.olderFormula = null;
 
-        Expr built = tryBuildUnifiedExpression();
+        Expr built = buildUnifiedExpressionIncremental();
         this.unifiedExpression = built;
-        this.usesUnifiedExpression = built != null;
+        this.hasFastPathExpression = built != null;
     }
 
     private ConditionalFormula(long start, long end, String indexVar,
@@ -54,7 +56,7 @@ public class ConditionalFormula {
         this.branchStatements = new ArrayList<List<Stmt>>();
         this.elseStatements = new ArrayList<Stmt>();
         this.unifiedExpression = null;
-        this.usesUnifiedExpression = false;
+        this.hasFastPathExpression = false;
     }
 
     public static ConditionalFormula compose(ConditionalFormula newerFormula, ConditionalFormula olderFormula) {
@@ -80,16 +82,16 @@ public class ConditionalFormula {
         }
 
         ExecutionContext evalCtx = context.copyWithVariable(indexVar, index, null);
-        if (usesUnifiedExpression) {
+        if (hasFastPathExpression) {
             try {
                 return evaluator.evaluate(unifiedExpression, evalCtx);
             } catch (ProgramError e) {
-                return evaluateLegacy(evalCtx, evaluator);
+                return interpretiveEvaluation(evalCtx, evaluator);
             } catch (Exception e) {
-                return evaluateLegacy(evalCtx, evaluator);
+                return interpretiveEvaluation(evalCtx, evaluator);
             }
         }
-        return evaluateLegacy(evalCtx, evaluator);
+        return interpretiveEvaluation(evalCtx, evaluator);
     }
 
     private boolean isComposite() {
@@ -106,7 +108,7 @@ public class ConditionalFormula {
         return null;
     }
 
-    private Object evaluateLegacy(ExecutionContext evalCtx, Evaluator evaluator) {
+    private Object interpretiveEvaluation(ExecutionContext evalCtx, Evaluator evaluator) {
         TypeHandler typeSystem = new TypeHandler();
         for (int i = 0; i < conditions.size(); i++) {
             Object condResult = evaluator.evaluate(conditions.get(i), evalCtx);
@@ -117,7 +119,7 @@ public class ConditionalFormula {
         return executeStatementSequence(elseStatements, evaluator, evalCtx);
     }
 
-    private Expr tryBuildUnifiedExpression() {
+    private Expr buildUnifiedExpressionIncremental() {
         if (conditions.isEmpty() || branchStatements.isEmpty() || conditions.size() != branchStatements.size()) {
             return null;
         }
@@ -125,10 +127,17 @@ public class ConditionalFormula {
             return null;
         }
 
-        List<Expr> indicatorExpressions = new ArrayList<Expr>(conditions.size());
-        List<Expr> branchExpressions = new ArrayList<Expr>(conditions.size());
+        Expr elseExpr = extractPureBranchExpression(elseStatements);
+        if (elseExpr == null || !isPureExpression(elseExpr)) {
+            return null;
+        }
 
-        for (int i = 0; i < conditions.size(); i++) {
+        Expr unified = simplifyExpr(cloneExpr(elseExpr));
+        if (countNodesWithinBudget(unified, MAX_FAST_PATH_EXPR_NODES) > MAX_FAST_PATH_EXPR_NODES) {
+            return null;
+        }
+
+        for (int i = conditions.size() - 1; i >= 0; i--) {
             Expr condition = conditions.get(i);
             if (condition == null || !isPureExpression(condition)) {
                 return null;
@@ -137,30 +146,87 @@ public class ConditionalFormula {
             if (indicator == null) {
                 return null;
             }
-            indicatorExpressions.add(indicator);
-
             Expr branchExpr = extractPureBranchExpression(branchStatements.get(i));
             if (branchExpr == null || !isPureExpression(branchExpr)) {
                 return null;
             }
-            branchExpressions.add(branchExpr);
-        }
 
-        Expr elseExpr = extractPureBranchExpression(elseStatements);
-        if (elseExpr == null || !isPureExpression(elseExpr)) {
-            return null;
-        }
-
-        Expr unified = cloneExpr(elseExpr);
-        for (int i = indicatorExpressions.size() - 1; i >= 0; i--) {
-            Expr indicator = cloneExpr(indicatorExpressions.get(i));
-            Expr branchExpr = cloneExpr(branchExpressions.get(i));
+            indicator = simplifyExpr(cloneExpr(indicator));
+            branchExpr = simplifyExpr(cloneExpr(branchExpr));
             Expr complementIndicator = simplifyExpr(ASTFactory.createBinaryOp(one(), "-", indicator, null));
             Expr leftTerm = simplifyExpr(ASTFactory.createBinaryOp(indicator, "*", branchExpr, null));
             Expr rightTerm = simplifyExpr(ASTFactory.createBinaryOp(complementIndicator, "*", unified, null));
             unified = simplifyExpr(ASTFactory.createBinaryOp(leftTerm, "+", rightTerm, null));
+            if (countNodesWithinBudget(unified, MAX_FAST_PATH_EXPR_NODES) > MAX_FAST_PATH_EXPR_NODES) {
+                return null;
+            }
         }
         return simplifyExpr(unified);
+    }
+
+    private int countNodesWithinBudget(Expr expr, int maxNodes) {
+        if (expr == null) return 0;
+        int count = 1;
+
+        if (expr instanceof BinaryOp) {
+            BinaryOp op = (BinaryOp) expr;
+            count += countNodesWithinBudget(op.left, maxNodes - count);
+            if (count > maxNodes) return count;
+            count += countNodesWithinBudget(op.right, maxNodes - count);
+            return count;
+        }
+        if (expr instanceof Unary) {
+            Unary unary = (Unary) expr;
+            count += countNodesWithinBudget(unary.operand, maxNodes - count);
+            return count;
+        }
+        if (expr instanceof TypeCast) {
+            TypeCast cast = (TypeCast) expr;
+            count += countNodesWithinBudget(cast.expression, maxNodes - count);
+            return count;
+        }
+        if (expr instanceof ExprIf) {
+            ExprIf exprIf = (ExprIf) expr;
+            count += countNodesWithinBudget(exprIf.condition, maxNodes - count);
+            if (count > maxNodes) return count;
+            count += countNodesWithinBudget(exprIf.thenExpr, maxNodes - count);
+            if (count > maxNodes) return count;
+            count += countNodesWithinBudget(exprIf.elseExpr, maxNodes - count);
+            return count;
+        }
+        if (expr instanceof EqualityChain) {
+            EqualityChain chain = (EqualityChain) expr;
+            count += countNodesWithinBudget(chain.left, maxNodes - count);
+            if (count > maxNodes) return count;
+            if (chain.chainArguments != null) {
+                for (Expr arg : chain.chainArguments) {
+                    count += countNodesWithinBudget(arg, maxNodes - count);
+                    if (count > maxNodes) return count;
+                }
+            }
+            return count;
+        }
+        if (expr instanceof ChainedComparison) {
+            ChainedComparison chain = (ChainedComparison) expr;
+            if (chain.expressions != null) {
+                for (Expr item : chain.expressions) {
+                    count += countNodesWithinBudget(item, maxNodes - count);
+                    if (count > maxNodes) return count;
+                }
+            }
+            return count;
+        }
+        if (expr instanceof BooleanChain) {
+            BooleanChain chain = (BooleanChain) expr;
+            if (chain.expressions != null) {
+                for (Expr item : chain.expressions) {
+                    count += countNodesWithinBudget(item, maxNodes - count);
+                    if (count > maxNodes) return count;
+                }
+            }
+            return count;
+        }
+        return count;
     }
 
     private Expr extractPureBranchExpression(List<Stmt> statements) {
