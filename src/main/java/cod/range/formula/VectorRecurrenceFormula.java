@@ -92,8 +92,10 @@ public class VectorRecurrenceFormula {
 
         AutoStackingNumber[][] transition = buildTransition(baseDim, matrixDim);
         AutoStackingNumber[] state = buildBaseState(baseDim, matrixDim);
-        AutoStackingNumber[][] power = matrixPow(transition, steps);
-        AutoStackingNumber[] result = multiply(power, state);
+        if (state == null) {
+            return null;
+        }
+        AutoStackingNumber[] result = applyMatrixPowerToVector(transition, steps, state);
 
         rollingState = Arrays.copyOf(result, baseDim);
         rollingIndex = index;
@@ -184,31 +186,24 @@ public class VectorRecurrenceFormula {
         rollingState = nextState;
     }
 
-    private AutoStackingNumber[][] matrixPow(AutoStackingNumber[][] base, long exp) {
-        int dim = base.length;
-        AutoStackingNumber[][] result = identity(dim);
+    private AutoStackingNumber[] applyMatrixPowerToVector(AutoStackingNumber[][] base, long exp, AutoStackingNumber[] vector) {
+        AutoStackingNumber[] result = Arrays.copyOf(vector, vector.length);
+        if (exp <= 0L) {
+            return result;
+        }
+
         AutoStackingNumber[][] current = base;
         long e = exp;
-        while (e > 0) {
+        while (e > 0L) {
             if ((e & 1L) == 1L) {
-                result = multiply(result, current);
+                result = multiply(current, result);
             }
             e >>= 1;
-            if (e > 0) {
+            if (e > 0L) {
                 current = multiply(current, current);
             }
         }
         return result;
-    }
-
-    private AutoStackingNumber[][] identity(int dim) {
-        AutoStackingNumber[][] id = new AutoStackingNumber[dim][dim];
-        for (int i = 0; i < dim; i++) {
-            for (int j = 0; j < dim; j++) {
-                id[i][j] = (i == j) ? ONE : ZERO;
-            }
-        }
-        return id;
     }
 
     private AutoStackingNumber[][] multiply(AutoStackingNumber[][] a, AutoStackingNumber[][] b) {
