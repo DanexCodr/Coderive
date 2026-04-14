@@ -167,7 +167,6 @@ public class ConditionalFormula {
     private int countNodesWithinBudget(Expr expr, int maxNodes) {
         if (expr == null) return 0;
         int count = 1;
-        if (count > maxNodes) return count;
 
         if (expr instanceof BinaryOp) {
             BinaryOp op = (BinaryOp) expr;

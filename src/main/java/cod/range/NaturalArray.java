@@ -70,6 +70,8 @@ public class NaturalArray {
     private static final int PENDING_UPDATES_TREE_THRESHOLD = 100;
     private List<PendingRangeUpdate> pendingUpdates = new ArrayList<PendingRangeUpdate>();
     private NavigableMap<Long, List<PendingRangeUpdate>> pendingUpdatesByStart = null;
+    private NavigableMap<Long, Long> pendingUpdateOrderPrefixByStart = null;
+    private boolean pendingUpdateOrderPrefixDirty = false;
     private long nextPendingUpdateOrder = 0L;
     private boolean hasPendingUpdates = false;
     
@@ -1168,6 +1170,7 @@ public class NaturalArray {
             pendingUpdatesByStart.put(update.range.start, updatesAtStart);
         }
         updatesAtStart.add(update);
+        pendingUpdateOrderPrefixDirty = true;
     }
 
     private void convertPendingUpdatesToTreeIndex() {
@@ -1175,6 +1178,30 @@ public class NaturalArray {
         for (PendingRangeUpdate update : pendingUpdates) {
             addPendingUpdateToTree(update);
         }
+    }
+
+    private void rebuildPendingUpdateOrderPrefix() {
+        if (pendingUpdatesByStart == null) {
+            pendingUpdateOrderPrefixByStart = null;
+            pendingUpdateOrderPrefixDirty = false;
+            return;
+        }
+
+        pendingUpdateOrderPrefixByStart = new TreeMap<Long, Long>();
+        long runningMax = Long.MIN_VALUE;
+        for (Map.Entry<Long, List<PendingRangeUpdate>> entry : pendingUpdatesByStart.entrySet()) {
+            long bucketMax = Long.MIN_VALUE;
+            for (PendingRangeUpdate update : entry.getValue()) {
+                if (update.order > bucketMax) {
+                    bucketMax = update.order;
+                }
+            }
+            if (bucketMax > runningMax) {
+                runningMax = bucketMax;
+            }
+            pendingUpdateOrderPrefixByStart.put(entry.getKey(), runningMax);
+        }
+        pendingUpdateOrderPrefixDirty = false;
     }
 
     private PendingRangeUpdate resolvePendingUpdateForIndex(long index) {
@@ -1188,15 +1215,31 @@ public class NaturalArray {
             return null;
         }
 
+        if (pendingUpdateOrderPrefixDirty || pendingUpdateOrderPrefixByStart == null) {
+            rebuildPendingUpdateOrderPrefix();
+        }
+
         PendingRangeUpdate winner = null;
         NavigableMap<Long, List<PendingRangeUpdate>> candidatesByStart = pendingUpdatesByStart.headMap(index, true);
-        for (List<PendingRangeUpdate> updatesAtStart : candidatesByStart.values()) {
-            for (PendingRangeUpdate candidate : updatesAtStart) {
+        for (Map.Entry<Long, List<PendingRangeUpdate>> entry : candidatesByStart.descendingMap().entrySet()) {
+            List<PendingRangeUpdate> updatesAtStart = entry.getValue();
+            for (int i = updatesAtStart.size() - 1; i >= 0; i--) {
+                PendingRangeUpdate candidate = updatesAtStart.get(i);
+                if (winner != null && candidate.order <= winner.order) {
+                    break;
+                }
                 if (!candidate.contains(index)) {
                     continue;
                 }
                 if (winner == null || candidate.order > winner.order) {
                     winner = candidate;
+                }
+            }
+
+            if (winner != null && pendingUpdateOrderPrefixByStart != null) {
+                Long remainingMaxOrder = pendingUpdateOrderPrefixByStart.get(entry.getKey());
+                if (remainingMaxOrder != null && winner.order >= remainingMaxOrder.longValue()) {
+                    break;
                 }
             }
         }
@@ -1245,6 +1288,8 @@ public class NaturalArray {
         
         pendingUpdates.clear();
         pendingUpdatesByStart = null;
+        pendingUpdateOrderPrefixByStart = null;
+        pendingUpdateOrderPrefixDirty = false;
         hasPendingUpdates = false;
     }
 
@@ -1754,6 +1799,8 @@ public class NaturalArray {
     public void discardUpdates() {
         pendingUpdates.clear();
         pendingUpdatesByStart = null;
+        pendingUpdateOrderPrefixByStart = null;
+        pendingUpdateOrderPrefixDirty = false;
         hasPendingUpdates = false;
     }
     
