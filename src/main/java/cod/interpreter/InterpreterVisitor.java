@@ -464,7 +464,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         if (!NamingValidator.isAllCaps(declaredType)) {
             throw new ProgramError(
                 "Type alias '" + declaredType + "' must be declared as a constant name (ALL_CAPS). " +
-                "Declare it like: BYTE: type = int");
+                "Declare it like: BYTE: type = u8");
         }
 
         Object rawAliasValue = alias.value;
@@ -487,7 +487,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
 
         throw new ProgramError(
             "Type alias constant '" + declaredType + "' must hold a type value. " +
-            "Declare it like: BYTE: type = int");
+            "Declare it like: BYTE: type = u8");
     }
 
     private AliasLookupResult findTypeAliasValue(String aliasName, ExecutionContext ctx) {
