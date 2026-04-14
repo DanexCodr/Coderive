@@ -835,7 +835,7 @@ public class ExpressionParser extends BaseParser {
                 Token noneToken = expect(NONE);
                 baseExpr = ASTFactory.createNoneLiteral(noneToken);
             }
-            else if (is(INT, TEXT, FLOAT, BOOL, TYPE)) {
+            else if (is(INT, TEXT, FLOAT, BOOL, TYPE, I8, I16, I32, I64, U8, U16, U32, U64, F32, F64)) {
                 Token typeToken = now();
                 String typeName = expect(KEYWORD).getText();
                 baseExpr = ASTFactory.createTextLiteral(typeName, typeToken);

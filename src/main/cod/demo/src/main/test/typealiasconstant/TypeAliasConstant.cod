@@ -1,0 +1,9 @@
+unit test.typealiasconstant
+
+share TypeAliasConstant {
+    share main() {
+        BYTE: type = u8
+        n: BYTE = 3
+        out("n=" + n)
+    }
+}
