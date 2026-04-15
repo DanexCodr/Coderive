@@ -425,9 +425,7 @@ All participants must abide by its terms. Report violations to
 
 ### Contributing
 
-All participants must read the 
-[Contributing Guide](.github/CONTRIBUTING.md) to be aware on how to contribute to this project.
-
+All participants should read the [Contributing Guide](.github/CONTRIBUTING.md) to understand how to contribute to this project.
 ---
 
 <div align="center">
