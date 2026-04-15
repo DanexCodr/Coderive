@@ -37,7 +37,7 @@
 
 ## What is Coderive?
 
-**Coderive** is a modern, interpreted programming language designed around three principles:
+**Coderive** is a modern programming language designed around three principles:
 
 | Principle | What it means |
 |-----------|--------------|
@@ -231,6 +231,10 @@ label: text = "hello"
 
 # Union types
 value: int|float = 9.5
+
+# Type aliases
+NUMBER: type = int
+num: NUMBER = 4
 ```
 
 ### Input & Output
