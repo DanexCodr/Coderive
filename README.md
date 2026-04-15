@@ -398,7 +398,7 @@ coderive examples/lazy_arrays.cod
 
 Try Coderive directly in your browser — no install required:
 
-**[→ Launch the Playground](https://danexcodr.github.io/Coderive)**
+**[→ Launch the Playground](https://coderive-lang.github.io/Coderive)**
 
 The playground gives you a full interactive editor with instant output, making it the fastest way to experiment with the language.
 
