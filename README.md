@@ -15,7 +15,7 @@
 [![License](https://img.shields.io/badge/license-MIT-f5de53?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/coderive-lang/Coderive?style=flat-square&color=7289da&logo=github)](https://github.com/coderive-lang/Coderive/stargazers)
 [![Discussions](https://img.shields.io/badge/discussions-join-ffc107?style=flat-square&logo=github)](https://github.com/coderive-lang/Coderive/discussions)
-[![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.0-4baaaa?style=flat-square)](.github/CODE_OF_CONDUCT.md)
+[![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-3.0-4baaaa?style=flat-square)](.github/CODE_OF_CONDUCT.md)
 
 </div>
 
