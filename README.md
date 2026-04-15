@@ -33,6 +33,7 @@
 - [Web Playground](#web-playground)
 - [License](#license)
 - [Contact](#contact)
+- [Code of Conduct](#code-of-conduct)
 
 ---
 
