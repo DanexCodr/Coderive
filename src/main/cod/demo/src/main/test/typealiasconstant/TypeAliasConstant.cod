@@ -1,0 +1,24 @@
+unit test.typealiasconstant
+
+share TypeAliasConstant {
+    share main() {
+        BYTE: type = u8
+        n: BYTE = 3
+        out("n=" + n)
+
+        WHOLE: type = int
+        FRACTION: type = float
+        WORD: type = text
+        FLAG: type = bool
+
+        a: WHOLE = 42
+        b: FRACTION = 2.5
+        c: WORD = "ok"
+        d: FLAG = true
+
+        out("a=" + a)
+        out("b=" + b)
+        out("c=" + c)
+        out("d=" + d)
+    }
+}

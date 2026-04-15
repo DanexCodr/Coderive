@@ -1,0 +1,9 @@
+unit test.typealiasconstant
+
+share TypeAliasNotTypeValueInvalid {
+    share main() {
+        BYTE := 12
+        n: BYTE = 3
+        out(n)
+    }
+}

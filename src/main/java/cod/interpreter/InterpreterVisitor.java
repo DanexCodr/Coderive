@@ -383,7 +383,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             
             if (node.explicitType != null) {
                 String declaredType = node.explicitType;
-                ctx.setVariableType(node.name, declaredType);
+                String resolvedDeclaredType = resolveVariableTypeAliasIfAny(declaredType, ctx);
+                ctx.setVariableType(node.name, resolvedDeclaredType);
                 
                 if (TYPE.toString().equals(declaredType)) {
                     if (val instanceof String) {
@@ -401,23 +402,23 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                     }
                 }
                 
-                if (val == null && declaredType.contains("|none")) {
+                if (val == null && resolvedDeclaredType.contains("|none")) {
                     val = createNoneValue();
                     ctx.setVariable(node.name, val);
                 }
                 
-                if (!typeSystem.validateType(declaredType, val)) {
-                    if (typeSystem.isNoneValue(val) && declaredType.contains("|none")) {
+                if (!typeSystem.validateType(resolvedDeclaredType, val)) {
+                    if (typeSystem.isNoneValue(val) && resolvedDeclaredType.contains("|none")) {
                         val = createNoneValue();
                         ctx.setVariable(node.name, val);
                     } else {
-                        throw new ProgramError("Type mismatch for " + node.name + ". Expected " + declaredType);
+                        throw new ProgramError("Type mismatch for " + node.name + ". Expected " + resolvedDeclaredType);
                     }
                 }
                 
-                if (declaredType.contains("|")) {
+                if (resolvedDeclaredType.contains("|")) {
                     String activeType = typeSystem.getConcreteType(typeSystem.unwrap(val));
-                    val = new TypeHandler.Value(val, activeType, declaredType);
+                    val = new TypeHandler.Value(val, activeType, resolvedDeclaredType);
                     ctx.setVariable(node.name, val);
                 }
             }
@@ -445,6 +446,72 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
 
     private boolean isVariableDeclaredInAnyScope(ExecutionContext ctx, String name) {
         return contextHandler.isVariableDeclaredInAnyScope(ctx, name);
+    }
+
+    private String resolveVariableTypeAliasIfAny(String declaredType, ExecutionContext ctx) {
+        if (declaredType == null || typeSystem.isTypeLiteral(declaredType)) {
+            return declaredType;
+        }
+        if (ctx == null) {
+            return declaredType;
+        }
+
+        AliasLookupResult alias = findTypeAliasValue(declaredType, ctx);
+        if (alias == null || !alias.found) {
+            return declaredType;
+        }
+
+        if (!NamingValidator.isAllCaps(declaredType)) {
+            throw new ProgramError(
+                "Type alias '" + declaredType + "' must be declared as a constant name (ALL_CAPS). " +
+                "Declare it like: BYTE: type = u8");
+        }
+
+        Object rawAliasValue = alias.value;
+        if (rawAliasValue instanceof TypeHandler.Value && ((TypeHandler.Value) rawAliasValue).isTypeValue()) {
+            Object typeSig = ((TypeHandler.Value) rawAliasValue).value;
+            if (typeSig instanceof String && typeSystem.isTypeLiteral((String) typeSig)) {
+                return (String) typeSig;
+            }
+        }
+        Object aliasValue = typeSystem.unwrap(rawAliasValue);
+        if (aliasValue instanceof String && typeSystem.isTypeLiteral((String) aliasValue)) {
+            return (String) aliasValue;
+        }
+        if (aliasValue instanceof TextLiteral) {
+            String literal = ((TextLiteral) aliasValue).value;
+            if (typeSystem.isTypeLiteral(literal)) {
+                return literal;
+            }
+        }
+
+        throw new ProgramError(
+            "Type alias constant '" + declaredType + "' must hold a type value. " +
+            "Declare it like: BYTE: type = u8");
+    }
+
+    private AliasLookupResult findTypeAliasValue(String aliasName, ExecutionContext ctx) {
+        for (int i = ctx.getScopeDepth() - 1; i >= 0; i--) {
+            Map<String, Object> scope = ctx.getLocalsStack().get(i);
+            if (scope.containsKey(aliasName)) {
+                return new AliasLookupResult(true, scope.get(aliasName));
+            }
+        }
+        Map<String, Object> slots = ctx.getSlotValues();
+        if (slots != null && slots.containsKey(aliasName)) {
+            return new AliasLookupResult(true, slots.get(aliasName));
+        }
+        return new AliasLookupResult(false, null);
+    }
+
+    private static final class AliasLookupResult {
+        private final boolean found;
+        private final Object value;
+
+        private AliasLookupResult(boolean found, Object value) {
+            this.found = found;
+            this.value = value;
+        }
     }
 
     @Override
