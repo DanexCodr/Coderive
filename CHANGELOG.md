@@ -22,7 +22,7 @@ All notable changes to Coderive are documented in this file.
 - **Borrow checks tightened in unsafe mutation paths** — Unsafe indexed mutation now participates in borrow-safety enforcement.
 
 ### ✨ Major Features
-- **Unsafe pointer model added** — Unsafe contexts support pointer-oriented syntax/runtime behavior (`*T`, `T[n]`, `&`, `*`, and pointer arithmetic with bounds checks).
+- **Unsafe pointer model added** — Unsafe contexts support pointer-oriented syntax/runtime behavior (`*<unsafe-type>`, `<unsafe-type>[n]`, `&`, `*`, and pointer arithmetic with bounds checks).
 - **Full-project compile mode in CLI** — `CommandRunner` supports `-f` / `--full` to compile all `.cod` files under `src/main`.
 - **O(1) borrow checking via active-borrow tracking** — Borrow-state checking moved from scan-based checks to O(1)-style active tracking for lower runtime overhead.
 
