@@ -3,18 +3,18 @@
 <!-- markdownlint-disable no-duplicate-header -->
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/DanexCodr/Coderive/main/docs/assets/coderive-logo.jpg" alt="Coderive Logo" width="55%" />
+  <img src="https://raw.githubusercontent.com/coderive-lang/Coderive/main/docs/assets/coderive-logo.jpg" alt="Coderive Logo" width="55%" />
   <h3>Safe. Fast. Clear.</h3>
   <p><em>A modern general-purpose programming language built for expressive, safe code.</em></p>
 </div>
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-0.9.0-536af5?style=flat-square&logo=github)](https://github.com/DanexCodr/Coderive/releases)
+[![Version](https://img.shields.io/badge/version-0.9.0-536af5?style=flat-square&logo=github)](https://github.com/coderive-lang/Coderive/releases)
 [![Java](https://img.shields.io/badge/requires-Java%207%2B-ed8b00?style=flat-square&logo=openjdk&logoColor=white)](https://adoptium.net/)
 [![License](https://img.shields.io/badge/license-MIT-f5de53?style=flat-square)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/DanexCodr/Coderive?style=flat-square&color=7289da&logo=github)](https://github.com/DanexCodr/Coderive/stargazers)
-[![Discussions](https://img.shields.io/badge/discussions-join-ffc107?style=flat-square&logo=github)](https://github.com/DanexCodr/Coderive/discussions)
+[![Stars](https://img.shields.io/github/stars/coderive-lang/Coderive?style=flat-square&color=7289da&logo=github)](https://github.com/coderive-lang/Coderive/stargazers)
+[![Discussions](https://img.shields.io/badge/discussions-join-ffc107?style=flat-square&logo=github)](https://github.com/coderive-lang/Coderive/discussions)
 [![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.0-4baaaa?style=flat-square)](.github/CODE_OF_CONDUCT.md)
 
 </div>
@@ -157,7 +157,7 @@ letters  := ["aa" to "zz"]          // 676-element 2-letter range
 Clone the repo and run the installer. It will verify Java, install the runtime, and register the `coderive` command:
 
 ```bash
-git clone https://github.com/DanexCodr/Coderive.git
+git clone https://github.com/coderive-lang/Coderive.git
 cd Coderive
 chmod +x install.sh && ./install.sh
 ```
@@ -412,8 +412,8 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## Contact
 
-- 💬 [GitHub Discussions](https://github.com/DanexCodr/Coderive/discussions) — ask questions, share ideas
-- 🐛 [GitHub Issues](https://github.com/DanexCodr/Coderive/issues) — report bugs
+- 💬 [GitHub Discussions](https://github.com/coderive-lang/Coderive/discussions) — ask questions, share ideas
+- 🐛 [GitHub Issues](https://github.com/coderive-lang/Coderive/issues) — report bugs
 - 🗣️ [Discord](https://discord.gg/5Ne3wrXCX) — chat and community
 - 📧 coderive.lang@gmail.com — code of conduct reports
 
