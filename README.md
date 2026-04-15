@@ -423,7 +423,7 @@ This project follows the [Contributor Covenant Code of Conduct](.github/CODE_OF_
 All participants must abide by its terms. Report violations to
 [coderive.lang@gmail.com](mailto:coderive.lang@gmail.com) or via Discord.
 
-## Contributing
+### Contributing
 
 All participants must read the 
 [Contributing Guide](.github/CONTRIBUTING.md) to be aware on how to contribute to this project.
