@@ -15,6 +15,7 @@
 [![License](https://img.shields.io/badge/license-MIT-f5de53?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/DanexCodr/Coderive?style=flat-square&color=7289da&logo=github)](https://github.com/DanexCodr/Coderive/stargazers)
 [![Discussions](https://img.shields.io/badge/discussions-join-ffc107?style=flat-square&logo=github)](https://github.com/DanexCodr/Coderive/discussions)
+[![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.0-4baaaa?style=flat-square)](.github/CODE_OF_CONDUCT.md)
 
 </div>
 
@@ -410,11 +411,16 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## Contact
 
-Have questions, ideas, or want to contribute?
-
 - 💬 [GitHub Discussions](https://github.com/DanexCodr/Coderive/discussions) — ask questions, share ideas
 - 🐛 [GitHub Issues](https://github.com/DanexCodr/Coderive/issues) — report bugs
-- 📧 danisonnunez001@gmail.com
+- 🗣️ [Discord](https://discord.gg/5Ne3wrXCX) — chat and community
+- 📧 coderive.lang@gmail.com — code of conduct reports
+
+## Code of Conduct
+
+This project follows the [Contributor Covenant Code of Conduct](.github/CODE_OF_CONDUCT.md).
+All participants must abide by its terms. Report violations to
+[coderive.lang@gmail.com](mailto:coderive.lang@gmail.com) or via Discord.
 
 ---
 
