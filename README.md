@@ -340,7 +340,7 @@ out(report)
 
 Recent `src/**/*.cod` programs and std modules now showcase:
 
-- **Unsafe pointers and fixed buffers** (`*T`, `T[n]`, `&`, `*`, pointer arithmetic) in `test/unsafe/*`.
+- **Unsafe pointers and fixed buffers** (`*<unsafe-type>`, `<unsafe-type>[n]`, `&`, `*`, pointer arithmetic) in `test/unsafe/*`.
 - **Static imports** for methods/fields in `test/staticimports*`.
 - **Lambda auto-currying** forms like `\(a) \(b) ...` plus classic tuple lambdas in `test/lambda/*`.
 - **Union + runtime type checks** via `int|text` and `is` in `test/typesliterals/*`.
