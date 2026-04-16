@@ -68,7 +68,7 @@ public enum TokenType {
     F32,
     F64;
 
-    private static final Map<String, Keyword> STRING_TO_KEYWORD = new HashMap<String, Keyword>();
+    private static final Map<String, Keyword> STRING_TO_KEYWORD = new HashMap<>();
 
     static {
       for (Keyword keyword : values()) {
