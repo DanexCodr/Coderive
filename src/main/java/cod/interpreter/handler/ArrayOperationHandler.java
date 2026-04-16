@@ -300,10 +300,11 @@ public class ArrayOperationHandler {
                     if (current == end) {
                         break;
                     }
-                    if (current > Long.MAX_VALUE - step) {
+                    long next = current + step;
+                    if (next < current) {
                         break;
                     }
-                    current += step;
+                    current = next;
                 }
             } else {
                 while (current >= end) {
@@ -315,10 +316,11 @@ public class ArrayOperationHandler {
                     if (current == end) {
                         break;
                     }
-                    if (current < Long.MIN_VALUE - step) {
+                    long next = current + step;
+                    if (next > current) {
                         break;
                     }
-                    current += step;
+                    current = next;
                 }
             }
             return null;
@@ -683,8 +685,8 @@ public class ArrayOperationHandler {
         if (step == 0L) {
             return false;
         }
-        // Long.MIN_VALUE is excluded because negation/absolute-distance style reasoning is not representable,
-        // and overflow-safe primitive loop progression checks become ambiguous at this boundary.
+        // Long.MIN_VALUE is excluded because it cannot be safely negated (would overflow)
+        // and makes overflow-safe progression checks ambiguous.
         if (step == Long.MIN_VALUE) {
             return false;
         }
