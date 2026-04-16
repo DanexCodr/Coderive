@@ -424,6 +424,7 @@ public class TypeHandler {
             long av = ((Number) a).longValue();
             long bv = ((Number) b).longValue();
             long sum = av + bv;
+            // Signed-add overflow check: if a and b share a sign but sum flips sign, overflow occurred.
             if (((av ^ sum) & (bv ^ sum)) >= 0) {
                 return AutoStackingNumber.fromLong(sum);
             }
@@ -461,6 +462,7 @@ public class TypeHandler {
             long av = ((Number) a).longValue();
             long bv = ((Number) b).longValue();
             long diff = av - bv;
+            // Signed-sub overflow check: if operands differ in sign and diff flips relative to a, overflow occurred.
             if (((av ^ bv) & (av ^ diff)) >= 0) {
                 return AutoStackingNumber.fromLong(diff);
             }
