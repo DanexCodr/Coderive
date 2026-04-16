@@ -32,7 +32,7 @@ public enum Keyword {
   // Loop
   FOR,
   BREAK,
-  SKIP,
+  SKIP, /* Equivalent of CONTINUE */
   
   // Used in loop and natural arrays
   TO,
