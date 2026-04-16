@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BENCH_DIR="$ROOT_DIR/benchmarks"
 WORK_DIR="/tmp/coderive-cross-bench"
 RUNS="${1:-3}"
+# Deterministic checksum for the three benchmark kernels (sum of squares, repeated fib, prime counting).
+# Update this only if benchmark workload logic intentionally changes across all language implementations.
 EXPECTED_CHECKSUM="2666668685121930669"
 
 mkdir -p "$WORK_DIR"

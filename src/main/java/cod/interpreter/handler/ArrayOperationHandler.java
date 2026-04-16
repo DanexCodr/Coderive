@@ -683,6 +683,8 @@ public class ArrayOperationHandler {
         if (step == 0L) {
             return false;
         }
+        // Long.MIN_VALUE is excluded because negation/absolute-distance style reasoning is not representable,
+        // and overflow-safe primitive loop progression checks become ambiguous at this boundary.
         if (step == Long.MIN_VALUE) {
             return false;
         }
