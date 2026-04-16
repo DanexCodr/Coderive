@@ -29,13 +29,13 @@ Expected checksum:
 From repository root:
 
 ```bash
-bash /home/runner/work/Coderive/Coderive/benchmarks/run_cross_language_benchmark.sh
+bash benchmarks/run_cross_language_benchmark.sh
 ```
 
 Optional runs per language (median-based):
 
 ```bash
-bash /home/runner/work/Coderive/Coderive/benchmarks/run_cross_language_benchmark.sh 5
+bash benchmarks/run_cross_language_benchmark.sh 5
 ```
 
 The runner:
