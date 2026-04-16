@@ -66,9 +66,6 @@ public enum Keyword {
   GET,
   SET,
   
-  // Keyword for converting between safe and unsafe states
-  CONTROL,
-  
   // Toggle strictly after visibility modifier to be able to use unsafe primitives and do low level operations
   UNSAFE,
   
