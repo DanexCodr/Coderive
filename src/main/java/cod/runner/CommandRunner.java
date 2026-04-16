@@ -106,8 +106,11 @@ public class CommandRunner extends BaseRunner {
 
             DebugSystem.info(NAME + LOG_TAG, "CommandRunner execution completed");
         } finally {
-            System.out.println("\n-----------------------------");
-            System.out.println("Execution completed! Duration: " + DebugSystem.stopTimer("exec") + "ms");
+            double duration = DebugSystem.stopTimer("exec");
+            if (!DebugSystem.isBenchmarkMode()) {
+                System.out.println("\n-----------------------------");
+                System.out.println("Execution completed! Duration: " + duration + "ms");
+            }
         }
     }
     

@@ -18,9 +18,11 @@ public enum TokenType {
     WS,
     INTERPOL;
     
-      @Override
+  private final String lowerCaseName = name().toLowerCase();
+
+  @Override
   public String toString() {
-    return name().toLowerCase();
+    return lowerCaseName;
   }
 
   public enum Keyword {
@@ -68,11 +70,13 @@ public enum TokenType {
     F32,
     F64;
 
-    private static final Map<String, Keyword> STRING_TO_KEYWORD = new HashMap<>();
+    private final String lowerCaseName = name().toLowerCase();
+
+    private static final Map<String, Keyword> STRING_TO_KEYWORD = new HashMap<String, Keyword>();
 
     static {
       for (Keyword keyword : values()) {
-        STRING_TO_KEYWORD.put(keyword.toString(), keyword);
+        STRING_TO_KEYWORD.put(keyword.lowerCaseName, keyword);
       }
     }
 
@@ -82,7 +86,7 @@ public enum TokenType {
 
     @Override
     public String toString() {
-      return name().toLowerCase();
+      return lowerCaseName;
     }
   }
 

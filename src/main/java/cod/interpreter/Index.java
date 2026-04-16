@@ -1,6 +1,7 @@
 package cod.interpreter;
 
 import cod.error.ProgramError;
+import cod.debug.DebugSystem;
 import cod.ir.IRManager;
 import cod.lexer.*;
 import static cod.lexer.TokenType.*;
@@ -70,9 +71,13 @@ public final class Index {
                 }
             }
             
-            System.err.println("[INDEX] Project root set to: " + projectRoot);
+            if (!DebugSystem.isBenchmarkMode()) {
+                System.err.println("[INDEX] Project root set to: " + projectRoot);
+            }
         } catch (Exception e) {
-            System.err.println("[INDEX] Failed to set project root: " + e.getMessage());
+            if (!DebugSystem.isBenchmarkMode()) {
+                System.err.println("[INDEX] Failed to set project root: " + e.getMessage());
+            }
         }
     }
     

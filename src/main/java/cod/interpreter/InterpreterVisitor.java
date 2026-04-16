@@ -416,7 +416,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                     }
                 }
                 
-                if (resolvedDeclaredType.contains("|")) {
+                if (resolvedDeclaredType != null && resolvedDeclaredType.indexOf('|') >= 0) {
                     String activeType = typeSystem.getConcreteType(typeSystem.unwrap(val));
                     val = new TypeHandler.Value(val, activeType, resolvedDeclaredType);
                     ctx.setVariable(node.name, val);
@@ -2148,7 +2148,7 @@ public Object visit(TextLiteral node) {
                     }
                 }
 
-                if (paramType.contains("|")) {
+                if (paramType != null && paramType.indexOf('|') >= 0) {
                     String activeType = typeSystem.getConcreteType(typeSystem.unwrap(argValue));
                     argValue = new TypeHandler.Value(argValue, activeType, paramType);
                 }

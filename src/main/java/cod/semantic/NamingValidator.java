@@ -128,6 +128,18 @@ public static void validateFieldName(String name, Token token) {
     }
     
     public static boolean isAllCaps(String name) {
-        return name != null && name.matches("[A-Z0-9_]+");
+        if (name == null || name.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            boolean ok = (c >= 'A' && c <= 'Z')
+                || (c >= '0' && c <= '9')
+                || c == '_';
+            if (!ok) {
+                return false;
+            }
+        }
+        return true;
     }
 }

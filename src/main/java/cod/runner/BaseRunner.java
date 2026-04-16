@@ -96,8 +96,10 @@ public abstract class BaseRunner {
 
     protected void configureDebugSystem(DebugSystem.Level level) {
         DebugSystem.setLevel(level);
-        DebugSystem.setShowTimestamp(true);
-        DebugSystem.info(LOG_TAG, "DebugSystem configured to level: " + level);
+        DebugSystem.setShowTimestamp(!DebugSystem.isBenchmarkMode());
+        if (!DebugSystem.isBenchmarkMode()) {
+            DebugSystem.info(LOG_TAG, "DebugSystem configured to level: " + level);
+        }
     }
     
     protected String extractFilenameFromArgs(String[] args, String defaultFilename) {

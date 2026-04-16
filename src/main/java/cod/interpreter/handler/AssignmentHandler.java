@@ -148,8 +148,9 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
             String declaredType = ctx.getSlotType(slotTarget); // O(1)
             validateAssignmentType(declaredType, value, slotTarget);
             value = typeSystem.normalizeForDeclaredType(declaredType, value);
-            
-            value = typeSystem.wrapUnionType(value, declaredType);
+            if (declaredType != null && declaredType.indexOf('|') >= 0) {
+                value = typeSystem.wrapUnionType(value, declaredType);
+            }
             
             ctx.setSlotValue(slotTarget, value); // O(1)
             ctx.markSlotAssigned(slotTarget); // O(1)
@@ -438,7 +439,9 @@ public Object assignToVariableScoped(String varName, Object newValue, ExecutionC
             if (declaredType != null) {
                 validateAssignmentType(declaredType, newValue, varName);
                 newValue = typeSystem.normalizeForDeclaredType(declaredType, newValue);
-                newValue = typeSystem.wrapUnionType(newValue, declaredType);
+                if (declaredType.indexOf('|') >= 0) {
+                    newValue = typeSystem.wrapUnionType(newValue, declaredType);
+                }
             }
             
             ctx.setVariable(varName, newValue);

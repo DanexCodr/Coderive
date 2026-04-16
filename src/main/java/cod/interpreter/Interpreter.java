@@ -1087,7 +1087,7 @@ public void run(Object entryPoint) {
 
         argValue = typeSystem.normalizeForDeclaredType(paramType, argValue);
 
-        if (paramType.contains("|")) {
+        if (paramType != null && paramType.indexOf('|') >= 0) {
             String activeType = typeSystem.getConcreteType(typeSystem.unwrap(argValue));
             argValue = new TypeHandler.Value(argValue, activeType, paramType);
         }

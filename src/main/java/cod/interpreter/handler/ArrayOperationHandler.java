@@ -135,6 +135,15 @@ public class ArrayOperationHandler {
                 throw new ProgramError("Loop step cannot be zero.");
             }
 
+            Long startLong = tryFastLongValue(startObj);
+            Long endLong = tryFastLongValue(endObj);
+            Long stepLong = tryFastLongValue(step);
+            if (startLong != null && endLong != null && stepLong != null
+                && canUsePrimitiveAdditiveLoop(startLong.longValue(), endLong.longValue(), stepLong.longValue())) {
+                return executeAdditiveLoopPrimitive(
+                    ctx, node, startLong.longValue(), endLong.longValue(), stepLong.longValue());
+            }
+
             return executeAdditiveLoop(ctx, node, startObj, endObj, step);
         } catch (ProgramError e) {
             throw e;
@@ -218,6 +227,64 @@ public class ArrayOperationHandler {
             throw e;
         } catch (Exception e) {
             throw new InternalError("Loop iteration failed", e);
+        }
+    }
+
+    public void executePrimitiveIteration(
+        cod.interpreter.context.ExecutionContext ctx, For node, long current) {
+        try {
+            String iter = node.iterator;
+            Object currentValue = (current >= Integer.MIN_VALUE && current <= Integer.MAX_VALUE)
+                ? Integer.valueOf((int) current)
+                : Long.valueOf(current);
+            ctx.setVariable(iter, currentValue);
+            if (ctx.getVariableType(iter) == null) {
+                ctx.setVariableType(iter, cod.lexer.TokenType.Keyword.INT.toString());
+            }
+            executeLoopBody(ctx, node);
+        } catch (BreakLoopException e) {
+            throw e;
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Primitive loop iteration failed", e);
+        }
+    }
+
+    public Object executeAdditiveLoopPrimitive(
+        cod.interpreter.context.ExecutionContext ctx, For node, long start, long end, long step) {
+        try {
+            long current = start;
+            if (step > 0L) {
+                while (current <= end) {
+                    try {
+                        executePrimitiveIteration(ctx, node, current);
+                    } catch (BreakLoopException e) {
+                        break;
+                    }
+                    if (current == end) {
+                        break;
+                    }
+                    current += step;
+                }
+            } else {
+                while (current >= end) {
+                    try {
+                        executePrimitiveIteration(ctx, node, current);
+                    } catch (BreakLoopException e) {
+                        break;
+                    }
+                    if (current == end) {
+                        break;
+                    }
+                    current += step;
+                }
+            }
+            return null;
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Primitive additive loop execution failed", e);
         }
     }
 
@@ -545,6 +612,52 @@ public class ArrayOperationHandler {
     private boolean shouldContinueAdditive(
         AutoStackingNumber current, AutoStackingNumber end, AutoStackingNumber step, boolean increasing) {
         return increasing ? current.compareTo(end) <= 0 : current.compareTo(end) >= 0;
+    }
+
+    private Long tryFastLongValue(Object value) {
+        Object unwrapped = typeSystem.unwrap(value);
+        if (unwrapped instanceof Integer || unwrapped instanceof Long
+            || unwrapped instanceof Short || unwrapped instanceof Byte) {
+            return Long.valueOf(((Number) unwrapped).longValue());
+        }
+        if (unwrapped instanceof IntLiteral) {
+            try {
+                return Long.valueOf(((IntLiteral) unwrapped).value.longValue());
+            } catch (ArithmeticException ignored) {
+                return null;
+            }
+        }
+        if (unwrapped instanceof AutoStackingNumber) {
+            AutoStackingNumber asn = (AutoStackingNumber) unwrapped;
+            try {
+                return Long.valueOf(asn.longValue());
+            } catch (ArithmeticException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private boolean canUsePrimitiveAdditiveLoop(long start, long end, long step) {
+        if (step == 0L) {
+            return false;
+        }
+        if (step == Long.MIN_VALUE) {
+            return false;
+        }
+        if (step > 0L && start > end) {
+            return false;
+        }
+        if (step < 0L && start < end) {
+            return false;
+        }
+        if (step > 0L && end > Long.MAX_VALUE - step) {
+            return false;
+        }
+        if (step < 0L && end < Long.MIN_VALUE - step) {
+            return false;
+        }
+        return true;
     }
 
     private void validateFactor(AutoStackingNumber factor, String operation) {
