@@ -362,10 +362,6 @@ public class TypeHandler {
         return num.doubleValue();
     }
 
-    private boolean isJvmIntegralNumber(Object o) {
-        return o instanceof Integer || o instanceof Long || o instanceof Short || o instanceof Byte;
-    }
-
     private boolean tryFastLongInto(Object o, long[] out, int index) {
         if (o instanceof Integer || o instanceof Long || o instanceof Short || o instanceof Byte) {
             out[index] = ((Number) o).longValue();
@@ -420,17 +416,6 @@ public class TypeHandler {
             return String.valueOf(a) + String.valueOf(b);
         }
 
-        if (isJvmIntegralNumber(a) && isJvmIntegralNumber(b)) {
-            long av = ((Number) a).longValue();
-            long bv = ((Number) b).longValue();
-            long sum = av + bv;
-            // Signed-add overflow check: if a and b share a sign but sum flips sign, overflow occurred.
-            if (((av ^ sum) & (bv ^ sum)) >= 0) {
-                return AutoStackingNumber.fromLong(sum);
-            }
-            return AutoStackingNumber.fromDouble((double) av + (double) bv);
-        }
-
         long[] fastPair = getFastLongPair(a, b);
         if (fastPair != null) {
             long av = fastPair[0];
@@ -458,17 +443,6 @@ public class TypeHandler {
     }
     
     private Object subtractScalars(Object a, Object b) {
-        if (isJvmIntegralNumber(a) && isJvmIntegralNumber(b)) {
-            long av = ((Number) a).longValue();
-            long bv = ((Number) b).longValue();
-            long diff = av - bv;
-            // Signed-sub overflow check: if operands differ in sign and diff flips relative to a, overflow occurred.
-            if (((av ^ bv) & (av ^ diff)) >= 0) {
-                return AutoStackingNumber.fromLong(diff);
-            }
-            return AutoStackingNumber.fromDouble((double) av - (double) bv);
-        }
-
         long[] fastPair = getFastLongPair(a, b);
         if (fastPair != null) {
             long av = fastPair[0];
@@ -509,18 +483,6 @@ public class TypeHandler {
         
         if (b instanceof String && isNumeric(a)) {
             return multiplyString(a, b);
-        }
-
-        if (isJvmIntegralNumber(a) && isJvmIntegralNumber(b)) {
-            long av = ((Number) a).longValue();
-            long bv = ((Number) b).longValue();
-            if (av == 0L || bv == 0L) {
-                return AutoStackingNumber.fromLong(0L);
-            }
-            if (!isLongMultiplicationOverflow(av, bv)) {
-                return AutoStackingNumber.fromLong(av * bv);
-            }
-            return AutoStackingNumber.fromDouble((double) av * (double) bv);
         }
 
         long[] fastPair = getFastLongPair(a, b);
@@ -905,18 +867,6 @@ public class TypeHandler {
     }
     
     private Object divideScalars(Object a, Object b) {
-        if (isJvmIntegralNumber(a) && isJvmIntegralNumber(b)) {
-            long av = ((Number) a).longValue();
-            long bv = ((Number) b).longValue();
-            if (bv == 0L) {
-                throw new ProgramError("Division by zero");
-            }
-            if (av % bv == 0L) {
-                return AutoStackingNumber.fromLong(av / bv);
-            }
-            return AutoStackingNumber.fromDouble((double) av / (double) bv);
-        }
-
         long[] fastPair = getFastLongPair(a, b);
         if (fastPair != null) {
             long av = fastPair[0];
@@ -951,15 +901,6 @@ public class TypeHandler {
     }
     
     private Object modulusScalars(Object a, Object b) {
-        if (isJvmIntegralNumber(a) && isJvmIntegralNumber(b)) {
-            long av = ((Number) a).longValue();
-            long bv = ((Number) b).longValue();
-            if (bv == 0L) {
-                throw new ProgramError("Modulus by zero");
-            }
-            return AutoStackingNumber.fromLong(av % bv);
-        }
-
         long[] fastPair = getFastLongPair(a, b);
         if (fastPair != null) {
             long av = fastPair[0];
@@ -1007,12 +948,6 @@ public class TypeHandler {
             String strA = a instanceof TextLiteral ? ((TextLiteral) a).value : String.valueOf(a);
             String strB = b instanceof TextLiteral ? ((TextLiteral) b).value : String.valueOf(b);
             return strA.compareTo(strB);
-        }
-
-        if (isJvmIntegralNumber(a) && isJvmIntegralNumber(b)) {
-            long av = ((Number) a).longValue();
-            long bv = ((Number) b).longValue();
-            return av < bv ? -1 : (av == bv ? 0 : 1);
         }
 
         long[] fastPair = getFastLongPair(a, b);
