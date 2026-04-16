@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.ArrayList;
 
 import cod.ast.VisitorImpl;
-import cod.syntax.Keyword;
+import cod.lexer.TokenType.Keyword;
 
 public class Method extends Base {
     public String methodName;

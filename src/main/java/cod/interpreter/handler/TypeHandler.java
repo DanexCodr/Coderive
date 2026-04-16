@@ -5,7 +5,7 @@ import cod.error.InternalError;
 import cod.error.ProgramError;
 import cod.math.AutoStackingNumber;
 import cod.range.NaturalArray;
-import static cod.syntax.Keyword.*;
+import static cod.lexer.TokenType.Keyword.*;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;

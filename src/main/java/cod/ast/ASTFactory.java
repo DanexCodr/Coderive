@@ -1,7 +1,7 @@
 package cod.ast;
 
 import cod.ast.node.*;
-import cod.syntax.Keyword;
+import cod.lexer.TokenType.Keyword;
 import cod.lexer.Token;
 import java.util.*;
 import cod.math.AutoStackingNumber;

@@ -8,13 +8,13 @@ import cod.semantic.ImportResolver;
 import cod.semantic.NamingValidator;
 import cod.semantic.PolicyValidator;
 import cod.semantic.ReturnContractValidator;
-import cod.syntax.Keyword;
+import cod.lexer.TokenType.Keyword;
 import java.util.*;
 
 import cod.lexer.Token;
 import static cod.lexer.TokenType.*;
-import static cod.syntax.Keyword.*;
-import static cod.syntax.Symbol.*;
+import static cod.lexer.TokenType.Keyword.*;
+import static cod.lexer.TokenType.Symbol.*;
 
 public class DeclarationParser extends BaseParser {
 

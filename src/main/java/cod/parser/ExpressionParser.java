@@ -9,8 +9,8 @@ import cod.semantic.NamingValidator;
 import static cod.lexer.TokenType.*;
 import cod.math.AutoStackingNumber;
 import cod.parser.context.*;
-import static cod.syntax.Symbol.*;
-import static cod.syntax.Keyword.*;
+import static cod.lexer.TokenType.Symbol.*;
+import static cod.lexer.TokenType.Keyword.*;
 
 import java.util.ArrayList;
 import java.util.List;

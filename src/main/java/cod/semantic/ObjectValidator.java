@@ -1,7 +1,8 @@
 package cod.semantic;
 
 import cod.lexer.*;
-import cod.syntax.*;
+import cod.lexer.TokenType.Keyword;
+import cod.lexer.TokenType.Symbol;
 
 public final class ObjectValidator {
   private ObjectValidator() {}

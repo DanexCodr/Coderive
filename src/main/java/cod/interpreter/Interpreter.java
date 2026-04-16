@@ -12,8 +12,8 @@ import cod.lexer.*;
 import cod.parser.MainParser;
 import cod.semantic.ImportResolver;
 import cod.semantic.ConstructorResolver;
-import static cod.syntax.Keyword.*;
-import static cod.syntax.Symbol.*;
+import static cod.lexer.TokenType.Keyword.*;
+import static cod.lexer.TokenType.Symbol.*;
 
 import java.io.File;
 import java.io.BufferedReader;

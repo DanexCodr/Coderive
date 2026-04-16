@@ -126,7 +126,7 @@ final class DeserializationVisitor {
         if (node instanceof Type) {
             Type n = (Type) node;
             if (values.containsKey("name")) n.name = (String) values.get("name");
-            if (values.containsKey("visibility")) n.visibility = (cod.syntax.Keyword) values.get("visibility");
+            if (values.containsKey("visibility")) n.visibility = (cod.lexer.TokenType.Keyword) values.get("visibility");
             if (values.containsKey("extendName")) n.extendName = (String) values.get("extendName");
             if (values.containsKey("fields")) n.fields = castList(values.get("fields"));
             if (values.containsKey("constructor")) n.constructor = (Constructor) values.get("constructor");
@@ -143,7 +143,7 @@ final class DeserializationVisitor {
             Field n = (Field) node;
             if (values.containsKey("name")) n.name = (String) values.get("name");
             if (values.containsKey("type")) n.type = (String) values.get("type");
-            if (values.containsKey("visibility")) n.visibility = (cod.syntax.Keyword) values.get("visibility");
+            if (values.containsKey("visibility")) n.visibility = (cod.lexer.TokenType.Keyword) values.get("visibility");
             if (values.containsKey("value")) n.value = (Expr) values.get("value");
             return;
         }
@@ -152,7 +152,7 @@ final class DeserializationVisitor {
             Method n = (Method) node;
             if (values.containsKey("methodName")) n.methodName = (String) values.get("methodName");
             if (values.containsKey("associatedClass")) n.associatedClass = (String) values.get("associatedClass");
-            if (values.containsKey("visibility")) n.visibility = (cod.syntax.Keyword) values.get("visibility");
+            if (values.containsKey("visibility")) n.visibility = (cod.lexer.TokenType.Keyword) values.get("visibility");
             if (values.containsKey("returnSlots")) n.returnSlots = castList(values.get("returnSlots"));
             if (values.containsKey("parameters")) n.parameters = castList(values.get("parameters"));
             if (values.containsKey("body")) n.body = castList(values.get("body"));
@@ -192,7 +192,7 @@ final class DeserializationVisitor {
         if (node instanceof Policy) {
             Policy n = (Policy) node;
             if (values.containsKey("name")) n.name = (String) values.get("name");
-            if (values.containsKey("visibility")) n.visibility = (cod.syntax.Keyword) values.get("visibility");
+            if (values.containsKey("visibility")) n.visibility = (cod.lexer.TokenType.Keyword) values.get("visibility");
             if (values.containsKey("methods")) n.methods = castList(values.get("methods"));
             if (values.containsKey("sourceUnit")) n.sourceUnit = (String) values.get("sourceUnit");
             if (values.containsKey("composedPolicies")) n.composedPolicies = castList(values.get("composedPolicies"));

@@ -15,7 +15,7 @@ import cod.interpreter.context.*;
 import cod.interpreter.exception.*;
 import cod.interpreter.handler.*;
 import java.util.*;
-import static cod.syntax.Keyword.*;
+import static cod.lexer.TokenType.Keyword.*;
 import cod.semantic.ConstructorResolver;
 import cod.semantic.NamingValidator;
 

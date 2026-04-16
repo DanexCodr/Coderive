@@ -4,8 +4,8 @@ import cod.error.ProgramError;
 import cod.ir.IRManager;
 import cod.lexer.*;
 import static cod.lexer.TokenType.*;
-import static cod.syntax.Symbol.*;
-import static cod.syntax.Keyword.*;
+import static cod.lexer.TokenType.Symbol.*;
+import static cod.lexer.TokenType.Keyword.*;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;

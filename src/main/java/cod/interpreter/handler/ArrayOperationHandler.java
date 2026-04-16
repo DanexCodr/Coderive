@@ -208,7 +208,7 @@ public class ArrayOperationHandler {
             if (ctx.getVariableType(iter) == null) {
                 String inferredType = (current.fitsInStacks(1) &&
                     (current.getWords()[0] & 0x7FFFFFFFFFFFFFFFL) < Long.MAX_VALUE)
-                    ? cod.syntax.Keyword.INT.toString() : cod.syntax.Keyword.FLOAT.toString();
+                    ? cod.lexer.TokenType.Keyword.INT.toString() : cod.lexer.TokenType.Keyword.FLOAT.toString();
                 ctx.setVariableType(iter, inferredType);
             }
             executeLoopBody(ctx, node);

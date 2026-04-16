@@ -3,7 +3,7 @@ package cod.ir;
 import cod.ast.node.*;
 import cod.math.AutoStackingNumber;
 import cod.parser.MainParser.ProgramType;
-import cod.syntax.Keyword;
+import cod.lexer.TokenType.Keyword;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -234,7 +234,8 @@ final class IRCodec {
         String enumClassName = readString(in);
         String enumName = readString(in);
 
-        if (Keyword.class.getName().equals(enumClassName)) {
+        if (Keyword.class.getName().equals(enumClassName)
+            || "cod.syntax.Keyword".equals(enumClassName)) {
             try {
                 return Keyword.valueOf(enumName);
             } catch (IllegalArgumentException e) {
