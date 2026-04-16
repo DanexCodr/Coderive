@@ -234,8 +234,7 @@ final class IRCodec {
         String enumClassName = readString(in);
         String enumName = readString(in);
 
-        if (Keyword.class.getName().equals(enumClassName)
-            || "cod.syntax.Keyword".equals(enumClassName)) {
+        if (Keyword.class.getName().equals(enumClassName)) {
             try {
                 return Keyword.valueOf(enumName);
             } catch (IllegalArgumentException e) {
