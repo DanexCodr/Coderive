@@ -265,6 +265,9 @@ public class ArrayOperationHandler {
                     if (current == end) {
                         break;
                     }
+                    if (current > Long.MAX_VALUE - step) {
+                        break;
+                    }
                     current += step;
                 }
             } else {
@@ -275,6 +278,9 @@ public class ArrayOperationHandler {
                         break;
                     }
                     if (current == end) {
+                        break;
+                    }
+                    if (current < Long.MIN_VALUE - step) {
                         break;
                     }
                     current += step;
@@ -649,12 +655,6 @@ public class ArrayOperationHandler {
             return false;
         }
         if (step < 0L && start < end) {
-            return false;
-        }
-        if (step > 0L && end > Long.MAX_VALUE - step) {
-            return false;
-        }
-        if (step < 0L && end < Long.MIN_VALUE - step) {
             return false;
         }
         return true;

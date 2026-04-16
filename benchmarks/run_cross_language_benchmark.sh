@@ -106,7 +106,7 @@ echo "---------|----------"
 run_many "Coderive" env COD_BENCHMARK_MODE=true java -cp "$WORK_DIR/coderive-java" cod.runner.CommandRunner \
   "$BENCH_DIR/coderive/CrossLanguageBenchmark.cod" --quiet | awk -F'|' '{printf "%-8s | %s\n", $1, $2}'
 
-if [[ -x "$WORK_DIR/java-bin/CrossLanguageBenchmark.class" || -f "$WORK_DIR/java-bin/CrossLanguageBenchmark.class" ]]; then
+if [[ -f "$WORK_DIR/java-bin/CrossLanguageBenchmark.class" ]]; then
   run_many "Java" java -cp "$WORK_DIR/java-bin" CrossLanguageBenchmark | awk -F'|' '{printf "%-8s | %s\n", $1, $2}'
 fi
 
