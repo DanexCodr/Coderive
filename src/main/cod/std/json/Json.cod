@@ -12,7 +12,7 @@ share JsonValue {
     errorData: text = ""
 
     share this(kindValue: int) {
-        this.kind = kindValue
+        kind = kindValue
     }
 
     share isNull() :: bool { ~> (this.kind == 0) }
@@ -37,10 +37,10 @@ share JsonValue {
     share add(item: JsonValue) {
         if this.kind != 4 { return }
         idx: int = this.arrayData.size
-        this.arrayData[idx] = item
+        arrayData[idx] = item
     }
 
-    share get(index: int) :: JsonValue {
+    share get(index: int) :: value: JsonValue {
         if this.kind != 4 { ~> (JsonValue.makeError("value is not an array")) }
         if index < 0 { ~> (JsonValue.makeError("array index out of bounds")) }
         if index >= this.arrayData.size { ~> (JsonValue.makeError("array index out of bounds")) }
@@ -51,13 +51,13 @@ share JsonValue {
         if this.kind != 5 { return }
         for i of 0 to this.objectKeys.size - 1 {
             if this.objectKeys[i] == key {
-                this.objectValues[i] = value
+                objectValues[i] = value
                 return
             }
         }
         idx: int = this.objectKeys.size
-        this.objectKeys[idx] = key
-        this.objectValues[idx] = value
+        objectKeys[idx] = key
+        objectValues[idx] = value
     }
 
     share has(key: text) :: bool {
@@ -68,7 +68,7 @@ share JsonValue {
         ~> (false)
     }
 
-    share getKey(key: text) :: JsonValue {
+    share getKey(key: text) :: value: JsonValue {
         if this.kind != 5 { ~> (JsonValue.makeError("value is not an object")) }
         for i of 0 to this.objectKeys.size - 1 {
             if this.objectKeys[i] == key {
@@ -85,7 +85,7 @@ share JsonValue {
         ~> (this.objectKeys[index])
     }
 
-    share valueAt(index: int) :: JsonValue {
+    share valueAt(index: int) :: value: JsonValue {
         if this.kind != 5 { ~> (JsonValue.makeError("value is not an object")) }
         if index < 0 { ~> (JsonValue.makeError("object index out of bounds")) }
         if index >= this.objectValues.size { ~> (JsonValue.makeError("object index out of bounds")) }
@@ -95,51 +95,58 @@ share JsonValue {
     share toJson() :: text { ~> (Json.serializeValue(this, false, 0)) }
     share toJsonPretty() :: text { ~> (Json.serializeValue(this, true, 0)) }
 
-    share makeNull() :: JsonValue {
+    share setBoolData(value: bool) { boolData = value }
+    share setTextData(value: text) { textData = value }
+    share setArrayData(value: []) { arrayData = value }
+    share setObjectKeys(value: [text]) { objectKeys = value }
+    share setObjectValues(value: []) { objectValues = value }
+    share setErrorData(value: text) { errorData = value }
+
+    share makeNull() :: value: JsonValue {
         v := JsonValue(0)
         ~> (v)
     }
 
-    share makeBool(value: bool) :: JsonValue {
+    share makeBool(value: bool) :: value: JsonValue {
         v := JsonValue(1)
-        v.boolData = value
+        v.setBoolData(value)
         ~> (v)
     }
 
-    share makeNumber(textValue: text) :: JsonValue {
+    share makeNumber(textValue: text) :: value: JsonValue {
         v := JsonValue(2)
-        v.textData = textValue
+        v.setTextData(textValue)
         ~> (v)
     }
 
-    share makeText(textValue: text) :: JsonValue {
+    share makeText(textValue: text) :: value: JsonValue {
         v := JsonValue(3)
-        v.textData = textValue
+        v.setTextData(textValue)
         ~> (v)
     }
 
-    share makeArray(items: []) :: JsonValue {
+    share makeArray(items: []) :: value: JsonValue {
         v := JsonValue(4)
-        v.arrayData = items
+        v.setArrayData(items)
         ~> (v)
     }
 
-    share makeObject(keys: [text], values: []) :: JsonValue {
+    share makeObject(keys: [text], values: []) :: value: JsonValue {
         v := JsonValue(5)
-        v.objectKeys = keys
-        v.objectValues = values
+        v.setObjectKeys(keys)
+        v.setObjectValues(values)
         ~> (v)
     }
 
-    share makeError(message: text) :: JsonValue {
+    share makeError(message: text) :: value: JsonValue {
         v := JsonValue(6)
-        v.errorData = message
+        v.setErrorData(message)
         ~> (v)
     }
 }
 
 share Json {
-    share parse(source: text) :: JsonValue {
+    share parse(source: text) :: value: JsonValue {
         parser := JsonParser(source)
         ~> (parser.parseRoot())
     }
@@ -152,13 +159,13 @@ share Json {
         ~> (Json.serializeValue(value, true, 0))
     }
 
-    share nullValue() :: JsonValue { ~> (JsonValue.makeNull()) }
-    share bool(value: bool) :: JsonValue { ~> (JsonValue.makeBool(value)) }
-    share number(value: int|float) :: JsonValue { ~> (JsonValue.makeNumber("" + value)) }
-    share numberText(value: text) :: JsonValue { ~> (JsonValue.makeNumber(value)) }
-    share text(value: text) :: JsonValue { ~> (JsonValue.makeText(value)) }
-    share array() :: JsonValue { ~> (JsonValue.makeArray([])) }
-    share object() :: JsonValue { ~> (JsonValue.makeObject([], [])) }
+    share nullValue() :: value: JsonValue { ~> (JsonValue.makeNull()) }
+    share bool(value: bool) :: value: JsonValue { ~> (JsonValue.makeBool(value)) }
+    share number(value: int|float) :: value: JsonValue { ~> (JsonValue.makeNumber("" + value)) }
+    share numberText(value: text) :: value: JsonValue { ~> (JsonValue.makeNumber(value)) }
+    share text(value: text) :: value: JsonValue { ~> (JsonValue.makeText(value)) }
+    share array() :: value: JsonValue { ~> (JsonValue.makeArray([])) }
+    share object() :: value: JsonValue { ~> (JsonValue.makeObject([], [])) }
 
     share serializeValue(value: JsonValue, pretty: bool, depth: int) :: text {
         if value.isError() {
@@ -213,10 +220,10 @@ share Json {
 
         if value.isObject() {
             count := value.size()
-            if count == 0 { ~> ("{}") }
+            if count == 0 { ~> ("\{\}") }
 
             if pretty {
-                outText := "{\n"
+                outText := "\{\n"
                 for i of 0 to count - 1 {
                     key := value.keyAt(i)
                     item := value.valueAt(i)
@@ -226,11 +233,11 @@ share Json {
                     if i < count - 1 { outText = outText + "," }
                     outText = outText + "\n"
                 }
-                outText = outText + Json.indent(depth) + "}"
+                outText = outText + Json.indent(depth) + "\}"
                 ~> (outText)
             }
 
-            outText := "{"
+            outText := "\{"
             for i of 0 to count - 1 {
                 key := value.keyAt(i)
                 item := value.valueAt(i)
@@ -238,7 +245,7 @@ share Json {
                 outText = outText + Json.serializeValue(item, false, depth + 1)
                 if i < count - 1 { outText = outText + "," }
             }
-            outText = outText + "}"
+            outText = outText + "\}"
             ~> (outText)
         }
 
@@ -370,12 +377,12 @@ share Json {
         ~> (Json.hexDigit(d0) + Json.hexDigit(d1) + Json.hexDigit(d2) + Json.hexDigit(d3))
     }
     
-    share isHighSurrogate(unit: int) :: bool {
-        ~> (all[unit >= 55296, unit <= 56319])
+    share isHighSurrogate(codeUnit: int) :: bool {
+        ~> (all[codeUnit >= 55296, codeUnit <= 56319])
     }
     
-    share isLowSurrogate(unit: int) :: bool {
-        ~> (all[unit >= 56320, unit <= 57343])
+    share isLowSurrogate(codeUnit: int) :: bool {
+        ~> (all[codeUnit >= 56320, codeUnit <= 57343])
     }
 
     share indent(depth: int) :: text {
@@ -392,11 +399,11 @@ share JsonParser {
     index: int = 0
 
     share this(sourceText: text) {
-        this.source = sourceText
-        this.index = 0
+        source = sourceText
+        index = 0
     }
 
-    share parseRoot() :: JsonValue {
+    share parseRoot() :: value: JsonValue {
         this.skipWhitespace()
         if this.index >= this.source.length {
             ~> (JsonValue.makeError("empty json input"))
@@ -413,7 +420,7 @@ share JsonParser {
         ~> (value)
     }
 
-    share parseValue() :: JsonValue {
+    share parseValue() :: value: JsonValue {
         this.skipWhitespace()
         if this.index >= this.source.length {
             ~> (JsonValue.makeError("unexpected end of input"))
@@ -426,42 +433,42 @@ share JsonParser {
         if ch == "f" { ~> (this.parseFalse()) }
         if ch == "\"" { ~> (this.parseText()) }
         if ch == "[" { ~> (this.parseArray()) }
-        if ch == "{" { ~> (this.parseObject()) }
+        if ch == "\{" { ~> (this.parseObject()) }
         if any[ch == "-", Json.isDigit(ch)] { ~> (this.parseNumber()) }
 
         ~> (JsonValue.makeError("invalid json value at index " + this.index))
     }
 
-    share parseNull() :: JsonValue {
+    share parseNull() :: value: JsonValue {
         if this.matchKeyword("null") {
-            this.index = this.index + 4
+            index = this.index + 4
             ~> (JsonValue.makeNull())
         }
         ~> (JsonValue.makeError("invalid token, expected null at index " + this.index))
     }
 
-    share parseTrue() :: JsonValue {
+    share parseTrue() :: value: JsonValue {
         if this.matchKeyword("true") {
-            this.index = this.index + 4
+            index = this.index + 4
             ~> (JsonValue.makeBool(true))
         }
         ~> (JsonValue.makeError("invalid token, expected true at index " + this.index))
     }
 
-    share parseFalse() :: JsonValue {
+    share parseFalse() :: value: JsonValue {
         if this.matchKeyword("false") {
-            this.index = this.index + 5
+            index = this.index + 5
             ~> (JsonValue.makeBool(false))
         }
         ~> (JsonValue.makeError("invalid token, expected false at index " + this.index))
     }
 
-    share parseText() :: JsonValue {
+    share parseText() :: value: JsonValue {
         if this.source[this.index] != "\"" {
             ~> (JsonValue.makeError("expected text at index " + this.index))
         }
 
-        this.index = this.index + 1
+        index = this.index + 1
         outText := ""
 
         for i of this.index to this.source.length {
@@ -470,7 +477,7 @@ share JsonParser {
             }
 
             ch := this.source[this.index]
-            this.index = this.index + 1
+            index = this.index + 1
 
             if ch == "\"" {
                 ~> (JsonValue.makeText(outText))
@@ -482,7 +489,7 @@ share JsonParser {
                 }
 
                 esc := this.source[this.index]
-                this.index = this.index + 1
+                index = this.index + 1
 
                 if esc == "\"" { outText = outText + "\"" continue }
                 if esc == "\\" { outText = outText + "\\" continue }
@@ -498,7 +505,7 @@ share JsonParser {
                     if firstUnit < 0 {
                         ~> (JsonValue.makeError("invalid unicode escape at index " + this.index))
                     }
-                    this.index = this.index + 4
+                    index = this.index + 4
                     firstText := "\\u" + Json.hex4(firstUnit)
 
                     if Json.isHighSurrogate(firstUnit) {
@@ -508,12 +515,12 @@ share JsonParser {
                         if any[this.source[this.index] != "\\", this.source[this.index + 1] != "u"] {
                             ~> (JsonValue.makeError("expected low surrogate escape at index " + this.index))
                         }
-                        this.index = this.index + 2
+                        index = this.index + 2
                         secondUnit := this.parseHex4At(this.index)
                         if any[secondUnit < 0, !Json.isLowSurrogate(secondUnit)] {
                             ~> (JsonValue.makeError("invalid low surrogate at index " + this.index))
                         }
-                        this.index = this.index + 4
+                        index = this.index + 4
                         outText = outText + firstText + "\\u" + Json.hex4(secondUnit)
                         continue
                     }
@@ -535,18 +542,18 @@ share JsonParser {
         ~> (JsonValue.makeError("unterminated text"))
     }
 
-    share parseNumber() :: JsonValue {
+    share parseNumber() :: value: JsonValue {
         start := this.index
 
         if this.source[this.index] == "-" {
-            this.index = this.index + 1
+            index = this.index + 1
             if this.index >= this.source.length {
                 ~> (JsonValue.makeError("invalid number at index " + start))
             }
         }
 
         if this.source[this.index] == "0" {
-            this.index = this.index + 1
+            index = this.index + 1
         } else {
             if !Json.isDigit(this.source[this.index]) {
                 ~> (JsonValue.makeError("invalid number at index " + start))
@@ -554,26 +561,26 @@ share JsonParser {
             for i of this.index to this.source.length {
                 if this.index >= this.source.length { break }
                 if !Json.isDigit(this.source[this.index]) { break }
-                this.index = this.index + 1
+                index = this.index + 1
             }
         }
 
         if all[this.index < this.source.length, this.source[this.index] == "."] {
-            this.index = this.index + 1
+            index = this.index + 1
             if any[this.index >= this.source.length, !Json.isDigit(this.source[this.index])] {
                 ~> (JsonValue.makeError("invalid number fraction at index " + start))
             }
             for i of this.index to this.source.length {
                 if this.index >= this.source.length { break }
                 if !Json.isDigit(this.source[this.index]) { break }
-                this.index = this.index + 1
+                index = this.index + 1
             }
         }
 
         if all[this.index < this.source.length, any[this.source[this.index] == "e", this.source[this.index] == "E"]] {
-            this.index = this.index + 1
+            index = this.index + 1
             if all[this.index < this.source.length, any[this.source[this.index] == "+", this.source[this.index] == "-"]] {
-                this.index = this.index + 1
+                index = this.index + 1
             }
             if any[this.index >= this.source.length, !Json.isDigit(this.source[this.index])] {
                 ~> (JsonValue.makeError("invalid number exponent at index " + start))
@@ -581,7 +588,7 @@ share JsonParser {
             for i of this.index to this.source.length {
                 if this.index >= this.source.length { break }
                 if !Json.isDigit(this.source[this.index]) { break }
-                this.index = this.index + 1
+                index = this.index + 1
             }
         }
 
@@ -589,17 +596,17 @@ share JsonParser {
         ~> (JsonValue.makeNumber(numberText))
     }
 
-    share parseArray() :: JsonValue {
+    share parseArray() :: value: JsonValue {
         if this.source[this.index] != "[" {
             ~> (JsonValue.makeError("expected [ at index " + this.index))
         }
 
         arr := JsonValue.makeArray([])
-        this.index = this.index + 1
+        index = this.index + 1
         this.skipWhitespace()
 
         if all[this.index < this.source.length, this.source[this.index] == "]"] {
-            this.index = this.index + 1
+            index = this.index + 1
             ~> (arr)
         }
 
@@ -615,7 +622,7 @@ share JsonParser {
 
             ch := this.source[this.index]
             if ch == "," {
-                this.index = this.index + 1
+                index = this.index + 1
                 this.skipWhitespace()
                 if all[this.index < this.source.length, this.source[this.index] == "]"] {
                     ~> (JsonValue.makeError("trailing comma in array at index " + this.index))
@@ -624,7 +631,7 @@ share JsonParser {
             }
 
             if ch == "]" {
-                this.index = this.index + 1
+                index = this.index + 1
                 ~> (arr)
             }
 
@@ -634,17 +641,17 @@ share JsonParser {
         ~> (JsonValue.makeError("unterminated array"))
     }
 
-    share parseObject() :: JsonValue {
-        if this.source[this.index] != "{" {
-            ~> (JsonValue.makeError("expected { at index " + this.index))
+    share parseObject() :: value: JsonValue {
+        if this.source[this.index] != "\{" {
+            ~> (JsonValue.makeError("expected \{ at index " + this.index))
         }
 
         obj := JsonValue.makeObject([], [])
-        this.index = this.index + 1
+        index = this.index + 1
         this.skipWhitespace()
 
-        if all[this.index < this.source.length, this.source[this.index] == "}"] {
-            this.index = this.index + 1
+        if all[this.index < this.source.length, this.source[this.index] == "\}"] {
+            index = this.index + 1
             ~> (obj)
         }
 
@@ -658,7 +665,7 @@ share JsonParser {
             if any[this.index >= this.source.length, this.source[this.index] != ":"] {
                 ~> (JsonValue.makeError("expected : after object key at index " + this.index))
             }
-            this.index = this.index + 1
+            index = this.index + 1
 
             value := this.parseValue()
             if value.isError() { ~> (value) }
@@ -671,20 +678,20 @@ share JsonParser {
 
             ch := this.source[this.index]
             if ch == "," {
-                this.index = this.index + 1
+                index = this.index + 1
                 this.skipWhitespace()
-                if all[this.index < this.source.length, this.source[this.index] == "}"] {
+                if all[this.index < this.source.length, this.source[this.index] == "\}"] {
                     ~> (JsonValue.makeError("trailing comma in object at index " + this.index))
                 }
                 continue
             }
 
-            if ch == "}" {
-                this.index = this.index + 1
+            if ch == "\}" {
+                index = this.index + 1
                 ~> (obj)
             }
 
-            ~> (JsonValue.makeError("expected , or } in object at index " + this.index))
+            ~> (JsonValue.makeError("expected , or \} in object at index " + this.index))
         }
 
         ~> (JsonValue.makeError("unterminated object"))
@@ -695,7 +702,7 @@ share JsonParser {
             if this.index >= this.source.length { return }
             ch := this.source[this.index]
             if any[ch == " ", ch == "\n", ch == "\r", ch == "\t"] {
-                this.index = this.index + 1
+                index = this.index + 1
                 continue
             }
             return

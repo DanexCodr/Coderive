@@ -376,7 +376,7 @@ public class TokenSkipper {
   }
 
   public boolean canBeMethod(Token t) {
-    return is(t, OF, ALL, ANY, GET, SET);
+    return is(t, OF, ALL, ANY, GET, SET, INT, TEXT, FLOAT, BOOL, TYPE);
   }
 
   public boolean isPolicyMethod() {
