@@ -442,7 +442,7 @@ public abstract class BaseParser {
   protected boolean isStmtStart() {
     Token token = now();
     if (is(token, KEYWORD)) {
-      return is(token, IF, FOR, EXIT, ELSE, ELIF, SKIP, BREAK, SHARE, LOCAL);
+      return is(token, IF, FOR, FIN, ELSE, ELIF, SKIP, BREAK, SHARE, LOCAL);
     }
 
     if (is(token, ID)) {

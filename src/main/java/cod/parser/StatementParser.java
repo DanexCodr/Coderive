@@ -56,7 +56,7 @@ public class StatementParser extends BaseParser {
     if (is(first, KEYWORD)) {
       if (is(IF)) return parseIfStmt();
       if (is(FOR)) return parseForStmt();
-      if (is(EXIT)) return parseExitStmt();
+      if (is(FIN)) return parseFinStmt();
       if (is(SKIP)) return parseSkipStmt();
       if (is(BREAK)) return parseBreakStmt();
       if (is(SUPER)) return parseSimpleAssignment();
@@ -134,7 +134,7 @@ public class StatementParser extends BaseParser {
     Token current = now();
     if (current.type != KEYWORD) return;
 
-    if (is(current, IF, ELSE, ELIF, FOR, EXIT, SKIP, BREAK)) return;
+    if (is(current, IF, ELSE, ELIF, FOR, FIN, SKIP, BREAK)) return;
 
     if (isTypeStart(current)) return;
 
@@ -193,7 +193,7 @@ public class StatementParser extends BaseParser {
 
     if (is(token, LBRACKET)) return isMethodCallStmt();
 
-    return is(token, IF, FOR, EXIT, ELSE, ELIF, SKIP, BREAK, SHARE, LOCAL);
+    return is(token, IF, FOR, FIN, ELSE, ELIF, SKIP, BREAK, SHARE, LOCAL);
   }
 
   private Stmt parseSlotAssignment() {
@@ -422,7 +422,7 @@ public class StatementParser extends BaseParser {
   }
 
   private boolean isInControlFlow(Token token) {
-    return is(token, IF, FOR, ELSE, ELIF, EXIT, SKIP, BREAK);
+    return is(token, IF, FOR, ELSE, ELIF, FIN, SKIP, BREAK);
   }
 
   private Stmt parseForStmt() {
@@ -512,10 +512,10 @@ public class StatementParser extends BaseParser {
     return forNode;
   }
 
-  private Stmt parseExitStmt() {
-    Token exitToken = expect(EXIT);
-    Exit exit = ASTFactory.createExit(exitToken);
-    return exit;
+  private Stmt parseFinStmt() {
+    Token finToken = expect(FIN);
+    Exit fin = ASTFactory.createExit(finToken);
+    return fin;
   }
 
   private Stmt parseReturnSlotAssignment() {
