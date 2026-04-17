@@ -104,7 +104,7 @@ public class MainParser extends BaseParser {
         }
         
         // Check for method declarations
-        if (isMethodDeclarationStart() || isTopLevelMethodDeclaration()) {
+        if (isTopLevelMethodDeclaration()) {
             Method method = declarationParser.parseMethod();
             topLevelMethods.add(method);
             continue;

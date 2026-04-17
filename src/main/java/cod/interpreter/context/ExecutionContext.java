@@ -616,6 +616,10 @@ public boolean removeVariableFromAllScopes(String name) {
         }
 
         if (unwrapped instanceof List) {
+            String listClassName = unwrapped.getClass().getName();
+            if (!listClassName.startsWith("java.util.")) {
+                return;
+            }
             for (Object element : (List<Object>) unwrapped) {
                 collectBorrowsRecursive(element, delta);
             }

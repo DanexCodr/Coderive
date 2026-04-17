@@ -92,6 +92,12 @@ public class DeclarationParser extends BaseParser {
 
             while (wsComments(offset)) offset++;
 
+            Token maybeUnsafe = next(offset);
+            if (is(maybeUnsafe, UNSAFE)) {
+              offset++;
+              while (wsComments(offset)) offset++;
+            }
+
             Token nameToken = next(offset);
             boolean thisAsKeywordOrIDName = is(nameToken, THIS);
 
@@ -111,6 +117,9 @@ public class DeclarationParser extends BaseParser {
     Token thisToken = null;
 
     if (is(SHARE, LOCAL)) {
+      consume();
+    }
+    if (is(UNSAFE)) {
       consume();
     }
 

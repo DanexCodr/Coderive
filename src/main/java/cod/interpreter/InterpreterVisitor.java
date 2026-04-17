@@ -267,7 +267,25 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         
         try {
             ExecutionContext ctx = getCurrentContext();
-            Type targetType = interpreter.getImportResolver().findType(node.className);
+            Type targetType = null;
+            try {
+                targetType = interpreter.getImportResolver().findType(node.className);
+            } catch (ProgramError ignore) {
+                Program currentProgram = interpreter.getCurrentProgram();
+                if (currentProgram != null
+                    && currentProgram.unit != null
+                    && currentProgram.unit.types != null) {
+                    for (Type localType : currentProgram.unit.types) {
+                        if (localType != null && node.className.equals(localType.name)) {
+                            targetType = localType;
+                            break;
+                        }
+                    }
+                }
+                if (targetType == null) {
+                    throw ignore;
+                }
+            }
             if (targetType != null
                 && targetType.isUnsafe
                 && !isUnsafeExecutionContext(ctx)
@@ -1565,8 +1583,19 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                         if (receiverObj instanceof ObjectInstance) {
                             ObjectInstance objInst = (ObjectInstance) receiverObj;
                             if (objInst.type != null) {
+                                Method instanceMethod = interpreter
+                                    .getConstructorResolver()
+                                    .findMethodInHierarchy(objInst.type, methodName, ctx);
+                                if (instanceMethod != null) {
+                                    return instanceMethod;
+                                }
                                 qName = objInst.type.name + "." + methodName;
                             }
+                        }
+                    } else {
+                        Method receiverTypeMethod = findMethodOnReceiverType(receiver, methodName);
+                        if (receiverTypeMethod != null) {
+                            return receiverTypeMethod;
                         }
                     }
                 }
@@ -1576,6 +1605,53 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
 
         return method;
+    }
+
+    private Method findMethodOnReceiverType(String receiverTypeName, String methodName) {
+        if (receiverTypeName == null || methodName == null) {
+            return null;
+        }
+
+        Type receiverType = null;
+        try {
+            receiverType = interpreter.getImportResolver().findType(receiverTypeName);
+        } catch (ProgramError ignored) {
+            Program currentProgram = interpreter.getCurrentProgram();
+            if (currentProgram != null
+                && currentProgram.unit != null
+                && currentProgram.unit.types != null) {
+                for (Type localType : currentProgram.unit.types) {
+                    if (localType != null && receiverTypeName.equals(localType.name)) {
+                        receiverType = localType;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (receiverType == null || receiverType.methods == null) {
+            if (receiverType == null
+                && receiverTypeName.length() > 0
+                && Character.isUpperCase(receiverTypeName.charAt(0))) {
+                String lowerUnitName = receiverTypeName.toLowerCase(Locale.ENGLISH);
+                try {
+                    receiverType = interpreter.getImportResolver().resolveImport(
+                        lowerUnitName + "." + receiverTypeName);
+                } catch (Exception ignored) {
+                    // Keep searching through other fallbacks.
+                }
+            }
+        }
+
+        if (receiverType == null || receiverType.methods == null) {
+            return null;
+        }
+        for (Method method : receiverType.methods) {
+            if (method != null && methodName.equals(method.methodName)) {
+                return method;
+            }
+        }
+        return null;
     }
 
     private Object executeSafeCommit(MethodCall node, ExecutionContext ctx) {
@@ -1594,7 +1670,26 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             Method targetMethod = resolveMethodForCall((MethodCall) argument, ctx);
             unsafeTarget = targetMethod != null && targetMethod.isUnsafe;
         } else if (argument instanceof ConstructorCall) {
-            Type targetType = interpreter.getImportResolver().findType(((ConstructorCall) argument).className);
+            Type targetType = null;
+            String className = ((ConstructorCall) argument).className;
+            try {
+                targetType = interpreter.getImportResolver().findType(className);
+            } catch (ProgramError ignore) {
+                Program currentProgram = interpreter.getCurrentProgram();
+                if (currentProgram != null
+                    && currentProgram.unit != null
+                    && currentProgram.unit.types != null) {
+                    for (Type localType : currentProgram.unit.types) {
+                        if (localType != null && className.equals(localType.name)) {
+                            targetType = localType;
+                            break;
+                        }
+                    }
+                }
+                if (targetType == null) {
+                    throw ignore;
+                }
+            }
             unsafeTarget = targetType != null && targetType.isUnsafe;
         }
 
@@ -2030,6 +2125,7 @@ public Object visit(MethodCall node) {
         
         // Try to find method in current class hierarchy
         Method method = null;
+        ObjectInstance invocationInstance = ctx.objectInstance;
         if (ctx.currentClass != null) {
             method = interpreter
                 .getConstructorResolver()
@@ -2056,14 +2152,28 @@ public Object visit(MethodCall node) {
                         if (receiverObj instanceof ObjectInstance) {
                             ObjectInstance objInst = (ObjectInstance) receiverObj;
                             if (objInst.type != null) {
+                                Method instanceMethod = interpreter
+                                    .getConstructorResolver()
+                                    .findMethodInHierarchy(objInst.type, methodName, ctx);
+                                if (instanceMethod != null) {
+                                    method = instanceMethod;
+                                    invocationInstance = objInst;
+                                }
                                 qName = objInst.type.name + "." + methodName;
                             }
+                        }
+                    } else {
+                        Method receiverTypeMethod = findMethodOnReceiverType(receiver, methodName);
+                        if (receiverTypeMethod != null) {
+                            method = receiverTypeMethod;
                         }
                     }
                 }
             }
-            if (qName == null) qName = callName;
-            method = interpreter.getImportResolver().findMethod(qName);
+            if (method == null) {
+                if (qName == null) qName = callName;
+                method = interpreter.getImportResolver().findMethod(qName);
+            }
         }
 
         // If method not found after all attempts, throw error
@@ -2125,7 +2235,7 @@ public Object visit(MethodCall node) {
                 } else {
                     if (param.hasDefaultValue) {
                         ExecutionContext defaultCtx = new ExecutionContext(
-                            ctx.objectInstance,
+                            invocationInstance,
                             new HashMap<String, Object>(),
                             null,
                             null,
@@ -2184,7 +2294,7 @@ public Object visit(MethodCall node) {
 
             // Create method execution context
             ExecutionContext methodCtx = new ExecutionContext(
-                ctx.objectInstance,
+                invocationInstance,
                 methodLocals,
                 slotValues,
                 slotTypes,
@@ -2195,7 +2305,7 @@ public Object visit(MethodCall node) {
                 methodCtx.setVariableType(entry.getKey(), entry.getValue());
             }
 
-            methodCtx.objectInstance = ctx.objectInstance;
+            methodCtx.objectInstance = invocationInstance;
 
             if (method.associatedClass != null) {
                 Type classType = findTypeByName(method.associatedClass);
@@ -2204,9 +2314,9 @@ public Object visit(MethodCall node) {
                 }
             }
 
-            if (ctx.objectInstance != null && ctx.objectInstance.type != null
+            if (invocationInstance != null && invocationInstance.type != null
                 && methodCtx.currentClass == null) {
-                Type classType = findTypeByName(ctx.objectInstance.type.name);
+                Type classType = findTypeByName(invocationInstance.type.name);
                 if (classType != null) {
                     methodCtx.currentClass = classType;
                 }

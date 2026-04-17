@@ -319,7 +319,7 @@ public abstract class BaseParser {
   }
 
   protected boolean canBeMethod(Token token) {
-    return is(token, OF, ALL, ANY, GET, SET, INT, TEXT, FLOAT, BOOL, TYPE);
+    return is(token, OF, ALL, ANY, GET, SET, INT, TEXT, FLOAT, BOOL, TYPE, UNSAFE);
   }
 
   protected String parseTypeReference() {

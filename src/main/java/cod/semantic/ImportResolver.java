@@ -676,6 +676,10 @@ public class ImportResolver {
             if (!importNameCache.containsKey(lastPart)) {
                 importNameCache.put(lastPart, importName);
             }
+            String lastPartLower = lastPart.toLowerCase(Locale.ENGLISH);
+            if (!importNameCache.containsKey(lastPartLower)) {
+                importNameCache.put(lastPartLower, importName);
+            }
             
             StringBuilder partial = new StringBuilder();
             for (int i = 0; i < parts.length; i++) {
@@ -684,6 +688,10 @@ public class ImportResolver {
                 String key = partial.toString();
                 if (!importNameCache.containsKey(key)) {
                     importNameCache.put(key, importName);
+                }
+                String lowerKey = key.toLowerCase(Locale.ENGLISH);
+                if (!importNameCache.containsKey(lowerKey)) {
+                    importNameCache.put(lowerKey, importName);
                 }
             }
         }
@@ -695,18 +703,38 @@ public class ImportResolver {
             DebugSystem.debug("IMPORTS", "Cache hit for import: " + calledImport + " -> " + cached);
             return cached;
         }
+        String calledImportLower = calledImport.toLowerCase(Locale.ENGLISH);
+        if (importNameCache.containsKey(calledImportLower)) {
+            String cached = importNameCache.get(calledImportLower);
+            DebugSystem.debug("IMPORTS", "Case-insensitive cache hit for import: " + calledImport + " -> " + cached);
+            return cached;
+        }
         
         for (String loadedImport : loadedPrograms.keySet()) {
-            if (loadedImport.endsWith("." + calledImport) || loadedImport.equals(calledImport)) {
+            if (loadedImport.endsWith("." + calledImport) || loadedImport.equals(calledImport)
+                || loadedImport.endsWith("." + calledImportLower)
+                || loadedImport.equalsIgnoreCase(calledImport)) {
                 importNameCache.put(calledImport, loadedImport);
+                importNameCache.put(calledImportLower, loadedImport);
                 return loadedImport;
             }
         }
         
         for (String registeredImport : registeredImports) {
-            if (registeredImport.endsWith("." + calledImport) || registeredImport.equals(calledImport)) {
+            if (registeredImport.endsWith("." + calledImport) || registeredImport.equals(calledImport)
+                || registeredImport.endsWith("." + calledImportLower)
+                || registeredImport.equalsIgnoreCase(calledImport)) {
                 importNameCache.put(calledImport, registeredImport);
+                importNameCache.put(calledImportLower, registeredImport);
                 return registeredImport;
+            }
+        }
+        
+        for (String wildcardUnit : wildcardEverythingUnits) {
+            if (wildcardUnit.equalsIgnoreCase(calledImport)) {
+                importNameCache.put(calledImport, wildcardUnit);
+                importNameCache.put(calledImportLower, wildcardUnit);
+                return wildcardUnit;
             }
         }
         
@@ -1234,6 +1262,22 @@ public class ImportResolver {
             Type type = null;
             try {
                 type = findType(actualImportName);
+                if (type != null && (type.methods == null || type.methods.isEmpty())) {
+                    int typeDot = actualImportName.lastIndexOf('.');
+                    if (typeDot > 0 && typeDot < actualImportName.length() - 1) {
+                        String typeUnit = actualImportName.substring(0, typeDot);
+                        String typeClass = actualImportName.substring(typeDot + 1);
+                        try {
+                            Type refreshedType = resolveImportByScan(actualImportName, typeUnit, typeClass);
+                            if (refreshedType != null) {
+                                type = refreshedType;
+                                loadedTypes.put(actualImportName, refreshedType);
+                            }
+                        } catch (Exception ignored) {
+                            // Fall back to existing resolved type if source refresh fails.
+                        }
+                    }
+                }
                 if (type != null) {
                     DebugSystem.debug("IMPORTS", "Searching for method '" + methodName + "' in type: " + type.name);
                     for (Method method : type.methods) {
@@ -1247,8 +1291,103 @@ public class ImportResolver {
             } catch (ProgramError ignoreTypeError) {
                 // Not a class import; may still be a static-module method import.
             }
+
+            if ((type == null || type.methods == null || type.methods.isEmpty())
+                && calledImport != null
+                && !calledImport.equals(actualImportName)) {
+                try {
+                    Type simpleType = findType(calledImport);
+                    if ((simpleType == null || simpleType.methods == null || simpleType.methods.isEmpty())
+                        && calledImport.length() > 0
+                        && Character.isUpperCase(calledImport.charAt(0))) {
+                        String lowerUnitName = calledImport.toLowerCase(Locale.ENGLISH);
+                        try {
+                            Type refreshedSimpleType = resolveImportByScan(
+                                lowerUnitName + "." + calledImport,
+                                lowerUnitName,
+                                calledImport);
+                            if (refreshedSimpleType != null) {
+                                simpleType = refreshedSimpleType;
+                            }
+                        } catch (Exception ignored) {
+                            // Keep original simpleType when refresh fails.
+                        }
+                    }
+                    if (simpleType != null && simpleType.methods != null && !simpleType.methods.isEmpty()) {
+                        type = simpleType;
+                        for (Method method : type.methods) {
+                            if (methodName.equals(method.methodName)) {
+                                return method;
+                            }
+                        }
+                    }
+                } catch (ProgramError ignored) {
+                    // Continue with static-module lookup.
+                }
+            }
+
+            if ((type == null || type.methods == null || type.methods.isEmpty())
+                && calledImport != null
+                && calledImport.length() > 0
+                && Character.isUpperCase(calledImport.charAt(0))) {
+                if (actualImportName != null
+                    && actualImportName.indexOf('.') == -1
+                    && !actualImportName.equals(calledImport)) {
+                    try {
+                        Type unitQualifiedType = resolveImport(actualImportName + "." + calledImport);
+                        if (unitQualifiedType != null && unitQualifiedType.methods != null) {
+                            for (Method method : unitQualifiedType.methods) {
+                                if (methodName.equals(method.methodName)) {
+                                    return method;
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {
+                        // Continue searching wildcard units.
+                    }
+                }
+                for (String unitName : wildcardEverythingUnits) {
+                    try {
+                        Type candidateType = resolveImport(unitName + "." + calledImport);
+                        if (candidateType != null && candidateType.methods != null) {
+                            for (Method method : candidateType.methods) {
+                                if (methodName.equals(method.methodName)) {
+                                    return method;
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {
+                        // Continue searching.
+                    }
+                }
+                for (String unitName : wildcardClassUnits) {
+                    try {
+                        Type candidateType = resolveImport(unitName + "." + calledImport);
+                        if (candidateType != null && candidateType.methods != null) {
+                            for (Method method : candidateType.methods) {
+                                if (methodName.equals(method.methodName)) {
+                                    return method;
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {
+                        // Continue searching.
+                    }
+                }
+            }
             
             Method moduleMethod = findMethodInStaticModule(actualImportName, methodName);
+            if (moduleMethod != null) {
+                return moduleMethod;
+            }
+            if (!calledImport.equals(actualImportName)) {
+                moduleMethod = findMethodInStaticModule(calledImport, methodName);
+                if (moduleMethod != null) {
+                    return moduleMethod;
+                }
+            }
+            String lowerImport = calledImport.toLowerCase(Locale.ENGLISH);
+            moduleMethod = findMethodInStaticModule(lowerImport, methodName);
             if (moduleMethod != null) {
                 return moduleMethod;
             }

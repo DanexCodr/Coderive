@@ -4,6 +4,7 @@ import cod.ast.node.*;
 import cod.debug.DebugSystem;
 import cod.error.InternalError;
 import cod.error.ProgramError;
+import cod.interpreter.context.ObjectInstance;
 import cod.math.AutoStackingNumber;
 import cod.range.NaturalArray;
 import static cod.lexer.TokenType.Keyword.*;
@@ -12,7 +13,9 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.AbstractList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.RandomAccess;
 
@@ -124,9 +127,12 @@ public class TypeHandler {
     private static final AutoStackingNumber ZERO = AutoStackingNumber.valueOf("0");
     private static final AutoStackingNumber ONE = AutoStackingNumber.valueOf("1");
     private static final int LAZY_ARRAY_MEMO_MAX_SIZE = 8192;
+    private static final int TYPE_CACHE_LIMIT = 4096;
     private static final String[] UNSAFE_NUMERIC_TYPES = {
         "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64"
     };
+    private final Map<String, String> normalizedTypeCache = new HashMap<String, String>();
+    private final Map<String, List<String>> splitCache = new HashMap<String, List<String>>();
 
     public boolean isPointerType(String type) {
         DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.isPointerType");
@@ -330,15 +336,35 @@ public class TypeHandler {
         DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.normalizeTypeSignature");
         try {
             if (typeSig == null) return null;
+            String cached = normalizedTypeCache.get(typeSig);
+            if (cached != null) {
+                return cached;
+            }
             String trimmed = typeSig.trim();
             if (isSizedArrayType(trimmed)) {
                 String inner = normalizeTypeSignature(getSizedArrayElementType(trimmed));
-                return "[" + inner + "]";
+                String normalized = "[" + inner + "]";
+                cacheNormalizedType(typeSig, normalized);
+                if (!typeSig.equals(trimmed)) {
+                    cacheNormalizedType(trimmed, normalized);
+                }
+                return normalized;
+            }
+            cacheNormalizedType(typeSig, trimmed);
+            if (!typeSig.equals(trimmed)) {
+                cacheNormalizedType(trimmed, trimmed);
             }
             return trimmed;
         } finally {
             DebugSystem.stopTimer("type.normalizeTypeSignature");
         }
+    }
+
+    private void cacheNormalizedType(String key, String value) {
+        if (normalizedTypeCache.size() >= TYPE_CACHE_LIMIT) {
+            normalizedTypeCache.clear();
+        }
+        normalizedTypeCache.put(key, value);
     }
     
     // === TypeHandler Validation with Special Cases ===
@@ -524,7 +550,11 @@ public class TypeHandler {
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
         AutoStackingNumber numB = toAutoStackingNumber(b);
-        return numA.add(numB);
+        try {
+            return numA.add(numB);
+        } catch (ArithmeticException overflow) {
+            return AutoStackingNumber.fromDouble(numA.doubleValue() + numB.doubleValue());
+        }
     }
     
     public Object subtractNumbers(Object a, Object b) {
@@ -556,7 +586,11 @@ public class TypeHandler {
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
         AutoStackingNumber numB = toAutoStackingNumber(b);
-        return numA.subtract(numB);
+        try {
+            return numA.subtract(numB);
+        } catch (ArithmeticException overflow) {
+            return AutoStackingNumber.fromDouble(numA.doubleValue() - numB.doubleValue());
+        }
     }
     
     public Object multiplyNumbers(Object a, Object b) {
@@ -605,7 +639,11 @@ public class TypeHandler {
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
         AutoStackingNumber numB = toAutoStackingNumber(b);
-        return numA.multiply(numB);
+        try {
+            return numA.multiply(numB);
+        } catch (ArithmeticException overflow) {
+            return AutoStackingNumber.fromDouble(numA.doubleValue() * numB.doubleValue());
+        }
     }
     
     private boolean isLongMultiplicationOverflow(long a, long b) {
@@ -1360,6 +1398,13 @@ public class TypeHandler {
             if (value instanceof String) return TEXT.toString();
             if (value instanceof Float || value instanceof Double) return FLOAT.toString();
             if (value instanceof Boolean) return BOOL.toString();
+            if (value instanceof ObjectInstance) {
+                ObjectInstance instance = (ObjectInstance) value;
+                if (instance.type != null && instance.type.name != null) {
+                    return instance.type.name;
+                }
+                return "object";
+            }
             if (value instanceof List) return "list"; 
             
             throw new InternalError("Unknown type for value: " + value + " (" + 
@@ -1375,24 +1420,29 @@ public class TypeHandler {
             if (typeSig == null) {
                 return true;
             }
-            String typeSigTrimmed = normalizeTypeSignature(typeSig);
-            if (value != null && isFastPrimitiveSignature(typeSigTrimmed)) {
-                String concreteType = getConcreteType(value);
-                if (typeSigTrimmed.equals(concreteType)) {
+            String normalizedTypeSig = normalizeTypeSignature(typeSig);
+
+            Object rawValue = value;
+            String concreteType;
+            if (value instanceof Value) {
+                Value tv = (Value) value;
+                rawValue = tv.value;
+                concreteType = normalizeTypeSignature(tv.activeType);
+            } else {
+                concreteType = getConcreteType(rawValue);
+            }
+
+            if (rawValue != null && isFastPrimitiveSignature(normalizedTypeSig)) {
+                if (normalizedTypeSig.equals(concreteType)) {
                     return true;
                 }
             }
-            if (typeSigTrimmed.contains("|")) {
-                if (!isTypeStructurallyValid(typeSigTrimmed)) {
+            if (normalizedTypeSig.indexOf('|') >= 0) {
+                if (!isTypeStructurallyValid(normalizedTypeSig)) {
                     throw new ProgramError("Union type contains illegal keywords: " + typeSig);
                 }
             }
-            if (value instanceof Value) {
-                Value tv = (Value) value;
-                return validateTypeInternal(typeSig, tv.value, tv.activeType);
-            }
-            String concreteType = getConcreteType(value);
-            return validateTypeInternal(typeSig, value, concreteType);
+            return validateTypeInternal(normalizedTypeSig, rawValue, concreteType);
         } finally {
             DebugSystem.stopTimer("type.validate");
         }
@@ -1452,7 +1502,7 @@ public class TypeHandler {
 
     private boolean validateTypeInternal(String typeSig, Object rawValue, String concreteType) {
         if (typeSig == null) return true;
-        String type = normalizeTypeSignature(typeSig);
+        String type = typeSig;
 
         if (type.equals(ANY.toString())) return true;
         
@@ -1675,6 +1725,11 @@ public class TypeHandler {
     }
 
     private List<String> splitTopLevel(String input, char delimiter) {
+        String cacheKey = delimiter + "\u0000" + input;
+        List<String> cached = splitCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
         List<String> parts = new ArrayList<String>();
         int parenDepth = 0;
         int bracketDepth = 0;
@@ -1693,6 +1748,10 @@ public class TypeHandler {
             }
         }
         parts.add(current.toString().trim());
+        if (splitCache.size() >= TYPE_CACHE_LIMIT) {
+            splitCache.clear();
+        }
+        splitCache.put(cacheKey, parts);
         return parts;
     }
 }
