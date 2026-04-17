@@ -36,6 +36,7 @@ public class CommandRunner extends BaseRunner {
         }
         
         String outputFilename = null;
+        boolean forceInterpreter = false;
 
         RunnerConfig config =
             processArgs(
@@ -52,7 +53,7 @@ public class CommandRunner extends BaseRunner {
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
             if ("--interpret".equals(arg) || "-i".equals(arg)) {
-                // Default mode, do nothing
+                forceInterpreter = true;
             } else if ("-o".equals(arg)) {
                 if (i + 1 < args.length) {
                     outputFilename = args[i + 1];
@@ -102,7 +103,7 @@ public class CommandRunner extends BaseRunner {
             // Initialize IR manager
             initializeIRManager();
 
-            executeInterpretation(ast);
+            executeInterpretation(ast, forceInterpreter);
 
             DebugSystem.info(NAME + LOG_TAG, "CommandRunner execution completed");
         } finally {
@@ -256,7 +257,7 @@ public class CommandRunner extends BaseRunner {
         }
     }
 
-    private void executeInterpretation(Program ast) {
+    private void executeInterpretation(Program ast, boolean forceInterpreter) {
         DebugSystem.info(NAME + LOG_TAG, "Starting program interpretation");
 
         boolean hasImports =
@@ -278,7 +279,11 @@ public class CommandRunner extends BaseRunner {
             DebugSystem.debug(NAME + LOG_TAG, "Skipping index/IR generation (no imports)");
         }
         
-        if (ptacOptions.isCompileExecuteEnabled() && irManager != null && ast != null && ast.unit != null) {
+        if (!forceInterpreter
+            && ptacOptions.isCompileExecuteEnabled()
+            && irManager != null
+            && ast != null
+            && ast.unit != null) {
             Type entryType = findMainType(ast);
             if (entryType != null) {
                 Artifact artifact = irManager.loadArtifact(ast.unit.name, entryType.name);
@@ -335,7 +340,7 @@ public class CommandRunner extends BaseRunner {
         out("       CommandRunner compile <filename> [-f|--full]");
         out();
         out("Options:");
-        out("  -i, --interpret     Interpret the program (default)");
+        out("  -i, --interpret     Force AST interpreter execution");
         out("  -o <file>           Write output to file");
         out("  --debug             Enable debug output");
         out("  --trace             Enable trace-level debugging");
@@ -346,7 +351,7 @@ public class CommandRunner extends BaseRunner {
         out("  compile <file>      Compile source to bytecode container (.codc with .codb entries)");
         out("    -f, --full        Full compile all .cod files under src/main");
         out("Environment flags:");
-        out("  COD_PTAC_MODE=interpreter|compile-only|compile-execute");
+        out("  COD_PTAC_MODE=interpreter|compile-only|compile-execute (default: compile-execute)");
         out("  COD_PTAC_FALLBACK=true|false");
         out();
         out("Examples:");
