@@ -1,6 +1,7 @@
 package cod.interpreter.handler;
 
 import cod.ast.node.*;
+import cod.debug.DebugSystem;
 import cod.error.InternalError;
 import cod.error.ProgramError;
 import cod.math.AutoStackingNumber;
@@ -16,6 +17,7 @@ import java.util.Objects;
 import java.util.RandomAccess;
 
 public class TypeHandler {
+    private static final String PERF_PREFIX = "TypeHandler.";
     
     // === TypeHandler Value Class ===
     public static class Value {
@@ -400,6 +402,8 @@ public class TypeHandler {
     // === Arithmetic Operations ===
     
     public Object addNumbers(Object a, Object b) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         a = unwrap(a); 
         b = unwrap(b);
         
@@ -407,6 +411,9 @@ public class TypeHandler {
             return applyArrayOperation(a, b, "+");
         }
         return addScalars(a, b);
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "addNumbers", perfStart);
+        }
     }
     
     private Object addScalars(Object a, Object b) {
@@ -433,6 +440,8 @@ public class TypeHandler {
     }
     
     public Object subtractNumbers(Object a, Object b) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         a = unwrap(a); 
         b = unwrap(b);
         
@@ -440,6 +449,9 @@ public class TypeHandler {
             return applyArrayOperation(a, b, "-");
         }
         return subtractScalars(a, b);
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "subtractNumbers", perfStart);
+        }
     }
     
     private Object subtractScalars(Object a, Object b) {
@@ -460,6 +472,8 @@ public class TypeHandler {
     }
     
     public Object multiplyNumbers(Object a, Object b) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         a = unwrap(a); 
         b = unwrap(b);
         
@@ -467,6 +481,9 @@ public class TypeHandler {
             return applyArrayOperation(a, b, "*");
         }
         return multiplyScalars(a, b);
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "multiplyNumbers", perfStart);
+        }
     }
     
     private Object multiplyScalars(Object a, Object b) {
@@ -857,6 +874,8 @@ public class TypeHandler {
     }
     
     public Object divideNumbers(Object a, Object b) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         a = unwrap(a); 
         b = unwrap(b);
         
@@ -864,6 +883,9 @@ public class TypeHandler {
             return applyArrayOperation(a, b, "/");
         }
         return divideScalars(a, b);
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "divideNumbers", perfStart);
+        }
     }
     
     private Object divideScalars(Object a, Object b) {
@@ -891,6 +913,8 @@ public class TypeHandler {
     }
     
     public Object modulusNumbers(Object a, Object b) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         a = unwrap(a); 
         b = unwrap(b);
         
@@ -898,6 +922,9 @@ public class TypeHandler {
             throw new ProgramError("Cannot use modulus '%' on arrays");
         }
         return modulusScalars(a, b);
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "modulusNumbers", perfStart);
+        }
     }
     
     private Object modulusScalars(Object a, Object b) {
@@ -933,6 +960,8 @@ public class TypeHandler {
     }
     
     public int compare(Object a, Object b) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         a = unwrap(a); 
         b = unwrap(b);
         
@@ -961,9 +990,14 @@ public class TypeHandler {
         AutoStackingNumber numA = toAutoStackingNumber(a);
         AutoStackingNumber numB = toAutoStackingNumber(b);
         return numA.compareTo(numB);
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "compare", perfStart);
+        }
     }
 
     public Object convertType(Object value, String targetType) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         value = unwrap(value);
         
         if (value instanceof NaturalArray) {
@@ -1127,6 +1161,9 @@ public class TypeHandler {
             " (type=" + (value != null ? value.getClass().getName() : "null") + 
             "), targetType=" + targetType
         );
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "convertType", perfStart);
+        }
     }
 
     private Object convertUnsafeNumeric(Object value, String targetType) {
@@ -1238,6 +1275,8 @@ public class TypeHandler {
 }
 
     public boolean validateType(String typeSig, Object value) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         if (typeSig == null) {
             return true;
         }
@@ -1259,6 +1298,9 @@ public class TypeHandler {
         }
         String concreteType = getConcreteType(value);
         return validateTypeInternal(typeSig, value, concreteType);
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "validateType", perfStart);
+        }
     }
 
     private boolean isFastPrimitiveSignature(String typeSig) {

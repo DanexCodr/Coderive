@@ -1,6 +1,7 @@
 package cod.range;
 
 import cod.ast.node.*;
+import cod.debug.DebugSystem;
 import cod.error.InternalError;
 import cod.error.ProgramError;
 import cod.interpreter.Evaluator;
@@ -14,6 +15,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class NaturalArray {
+    private static final String PERF_PREFIX = "NaturalArray.";
 
     private final Range baseRange;
     private final Evaluator evaluator;
@@ -769,13 +771,20 @@ public class NaturalArray {
     // ========== CORE ARRAY OPERATIONS ==========
 
     public long size() {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         if (cachedSize == null) {
             cachedSize = calculateSizeInternal();
         }
         return cachedSize;
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "size", perfStart);
+        }
     }
 
     public Object get(long index) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         if (index < 0) {
             long size = size();
             index = size + index;
@@ -870,6 +879,9 @@ public class NaturalArray {
         lastValue = result;
         updateRecentCache(index, result);
         return maybeConvert(result);
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "get", perfStart);
+        }
     }
 
     // Get with explicit conversion control
@@ -1012,6 +1024,8 @@ public class NaturalArray {
     }
 
     public void setRange(Object range, Object value) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         if (range == null) {
             throw new InternalError("setRange called with null range");
         }
@@ -1070,9 +1084,14 @@ public class NaturalArray {
         } catch (Exception e) {
             throw new InternalError("Lazy range assignment failed", e);
         }
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "setRange", perfStart);
+        }
     }
 
     public void setMultiRange(Object multiRange, Object value) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         if (multiRange == null) {
             throw new InternalError("setMultiRange called with null multiRange");
         }
@@ -1126,6 +1145,9 @@ public class NaturalArray {
             throw e;
         } catch (Exception e) {
             throw new InternalError("Lazy multi-range assignment failed", e);
+        }
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "setMultiRange", perfStart);
         }
     }
     
@@ -1205,6 +1227,8 @@ public class NaturalArray {
     }
 
     private PendingRangeUpdate resolvePendingUpdateForIndex(long index) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         if (pendingUpdatesByStart == null) {
             for (int i = pendingUpdates.size() - 1; i >= 0; i--) {
                 PendingRangeUpdate update = pendingUpdates.get(i);
@@ -1244,9 +1268,14 @@ public class NaturalArray {
             }
         }
         return winner;
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "resolvePendingUpdateForIndex", perfStart);
+        }
     }
     
     public void commitUpdates() {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         if (!hasPendingUpdates || pendingUpdates.isEmpty()) {
             return;
         }
@@ -1291,6 +1320,9 @@ public class NaturalArray {
         pendingUpdateOrderPrefixByStart = null;
         pendingUpdateOrderPrefixDirty = false;
         hasPendingUpdates = false;
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "commitUpdates", perfStart);
+        }
     }
 
     private boolean canMerge(PendingRangeUpdate a, PendingRangeUpdate b) {
@@ -1770,6 +1802,8 @@ public class NaturalArray {
     // ========== UTILITY METHODS ==========
 
     public List<Object> toList() {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         commitUpdates();
         
         List<Object> result = new ArrayList<Object>();
@@ -1778,6 +1812,9 @@ public class NaturalArray {
             result.add(get(i));
         }
         return result;
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "toList", perfStart);
+        }
     }
 
     public boolean isMutable() {

@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 public class ImportResolver {
+    private static final String PERF_PREFIX = "ImportResolver.";
     // The new layout uses src/main/cod/demo/src/main with internal as a sibling of demo.
     private static final String DEMO_DIR_NAME = "demo";
     private static final Pattern SAFE_UNIT_NAME_PATTERN =
@@ -331,6 +332,8 @@ public class ImportResolver {
      * Get or create index for a unit (cached)
      */
     private Index getIndex(String unitName) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         if (unitName == null || unitName.isEmpty()) {
             return null;
         }
@@ -380,6 +383,9 @@ public class ImportResolver {
             // Convert to ProgramError for user-friendly message
             throw new ProgramError(e.getMessage());
         }
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "getIndex", perfStart);
+        }
     }
     
     /**
@@ -425,6 +431,8 @@ public class ImportResolver {
     }
     
     private Program loadImportFromFileCached(String filePath) throws Exception {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         if (filePath == null || filePath.isEmpty()) {
             throw new InternalError("loadImportFromFileCached called with null/empty path");
         }
@@ -459,6 +467,9 @@ public class ImportResolver {
         }
         
         return null;
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "loadImportFromFileCached", perfStart);
+        }
     }
     
     public void registerBroadcast(String packageName, String mainClassName) {
@@ -706,6 +717,8 @@ public class ImportResolver {
      * Resolve import and return Type directly
      */
     public Type resolveImport(String importName) throws Exception {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         if (importName == null || importName.isEmpty()) {
             throw new InternalError("resolveImport called with null/empty importName");
         }
@@ -791,6 +804,9 @@ public class ImportResolver {
         // Fallback to directory scanning (slow path)
         DebugSystem.debug("IMPORTS", "No index found, scanning directory for unit: " + unitName);
         return resolveImportByScan(importName, unitName, className);
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "resolveImport", perfStart);
+        }
     }
     
     /**
@@ -835,6 +851,8 @@ public class ImportResolver {
      * Fallback: resolve import by scanning directory (slow path)
      */
     private Type resolveImportByScan(String importName, String unitName, String className) throws Exception {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         validateUnitName(unitName);
         String dirPath = unitName.replace('.', '/');
         DebugSystem.debug("IMPORTS", "Scanning for: " + dirPath);
@@ -943,6 +961,9 @@ public class ImportResolver {
         errorMsg.append("Import paths: ").append(importPaths);
         
         throw new ProgramError(errorMsg.toString());
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "resolveImportByScan", perfStart);
+        }
     }
     
     private void registerPoliciesAndBroadcast(Program program, String importName) {
@@ -971,6 +992,8 @@ public class ImportResolver {
     }
     
     private Program loadImportFromFile(String filePath) throws Exception {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         if (filePath == null || filePath.isEmpty()) {
             throw new InternalError("loadImportFromFile called with null/empty path");
         }
@@ -1016,9 +1039,14 @@ public class ImportResolver {
         } catch (Exception e) {
             throw new InternalError("Failed to parse import file: " + filePath, e);
         }
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "loadImportFromFile", perfStart);
+        }
     }
 
     public Type findType(String qualifiedTypeName) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         if (qualifiedTypeName == null || qualifiedTypeName.isEmpty()) {
             throw new InternalError("findType called with null/empty name");
         }
@@ -1069,6 +1097,9 @@ public class ImportResolver {
         }
         
         return loadedTypes.get(actualImportName);
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "findType", perfStart);
+        }
     }
 
     private Type findTypeByName(String typeName) {
@@ -1179,6 +1210,8 @@ public class ImportResolver {
     }
 
     public Method findMethod(String qualifiedMethodName) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         if (qualifiedMethodName == null || qualifiedMethodName.isEmpty()) {
             throw new InternalError("findMethod called with null/empty name");
         }
@@ -1230,6 +1263,9 @@ public class ImportResolver {
             "Available methods in import '" + actualImportName + "': " + 
             getMethodNames(type)
         );
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "findMethod", perfStart);
+        }
     }
     
     private String getMethodNames(Type type) {
@@ -1540,6 +1576,8 @@ public class ImportResolver {
     }
 
     private Program loadStaticModuleProgram(String unitName) {
+        long perfStart = DebugSystem.isLevelEnabled(DebugSystem.Level.DEBUG) ? System.nanoTime() : 0L;
+        try {
         validateUnitName(unitName);
         String dirPath = unitName.replace('.', '/');
         String moduleMainFileName = toModuleMainFileName(unitName);
@@ -1581,6 +1619,9 @@ public class ImportResolver {
         }
         
         return null;
+        } finally {
+            DebugSystem.stopScopedTimer(PERF_PREFIX + "loadStaticModuleProgram", perfStart);
+        }
     }
 
     private ParsedMethodImport parseMethodImport(String spec) {

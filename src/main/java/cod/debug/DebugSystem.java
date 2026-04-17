@@ -56,6 +56,10 @@ public class DebugSystem {
         showThread = show;
     }
 
+    public static boolean isLevelEnabled(Level level) {
+        return shouldLog(level);
+    }
+
     public static void error(String category, String message) {
         log(Level.ERROR, category, message);
     }
@@ -126,6 +130,17 @@ public class DebugSystem {
             return durationNs / 1_000_000.0; // Return milliseconds as double with fraction
         }
         return -1.0;
+    }
+
+    public static void stopScopedTimer(String name, long startNs) {
+        if (startNs <= 0L) {
+            return;
+        }
+        if (shouldLog(Level.DEBUG)) {
+            long durationNs = System.nanoTime() - startNs;
+            double durationMs = durationNs / 1_000_000.0;
+            debug("PERF", String.format("%s took %.3f ms", name, durationMs));
+        }
     }
 
     public static void astBuilding(String nodeType, String details) {
