@@ -344,7 +344,7 @@ public class TypeHandler {
     // === TypeHandler Validation with Special Cases ===
     
     public boolean validateTypeWithNullable(String declaredType, Object value) {
-        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.validateWithNullable");
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.validateWithNullable");
         try {
             if (isNoneValue(value) && declaredType.contains("|none")) {
                 return true;
@@ -491,7 +491,7 @@ public class TypeHandler {
     // === Arithmetic Operations ===
     
     public Object addNumbers(Object a, Object b) {
-        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.addNumbers");
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.addNumbers");
         try {
             a = unwrap(a); 
             b = unwrap(b);
@@ -528,7 +528,7 @@ public class TypeHandler {
     }
     
     public Object subtractNumbers(Object a, Object b) {
-        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.subtractNumbers");
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.subtractNumbers");
         try {
             a = unwrap(a); 
             b = unwrap(b);
@@ -560,7 +560,7 @@ public class TypeHandler {
     }
     
     public Object multiplyNumbers(Object a, Object b) {
-        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.multiplyNumbers");
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.multiplyNumbers");
         try {
             a = unwrap(a); 
             b = unwrap(b);
@@ -961,7 +961,7 @@ public class TypeHandler {
     }
     
     public Object divideNumbers(Object a, Object b) {
-        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.divideNumbers");
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.divideNumbers");
         try {
             a = unwrap(a); 
             b = unwrap(b);
@@ -1000,7 +1000,7 @@ public class TypeHandler {
     }
     
     public Object modulusNumbers(Object a, Object b) {
-        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.modulusNumbers");
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.modulusNumbers");
         try {
             a = unwrap(a); 
             b = unwrap(b);
@@ -1052,7 +1052,7 @@ public class TypeHandler {
     }
     
     public int compare(Object a, Object b) {
-        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.compare");
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.compare");
         try {
             a = unwrap(a); 
             b = unwrap(b);
@@ -1317,7 +1317,7 @@ public class TypeHandler {
     }
         
     public String getConcreteType(Object value) {
-        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.getConcreteType");
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.getConcreteType");
         try {
             if (value instanceof Value) {
                 Value tv = (Value) value;
@@ -1370,7 +1370,7 @@ public class TypeHandler {
     }
 
     public boolean validateType(String typeSig, Object value) {
-        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.validate");
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.validate");
         try {
             if (typeSig == null) {
                 return true;
@@ -1409,7 +1409,7 @@ public class TypeHandler {
     }
     
     public boolean areEqual(Object a, Object b) {
-        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.areEqual");
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.areEqual");
         try {
             a = unwrap(a);
             b = unwrap(b);
