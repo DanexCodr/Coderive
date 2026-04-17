@@ -120,9 +120,6 @@ public class IdentifierLexer {
         
         // Not a keyword - return identifier
         String identifierText = new String(source, startPos, length);
-        if ("continue".equals(identifierText)) {
-            return Token.createKeyword(source, startPos, length, startLine, startCol, Keyword.SKIP);
-        }
         extractedIdentifiers.add(identifierText);
         return Token.createIdentifier(source, startPos, length, startLine, startCol);
     }
