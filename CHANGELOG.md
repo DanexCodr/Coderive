@@ -2,6 +2,30 @@
 
 All notable changes to Coderive are documented in this file.
 
+## [v0.9.2] - Why Slow? - April 17, 2026
+
+### 🔬 Lexer/Parser Throughput Baseline (New)
+- Added a dedicated cross-language lexer/parser throughput suite under `benchmarks/lexer_parser/`.
+- New runner: `bash benchmarks/lexer_parser/run_lexer_parser_benchmark.sh <runs> <iterations>`.
+- Current baseline (run: `5` medians, `1000` iterations):
+
+| Language | Median ms | Throughput MB/s |
+|----------|-----------|-----------------|
+| Coderive | 632       | 2.22            |
+| Java     | 111       | 12.61           |
+| Go       | 17        | 82.35           |
+| Kotlin   | 162       | 8.64            |
+| Python   | 270       | 5.19            |
+| Lua      | 228       | 6.14            |
+
+### 🧭 What This Suggests To Improve Next
+- **Parser construction/validation overhead is dominant** in Coderive relative to pure scanner+light-parser baselines.
+- **Tokenizer object churn remains significant** (token allocation and parser handoff pressure).
+- **Near-term focus**:
+  1. add a lexer-only throughput mode in Coderive benchmarks to isolate lexing cost from parse cost,
+  2. reduce parser backtracking/rewind-heavy paths in `MainParser` declaration probing,
+  3. introduce low-allocation token-stream views for parser hot paths.
+
 ## [v0.9.0] - Platform Snapshot - April 13, 2026
 
 ### 🔀 Merge Coverage for This Snapshot

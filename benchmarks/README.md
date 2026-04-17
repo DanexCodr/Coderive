@@ -45,3 +45,9 @@ The runner:
 - verifies checksum consistency
 - prints median time in milliseconds
 - skips languages missing toolchains
+
+## Lexer/Parser throughput benchmark
+
+See:
+
+`benchmarks/lexer_parser/README.md`
