@@ -295,6 +295,7 @@ public class ImportResolver {
     private static Map<String, String> createStandardUnitPathOverrides() {
         Map<String, String> overrides = new HashMap<String, String>();
         overrides.put("math", "std/math");
+        overrides.put("json", "std/json");
         overrides.put("scimath", "std/scimath");
         overrides.put("scimath.distribution", "std/scimath/distribution");
         return Collections.unmodifiableMap(overrides);
@@ -780,8 +781,17 @@ public class ImportResolver {
                     DebugSystem.debug("IR", "Loaded " + className + " CodP-TAC artifact from .codc/.codb (cache hit)");
                     loadedArtifacts.put(importName, artifact);
                     if (artifact.typeSnapshot != null) {
-                        loadedTypes.put(importName, artifact.typeSnapshot);
-                        return artifact.typeSnapshot;
+                        Type snapshot = artifact.typeSnapshot;
+                        boolean snapshotHasMembers =
+                            (snapshot.methods != null && !snapshot.methods.isEmpty())
+                                || (snapshot.fields != null && !snapshot.fields.isEmpty())
+                                || (snapshot.constructors != null && !snapshot.constructors.isEmpty());
+                        if (snapshotHasMembers) {
+                            loadedTypes.put(importName, snapshot);
+                            return snapshot;
+                        }
+                        DebugSystem.debug("IR",
+                            "Artifact snapshot for " + className + " has no members; falling back to source/index resolution");
                     }
                 } else {
                     bytecodeCacheMisses++;

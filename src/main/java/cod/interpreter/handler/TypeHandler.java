@@ -550,11 +550,7 @@ public class TypeHandler {
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
         AutoStackingNumber numB = toAutoStackingNumber(b);
-        try {
-            return numA.add(numB);
-        } catch (ArithmeticException overflow) {
-            return AutoStackingNumber.fromDouble(numA.doubleValue() + numB.doubleValue());
-        }
+        return numA.add(numB);
     }
     
     public Object subtractNumbers(Object a, Object b) {
@@ -586,11 +582,7 @@ public class TypeHandler {
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
         AutoStackingNumber numB = toAutoStackingNumber(b);
-        try {
-            return numA.subtract(numB);
-        } catch (ArithmeticException overflow) {
-            return AutoStackingNumber.fromDouble(numA.doubleValue() - numB.doubleValue());
-        }
+        return numA.subtract(numB);
     }
     
     public Object multiplyNumbers(Object a, Object b) {
@@ -639,11 +631,7 @@ public class TypeHandler {
         
         AutoStackingNumber numA = toAutoStackingNumber(a);
         AutoStackingNumber numB = toAutoStackingNumber(b);
-        try {
-            return numA.multiply(numB);
-        } catch (ArithmeticException overflow) {
-            return AutoStackingNumber.fromDouble(numA.doubleValue() * numB.doubleValue());
-        }
+        return numA.multiply(numB);
     }
     
     private boolean isLongMultiplicationOverflow(long a, long b) {
@@ -1537,7 +1525,23 @@ public class TypeHandler {
             PointerValue pointer = (PointerValue) unwrapped;
             String pointedType = normalizeTypeSignature(pointer.pointedType);
             String expectedPointedType = normalizeTypeSignature(type.substring(1));
-            return expectedPointedType.equals(pointedType);
+            if (expectedPointedType.equals(pointedType)) {
+                return true;
+            }
+            if (isUnsafeNumericType(expectedPointedType)) {
+                if (isUnsafeNumericType(pointedType)) {
+                    return true;
+                }
+                if ("int".equals(pointedType)
+                    && (expectedPointedType.startsWith("i") || expectedPointedType.startsWith("u"))) {
+                    return true;
+                }
+                if ("float".equals(pointedType)
+                    && expectedPointedType.startsWith("f")) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         if (type.startsWith("[") && type.endsWith("]")) {

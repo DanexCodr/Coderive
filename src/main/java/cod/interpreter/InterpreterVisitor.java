@@ -1563,6 +1563,21 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         String callName = node.name;
         String callQualifiedName = node.qualifiedName;
 
+        if (node.target != null) {
+            Object targetValue = dispatch(node.target);
+            Object unwrappedTarget = typeSystem.unwrap(targetValue);
+            if (unwrappedTarget instanceof ObjectInstance) {
+                ObjectInstance targetInstance = (ObjectInstance) unwrappedTarget;
+                if (targetInstance.type != null) {
+                    method = interpreter.getConstructorResolver()
+                        .findMethodInHierarchy(targetInstance.type, callName, ctx);
+                    if (method != null) {
+                        return method;
+                    }
+                }
+            }
+        }
+
         if (ctx.currentClass != null) {
             method = interpreter.getConstructorResolver().findMethodInHierarchy(ctx.currentClass, callName, ctx);
         }
@@ -1580,8 +1595,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                     String methodName = parts[1];
                     if (ctx.locals().containsKey(receiver)) {
                         Object receiverObj = ctx.locals().get(receiver);
-                        if (receiverObj instanceof ObjectInstance) {
-                            ObjectInstance objInst = (ObjectInstance) receiverObj;
+                        ObjectInstance objInst = extractObjectInstance(receiverObj);
+                        if (objInst != null) {
                             if (objInst.type != null) {
                                 Method instanceMethod = interpreter
                                     .getConstructorResolver()
@@ -1605,6 +1620,24 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
 
         return method;
+    }
+
+    private ObjectInstance extractObjectInstance(Object value) {
+        Object unwrapped = typeSystem.unwrap(value);
+        if (unwrapped instanceof ObjectInstance) {
+            return (ObjectInstance) unwrapped;
+        }
+        if (unwrapped instanceof Map<?, ?>) {
+            Map<?, ?> map = (Map<?, ?>) unwrapped;
+            if (map.size() == 1) {
+                Object only = map.values().iterator().next();
+                Object nested = typeSystem.unwrap(only);
+                if (nested instanceof ObjectInstance) {
+                    return (ObjectInstance) nested;
+                }
+            }
+        }
+        return null;
     }
 
     private Method findMethodOnReceiverType(String receiverTypeName, String methodName) {
@@ -1727,7 +1760,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         if (ctx.objectInstance != null && ctx.objectInstance.type != null) {
             Object fieldValue = interpreter.getConstructorResolver()
                 .getFieldFromHierarchy(ctx.objectInstance.type, name, ctx);
-            if (fieldValue != null) {
+            if (fieldValue != null
+                || interpreter.getConstructorResolver().hasFieldInHierarchy(ctx.objectInstance.type, name, ctx)) {
                 return fieldValue;
             }
         }
@@ -1738,6 +1772,26 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 return dispatch(importedField.value);
             }
             return null;
+        }
+
+        Program currentProgram = interpreter.getCurrentProgram();
+        if (currentProgram != null && currentProgram.unit != null && currentProgram.unit.types != null) {
+            for (Type type : currentProgram.unit.types) {
+                if (type == null || type.fields == null) {
+                    continue;
+                }
+                if (!"__StaticModule__".equals(type.name)) {
+                    continue;
+                }
+                for (Field field : type.fields) {
+                    if (field != null && name.equals(field.name)) {
+                        if (field.value != null) {
+                            return dispatch(field.value);
+                        }
+                        return null;
+                    }
+                }
+            }
         }
         
         throw new ProgramError("Undefined variable: " + name);
@@ -2126,7 +2180,23 @@ public Object visit(MethodCall node) {
         // Try to find method in current class hierarchy
         Method method = null;
         ObjectInstance invocationInstance = ctx.objectInstance;
-        if (ctx.currentClass != null) {
+        if (node.target != null) {
+            Object targetValue = dispatch(node.target);
+            Object unwrappedTarget = typeSystem.unwrap(targetValue);
+            if (unwrappedTarget instanceof ObjectInstance) {
+                ObjectInstance targetInstance = (ObjectInstance) unwrappedTarget;
+                if (targetInstance.type != null) {
+                    Method targetMethod = interpreter
+                        .getConstructorResolver()
+                        .findMethodInHierarchy(targetInstance.type, callName, ctx);
+                    if (targetMethod != null) {
+                        method = targetMethod;
+                        invocationInstance = targetInstance;
+                    }
+                }
+            }
+        }
+        if (method == null && ctx.currentClass != null) {
             method = interpreter
                 .getConstructorResolver()
                 .findMethodInHierarchy(ctx.currentClass, callName, ctx);
@@ -2149,8 +2219,8 @@ public Object visit(MethodCall node) {
                     String methodName = parts[1];
                     if (ctx.locals().containsKey(receiver)) {
                         Object receiverObj = ctx.locals().get(receiver);
-                        if (receiverObj instanceof ObjectInstance) {
-                            ObjectInstance objInst = (ObjectInstance) receiverObj;
+                        ObjectInstance objInst = extractObjectInstance(receiverObj);
+                        if (objInst != null) {
                             if (objInst.type != null) {
                                 Method instanceMethod = interpreter
                                     .getConstructorResolver()
