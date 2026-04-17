@@ -1207,7 +1207,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     @Override
-    public Object visit(Exit node) {
+    public Object visit(VoidReturn node) {
         throw new EarlyExitException();
     }
 

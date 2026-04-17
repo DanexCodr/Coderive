@@ -514,7 +514,7 @@ public class StatementParser extends BaseParser {
 
   private Stmt parseFinStmt() {
     Token finToken = expect(FIN);
-    Exit fin = ASTFactory.createExit(finToken);
+    VoidReturn fin = ASTFactory.createVoidReturn(finToken);
     return fin;
   }
 
