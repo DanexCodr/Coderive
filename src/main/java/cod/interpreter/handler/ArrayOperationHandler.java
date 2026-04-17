@@ -6,6 +6,7 @@ import cod.error.ProgramError;
 import cod.interpreter.Interpreter;
 import cod.interpreter.InterpreterVisitor;
 import cod.interpreter.exception.BreakLoopException;
+import cod.interpreter.exception.EarlyExitException;
 import cod.interpreter.exception.SkipIterationException;
 import cod.math.AutoStackingNumber;
 import cod.range.NaturalArray;
@@ -111,6 +112,8 @@ public class ArrayOperationHandler {
             return null;
         } catch (ProgramError e) {
             throw e;
+        } catch (EarlyExitException e) {
+            throw e;
         } catch (Exception e) {
             throw new InternalError("Array loop execution failed", e);
         }
@@ -163,6 +166,8 @@ public class ArrayOperationHandler {
 
             return executeAdditiveLoop(ctx, node, startObj, endObj, step, loopBinding);
         } catch (ProgramError e) {
+            throw e;
+        } catch (EarlyExitException e) {
             throw e;
         } catch (Exception e) {
             throw new InternalError("Range loop execution failed", e);
@@ -252,6 +257,8 @@ public class ArrayOperationHandler {
             throw e;
         } catch (ProgramError e) {
             throw e;
+        } catch (EarlyExitException e) {
+            throw e;
         } catch (Exception e) {
             throw new InternalError("Loop iteration failed", e);
         }
@@ -275,6 +282,8 @@ public class ArrayOperationHandler {
         } catch (BreakLoopException e) {
             throw e;
         } catch (ProgramError e) {
+            throw e;
+        } catch (EarlyExitException e) {
             throw e;
         } catch (Exception e) {
             throw new InternalError("Primitive loop iteration failed", e);
@@ -326,6 +335,8 @@ public class ArrayOperationHandler {
             return null;
         } catch (ProgramError e) {
             throw e;
+        } catch (EarlyExitException e) {
+            throw e;
         } catch (Exception e) {
             throw new InternalError("Primitive additive loop execution failed", e);
         }
@@ -340,6 +351,8 @@ public class ArrayOperationHandler {
                     break;
                 } catch (BreakLoopException e) {
                     throw e;
+                } catch (EarlyExitException e) {
+                    throw e;
                 }
 
                 if (!ctx.slotsInCurrentPath.isEmpty()
@@ -348,6 +361,8 @@ public class ArrayOperationHandler {
         } catch (BreakLoopException e) {
             throw e;
         } catch (ProgramError e) {
+            throw e;
+        } catch (EarlyExitException e) {
             throw e;
         } catch (Exception e) {
             throw new InternalError("Loop body execution failed", e);

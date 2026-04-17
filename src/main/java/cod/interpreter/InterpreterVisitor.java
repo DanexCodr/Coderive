@@ -567,6 +567,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             throw e;
         } catch (TailCallSignal e) {
             throw e;
+        } catch (EarlyExitException e) {
+            throw e;
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -1747,7 +1749,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         
         ExecutionContext ctx = getCurrentContext();
         String name = node.name;
-        
+
         Object val = ctx.getVariable(name);
         if (val != null) {
             return val;
@@ -1932,6 +1934,28 @@ public Object visit(TextLiteral node) {
                     }
                     return literalRegistry.handleMethod(leftObj, methodName, evaluatedArgs, ctx);
                 }
+                MethodCall targetedCall = new MethodCall();
+                targetedCall.name = literalMethod.name;
+                targetedCall.qualifiedName = literalMethod.qualifiedName;
+                targetedCall.arguments = literalMethod.arguments;
+                targetedCall.slotNames = literalMethod.slotNames;
+                targetedCall.argNames = literalMethod.argNames;
+                targetedCall.isSuperCall = literalMethod.isSuperCall;
+                targetedCall.isGlobal = literalMethod.isGlobal;
+                targetedCall.isSingleSlotCall = literalMethod.isSingleSlotCall;
+                targetedCall.isSelfCall = literalMethod.isSelfCall;
+                targetedCall.selfCallLevel = literalMethod.selfCallLevel;
+                targetedCall.selfCallLevelConstantName = literalMethod.selfCallLevelConstantName;
+                targetedCall.target = node.left;
+                return visit(targetedCall);
+            }
+
+            if (!(leftObj instanceof ObjectInstance) && node.right instanceof IndexAccess) {
+                IndexAccess indexAccess = (IndexAccess) node.right;
+                IndexAccess reboundAccess = new IndexAccess();
+                reboundAccess.array = new ValueExpr(leftObj);
+                reboundAccess.index = indexAccess.index;
+                return arrayOperationHandler.visitIndexAccess(reboundAccess);
             }
             
             if (leftObj instanceof NaturalArray) {
@@ -1959,15 +1983,31 @@ public Object visit(TextLiteral node) {
                     Object fieldValue = interpreter.getConstructorResolver()
                         .getFieldFromHierarchy(instance.type, fieldName, ctx);
                         
-                    if (fieldValue == null) {
+                    if (fieldValue == null
+                        && !interpreter.getConstructorResolver()
+                            .hasFieldInHierarchy(instance.type, fieldName, ctx)) {
                         throw new ProgramError("Undefined field: " + fieldName);
                     }
                     
                     return fieldValue;
                 }
+
+                if (node.right instanceof PropertyAccess) {
+                    PropertyAccess nested = (PropertyAccess) node.right;
+                    PropertyAccess prefix = new PropertyAccess();
+                    prefix.left = new ValueExpr(instance);
+                    prefix.right = nested.left;
+                    Object nestedLeftValue = dispatch(prefix);
+                    PropertyAccess rebound = new PropertyAccess();
+                    rebound.left = new ValueExpr(nestedLeftValue);
+                    rebound.right = nested.right;
+                    return dispatch(rebound);
+                }
             }
             
-            throw new ProgramError("Invalid property access");
+            String leftType = leftObj == null ? "null" : leftObj.getClass().getSimpleName();
+            String rightType = node.right == null ? "null" : node.right.getClass().getSimpleName();
+            throw new ProgramError("Invalid property access (left=" + leftType + ", right=" + rightType + ")");
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -2038,14 +2078,16 @@ public Object visit(TextLiteral node) {
                 Object fieldValue = interpreter.getConstructorResolver()
                     .getFieldFromHierarchy(ctx.objectInstance.type, fieldName, ctx);
                 
-                if (fieldValue == null) {
+                if (fieldValue == null
+                    && !interpreter.getConstructorResolver()
+                        .hasFieldInHierarchy(ctx.objectInstance.type, fieldName, ctx)) {
                     throw new ProgramError("Undefined field: " + fieldName);
                 }
                 
                 return fieldValue;
             }
             
-            throw new ProgramError("Invalid this property access");
+            return dispatch(node.right);
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {

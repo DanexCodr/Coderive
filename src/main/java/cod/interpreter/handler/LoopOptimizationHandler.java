@@ -8,6 +8,7 @@ import cod.error.ProgramError;
 import cod.interpreter.InterpreterVisitor;
 import cod.interpreter.TailCallSignal;
 import cod.interpreter.context.ExecutionContext;
+import cod.interpreter.exception.EarlyExitException;
 import cod.math.AutoStackingNumber;
 import cod.range.ArrayTracker;
 import cod.range.NaturalArray;
@@ -95,6 +96,8 @@ public class LoopOptimizationHandler {
         } catch (ProgramError e) {
             throw e;
         } catch (TailCallSignal e) {
+            throw e;
+        } catch (EarlyExitException e) {
             throw e;
         } catch (Exception e) {
             throw new InternalError("For loop execution failed", e);

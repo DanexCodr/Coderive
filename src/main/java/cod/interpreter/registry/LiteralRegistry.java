@@ -62,12 +62,14 @@ public class LiteralRegistry {
                         return handleRangeSize((Range) literal, ctx);
                     } else if (literal instanceof NaturalArray) {
                         return handleArraySize((NaturalArray) literal);
+                    } else if (literal instanceof List) {
+                        return Integer.valueOf(((List<?>) literal).size());
                     }
                     // Should never reach here due to type registration
                     throw new ProgramError("Unsupported type for .size");
                 }
             },
-            Range.class, NaturalArray.class
+            Range.class, NaturalArray.class, List.class
         );
 
         define("length",

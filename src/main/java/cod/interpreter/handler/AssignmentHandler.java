@@ -200,7 +200,12 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
                 int intIndex = expressionHandler.toIntIndex(indexObj);
                 ensureNoActiveBorrow(arrayObj, intIndex, ctx);
                 List<Object> list = (List<Object>) arrayObj;
-                Object previous = list.set(intIndex, newValue);
+                Object previous = null;
+                if (intIndex == list.size()) {
+                    list.add(newValue);
+                } else {
+                    previous = list.set(intIndex, newValue);
+                }
                 ctx.trackValueReplacement(previous, newValue);
                 return newValue;
             }
