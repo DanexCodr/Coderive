@@ -32,22 +32,37 @@ public class GlobalRegistry {
         registerGlobalFunctions();
     }
     
-    /**
-     * Extract a string value from an argument (works with both raw strings and AST nodes)
-     */
-    private String asString(Object arg) {
-        if (arg instanceof String) {
-            return (String) arg;
+/**
+ * Extract a string value from an argument (works with both raw strings and AST nodes)
+ */
+private String asString(Object arg) {
+    
+    // Unwrap ValueExpr first
+    if (arg instanceof ValueExpr) {
+        Object inner = ((ValueExpr) arg).getValue();
+        arg = inner;
+    }
+    if (arg == null) {
+        return "null";
+    }
+    if (arg instanceof String) {
+        return (String) arg;
+    }
+    if (arg instanceof TextLiteral) {
+        String text = ((TextLiteral) arg).value;
+        if (text.startsWith("\"") && text.endsWith("\"") && text.length() >= 2) {
+            return text.substring(1, text.length() - 1);
         }
-        if (arg instanceof TextLiteral) {
-            String text = ((TextLiteral) arg).value;
-            if (text.startsWith("\"") && text.endsWith("\"") && text.length() >= 2) {
-                return text.substring(1, text.length() - 1);
-            }
-            return text;
-        }
+        return text;
+    }
+    if (arg instanceof AutoStackingNumber) {
+        return arg.toString();
+    }
+    if (arg instanceof Number) {
         return String.valueOf(arg);
     }
+    return String.valueOf(arg);
+}
     
     // Helper to auto-commit arrays before outs
     private void autoCommitArrays(List<Object> arguments) {

@@ -1456,16 +1456,16 @@ public class NaturalArray {
     }
 
     private Object calculateValue(long index) {
-        if (isLexicographicalRange) {
-            return calculateLexValue(index);
-        }
-
-        AutoStackingNumber startVal = getStart();
-        AutoStackingNumber stepVal = getStep();
-        AutoStackingNumber indexNum = AutoStackingNumber.fromLong(index);
-        
-        return startVal.add(indexNum.multiply(stepVal));
+    if (isLexicographicalRange) {
+        return calculateLexValue(index);
     }
+
+    AutoStackingNumber startVal = getStart();
+    AutoStackingNumber stepVal = getStep();
+    AutoStackingNumber indexNum = AutoStackingNumber.fromLong(index);
+    
+    return startVal.add(indexNum.multiply(stepVal));
+}
 
     // ========== GETTERS WITH LAZY INITIALIZATION ==========
 
@@ -1611,34 +1611,29 @@ public class NaturalArray {
     }
 
     private Object evaluateSequenceFormulas(long index) {
-        if (sequenceFormulas.isEmpty()) return null;
-
-        for (int i = sequenceFormulas.size() - 1; i >= 0; i--) {
-            SequenceFormula formula = sequenceFormulas.get(i);
-            if (formula == null) {
-                throw new InternalError("Null SequenceFormula in list");
-            }
-            
-            if (formula.contains(index)) {
-                try {
-                    Object result = formula.evaluate(index, evaluator, context);
-                    if (result != null) {
-                        if (computedCache == null) {
-                            computedCache = new HashMap<Long, Object>();
-                        }
-                        computedCache.put(index, result);
-                    }
-                    return result;
-                } catch (ProgramError e) {
-                    throw e;
-                } catch (Exception e) {
-                    throw new InternalError(
-                        "Sequence formula evaluation failed at index " + index, e);
+    if (sequenceFormulas.isEmpty()) return null;
+    
+    
+    for (int i = sequenceFormulas.size() - 1; i >= 0; i--) {
+        SequenceFormula formula = sequenceFormulas.get(i);
+        if (formula.contains(index)) {
+            try {
+                Object result = formula.evaluate(index, evaluator, context);
+                if (computedCache == null) {
+                    computedCache = new HashMap<Long, Object>();
                 }
+                computedCache.put(index, result);
+                return result;
+            } catch (ProgramError e) {
+                throw e;
+            } catch (Exception e) {
+                throw new InternalError(
+                    "Sequence formula evaluation failed at index " + index, e);
             }
         }
-        return null;
     }
+    return null;
+}
 
     private Object evaluateConditionalFormulas(long index) {
         if (conditionalFormulas.isEmpty()) return null;

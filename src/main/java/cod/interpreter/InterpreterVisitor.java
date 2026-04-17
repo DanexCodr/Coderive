@@ -1950,73 +1950,83 @@ public Object visit(TextLiteral node) {
     }
 
     @SuppressWarnings("unchecked")
-    @Override
-    public Object visit(MethodCall node) {
+@Override
+public Object visit(MethodCall node) {
     if (node == null) {
         throw new InternalError("visit(MethodCall) called with null node");
     }
     
-        try {
-            // Handle super calls first
-            if (node.isSuperCall) {
-                return handleSuperMethodCall(node);
-            }
-            
-            ExecutionContext ctx = getCurrentContext();
-            String callName = node.name;
-            String callQualifiedName = node.qualifiedName;
-
-            if (node.isSelfCall) {
-                Integer requestedLevel = resolveSelfCallLevelValue(node, ctx);
-                if (requestedLevel != null) {
-                    LambdaClosure targetClosure = resolveSelfCallClosure(ctx, requestedLevel.intValue());
-                    List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
-                    return invokeLambdaCallback(targetClosure, evaluatedArgs, ctx, SELF_CALL_LAMBDA_OWNER);
-                }
-                if (ctx.currentLambdaClosure != null) {
-                    List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
-                    return invokeLambdaCallback(ctx.currentLambdaClosure, evaluatedArgs, ctx, SELF_CALL_LAMBDA_OWNER);
-                }
-                if (ctx.currentMethodName != null && !ctx.currentMethodName.isEmpty()) {
-                    callName = ctx.currentMethodName;
-                    callQualifiedName = ctx.currentMethodName;
-                } else {
-                    throw new ProgramError(
-                        "'<~(...)' can only be used inside a method or lambda body.");
-                }
-            }
-
-            if (ctx != null && callQualifiedName != null && callQualifiedName.contains(".")) {
-                String[] parts = callQualifiedName.split("\\.");
-                if (parts.length == 2) {
-                    String receiverName = parts[0];
-                    String methodName = parts[1];
-                    Object receiverValue = ctx.getVariable(receiverName);
-                    receiverValue = typeSystem.unwrap(receiverValue);
-                    if (literalRegistry.hasMethod(receiverValue, methodName)) {
-                        List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
-                        return literalRegistry.handleMethod(receiverValue, methodName, evaluatedArgs, ctx);
-                    }
-                }
-            }
-
-            if ("safe".equals(callName) && (callQualifiedName == null || "safe".equals(callQualifiedName))) {
-                return executeSafeCommit(node, ctx);
-            }
-            
-            // Evaluate all arguments first
-            List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
+    try {
+        // Handle super calls first
+        if (node.isSuperCall) {
+            return handleSuperMethodCall(node);
+        }
         
-        // ========== CHECK GLOBAL FUNCTIONS FIRST ==========
-        // This must come BEFORE any other resolution to ensure out(), in(), etc.
-        // work correctly from any context (scripts, methods, imported modules)
+        ExecutionContext ctx = getCurrentContext();
+        String callName = node.name;
+        String callQualifiedName = node.qualifiedName;
+
+        if (node.isSelfCall) {
+            Integer requestedLevel = resolveSelfCallLevelValue(node, ctx);
+            if (requestedLevel != null) {
+                LambdaClosure targetClosure = resolveSelfCallClosure(ctx, requestedLevel.intValue());
+                List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
+                return invokeLambdaCallback(targetClosure, evaluatedArgs, ctx, SELF_CALL_LAMBDA_OWNER);
+            }
+            if (ctx.currentLambdaClosure != null) {
+                List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
+                return invokeLambdaCallback(ctx.currentLambdaClosure, evaluatedArgs, ctx, SELF_CALL_LAMBDA_OWNER);
+            }
+            if (ctx.currentMethodName != null && !ctx.currentMethodName.isEmpty()) {
+                callName = ctx.currentMethodName;
+                callQualifiedName = ctx.currentMethodName;
+            } else {
+                throw new ProgramError(
+                    "'<~(...)' can only be used inside a method or lambda body.");
+            }
+        }
+
+        if (ctx != null && callQualifiedName != null && callQualifiedName.contains(".")) {
+            String[] parts = callQualifiedName.split("\\.");
+            if (parts.length == 2) {
+                String receiverName = parts[0];
+                String methodName = parts[1];
+                Object receiverValue = ctx.getVariable(receiverName);
+                receiverValue = typeSystem.unwrap(receiverValue);
+                if (literalRegistry.hasMethod(receiverValue, methodName)) {
+                    List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
+                    return literalRegistry.handleMethod(receiverValue, methodName, evaluatedArgs, ctx);
+                }
+            }
+        }
+
+        if ("safe".equals(callName) && (callQualifiedName == null || "safe".equals(callQualifiedName))) {
+            return executeSafeCommit(node, ctx);
+        }
+        
+        // ========== FIX: Evaluate arguments with special handling for ValueExpr ==========
+        List<Object> evaluatedArgs = new ArrayList<Object>();
+        if (node.arguments != null) {
+            for (Expr arg : node.arguments) {
+                Object argValue;
+                if (arg instanceof ValueExpr) {
+                    // ValueExpr already contains the actual value - extract it directly
+                    argValue = ((ValueExpr) arg).getValue();
+                    DebugSystem.debug("METHOD_CALL", "ValueExpr argument extracted: " + argValue);
+                } else {
+                    argValue = dispatch(arg);
+                }
+                evaluatedArgs.add(typeSystem.unwrap(argValue));
+            }
+        }
+        
+        // Check global functions first
         GlobalRegistry globalRegistry = interpreter.getGlobalRegistry();
         if (globalRegistry != null && globalRegistry.isGlobal(callName)) {
             DebugSystem.debug("GLOBAL", "Executing global function: " + callName + 
                               " with args: " + evaluatedArgs);
             return globalRegistry.executeGlobal(callName, evaluatedArgs);
         }
-        // ========== END GLOBAL CHECK ==========
         
         // Try to find method in current class hierarchy
         Method method = null;

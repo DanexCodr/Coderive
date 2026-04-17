@@ -1,6 +1,7 @@
 package cod.interpreter.handler;
 
 import cod.ast.node.*;
+import cod.debug.DebugSystem;
 import cod.error.InternalError;
 import cod.error.ProgramError;
 import cod.math.AutoStackingNumber;
@@ -128,238 +129,328 @@ public class TypeHandler {
     };
 
     public boolean isPointerType(String type) {
-        return type != null && type.startsWith("*") && type.length() > 1;
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.isPointerType");
+        try {
+            return type != null && type.startsWith("*") && type.length() > 1;
+        } finally {
+            DebugSystem.stopTimer("type.isPointerType");
+        }
     }
 
     public boolean isSizedArrayType(String type) {
-        if (type == null) return false;
-        int l = type.lastIndexOf('[');
-        int r = type.lastIndexOf(']');
-        if (l <= 0 || r != type.length() - 1) return false;
-        String sizePart = type.substring(l + 1, r).trim();
-        if (sizePart.isEmpty()) return false;
-        for (int i = 0; i < sizePart.length(); i++) {
-            if (!Character.isDigit(sizePart.charAt(i))) return false;
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.isSizedArrayType");
+        try {
+            if (type == null) return false;
+            int l = type.lastIndexOf('[');
+            int r = type.lastIndexOf(']');
+            if (l <= 0 || r != type.length() - 1) return false;
+            String sizePart = type.substring(l + 1, r).trim();
+            if (sizePart.isEmpty()) return false;
+            for (int i = 0; i < sizePart.length(); i++) {
+                if (!Character.isDigit(sizePart.charAt(i))) return false;
+            }
+            return true;
+        } finally {
+            DebugSystem.stopTimer("type.isSizedArrayType");
         }
-        return true;
     }
 
     public String getSizedArrayElementType(String type) {
-        if (!isSizedArrayType(type)) return null;
-        return type.substring(0, type.lastIndexOf('['));
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.getSizedArrayElementType");
+        try {
+            if (!isSizedArrayType(type)) return null;
+            return type.substring(0, type.lastIndexOf('['));
+        } finally {
+            DebugSystem.stopTimer("type.getSizedArrayElementType");
+        }
     }
 
     public int getSizedArrayLength(String type) {
-        if (!isSizedArrayType(type)) return -1;
-        String sizePart = type.substring(type.lastIndexOf('[') + 1, type.length() - 1).trim();
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.getSizedArrayLength");
         try {
-            return Integer.parseInt(sizePart);
-        } catch (NumberFormatException e) {
-            return -1;
+            if (!isSizedArrayType(type)) return -1;
+            String sizePart = type.substring(type.lastIndexOf('[') + 1, type.length() - 1).trim();
+            try {
+                return Integer.parseInt(sizePart);
+            } catch (NumberFormatException e) {
+                return -1;
+            }
+        } finally {
+            DebugSystem.stopTimer("type.getSizedArrayLength");
         }
     }
 
     // Helper to check if value is none
     public boolean isNoneValue(Object obj) {
-        if (obj == null) return true;
-        if (obj instanceof NoneLiteral) return true;
-        if (obj instanceof String && "none".equals(obj)) return true;
-        if (obj instanceof Value) {
-            Value tv = (Value) obj;
-            return tv.value == null || isNoneValue(tv.value);
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.isNoneValue");
+        try {
+            if (obj == null) return true;
+            if (obj instanceof NoneLiteral) return true;
+            if (obj instanceof String && "none".equals(obj)) return true;
+            if (obj instanceof Value) {
+                Value tv = (Value) obj;
+                return tv.value == null || isNoneValue(tv.value);
+            }
+            return false;
+        } finally {
+            DebugSystem.stopTimer("type.isNoneValue");
         }
-        return false;
     }
 
     public Object unwrap(Object obj) {
-        if (obj instanceof Value) {
-            return ((Value) obj).value;
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.unwrap");
+        try {
+            if (obj instanceof Value) {
+                return ((Value) obj).value;
+            }
+            if (obj instanceof NoneLiteral) {
+                return null;
+            }
+            return obj;
+        } finally {
+            DebugSystem.stopTimer("type.unwrap");
         }
-        if (obj instanceof NoneLiteral) {
-            return null;
-        }
-        return obj;
     }
 
     // === TypeHandler/Value Checking ===
     
     public boolean isTruthy(Object value) {
-        if (value == null) return false;
-        
-        if (value instanceof BoolLiteral) {
-            return ((BoolLiteral) value).value;
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.isTruthy");
+        try {
+            if (value == null) return false;
+            
+            if (value instanceof BoolLiteral) {
+                return ((BoolLiteral) value).value;
+            }
+            
+            if (value instanceof IntLiteral) {
+                return !((IntLiteral) value).value.isZero();
+            }
+            
+            if (value instanceof FloatLiteral) {
+                return !((FloatLiteral) value).value.isZero();
+            }
+            
+            if (value instanceof TextLiteral) {
+                String str = ((TextLiteral) value).value;
+                return !str.isEmpty() && !str.equalsIgnoreCase("false");
+            }
+            
+            if (value instanceof Boolean) {
+                return ((Boolean) value) != false;
+            } 
+            
+            if (value instanceof Number) {
+                return ((Number) value).doubleValue() != 0.0;
+            }
+            
+            if (value instanceof String) {
+                String str = (String) value;
+                return !str.isEmpty() && !str.equalsIgnoreCase("false");
+            }
+            
+            if (value instanceof List<?>) {
+                return !((List<?>) value).isEmpty();
+            }
+            
+            if (value instanceof NaturalArray) {
+                return ((NaturalArray) value).size() > 0;
+            }
+            
+            if (value instanceof AutoStackingNumber) {
+                return !((AutoStackingNumber) value).isZero();
+            }
+            
+            throw new InternalError(
+                "Unhandled type in truthy check: " +
+                value.getClass().getName() + " with value: " + value
+            );
+        } finally {
+            DebugSystem.stopTimer("type.isTruthy");
         }
-        
-        if (value instanceof IntLiteral) {
-            return !((IntLiteral) value).value.isZero();
-        }
-        
-        if (value instanceof FloatLiteral) {
-            return !((FloatLiteral) value).value.isZero();
-        }
-        
-        if (value instanceof TextLiteral) {
-            String str = ((TextLiteral) value).value;
-            return !str.isEmpty() && !str.equalsIgnoreCase("false");
-        }
-        
-        if (value instanceof Boolean) {
-            return ((Boolean) value) != false;
-        } 
-        
-        if (value instanceof Number) {
-            return ((Number) value).doubleValue() != 0.0;
-        }
-        
-        if (value instanceof String) {
-            String str = (String) value;
-            return !str.isEmpty() && !str.equalsIgnoreCase("false");
-        }
-        
-        if (value instanceof List<?>) {
-            return !((List<?>) value).isEmpty();
-        }
-        
-        if (value instanceof NaturalArray) {
-            return ((NaturalArray) value).size() > 0;
-        }
-        
-        if (value instanceof AutoStackingNumber) {
-            return !((AutoStackingNumber) value).isZero();
-        }
-        
-        throw new InternalError(
-            "Unhandled type in truthy check: " +
-            value.getClass().getName() + " with value: " + value
-        );
     }
     
     public boolean isTypeLiteral(String str) {
-        return str.equals("int") || str.equals("float") || str.equals("text") || 
-               str.equals("bool") || str.equals("type") || str.equals("none") || 
-               isPointerType(str) || isSizedArrayType(str) ||
-               isUnsafeNumericType(str) ||
-               str.equals("[]") || str.startsWith("[") || 
-               str.startsWith("(") || str.contains("|");
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.isTypeLiteral");
+        try {
+            return str.equals("int") || str.equals("float") || str.equals("text") || 
+                   str.equals("bool") || str.equals("type") || str.equals("none") || 
+                   isPointerType(str) || isSizedArrayType(str) ||
+                   isUnsafeNumericType(str) ||
+                   str.equals("[]") || str.startsWith("[") || 
+                   str.startsWith("(") || str.contains("|");
+        } finally {
+            DebugSystem.stopTimer("type.isTypeLiteral");
+        }
     }
 
     public boolean isUnsafeNumericType(String type) {
-        if (type == null) return false;
-        for (String unsafeType : UNSAFE_NUMERIC_TYPES) {
-            if (unsafeType.equals(type)) {
-                return true;
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.isUnsafeNumericType");
+        try {
+            if (type == null) return false;
+            for (String unsafeType : UNSAFE_NUMERIC_TYPES) {
+                if (unsafeType.equals(type)) {
+                    return true;
+                }
             }
+            return false;
+        } finally {
+            DebugSystem.stopTimer("type.isUnsafeNumericType");
         }
-        return false;
     }
 
     public Object normalizeForDeclaredType(String declaredType, Object value) {
-        if (declaredType == null) return value;
-        String normalized = declaredType.trim();
-        if (!isUnsafeNumericType(normalized)) {
-            return value;
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.normalizeForDeclaredType");
+        try {
+            if (declaredType == null) return value;
+            String normalized = declaredType.trim();
+            if (!isUnsafeNumericType(normalized)) {
+                return value;
+            }
+            Object converted = convertType(value, normalized);
+            return new Value(converted, normalized, normalized);
+        } finally {
+            DebugSystem.stopTimer("type.normalizeForDeclaredType");
         }
-        Object converted = convertType(value, normalized);
-        return new Value(converted, normalized, normalized);
     }
     
     public Object processTypeLiteral(String typeLiteral) {
-        if (typeLiteral.equals("none")) {
-            return new NoneLiteral();
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.processTypeLiteral");
+        try {
+            if (typeLiteral.equals("none")) {
+                return new NoneLiteral();
+            }
+            return Value.createTypeValue(typeLiteral);
+        } finally {
+            DebugSystem.stopTimer("type.processTypeLiteral");
         }
-        return Value.createTypeValue(typeLiteral);
     }
 
     private String normalizeTypeSignature(String typeSig) {
-        if (typeSig == null) return null;
-        String trimmed = typeSig.trim();
-        if (isSizedArrayType(trimmed)) {
-            String inner = normalizeTypeSignature(getSizedArrayElementType(trimmed));
-            return "[" + inner + "]";
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.normalizeTypeSignature");
+        try {
+            if (typeSig == null) return null;
+            String trimmed = typeSig.trim();
+            if (isSizedArrayType(trimmed)) {
+                String inner = normalizeTypeSignature(getSizedArrayElementType(trimmed));
+                return "[" + inner + "]";
+            }
+            return trimmed;
+        } finally {
+            DebugSystem.stopTimer("type.normalizeTypeSignature");
         }
-        return trimmed;
     }
     
     // === TypeHandler Validation with Special Cases ===
     
     public boolean validateTypeWithNullable(String declaredType, Object value) {
-        if (isNoneValue(value) && declaredType.contains("|none")) {
-            return true;
+        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.validateWithNullable");
+        try {
+            if (isNoneValue(value) && declaredType.contains("|none")) {
+                return true;
+            }
+            return validateType(declaredType, value);
+        } finally {
+            DebugSystem.stopTimer("type.validateWithNullable");
         }
-        return validateType(declaredType, value);
     }
     
     public boolean isValidForNullableType(String declaredType, Object value) {
-        return declaredType.contains("|none") && isNoneValue(value);
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.isValidForNullableType");
+        try {
+            return declaredType.contains("|none") && isNoneValue(value);
+        } finally {
+            DebugSystem.stopTimer("type.isValidForNullableType");
+        }
     }
     
     // === TypeHandler Conversion Helpers ===
     
     public Object wrapUnionType(Object value, String declaredType) {
-        if (declaredType != null && declaredType.indexOf('|') >= 0) {
-            String activeType = getConcreteType(unwrap(value));
-            return new Value(value, activeType, declaredType);
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.wrapUnionType");
+        try {
+            if (declaredType != null && declaredType.indexOf('|') >= 0) {
+                String activeType = getConcreteType(unwrap(value));
+                return new Value(value, activeType, declaredType);
+            }
+            return value;
+        } finally {
+            DebugSystem.stopTimer("type.wrapUnionType");
         }
-        return value;
     }
     
     // === Convert to AutoStackingNumber ===
     
     public AutoStackingNumber toAutoStackingNumber(Object o) {
-        o = unwrap(o);
-        
-        if (o instanceof AutoStackingNumber) {
-            return (AutoStackingNumber) o;
-        }
-        if (o instanceof IntLiteral) {
-            return ((IntLiteral) o).value;
-        }
-        if (o instanceof FloatLiteral) {
-            return ((FloatLiteral) o).value;
-        }
-        if (o instanceof Integer || o instanceof Long) {
-            return AutoStackingNumber.fromLong(((Number) o).longValue());
-        }
-        if (o instanceof Float || o instanceof Double) {
-            return AutoStackingNumber.fromDouble(((Number) o).doubleValue());
-        }
-        if (o instanceof Boolean) {
-            return ((Boolean) o) ? ONE : ZERO;
-        }
-        if (o instanceof BoolLiteral) {
-            return ((BoolLiteral) o).value ? ONE : ZERO;
-        }
-        if (o instanceof String) {
-            String s = (String) o;
-            try {
-                return AutoStackingNumber.valueOf(s);
-            } catch (NumberFormatException e) {
-                throw new ProgramError("Cannot convert string '" + s + "' to number");
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.toAutoStackingNumber");
+        try {
+            o = unwrap(o);
+            
+            if (o instanceof AutoStackingNumber) {
+                return (AutoStackingNumber) o;
             }
-        }
-        if (o instanceof TextLiteral) {
-            String s = ((TextLiteral) o).value;
-            try {
-                return AutoStackingNumber.valueOf(s);
-            } catch (NumberFormatException e) {
-                throw new ProgramError("Cannot convert string '" + s + "' to number");
+            if (o instanceof IntLiteral) {
+                return ((IntLiteral) o).value;
             }
+            if (o instanceof FloatLiteral) {
+                return ((FloatLiteral) o).value;
+            }
+            if (o instanceof Integer || o instanceof Long) {
+                return AutoStackingNumber.fromLong(((Number) o).longValue());
+            }
+            if (o instanceof Float || o instanceof Double) {
+                return AutoStackingNumber.fromDouble(((Number) o).doubleValue());
+            }
+            if (o instanceof Boolean) {
+                return ((Boolean) o) ? ONE : ZERO;
+            }
+            if (o instanceof BoolLiteral) {
+                return ((BoolLiteral) o).value ? ONE : ZERO;
+            }
+            if (o instanceof String) {
+                String s = (String) o;
+                try {
+                    return AutoStackingNumber.valueOf(s);
+                } catch (NumberFormatException e) {
+                    throw new ProgramError("Cannot convert string '" + s + "' to number");
+                }
+            }
+            if (o instanceof TextLiteral) {
+                String s = ((TextLiteral) o).value;
+                try {
+                    return AutoStackingNumber.valueOf(s);
+                } catch (NumberFormatException e) {
+                    throw new ProgramError("Cannot convert string '" + s + "' to number");
+                }
+            }
+            
+            throw new InternalError(
+                "Cannot convert to AutoStackingNumber: " + 
+                (o != null ? o.getClass().getName() + " with value " + o : "null")
+            );
+        } finally {
+            DebugSystem.stopTimer("type.toAutoStackingNumber");
         }
-        
-        throw new InternalError(
-            "Cannot convert to AutoStackingNumber: " + 
-            (o != null ? o.getClass().getName() + " with value " + o : "null")
-        );
     }
     
     public long toLong(Object o) {
-        AutoStackingNumber num = toAutoStackingNumber(o);
-        return num.longValue();
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.toLong");
+        try {
+            AutoStackingNumber num = toAutoStackingNumber(o);
+            return num.longValue();
+        } finally {
+            DebugSystem.stopTimer("type.toLong");
+        }
     }
     
     public double toDouble(Object o) {
-        AutoStackingNumber num = toAutoStackingNumber(o);
-        return num.doubleValue();
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.toDouble");
+        try {
+            AutoStackingNumber num = toAutoStackingNumber(o);
+            return num.doubleValue();
+        } finally {
+            DebugSystem.stopTimer("type.toDouble");
+        }
     }
 
     private boolean tryFastLongInto(Object o, long[] out, int index) {
@@ -400,17 +491,21 @@ public class TypeHandler {
     // === Arithmetic Operations ===
     
     public Object addNumbers(Object a, Object b) {
-        a = unwrap(a); 
-        b = unwrap(b);
-        
-        if (isArray(a) || isArray(b)) {
-            return applyArrayOperation(a, b, "+");
+        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.addNumbers");
+        try {
+            a = unwrap(a); 
+            b = unwrap(b);
+            
+            if (isArray(a) || isArray(b)) {
+                return applyArrayOperation(a, b, "+");
+            }
+            return addScalars(a, b);
+        } finally {
+            DebugSystem.stopTimer("type.addNumbers");
         }
-        return addScalars(a, b);
     }
     
     private Object addScalars(Object a, Object b) {
-        
         if (a instanceof String || b instanceof String ||
             a instanceof TextLiteral || b instanceof TextLiteral) {
             return String.valueOf(a) + String.valueOf(b);
@@ -433,13 +528,18 @@ public class TypeHandler {
     }
     
     public Object subtractNumbers(Object a, Object b) {
-        a = unwrap(a); 
-        b = unwrap(b);
-        
-        if (isArray(a) || isArray(b)) {
-            return applyArrayOperation(a, b, "-");
+        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.subtractNumbers");
+        try {
+            a = unwrap(a); 
+            b = unwrap(b);
+            
+            if (isArray(a) || isArray(b)) {
+                return applyArrayOperation(a, b, "-");
+            }
+            return subtractScalars(a, b);
+        } finally {
+            DebugSystem.stopTimer("type.subtractNumbers");
         }
-        return subtractScalars(a, b);
     }
     
     private Object subtractScalars(Object a, Object b) {
@@ -460,17 +560,21 @@ public class TypeHandler {
     }
     
     public Object multiplyNumbers(Object a, Object b) {
-        a = unwrap(a); 
-        b = unwrap(b);
-        
-        if (isArray(a) || isArray(b)) {
-            return applyArrayOperation(a, b, "*");
+        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.multiplyNumbers");
+        try {
+            a = unwrap(a); 
+            b = unwrap(b);
+            
+            if (isArray(a) || isArray(b)) {
+                return applyArrayOperation(a, b, "*");
+            }
+            return multiplyScalars(a, b);
+        } finally {
+            DebugSystem.stopTimer("type.multiplyNumbers");
         }
-        return multiplyScalars(a, b);
     }
     
     private Object multiplyScalars(Object a, Object b) {
-        
         // Handle string multiplication (repetition)
         if ((a instanceof TextLiteral && isNumeric(b)) || 
             (b instanceof TextLiteral && isNumeric(a))) {
@@ -857,13 +961,18 @@ public class TypeHandler {
     }
     
     public Object divideNumbers(Object a, Object b) {
-        a = unwrap(a); 
-        b = unwrap(b);
-        
-        if (isArray(a) || isArray(b)) {
-            return applyArrayOperation(a, b, "/");
+        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.divideNumbers");
+        try {
+            a = unwrap(a); 
+            b = unwrap(b);
+            
+            if (isArray(a) || isArray(b)) {
+                return applyArrayOperation(a, b, "/");
+            }
+            return divideScalars(a, b);
+        } finally {
+            DebugSystem.stopTimer("type.divideNumbers");
         }
-        return divideScalars(a, b);
     }
     
     private Object divideScalars(Object a, Object b) {
@@ -891,13 +1000,18 @@ public class TypeHandler {
     }
     
     public Object modulusNumbers(Object a, Object b) {
-        a = unwrap(a); 
-        b = unwrap(b);
-        
-        if (a instanceof List || b instanceof List) {
-            throw new ProgramError("Cannot use modulus '%' on arrays");
+        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.modulusNumbers");
+        try {
+            a = unwrap(a); 
+            b = unwrap(b);
+            
+            if (a instanceof List || b instanceof List) {
+                throw new ProgramError("Cannot use modulus '%' on arrays");
+            }
+            return modulusScalars(a, b);
+        } finally {
+            DebugSystem.stopTimer("type.modulusNumbers");
         }
-        return modulusScalars(a, b);
     }
     
     private Object modulusScalars(Object a, Object b) {
@@ -922,211 +1036,226 @@ public class TypeHandler {
     }
     
     public Object negateNumber(Object a) {
-        a = unwrap(a);
-        
-        if (a instanceof List) {
-            throw new ProgramError("Cannot negate an array");
+        DebugSystem.startTimer(DebugSystem.Level.TRACE, "type.negateNumber");
+        try {
+            a = unwrap(a);
+            
+            if (a instanceof List) {
+                throw new ProgramError("Cannot negate an array");
+            }
+            
+            AutoStackingNumber num = toAutoStackingNumber(a);
+            return num.negate();
+        } finally {
+            DebugSystem.stopTimer("type.negateNumber");
         }
-        
-        AutoStackingNumber num = toAutoStackingNumber(a);
-        return num.negate();
     }
     
     public int compare(Object a, Object b) {
-        a = unwrap(a); 
-        b = unwrap(b);
-        
-        boolean aIsNone = isNoneValue(a);
-        boolean bIsNone = isNoneValue(b);
-        if (aIsNone && bIsNone) return 0;
-        if (aIsNone) return -1;
-        if (bIsNone) return 1;
-        
-        // Handle strings
-        if (a instanceof TextLiteral || b instanceof TextLiteral ||
-            a instanceof String || b instanceof String) {
-            String strA = a instanceof TextLiteral ? ((TextLiteral) a).value : String.valueOf(a);
-            String strB = b instanceof TextLiteral ? ((TextLiteral) b).value : String.valueOf(b);
-            return strA.compareTo(strB);
-        }
+        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.compare");
+        try {
+            a = unwrap(a); 
+            b = unwrap(b);
+            
+            boolean aIsNone = isNoneValue(a);
+            boolean bIsNone = isNoneValue(b);
+            if (aIsNone && bIsNone) return 0;
+            if (aIsNone) return -1;
+            if (bIsNone) return 1;
+            
+            // Handle strings
+            if (a instanceof TextLiteral || b instanceof TextLiteral ||
+                a instanceof String || b instanceof String) {
+                String strA = a instanceof TextLiteral ? ((TextLiteral) a).value : String.valueOf(a);
+                String strB = b instanceof TextLiteral ? ((TextLiteral) b).value : String.valueOf(b);
+                return strA.compareTo(strB);
+            }
 
-        long[] fastPair = getFastLongPair(a, b);
-        if (fastPair != null) {
-            long av = fastPair[0];
-            long bv = fastPair[1];
-            return av < bv ? -1 : (av == bv ? 0 : 1);
+            long[] fastPair = getFastLongPair(a, b);
+            if (fastPair != null) {
+                long av = fastPair[0];
+                long bv = fastPair[1];
+                return av < bv ? -1 : (av == bv ? 0 : 1);
+            }
+            
+            // Handle numbers
+            AutoStackingNumber numA = toAutoStackingNumber(a);
+            AutoStackingNumber numB = toAutoStackingNumber(b);
+            return numA.compareTo(numB);
+        } finally {
+            DebugSystem.stopTimer("type.compare");
         }
-        
-        // Handle numbers
-        AutoStackingNumber numA = toAutoStackingNumber(a);
-        AutoStackingNumber numB = toAutoStackingNumber(b);
-        return numA.compareTo(numB);
     }
 
     public Object convertType(Object value, String targetType) {
-        value = unwrap(value);
-        
-        if (value instanceof NaturalArray) {
-            NaturalArray arr = (NaturalArray) value;
-            if (arr.hasPendingUpdates()) {
-                arr.commitUpdates();
-            }
-        }
-    
-        if (targetType.equals(TYPE.toString())) {
-            if (value instanceof Value && ((Value) value).isTypeValue()) {
-                return value;
-            }
-            if (value instanceof String) {
-                String str = (String) value;
-                if (isValidTypeSignature(str)) {
-                    return Value.createTypeValue(str);
+        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.convertType");
+        try {
+            value = unwrap(value);
+            
+            if (value instanceof NaturalArray) {
+                NaturalArray arr = (NaturalArray) value;
+                if (arr.hasPendingUpdates()) {
+                    arr.commitUpdates();
                 }
             }
+        
+            if (targetType.equals(TYPE.toString())) {
+                if (value instanceof Value && ((Value) value).isTypeValue()) {
+                    return value;
+                }
+                if (value instanceof String) {
+                    String str = (String) value;
+                    if (isValidTypeSignature(str)) {
+                        return Value.createTypeValue(str);
+                    }
+                }
+                if (value instanceof TextLiteral) {
+                    String str = ((TextLiteral) value).value;
+                    if (isValidTypeSignature(str)) {
+                        return Value.createTypeValue(str);
+                    }
+                }
+                throw new ProgramError("Cannot convert '" + value + "' to type");
+            }
+            
+            if (targetType.equals("none")) {
+                return new NoneLiteral();
+            }
+
+            if (isUnsafeNumericType(targetType)) {
+                return convertUnsafeNumeric(value, targetType);
+            }
+
+            if (isPointerType(targetType)) {
+                Object unwrapped = unwrap(value);
+                if (unwrapped instanceof PointerValue) {
+                    PointerValue pointer = (PointerValue) unwrapped;
+                    String expectedPointedType = normalizeTypeSignature(targetType.substring(1));
+                    String actualPointedType = normalizeTypeSignature(pointer.pointedType);
+                    if (expectedPointedType.equals(actualPointedType)) {
+                        return pointer;
+                    }
+                }
+                throw new ProgramError("Cannot convert '" + value + "' to pointer type " + targetType);
+            }
+            
+            if (value instanceof FloatLiteral) {
+                AutoStackingNumber num = ((FloatLiteral) value).value;
+                if (targetType.equals(INT.toString())) {
+                    try {
+                        return num.longValue();
+                    } catch (ArithmeticException e) {
+                        throw new ProgramError("Cannot convert float to int without loss: " + num);
+                    }
+                }
+                if (targetType.equals(FLOAT.toString())) return num;
+                if (targetType.equals(TEXT.toString())) {
+                    return num.toString();
+                }
+            }
+            
+            if (value instanceof IntLiteral) {
+                AutoStackingNumber num = ((IntLiteral) value).value;
+                if (targetType.equals(INT.toString())) return num.longValue();
+                if (targetType.equals(FLOAT.toString())) return num;
+                if (targetType.equals(TEXT.toString())) return num.toString();
+            }
+            
+            if (value instanceof BoolLiteral) {
+                boolean val = ((BoolLiteral) value).value;
+                if (targetType.equals(BOOL.toString())) return val;
+                if (targetType.equals(INT.toString())) return val ? 1 : 0;
+                if (targetType.equals(FLOAT.toString())) return val ? ONE : ZERO;
+                if (targetType.equals(TEXT.toString())) return String.valueOf(val);
+            }
+            
+            if (value instanceof AutoStackingNumber) {
+                AutoStackingNumber num = (AutoStackingNumber) value;
+                if (targetType.equals(INT.toString())) return num.longValue();
+                if (targetType.equals(FLOAT.toString())) return num;
+                if (targetType.equals(TEXT.toString())) return num.toString();
+            }
+            
             if (value instanceof TextLiteral) {
                 String str = ((TextLiteral) value).value;
-                if (isValidTypeSignature(str)) {
-                    return Value.createTypeValue(str);
+                if (targetType.equals(TEXT.toString())) return str;
+                if (targetType.equals(INT.toString())) {
+                    try {
+                        return Integer.parseInt(str);
+                    } catch (NumberFormatException e) {
+                        throw new ProgramError("Cannot convert string '" + str + "' to int");
+                    }
+                }
+                if (targetType.equals(FLOAT.toString())) {
+                    try {
+                        return AutoStackingNumber.valueOf(str);
+                    } catch (NumberFormatException e) {
+                        throw new ProgramError("Cannot convert string '" + str + "' to float");
+                    }
+                }
+                if (targetType.equals(BOOL.toString())) {
+                    String lower = str.toLowerCase().trim();
+                    if (lower.equals("true")) return true;
+                    if (lower.equals("false")) return false;
+                    throw new ProgramError("Cannot convert string '" + str + "' to boolean");
                 }
             }
-            throw new ProgramError("Cannot convert '" + value + "' to type");
-        }
-        
-        if (targetType.equals("none")) {
-            return new NoneLiteral();
-        }
-
-        if (isUnsafeNumericType(targetType)) {
-            return convertUnsafeNumeric(value, targetType);
-        }
-
-        if (isPointerType(targetType)) {
-            Object unwrapped = unwrap(value);
-            if (unwrapped instanceof PointerValue) {
-                PointerValue pointer = (PointerValue) unwrapped;
-                String expectedPointedType = normalizeTypeSignature(targetType.substring(1));
-                String actualPointedType = normalizeTypeSignature(pointer.pointedType);
-                if (expectedPointedType.equals(actualPointedType)) {
-                    return pointer;
-                }
-            }
-            throw new ProgramError("Cannot convert '" + value + "' to pointer type " + targetType);
-        }
-        
-        if (value instanceof FloatLiteral) {
-            AutoStackingNumber num = ((FloatLiteral) value).value;
-            if (targetType.equals(INT.toString())) {
-                try {
-                    return num.longValue();
-                } catch (ArithmeticException e) {
-                    throw new ProgramError("Cannot convert float to int without loss: " + num);
-                }
-            }
-            if (targetType.equals(FLOAT.toString())) return num;
+            
+            if (targetType.equals(INT.toString())) return (int) toDouble(value);
+            if (targetType.equals(FLOAT.toString())) return toAutoStackingNumber(value);
+            
             if (targetType.equals(TEXT.toString())) {
-                return num.toString();
-            }
-        }
-        
-        if (value instanceof IntLiteral) {
-            AutoStackingNumber num = ((IntLiteral) value).value;
-            if (targetType.equals(INT.toString())) return num.longValue();
-            if (targetType.equals(FLOAT.toString())) return num;
-            if (targetType.equals(TEXT.toString())) return num.toString();
-        }
-        
-        if (value instanceof BoolLiteral) {
-            boolean val = ((BoolLiteral) value).value;
-            if (targetType.equals(BOOL.toString())) return val;
-            if (targetType.equals(INT.toString())) return val ? 1 : 0;
-            if (targetType.equals(FLOAT.toString())) return val ? ONE : ZERO;
-            if (targetType.equals(TEXT.toString())) return String.valueOf(val);
-        }
-        
-        if (value instanceof AutoStackingNumber) {
-            AutoStackingNumber num = (AutoStackingNumber) value;
-            if (targetType.equals(INT.toString())) return num.longValue();
-            if (targetType.equals(FLOAT.toString())) return num;
-            if (targetType.equals(TEXT.toString())) return num.toString();
-        }
-        
-        if (value instanceof TextLiteral) {
-            String str = ((TextLiteral) value).value;
-            if (targetType.equals(TEXT.toString())) return str;
-            if (targetType.equals(INT.toString())) {
-                try {
-                    return Integer.parseInt(str);
-                } catch (NumberFormatException e) {
-                    throw new ProgramError("Cannot convert string '" + str + "' to int");
+                if (value instanceof AutoStackingNumber) {
+                    return value.toString();
                 }
-            }
-            if (targetType.equals(FLOAT.toString())) {
-                try {
-                    return AutoStackingNumber.valueOf(str);
-                } catch (NumberFormatException e) {
-                    throw new ProgramError("Cannot convert string '" + str + "' to float");
+                if (value instanceof Double) {
+                    Double d = (Double) value;
+                    return AutoStackingNumber.fromDouble(d).toString();
                 }
+                if (value instanceof Float) {
+                    Float f = (Float) value;
+                    return AutoStackingNumber.fromDouble(f).toString();
+                }
+                return String.valueOf(value);
             }
+            
             if (targetType.equals(BOOL.toString())) {
-                String lower = str.toLowerCase().trim();
-                if (lower.equals("true")) return true;
-                if (lower.equals("false")) return false;
-                throw new ProgramError("Cannot convert string '" + str + "' to boolean");
-            }
-        }
-        
-        if (targetType.equals(INT.toString())) return (int) toDouble(value);
-        if (targetType.equals(FLOAT.toString())) return toAutoStackingNumber(value);
-        
-        if (targetType.equals(TEXT.toString())) {
-            if (value instanceof AutoStackingNumber) {
-                return value.toString();
-            }
-            if (value instanceof Double) {
-                Double d = (Double) value;
-                return AutoStackingNumber.fromDouble(d).toString();
-            }
-            if (value instanceof Float) {
-                Float f = (Float) value;
-                return AutoStackingNumber.fromDouble(f).toString();
-            }
-            return String.valueOf(value);
-        }
-        
-        if (targetType.equals(BOOL.toString())) {
-            if (value instanceof Boolean) return value;
-            if (value instanceof BoolLiteral) return ((BoolLiteral) value).value;
-            if (value instanceof AutoStackingNumber) {
-                return !((AutoStackingNumber) value).isZero();
-            }
-            if (value instanceof String) {
-                String strVal = ((String)value).toLowerCase().trim();
-                if (strVal.equals("true")) return true;
-                if (strVal.equals("false")) return false;
-                try {
-                    return Double.parseDouble(strVal) != 0.0;
-                } catch (NumberFormatException e) {
-                    throw new ProgramError("Cannot convert string '" + value + "' to boolean");
+                if (value instanceof Boolean) return value;
+                if (value instanceof BoolLiteral) return ((BoolLiteral) value).value;
+                if (value instanceof AutoStackingNumber) {
+                    return !((AutoStackingNumber) value).isZero();
                 }
-            }
-            if (value instanceof TextLiteral) {
-                String strVal = ((TextLiteral) value).value.toLowerCase().trim();
-                if (strVal.equals("true")) return true;
-                if (strVal.equals("false")) return false;
-                try {
-                    return Double.parseDouble(strVal) != 0.0;
-                } catch (NumberFormatException e) {
-                    throw new ProgramError("Cannot convert string '" + strVal + "' to boolean");
+                if (value instanceof String) {
+                    String strVal = ((String)value).toLowerCase().trim();
+                    if (strVal.equals("true")) return true;
+                    if (strVal.equals("false")) return false;
+                    try {
+                        return Double.parseDouble(strVal) != 0.0;
+                    } catch (NumberFormatException e) {
+                        throw new ProgramError("Cannot convert string '" + value + "' to boolean");
+                    }
                 }
+                if (value instanceof TextLiteral) {
+                    String strVal = ((TextLiteral) value).value.toLowerCase().trim();
+                    if (strVal.equals("true")) return true;
+                    if (strVal.equals("false")) return false;
+                    try {
+                        return Double.parseDouble(strVal) != 0.0;
+                    } catch (NumberFormatException e) {
+                        throw new ProgramError("Cannot convert string '" + strVal + "' to boolean");
+                    }
+                }
+                return toDouble(value) != 0.0;
             }
-            return toDouble(value) != 0.0;
+            
+            throw new InternalError(
+                "Unhandled type conversion: value=" + value + 
+                " (type=" + (value != null ? value.getClass().getName() : "null") + 
+                "), targetType=" + targetType
+            );
+        } finally {
+            DebugSystem.stopTimer("type.convertType");
         }
-        
-        throw new InternalError(
-            "Unhandled type conversion: value=" + value + 
-            " (type=" + (value != null ? value.getClass().getName() : "null") + 
-            "), targetType=" + targetType
-        );
     }
 
     private Object convertUnsafeNumeric(Object value, String targetType) {
@@ -1188,77 +1317,85 @@ public class TypeHandler {
     }
         
     public String getConcreteType(Object value) {
-    if (value instanceof Value) {
-        Value tv = (Value) value;
-        if (tv.isTypeValue()) {
-            return TYPE.toString();
-        }
-        return tv.activeType;
-    }
-    
-    if (value == null) return "none";
-    if (value instanceof NoneLiteral) return "none";
-    
-    if (value instanceof NaturalArray) {
-        NaturalArray arr = (NaturalArray) value;
-        if (arr.hasPendingUpdates()) {
-            arr.commitUpdates();
-        }
-        // Return the element type of the array, not "list"
-        return arr.getElementType();
-    }
+        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.getConcreteType");
+        try {
+            if (value instanceof Value) {
+                Value tv = (Value) value;
+                if (tv.isTypeValue()) {
+                    return TYPE.toString();
+                }
+                return tv.activeType;
+            }
+            
+            if (value == null) return "none";
+            if (value instanceof NoneLiteral) return "none";
+            
+            if (value instanceof NaturalArray) {
+                NaturalArray arr = (NaturalArray) value;
+                if (arr.hasPendingUpdates()) {
+                    arr.commitUpdates();
+                }
+                return arr.getElementType();
+            }
 
-    if (value instanceof PointerValue) {
-        return "*" + ((PointerValue) value).pointedType;
-    }
-    
-    if (value instanceof IntLiteral) return INT.toString();
-    if (value instanceof FloatLiteral) return FLOAT.toString();
-    if (value instanceof TextLiteral) return TEXT.toString();
-    if (value instanceof BoolLiteral) return BOOL.toString();
-    
-    if (value instanceof AutoStackingNumber) {
-        AutoStackingNumber num = (AutoStackingNumber) value;
-        // Check if it's an integer (no fractional part)
-        if (num.fitsInStacks(1) && (num.getWords()[0] & 0x7FFFFFFFFFFFFFFFL) < Long.MAX_VALUE) {
-            return INT.toString();
+            if (value instanceof PointerValue) {
+                return "*" + ((PointerValue) value).pointedType;
+            }
+            
+            if (value instanceof IntLiteral) return INT.toString();
+            if (value instanceof FloatLiteral) return FLOAT.toString();
+            if (value instanceof TextLiteral) return TEXT.toString();
+            if (value instanceof BoolLiteral) return BOOL.toString();
+            
+            if (value instanceof AutoStackingNumber) {
+                AutoStackingNumber num = (AutoStackingNumber) value;
+                if (num.fitsInStacks(1) && (num.getWords()[0] & 0x7FFFFFFFFFFFFFFFL) < Long.MAX_VALUE) {
+                    return INT.toString();
+                }
+                return FLOAT.toString();
+            }
+            
+            if (value instanceof Integer) return INT.toString();
+            if (value instanceof Long) return INT.toString();
+            if (value instanceof String) return TEXT.toString();
+            if (value instanceof Float || value instanceof Double) return FLOAT.toString();
+            if (value instanceof Boolean) return BOOL.toString();
+            if (value instanceof List) return "list"; 
+            
+            throw new InternalError("Unknown type for value: " + value + " (" + 
+                (value != null ? value.getClass().getName() : "null") + ")");
+        } finally {
+            DebugSystem.stopTimer("type.getConcreteType");
         }
-        return FLOAT.toString();
     }
-    
-    if (value instanceof Integer) return INT.toString();
-    if (value instanceof Long) return INT.toString();
-    if (value instanceof String) return TEXT.toString();
-    if (value instanceof Float || value instanceof Double) return FLOAT.toString();
-    if (value instanceof Boolean) return BOOL.toString();
-    if (value instanceof List) return "list"; 
-    
-    throw new InternalError("Unknown type for value: " + value + " (" + 
-        (value != null ? value.getClass().getName() : "null") + ")");
-}
 
     public boolean validateType(String typeSig, Object value) {
-        if (typeSig == null) {
-            return true;
-        }
-        String typeSigTrimmed = normalizeTypeSignature(typeSig);
-        if (value != null && isFastPrimitiveSignature(typeSigTrimmed)) {
-            String concreteType = getConcreteType(value);
-            if (typeSigTrimmed.equals(concreteType)) {
+        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.validate");
+        try {
+            if (typeSig == null) {
                 return true;
             }
-        }
-        if (typeSigTrimmed.contains("|")) {
-            if (!isTypeStructurallyValid(typeSigTrimmed)) {
-                throw new ProgramError("Union type contains illegal keywords: " + typeSig);
+            String typeSigTrimmed = normalizeTypeSignature(typeSig);
+            if (value != null && isFastPrimitiveSignature(typeSigTrimmed)) {
+                String concreteType = getConcreteType(value);
+                if (typeSigTrimmed.equals(concreteType)) {
+                    return true;
+                }
             }
+            if (typeSigTrimmed.contains("|")) {
+                if (!isTypeStructurallyValid(typeSigTrimmed)) {
+                    throw new ProgramError("Union type contains illegal keywords: " + typeSig);
+                }
+            }
+            if (value instanceof Value) {
+                Value tv = (Value) value;
+                return validateTypeInternal(typeSig, tv.value, tv.activeType);
+            }
+            String concreteType = getConcreteType(value);
+            return validateTypeInternal(typeSig, value, concreteType);
+        } finally {
+            DebugSystem.stopTimer("type.validate");
         }
-        if (value instanceof Value) {
-            Value tv = (Value) value;
-            return validateTypeInternal(typeSig, tv.value, tv.activeType);
-        }
-        String concreteType = getConcreteType(value);
-        return validateTypeInternal(typeSig, value, concreteType);
     }
 
     private boolean isFastPrimitiveSignature(String typeSig) {
@@ -1272,41 +1409,45 @@ public class TypeHandler {
     }
     
     public boolean areEqual(Object a, Object b) {
-        a = unwrap(a);
-        b = unwrap(b);
-        
-        boolean aIsNone = isNoneValue(a);
-        boolean bIsNone = isNoneValue(b);
-        if (aIsNone && bIsNone) return true;
-        if (aIsNone || bIsNone) return false;
-        
-        if (a == null) return b == null;
-        if (b == null) return false;
-        
-        // Handle numbers
-        if (isNumeric(a) && isNumeric(b)) {
-            AutoStackingNumber numA = toAutoStackingNumber(a);
-            AutoStackingNumber numB = toAutoStackingNumber(b);
-            return numA.compareTo(numB) == 0;
+        DebugSystem.startTimer(DebugSystem.Level.DEBUG, "type.areEqual");
+        try {
+            a = unwrap(a);
+            b = unwrap(b);
+            
+            boolean aIsNone = isNoneValue(a);
+            boolean bIsNone = isNoneValue(b);
+            if (aIsNone && bIsNone) return true;
+            if (aIsNone || bIsNone) return false;
+            
+            if (a == null) return b == null;
+            if (b == null) return false;
+            
+            if (isNumeric(a) && isNumeric(b)) {
+                AutoStackingNumber numA = toAutoStackingNumber(a);
+                AutoStackingNumber numB = toAutoStackingNumber(b);
+                return numA.compareTo(numB) == 0;
+            }
+            
+            if (a instanceof IntLiteral && b instanceof IntLiteral) {
+                return ((IntLiteral) a).value.compareTo(((IntLiteral) b).value) == 0;
+            }
+            
+            if (a instanceof FloatLiteral && b instanceof FloatLiteral) {
+                return ((FloatLiteral) a).value.compareTo(((FloatLiteral) b).value) == 0;
+            }
+            
+            if (a instanceof TextLiteral && b instanceof TextLiteral) {
+                return ((TextLiteral) a).value.equals(((TextLiteral) b).value);
+            }
+            
+            if (a instanceof BoolLiteral && b instanceof BoolLiteral) {
+                return ((BoolLiteral) a).value == ((BoolLiteral) b).value;
+            }
+            
+            return a.equals(b);
+        } finally {
+            DebugSystem.stopTimer("type.areEqual");
         }
-        
-        if (a instanceof IntLiteral && b instanceof IntLiteral) {
-            return ((IntLiteral) a).value.compareTo(((IntLiteral) b).value) == 0;
-        }
-        
-        if (a instanceof FloatLiteral && b instanceof FloatLiteral) {
-            return ((FloatLiteral) a).value.compareTo(((FloatLiteral) b).value) == 0;
-        }
-        
-        if (a instanceof TextLiteral && b instanceof TextLiteral) {
-            return ((TextLiteral) a).value.equals(((TextLiteral) b).value);
-        }
-        
-        if (a instanceof BoolLiteral && b instanceof BoolLiteral) {
-            return ((BoolLiteral) a).value == ((BoolLiteral) b).value;
-        }
-        
-        return a.equals(b);
     }
 
     private boolean validateTypeInternal(String typeSig, Object rawValue, String concreteType) {
