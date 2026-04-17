@@ -4,7 +4,7 @@ import cod.ast.ASTFactory;
 import cod.ast.node.*;
 import cod.lexer.Token;
 import static cod.lexer.TokenType.*;
-import static cod.syntax.Symbol.*;
+import static cod.lexer.TokenType.Symbol.*;
 import java.util.ArrayList;
 import java.util.List;
 

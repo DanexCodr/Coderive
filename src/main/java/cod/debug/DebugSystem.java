@@ -30,6 +30,19 @@ public class DebugSystem {
     private static boolean showThread = false;
     private static Map<String, Long> timers = new HashMap<String, Long>(); // Stores nanoseconds
     private static SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
+    private static final boolean BENCHMARK_MODE = parseBenchmarkMode();
+
+    private static boolean parseBenchmarkMode() {
+        String raw = System.getProperty("cod.benchmark.mode");
+        if (raw == null || raw.trim().isEmpty()) {
+            raw = System.getenv("COD_BENCHMARK_MODE");
+        }
+        return raw != null && "true".equalsIgnoreCase(raw.trim());
+    }
+
+    public static boolean isBenchmarkMode() {
+        return BENCHMARK_MODE;
+    }
 
     public static void setLevel(Level level) {
         currentLevel = level;

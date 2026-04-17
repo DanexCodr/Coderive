@@ -51,14 +51,14 @@ public final class Options {
     }
 
     private static Mode parseMode(String raw) {
-        if (raw == null) return Mode.INTERPRETER;
+        if (raw == null) return Mode.COMPILE_EXECUTE;
         String normalized = raw.trim().toLowerCase();
         if ("interpreter".equals(normalized)) return Mode.INTERPRETER;
-        if ("compile-only".equals(normalized)) return Mode.COMPILE_ONLY;
+        if ("compile-only".equals(normalized) || "compile_only".equals(normalized)) return Mode.COMPILE_ONLY;
         if ("compile_execute".equals(normalized) || "compile-execute".equals(normalized)) {
             return Mode.COMPILE_EXECUTE;
         }
-        return Mode.INTERPRETER;
+        return Mode.COMPILE_EXECUTE;
     }
 
     private static String firstNonEmpty(String a, String b) {

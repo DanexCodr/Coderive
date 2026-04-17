@@ -6,10 +6,10 @@ import cod.lexer.Token;
 import cod.lexer.TokenType;
 import static cod.lexer.TokenType.*;
 import cod.parser.context.*;
-import cod.syntax.Keyword;
-import static cod.syntax.Keyword.*;
-import cod.syntax.Symbol;
-import static cod.syntax.Symbol.*;
+import cod.lexer.TokenType.Keyword;
+import static cod.lexer.TokenType.Keyword.*;
+import cod.lexer.TokenType.Symbol;
+import static cod.lexer.TokenType.Symbol.*;
 import cod.semantic.ObjectValidator;
 
 import java.util.List;
@@ -319,7 +319,7 @@ public abstract class BaseParser {
   }
 
   protected boolean canBeMethod(Token token) {
-    return is(token, OF, ALL, ANY);
+    return is(token, OF, ALL, ANY, GET, SET, INT, TEXT, FLOAT, BOOL, TYPE);
   }
 
   protected String parseTypeReference() {

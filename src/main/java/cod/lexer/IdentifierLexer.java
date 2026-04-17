@@ -1,6 +1,6 @@
 package cod.lexer;
 
-import cod.syntax.Keyword;
+import cod.lexer.TokenType.Keyword;
 import cod.error.LexError;
 import java.util.*;
 

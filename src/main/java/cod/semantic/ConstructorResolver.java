@@ -8,7 +8,7 @@ import cod.error.ProgramError;
 import cod.interpreter.*;
 import cod.interpreter.context.*;
 import cod.interpreter.handler.*;
-import static cod.syntax.Keyword.*;
+import static cod.lexer.TokenType.Keyword.*;
 
 import java.util.*;
 

@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
-import cod.syntax.Keyword;
+import cod.lexer.TokenType.Keyword;
 
 public class REPLRunner {
 

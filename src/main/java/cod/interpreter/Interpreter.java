@@ -12,8 +12,8 @@ import cod.lexer.*;
 import cod.parser.MainParser;
 import cod.semantic.ImportResolver;
 import cod.semantic.ConstructorResolver;
-import static cod.syntax.Keyword.*;
-import static cod.syntax.Symbol.*;
+import static cod.lexer.TokenType.Keyword.*;
+import static cod.lexer.TokenType.Symbol.*;
 
 import java.io.File;
 import java.io.BufferedReader;
@@ -1087,7 +1087,7 @@ public void run(Object entryPoint) {
 
         argValue = typeSystem.normalizeForDeclaredType(paramType, argValue);
 
-        if (paramType.contains("|")) {
+        if (paramType != null && paramType.indexOf('|') >= 0) {
             String activeType = typeSystem.getConcreteType(typeSystem.unwrap(argValue));
             argValue = new TypeHandler.Value(argValue, activeType, paramType);
         }

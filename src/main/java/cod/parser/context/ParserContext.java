@@ -2,8 +2,9 @@ package cod.parser.context;
 
 import cod.lexer.Token;
 import cod.lexer.TokenType;
+import cod.lexer.TokenType.Keyword;
+import cod.lexer.TokenType.Symbol;
 import cod.error.ParseError;
-import cod.syntax.*;
 import static cod.semantic.ObjectValidator.is;
 import static cod.semantic.ObjectValidator.nil;
 

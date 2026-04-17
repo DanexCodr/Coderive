@@ -11,8 +11,8 @@ import java.util.List;
 import cod.lexer.Token;
 import static cod.lexer.TokenType.*;
 import cod.parser.context.*;
-import static cod.syntax.Keyword.*;
-import static cod.syntax.Symbol.*;
+import static cod.lexer.TokenType.Keyword.*;
+import static cod.lexer.TokenType.Symbol.*;
 
 public class MainParser extends BaseParser {
     private static final String DEFAULT_UNIT_NAME = "default";

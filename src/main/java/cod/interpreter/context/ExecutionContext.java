@@ -391,6 +391,59 @@ public Map<String, Object> getLocalsMap() {
         Object previous = currentScope.put(name, value);
         replaceTrackedValue(previous, value);
     }
+
+    public int resolveVariableScopeIndex(String name) {
+        if (name == null) return -1;
+        for (int i = localsStack.size() - 1; i >= 0; i--) {
+            Map<String, Object> scope = localsStack.get(i);
+            if (scope.containsKey(name)) {
+                return i;
+            }
+        }
+        return localsStack.size() - 1;
+    }
+
+    public int resolveVariableTypeScopeIndex(String name) {
+        if (name == null) return -1;
+        for (int i = localTypesStack.size() - 1; i >= 0; i--) {
+            Map<String, String> scope = localTypesStack.get(i);
+            if (scope.containsKey(name)) {
+                return i;
+            }
+        }
+        return localTypesStack.size() - 1;
+    }
+
+    public String getVariableTypeAtScope(int scopeIndex, String name) {
+        if (name == null || scopeIndex < 0 || scopeIndex >= localTypesStack.size()) {
+            return null;
+        }
+        return localTypesStack.get(scopeIndex).get(name);
+    }
+
+    public void setVariableAtScope(int scopeIndex, String name, Object value) {
+        if (name == null) {
+            throw new InternalError("setVariableAtScope called with null name");
+        }
+        if (scopeIndex < 0 || scopeIndex >= localsStack.size()) {
+            setVariable(name, value);
+            return;
+        }
+        Map<String, Object> scope = localsStack.get(scopeIndex);
+        Object previous = scope.put(name, value);
+        replaceTrackedValue(previous, value);
+    }
+
+    public void setVariableTypeAtScope(int scopeIndex, String name, String type) {
+        if (name == null) {
+            throw new InternalError("setVariableTypeAtScope called with null name");
+        }
+        if (scopeIndex < 0 || scopeIndex >= localTypesStack.size()) {
+            setVariableType(name, type);
+            return;
+        }
+        localTypesStack.get(scopeIndex).put(name, type);
+    }
     
     public String getVariableType(String name) {
         if (name == null) return null;

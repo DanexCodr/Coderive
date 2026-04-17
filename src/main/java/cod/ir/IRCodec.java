@@ -3,7 +3,7 @@ package cod.ir;
 import cod.ast.node.*;
 import cod.math.AutoStackingNumber;
 import cod.parser.MainParser.ProgramType;
-import cod.syntax.Keyword;
+import cod.lexer.TokenType.Keyword;
 
 import java.io.DataInput;
 import java.io.DataOutput;

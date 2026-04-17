@@ -12,8 +12,8 @@ import cod.lexer.Token;
 import static cod.lexer.TokenType.*;
 import cod.parser.context.*;
 
-import static cod.syntax.Symbol.*;
-import static cod.syntax.Keyword.*;
+import static cod.lexer.TokenType.Symbol.*;
+import static cod.lexer.TokenType.Keyword.*;
 
 public class StatementParser extends BaseParser {
 

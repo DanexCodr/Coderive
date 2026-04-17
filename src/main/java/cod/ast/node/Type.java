@@ -7,7 +7,7 @@ import java.util.Map;
 
 import cod.ast.VisitorImpl;
 import cod.lexer.Token;
-import cod.syntax.Keyword;
+import cod.lexer.TokenType.Keyword;
 
 public class Type extends Base {
   public String name;

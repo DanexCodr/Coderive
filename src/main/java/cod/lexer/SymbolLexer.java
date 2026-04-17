@@ -1,7 +1,7 @@
 package cod.lexer;
 
-import cod.syntax.Symbol;
-import static cod.syntax.Symbol.*;
+import cod.lexer.TokenType.Symbol;
+import static cod.lexer.TokenType.Symbol.*;
 import java.util.*;
 
 public class SymbolLexer {

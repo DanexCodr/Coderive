@@ -5,7 +5,7 @@ import cod.error.InternalError;
 import cod.error.ProgramError;
 import cod.math.AutoStackingNumber;
 import cod.range.NaturalArray;
-import static cod.syntax.Keyword.*;
+import static cod.lexer.TokenType.Keyword.*;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -296,7 +296,7 @@ public class TypeHandler {
     // === TypeHandler Conversion Helpers ===
     
     public Object wrapUnionType(Object value, String declaredType) {
-        if (declaredType.contains("|")) {
+        if (declaredType != null && declaredType.indexOf('|') >= 0) {
             String activeType = getConcreteType(unwrap(value));
             return new Value(value, activeType, declaredType);
         }
@@ -443,7 +443,6 @@ public class TypeHandler {
     }
     
     private Object subtractScalars(Object a, Object b) {
-
         long[] fastPair = getFastLongPair(a, b);
         if (fastPair != null) {
             long av = fastPair[0];
@@ -1243,6 +1242,12 @@ public class TypeHandler {
             return true;
         }
         String typeSigTrimmed = normalizeTypeSignature(typeSig);
+        if (value != null && isFastPrimitiveSignature(typeSigTrimmed)) {
+            String concreteType = getConcreteType(value);
+            if (typeSigTrimmed.equals(concreteType)) {
+                return true;
+            }
+        }
         if (typeSigTrimmed.contains("|")) {
             if (!isTypeStructurallyValid(typeSigTrimmed)) {
                 throw new ProgramError("Union type contains illegal keywords: " + typeSig);
@@ -1254,6 +1259,16 @@ public class TypeHandler {
         }
         String concreteType = getConcreteType(value);
         return validateTypeInternal(typeSig, value, concreteType);
+    }
+
+    private boolean isFastPrimitiveSignature(String typeSig) {
+        return INT.toString().equals(typeSig)
+            || FLOAT.toString().equals(typeSig)
+            || TEXT.toString().equals(typeSig)
+            || BOOL.toString().equals(typeSig)
+            || "none".equals(typeSig)
+            || TYPE.toString().equals(typeSig)
+            || "list".equals(typeSig);
     }
     
     public boolean areEqual(Object a, Object b) {

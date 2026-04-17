@@ -4,10 +4,10 @@ import cod.lexer.Token;
 import cod.lexer.TokenType;
 import static cod.lexer.TokenType.*;
 import cod.parser.context.*;
-import cod.syntax.Keyword;
-import static cod.syntax.Keyword.*;
-import cod.syntax.Symbol;
-import static cod.syntax.Symbol.*;
+import cod.lexer.TokenType.Keyword;
+import static cod.lexer.TokenType.Keyword.*;
+import cod.lexer.TokenType.Symbol;
+import static cod.lexer.TokenType.Symbol.*;
 import cod.semantic.ObjectValidator;
 
 import java.util.List;
@@ -376,7 +376,7 @@ public class TokenSkipper {
   }
 
   public boolean canBeMethod(Token t) {
-    return is(t, OF, ALL, ANY);
+    return is(t, OF, ALL, ANY, GET, SET, INT, TEXT, FLOAT, BOOL, TYPE);
   }
 
   public boolean isPolicyMethod() {

@@ -1,6 +1,6 @@
 package cod.ast;
 
-import static cod.syntax.Keyword.*;
+import static cod.lexer.TokenType.Keyword.*;
 import cod.ast.node.*;
 
 public class ASTPrinter extends ASTVisitor<Void> {

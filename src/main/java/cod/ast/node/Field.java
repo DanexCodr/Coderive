@@ -1,7 +1,7 @@
 package cod.ast.node;
 
 import cod.ast.VisitorImpl;
-import cod.syntax.Keyword;
+import cod.lexer.TokenType.Keyword;
 
 public class Field extends Stmt {
     public String name;

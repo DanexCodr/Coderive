@@ -52,7 +52,7 @@ share JsonStandardLibraryComprehensive {
         JsonStandardLibraryComprehensive.checkBool("array nested kind", mixedArray.get(4).isArray(), true)
         JsonStandardLibraryComprehensive.check("array nested value", mixedArray.get(4).get(1).asNumberText(), "3")
 
-        objectValue := Json.parse("{\"name\":\"Coderive\",\"ok\":true,\"n\":10,\"tags\":[\"lang\",\"json\"],\"meta\":{\"major\":0}}")
+        objectValue := Json.parse("\{\"name\":\"Coderive\",\"ok\":true,\"n\":10,\"tags\":[\"lang\",\"json\"],\"meta\":\{\"major\":0\}\}")
         JsonStandardLibraryComprehensive.checkBool("object kind", objectValue.isObject(), true)
         JsonStandardLibraryComprehensive.checkBool("object has name", objectValue.has("name"), true)
         JsonStandardLibraryComprehensive.check("object name", objectValue.getKey("name").asText(), "Coderive")
@@ -61,7 +61,7 @@ share JsonStandardLibraryComprehensive {
         JsonStandardLibraryComprehensive.check("object nested object value", objectValue.getKey("meta").getKey("major").asNumberText(), "0")
 
         compact := Json.serialize(objectValue)
-        JsonStandardLibraryComprehensive.check("compact serialize", compact, "{\"name\":\"Coderive\",\"ok\":true,\"n\":10,\"tags\":[\"lang\",\"json\"],\"meta\":{\"major\":0}}")
+        JsonStandardLibraryComprehensive.check("compact serialize", compact, "\{\"name\":\"Coderive\",\"ok\":true,\"n\":10,\"tags\":[\"lang\",\"json\"],\"meta\":\{\"major\":0\}\}")
 
         pretty := Json.serializePretty(objectValue)
         JsonStandardLibraryComprehensive.checkBool("pretty has new lines", pretty.has("\n"), true)
@@ -74,25 +74,25 @@ share JsonStandardLibraryComprehensive {
         versions.add(Json.numberText("0.9"))
         versions.add(Json.numberText("1.0"))
         created.set("versions", versions)
-        JsonStandardLibraryComprehensive.check("constructed serialize", Json.serialize(created), "{\"language\":\"Coderive\",\"stable\":false,\"versions\":[0.9,1.0]}")
+        JsonStandardLibraryComprehensive.check("constructed serialize", Json.serialize(created), "\{\"language\":\"Coderive\",\"stable\":false,\"versions\":[0.9,1.0]\}")
 
         updateObject := Json.object()
         updateObject.set("x", Json.numberText("1"))
         updateObject.set("x", Json.numberText("2"))
-        JsonStandardLibraryComprehensive.check("object key update", Json.serialize(updateObject), "{\"x\":2}")
+        JsonStandardLibraryComprehensive.check("object key update", Json.serialize(updateObject), "\{\"x\":2\}")
 
-        roundTripSource := " { \"a\" : [ 1 , 2 , {\"b\":false} ] , \"c\" : null } "
+        roundTripSource := " \{ \"a\" : [ 1 , 2 , \{\"b\":false\} ] , \"c\" : null \} "
         roundTrip := Json.parse(roundTripSource)
         JsonStandardLibraryComprehensive.checkBool("round trip parse ok", roundTrip.isError(), false)
-        JsonStandardLibraryComprehensive.check("round trip compact", Json.serialize(roundTrip), "{\"a\":[1,2,{\"b\":false}],\"c\":null}")
+        JsonStandardLibraryComprehensive.check("round trip compact", Json.serialize(roundTrip), "\{\"a\":[1,2,\{\"b\":false\}],\"c\":null\}")
 
-        invalid1 := Json.parse("{\"a\":1,}")
+        invalid1 := Json.parse("\{\"a\":1,\}")
         JsonStandardLibraryComprehensive.checkBool("invalid trailing comma object", invalid1.isError(), true)
 
         invalid2 := Json.parse("[1,2,]")
         JsonStandardLibraryComprehensive.checkBool("invalid trailing comma array", invalid2.isError(), true)
 
-        invalid3 := Json.parse("{\"a\" 1}")
+        invalid3 := Json.parse("\{\"a\" 1\}")
         JsonStandardLibraryComprehensive.checkBool("invalid missing colon", invalid3.isError(), true)
 
         invalid4 := Json.parse("\"unterminated")

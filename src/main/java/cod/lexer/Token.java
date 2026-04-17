@@ -1,7 +1,7 @@
 package cod.lexer;
 
-import cod.syntax.Symbol;
-import cod.syntax.Keyword;
+import cod.lexer.TokenType.Symbol;
+import cod.lexer.TokenType.Keyword;
 import java.util.List;
 import java.util.ArrayList;
 

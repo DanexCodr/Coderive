@@ -15,6 +15,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ArrayOperationHandler {
+    private static final class LoopVariableBinding {
+        final String name;
+        final int valueScopeIndex;
+        final int typeScopeIndex;
+        boolean typeInitialized;
+
+        LoopVariableBinding(String name, int valueScopeIndex, int typeScopeIndex, boolean typeInitialized) {
+            this.name = name;
+            this.valueScopeIndex = valueScopeIndex;
+            this.typeScopeIndex = typeScopeIndex;
+            this.typeInitialized = typeInitialized;
+        }
+    }
+
     private final InterpreterVisitor dispatcher;
     private final Interpreter interpreter;
     private final TypeHandler typeSystem;
@@ -67,12 +81,13 @@ public class ArrayOperationHandler {
     public Object executeArrayLoop(
         cod.interpreter.context.ExecutionContext ctx, For node, String iter, Object arrayObj) {
         try {
+            LoopVariableBinding binding = resolveLoopVariableBinding(ctx, iter);
             if (arrayObj instanceof NaturalArray) {
                 NaturalArray natural = (NaturalArray) arrayObj;
                 long size = natural.size();
                 for (long i = 0; i < size; i++) {
                     Object currentValue = natural.get(i);
-                    ctx.setVariable(iter, currentValue);
+                    writeLoopVariable(ctx, binding, currentValue);
                     try {
                         executeLoopBody(ctx, node);
                     } catch (BreakLoopException e) {
@@ -82,7 +97,7 @@ public class ArrayOperationHandler {
             } else if (arrayObj instanceof List) {
                 List<Object> list = (List<Object>) arrayObj;
                 for (Object currentValue : list) {
-                    ctx.setVariable(iter, currentValue);
+                    writeLoopVariable(ctx, binding, currentValue);
                     try {
                         executeLoopBody(ctx, node);
                     } catch (BreakLoopException e) {
@@ -113,15 +128,17 @@ public class ArrayOperationHandler {
                 if (binOp.left instanceof Identifier
                     && ((Identifier) binOp.left).name.equals(iter)
                     && (binOp.op.equals("*") || binOp.op.equals("/"))) {
+                    LoopVariableBinding loopBinding = resolveLoopVariableBinding(ctx, iter);
                     Object rightObj = dispatcher.dispatch(binOp.right);
                     rightObj = typeSystem.unwrap(rightObj);
                     AutoStackingNumber factor = typeSystem.toAutoStackingNumber(rightObj);
                     validateFactor(factor, binOp.op);
-                    return executeMultiplicativeLoop(ctx, node, startObj, endObj, factor, binOp.op);
+                    return executeMultiplicativeLoop(ctx, node, startObj, endObj, factor, binOp.op, loopBinding);
                 }
             }
 
             AutoStackingNumber step;
+            LoopVariableBinding loopBinding = resolveLoopVariableBinding(ctx, iter);
             if (node.range.step != null) {
                 Object stepObj = dispatcher.dispatch(node.range.step);
                 step = typeSystem.toAutoStackingNumber(typeSystem.unwrap(stepObj));
@@ -135,7 +152,16 @@ public class ArrayOperationHandler {
                 throw new ProgramError("Loop step cannot be zero.");
             }
 
-            return executeAdditiveLoop(ctx, node, startObj, endObj, step);
+            Long startLong = tryFastLongValue(startObj);
+            Long endLong = tryFastLongValue(endObj);
+            Long stepLong = tryFastLongValue(step);
+            if (startLong != null && endLong != null && stepLong != null
+                && canUsePrimitiveAdditiveLoop(startLong.longValue(), endLong.longValue(), stepLong.longValue())) {
+                return executeAdditiveLoopPrimitive(
+                    ctx, node, startLong.longValue(), endLong.longValue(), stepLong.longValue(), loopBinding);
+            }
+
+            return executeAdditiveLoop(ctx, node, startObj, endObj, step, loopBinding);
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -144,7 +170,12 @@ public class ArrayOperationHandler {
     }
 
     public Object executeAdditiveLoop(
-        cod.interpreter.context.ExecutionContext ctx, For node, Object startObj, Object endObj, AutoStackingNumber step) {
+        cod.interpreter.context.ExecutionContext ctx,
+        For node,
+        Object startObj,
+        Object endObj,
+        AutoStackingNumber step,
+        LoopVariableBinding loopBinding) {
         try {
             AutoStackingNumber start = typeSystem.toAutoStackingNumber(startObj);
             AutoStackingNumber end = typeSystem.toAutoStackingNumber(endObj);
@@ -153,7 +184,7 @@ public class ArrayOperationHandler {
 
             while (shouldContinueAdditive(current, end, step, increasing)) {
                 try {
-                    executeIteration(ctx, node, current, startObj);
+                    executeIteration(ctx, node, current, startObj, loopBinding);
                 } catch (BreakLoopException e) {
                     break;
                 }
@@ -173,7 +204,8 @@ public class ArrayOperationHandler {
         Object startObj,
         Object endObj,
         AutoStackingNumber factor,
-        String operation) {
+        String operation,
+        LoopVariableBinding loopBinding) {
         try {
             AutoStackingNumber start = typeSystem.toAutoStackingNumber(startObj);
             AutoStackingNumber end = typeSystem.toAutoStackingNumber(endObj);
@@ -181,7 +213,7 @@ public class ArrayOperationHandler {
 
             while (shouldContinueMultiplicative(current, start, end, factor, operation)) {
                 try {
-                    executeIteration(ctx, node, current, startObj);
+                    executeIteration(ctx, node, current, startObj, loopBinding);
                 } catch (BreakLoopException e) {
                     break;
                 }
@@ -200,16 +232,20 @@ public class ArrayOperationHandler {
     }
 
     public void executeIteration(
-        cod.interpreter.context.ExecutionContext ctx, For node, AutoStackingNumber current, Object startObj) {
+        cod.interpreter.context.ExecutionContext ctx,
+        For node,
+        AutoStackingNumber current,
+        Object startObj,
+        LoopVariableBinding loopBinding) {
         try {
-            String iter = node.iterator;
             Object currentValue = convertToAppropriateType(current, startObj);
-            ctx.setVariable(iter, currentValue);
-            if (ctx.getVariableType(iter) == null) {
+            writeLoopVariable(ctx, loopBinding, currentValue);
+            if (!loopBinding.typeInitialized) {
                 String inferredType = (current.fitsInStacks(1) &&
                     (current.getWords()[0] & 0x7FFFFFFFFFFFFFFFL) < Long.MAX_VALUE)
-                    ? cod.syntax.Keyword.INT.toString() : cod.syntax.Keyword.FLOAT.toString();
-                ctx.setVariableType(iter, inferredType);
+                    ? cod.lexer.TokenType.Keyword.INT.toString() : cod.lexer.TokenType.Keyword.FLOAT.toString();
+                ctx.setVariableTypeAtScope(loopBinding.typeScopeIndex, loopBinding.name, inferredType);
+                loopBinding.typeInitialized = true;
             }
             executeLoopBody(ctx, node);
         } catch (BreakLoopException e) {
@@ -218,6 +254,80 @@ public class ArrayOperationHandler {
             throw e;
         } catch (Exception e) {
             throw new InternalError("Loop iteration failed", e);
+        }
+    }
+
+    public void executePrimitiveIteration(
+        cod.interpreter.context.ExecutionContext ctx,
+        For node,
+        long current,
+        LoopVariableBinding loopBinding) {
+        try {
+            Object currentValue = (current >= Integer.MIN_VALUE && current <= Integer.MAX_VALUE)
+                ? Integer.valueOf((int) current)
+                : Long.valueOf(current);
+            writeLoopVariable(ctx, loopBinding, currentValue);
+            if (!loopBinding.typeInitialized) {
+                ctx.setVariableTypeAtScope(loopBinding.typeScopeIndex, loopBinding.name, cod.lexer.TokenType.Keyword.INT.toString());
+                loopBinding.typeInitialized = true;
+            }
+            executeLoopBody(ctx, node);
+        } catch (BreakLoopException e) {
+            throw e;
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Primitive loop iteration failed", e);
+        }
+    }
+
+    public Object executeAdditiveLoopPrimitive(
+        cod.interpreter.context.ExecutionContext ctx,
+        For node,
+        long start,
+        long end,
+        long step,
+        LoopVariableBinding loopBinding) {
+        try {
+            long current = start;
+            if (step > 0L) {
+                while (current <= end) {
+                    try {
+                        executePrimitiveIteration(ctx, node, current, loopBinding);
+                    } catch (BreakLoopException e) {
+                        break;
+                    }
+                    if (current == end) {
+                        break;
+                    }
+                    long next = current + step;
+                    if (next < current) {
+                        break;
+                    }
+                    current = next;
+                }
+            } else {
+                while (current >= end) {
+                    try {
+                        executePrimitiveIteration(ctx, node, current, loopBinding);
+                    } catch (BreakLoopException e) {
+                        break;
+                    }
+                    if (current == end) {
+                        break;
+                    }
+                    long next = current + step;
+                    if (next > current) {
+                        break;
+                    }
+                    current = next;
+                }
+            }
+            return null;
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Primitive additive loop execution failed", e);
         }
     }
 
@@ -545,6 +655,61 @@ public class ArrayOperationHandler {
     private boolean shouldContinueAdditive(
         AutoStackingNumber current, AutoStackingNumber end, AutoStackingNumber step, boolean increasing) {
         return increasing ? current.compareTo(end) <= 0 : current.compareTo(end) >= 0;
+    }
+
+    private Long tryFastLongValue(Object value) {
+        Object unwrapped = typeSystem.unwrap(value);
+        if (unwrapped instanceof Integer || unwrapped instanceof Long
+            || unwrapped instanceof Short || unwrapped instanceof Byte) {
+            return Long.valueOf(((Number) unwrapped).longValue());
+        }
+        if (unwrapped instanceof IntLiteral) {
+            try {
+                return Long.valueOf(((IntLiteral) unwrapped).value.longValue());
+            } catch (ArithmeticException ignored) {
+                return null;
+            }
+        }
+        if (unwrapped instanceof AutoStackingNumber) {
+            AutoStackingNumber asn = (AutoStackingNumber) unwrapped;
+            try {
+                return Long.valueOf(asn.longValue());
+            } catch (ArithmeticException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private boolean canUsePrimitiveAdditiveLoop(long start, long end, long step) {
+        if (step == 0L) {
+            return false;
+        }
+        // Long.MIN_VALUE is excluded because it cannot be safely negated (would overflow)
+        // and makes overflow-safe progression checks ambiguous.
+        if (step == Long.MIN_VALUE) {
+            return false;
+        }
+        if (step > 0L && start > end) {
+            return false;
+        }
+        if (step < 0L && start < end) {
+            return false;
+        }
+        return true;
+    }
+
+    private LoopVariableBinding resolveLoopVariableBinding(
+        cod.interpreter.context.ExecutionContext ctx, String iter) {
+        int valueScopeIndex = ctx.resolveVariableScopeIndex(iter);
+        int typeScopeIndex = ctx.resolveVariableTypeScopeIndex(iter);
+        String existingType = ctx.getVariableTypeAtScope(typeScopeIndex, iter);
+        return new LoopVariableBinding(iter, valueScopeIndex, typeScopeIndex, existingType != null);
+    }
+
+    private void writeLoopVariable(
+        cod.interpreter.context.ExecutionContext ctx, LoopVariableBinding binding, Object value) {
+        ctx.setVariableAtScope(binding.valueScopeIndex, binding.name, value);
     }
 
     private void validateFactor(AutoStackingNumber factor, String operation) {
