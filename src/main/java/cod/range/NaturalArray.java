@@ -817,20 +817,24 @@ public class NaturalArray {
             return val;
         }
 
-        if (isMutable && cache != null && cache.containsKey(index)) {
+        if (isMutable && cache != null) {
             Object val = cache.get(index);
+            if (val != null || cache.containsKey(index)) {
             lastIndex = index;
             lastValue = val;
             updateRecentCache(index, val);
             return maybeConvert(val);
+            }
         }
 
-        if (computedCache != null && computedCache.containsKey(index)) {
+        if (computedCache != null) {
             Object cached = computedCache.get(index);
-            lastIndex = index;
-            lastValue = cached;
-            updateRecentCache(index, cached);
-            return maybeConvert(cached);
+            if (cached != null || computedCache.containsKey(index)) {
+                lastIndex = index;
+                lastValue = cached;
+                updateRecentCache(index, cached);
+                return maybeConvert(cached);
+            }
         }
 
         // Try sequence formulas first (most specific)
@@ -907,11 +911,17 @@ public class NaturalArray {
 
         checkBounds(index);
 
-        if (isMutable && cache != null && cache.containsKey(index)) {
-            return cache.get(index);
+        if (isMutable && cache != null) {
+            Object cachedValue = cache.get(index);
+            if (cachedValue != null || cache.containsKey(index)) {
+                return cachedValue;
+            }
         }
-        if (computedCache != null && computedCache.containsKey(index)) {
-            return computedCache.get(index);
+        if (computedCache != null) {
+            Object computedValue = computedCache.get(index);
+            if (computedValue != null || computedCache.containsKey(index)) {
+                return computedValue;
+            }
         }
         return null;
     }

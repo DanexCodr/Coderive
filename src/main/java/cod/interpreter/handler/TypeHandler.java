@@ -12,9 +12,12 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.AbstractList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.RandomAccess;
+import java.util.Set;
 
 public class TypeHandler {
     private static final String PERF_PREFIX = "TypeHandler.";
@@ -125,9 +128,9 @@ public class TypeHandler {
     private static final AutoStackingNumber ZERO = AutoStackingNumber.valueOf("0");
     private static final AutoStackingNumber ONE = AutoStackingNumber.valueOf("1");
     private static final int LAZY_ARRAY_MEMO_MAX_SIZE = 8192;
-    private static final String[] UNSAFE_NUMERIC_TYPES = {
-        "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64"
-    };
+    private static final Set<String> UNSAFE_NUMERIC_TYPES = new HashSet<String>(
+        Arrays.asList("i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64")
+    );
 
     public boolean isPointerType(String type) {
         return type != null && type.startsWith("*") && type.length() > 1;
@@ -246,13 +249,7 @@ public class TypeHandler {
     }
 
     public boolean isUnsafeNumericType(String type) {
-        if (type == null) return false;
-        for (String unsafeType : UNSAFE_NUMERIC_TYPES) {
-            if (unsafeType.equals(type)) {
-                return true;
-            }
-        }
-        return false;
+        return type != null && UNSAFE_NUMERIC_TYPES.contains(type);
     }
 
     public Object normalizeForDeclaredType(String declaredType, Object value) {

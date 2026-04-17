@@ -339,8 +339,8 @@ public class ImportResolver {
         }
         
         // Check memory cache
-        if (indexCache.containsKey(unitName)) {
-            Index cached = indexCache.get(unitName);
+        Index cached = indexCache.get(unitName);
+        if (cached != null) {
             String unitPath = getUnitPath(unitName);
             if (!cached.isStale(unitPath)) {
                 indexCacheHits++;
