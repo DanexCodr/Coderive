@@ -1,6 +1,7 @@
 package cod.interpreter.handler;
 
 import cod.ast.node.*;
+import cod.debug.DebugSystem;
 import cod.error.InternalError;
 import cod.error.ProgramError;
 import cod.math.AutoStackingNumber;
@@ -29,117 +30,121 @@ public class ExpressionHandler {
     // === Core Expression Evaluation ===
     
     public Object handleBinaryOp(BinaryOp node, ExecutionContext ctx) {
-    if (node == null) {
-        throw new InternalError("handleBinaryOp called with null node");
-    }
-    if (ctx == null) {
-        throw new InternalError("handleBinaryOp called with null context");
-    }
-    
-    try {
-        Object left = dispatcher.dispatch(node.left);
-        Object right = dispatcher.dispatch(node.right);
-        Object result = null;
-
-        switch (node.op) {
-            case "+":
-            case "+=":
-                if (typeSystem.unwrap(left) instanceof TypeHandler.PointerValue
-                    || typeSystem.unwrap(right) instanceof TypeHandler.PointerValue) {
-                    return handlePointerArithmetic(left, right, true, ctx);
-                }
-                if (left instanceof String || right instanceof String ||
-                    left instanceof TextLiteral || right instanceof TextLiteral) {
-                    
-                    // === FIX: Force materialization before string conversion ===
-                    Object unwrappedLeft = typeSystem.unwrap(left);
-                    Object unwrappedRight = typeSystem.unwrap(right);
-                    
-                    if (unwrappedLeft instanceof NaturalArray) {
-                        NaturalArray arr = (NaturalArray) unwrappedLeft;
-                        if (arr.hasPendingUpdates()) {
-                            arr.commitUpdates();
-                        }
-                    }
-                    
-                    if (unwrappedRight instanceof NaturalArray) {
-                        NaturalArray arr = (NaturalArray) unwrappedRight;
-                        if (arr.hasPendingUpdates()) {
-                            arr.commitUpdates();
-                        }
-                    }
-                    
-                    result = String.valueOf(unwrappedLeft) + String.valueOf(unwrappedRight);
-                } else {
-                    result = typeSystem.addNumbers(left, right);
-                }
-                break;
-
-            case "*":
-            case "*=":
-                result = typeSystem.multiplyNumbers(left, right);
-                break;
-
-            case "-":
-            case "-=":
-                if (typeSystem.unwrap(left) instanceof TypeHandler.PointerValue
-                    || typeSystem.unwrap(right) instanceof TypeHandler.PointerValue) {
-                    return handlePointerArithmetic(left, right, false, ctx);
-                }
-                result = typeSystem.subtractNumbers(left, right);
-                break;
-
-            case "/":
-            case "/=":
-                result = typeSystem.divideNumbers(left, right);
-                break;
-
-            case "%":
-                result = typeSystem.modulusNumbers(left, right);
-                break;
-
-            case ">":
-                result = typeSystem.compare(left, right) > 0;
-                break;
-
-            case "<":
-                result = typeSystem.compare(left, right) < 0;
-                break;
-
-            case ">=":
-                result = typeSystem.compare(left, right) >= 0;
-                break;
-
-            case "<=":
-                result = typeSystem.compare(left, right) <= 0;
-                break;
-
-            case "=":
-                result = right;
-                break;
-
-            case "==":
-                result = typeSystem.areEqual(left, right);
-                break;
-
-            case "!=":
-                result = !typeSystem.areEqual(left, right);
-                break;
-                
-            case "is": {
-                return handleIsOperator(left, right);
+        String timer = startPerfTimer(DebugSystem.Level.DEBUG, "expression.handleBinaryOp");
+        try {
+            if (node == null) {
+                throw new InternalError("handleBinaryOp called with null node");
             }
+            if (ctx == null) {
+                throw new InternalError("handleBinaryOp called with null context");
+            }
+            
+            try {
+                Object left = dispatcher.dispatch(node.left);
+                Object right = dispatcher.dispatch(node.right);
+                Object result = null;
 
-            default:
-                throw new ProgramError("Unknown operator: " + node.op);
+                switch (node.op) {
+                    case "+":
+                    case "+=":
+                        if (typeSystem.unwrap(left) instanceof TypeHandler.PointerValue
+                            || typeSystem.unwrap(right) instanceof TypeHandler.PointerValue) {
+                            return handlePointerArithmetic(left, right, true, ctx);
+                        }
+                        if (left instanceof String || right instanceof String ||
+                            left instanceof TextLiteral || right instanceof TextLiteral) {
+                            
+                            // === FIX: Force materialization before string conversion ===
+                            Object unwrappedLeft = typeSystem.unwrap(left);
+                            Object unwrappedRight = typeSystem.unwrap(right);
+                            
+                            if (unwrappedLeft instanceof NaturalArray) {
+                                NaturalArray arr = (NaturalArray) unwrappedLeft;
+                                if (arr.hasPendingUpdates()) {
+                                    arr.commitUpdates();
+                                }
+                            }
+                            
+                            if (unwrappedRight instanceof NaturalArray) {
+                                NaturalArray arr = (NaturalArray) unwrappedRight;
+                                if (arr.hasPendingUpdates()) {
+                                    arr.commitUpdates();
+                                }
+                            }
+                            
+                            result = String.valueOf(unwrappedLeft) + String.valueOf(unwrappedRight);
+                        } else {
+                            result = typeSystem.addNumbers(left, right);
+                        }
+                        break;
+
+                    case "*":
+                    case "*=":
+                        result = typeSystem.multiplyNumbers(left, right);
+                        break;
+
+                    case "-":
+                    case "-=":
+                        if (typeSystem.unwrap(left) instanceof TypeHandler.PointerValue
+                            || typeSystem.unwrap(right) instanceof TypeHandler.PointerValue) {
+                            return handlePointerArithmetic(left, right, false, ctx);
+                        }
+                        result = typeSystem.subtractNumbers(left, right);
+                        break;
+
+                    case "/":
+                    case "/=":
+                        result = typeSystem.divideNumbers(left, right);
+                        break;
+
+                    case "%":
+                        result = typeSystem.modulusNumbers(left, right);
+                        break;
+
+                    case ">":
+                        result = typeSystem.compare(left, right) > 0;
+                        break;
+
+                    case "<":
+                        result = typeSystem.compare(left, right) < 0;
+                        break;
+
+                    case ">=":
+                        result = typeSystem.compare(left, right) >= 0;
+                        break;
+
+                    case "<=":
+                        result = typeSystem.compare(left, right) <= 0;
+                        break;
+
+                    case "=":
+                        result = right;
+                        break;
+
+                    case "==":
+                        result = typeSystem.areEqual(left, right);
+                        break;
+
+                    case "!=":
+                        result = !typeSystem.areEqual(left, right);
+                        break;
+                        
+                    case "is":
+                        return handleIsOperator(left, right);
+
+                    default:
+                        throw new ProgramError("Unknown operator: " + node.op);
+                }
+                return result;
+            } catch (ProgramError e) {
+                throw e;
+            } catch (Exception e) {
+                throw new InternalError("Binary operation failed: " + node.op, e);
+            }
+        } finally {
+            stopPerfTimer(timer);
         }
-        return result;
-    } catch (ProgramError e) {
-        throw e;
-    } catch (Exception e) {
-        throw new InternalError("Binary operation failed: " + node.op, e);
     }
-}
     
     public Object handleUnaryOp(Unary node, ExecutionContext ctx) {
         if (node == null) {
@@ -623,6 +628,26 @@ public Object handleChainedComparison(ChainedComparison node, ExecutionContext c
             throw e;
         } catch (Exception e) {
             throw new InternalError("'is' operator evaluation failed", e);
+        }
+    }
+
+    private static boolean isTimerEnabled(DebugSystem.Level level) {
+        DebugSystem.Level current = DebugSystem.getLevel();
+        return current != DebugSystem.Level.OFF && current.getLevel() >= level.getLevel();
+    }
+
+    private static String startPerfTimer(DebugSystem.Level level, String operation) {
+        if (!isTimerEnabled(level)) {
+            return null;
+        }
+        String timerName = operation + "#" + Thread.currentThread().getId() + ":" + System.nanoTime();
+        DebugSystem.startTimer(level, timerName);
+        return timerName;
+    }
+
+    private static void stopPerfTimer(String timerName) {
+        if (timerName != null) {
+            DebugSystem.stopTimer(timerName);
         }
     }
 }
