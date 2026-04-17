@@ -819,7 +819,7 @@ public class NaturalArray {
 
         if (isMutable && cache != null) {
             Object val = cache.get(index);
-            if (val != null || cache.containsKey(index)) {
+            if (val != null) {
             lastIndex = index;
             lastValue = val;
             updateRecentCache(index, val);
@@ -829,7 +829,7 @@ public class NaturalArray {
 
         if (computedCache != null) {
             Object cached = computedCache.get(index);
-            if (cached != null || computedCache.containsKey(index)) {
+            if (cached != null) {
                 lastIndex = index;
                 lastValue = cached;
                 updateRecentCache(index, cached);
@@ -913,13 +913,13 @@ public class NaturalArray {
 
         if (isMutable && cache != null) {
             Object cachedValue = cache.get(index);
-            if (cachedValue != null || cache.containsKey(index)) {
+            if (cachedValue != null) {
                 return cachedValue;
             }
         }
         if (computedCache != null) {
             Object computedValue = computedCache.get(index);
-            if (computedValue != null || computedCache.containsKey(index)) {
+            if (computedValue != null) {
                 return computedValue;
             }
         }
