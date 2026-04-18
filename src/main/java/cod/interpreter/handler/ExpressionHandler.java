@@ -30,7 +30,7 @@ public class ExpressionHandler {
     // === Core Expression Evaluation ===
     
     public Object handleBinaryOp(BinaryOp node, ExecutionContext ctx) {
-        String timer = startPerfTimer(DebugSystem.Level.DEBUG, "expression.handleBinaryOp");
+        String timer = startPerfTimer(DebugSystem.Level.TRACE, "expression.handleBinaryOp");
         try {
             if (node == null) {
                 throw new InternalError("handleBinaryOp called with null node");
