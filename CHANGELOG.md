@@ -2,6 +2,19 @@
 
 All notable changes to Coderive are documented in this file.
 
+## [v0.9.5] - JSON Stabilization - April 18, 2026
+
+### 🧩 JSON Parser & Serializer Fixes
+- Fixed JSON text parsing to correctly handle valid quoted strings and escape sequences without falling into false `unterminated text` errors.
+- Hardened object key/value handling for empty-object paths in `JsonValue.set(...)`, `JsonValue.has(...)`, and `JsonValue.getKey(...)`.
+- Corrected unicode `\uXXXX` formatting internals in JSON serialization to avoid type/runtime mismatches in escape generation.
+- Fixed JSON text escaping so regular letters (such as `b` / `f`) are preserved and only real control characters are escaped.
+
+### 🧪 Validation & Coverage
+- Restored full `JsonStandardLibraryComprehensive.cod` assertions (text, object, round-trip, unicode, invalid-case coverage).
+- Verified direct `CommandRunner` execution for the JSON comprehensive suite now passes.
+- Re-validated demo parity suite (`CodPTACParityRunner`) after JSON fixes.
+
 ## [v0.9.2] - Why Slow? - April 17, 2026
 
 ### 🔬 Lexer/Parser Throughput Baseline (New)
