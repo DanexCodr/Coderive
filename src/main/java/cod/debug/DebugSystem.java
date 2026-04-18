@@ -32,9 +32,11 @@ public class DebugSystem {
     private static SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
     private static final boolean BENCHMARK_MODE = parseBenchmarkMode();
     
-    // Level-based timers (new)
-    private static Map<String, Long> levelTimers = new HashMap<String, Long>();
-    private static Map<String, Level> timerLevels = new HashMap<String, Level>();
+    // Level-based timers (support nested same-name timers per thread)
+    private static final ThreadLocal<Map<String, Deque<Long>>> levelTimerStacks =
+            ThreadLocal.withInitial(HashMap::new);
+    private static final ThreadLocal<Map<String, Deque<Level>>> timerLevelStacks =
+            ThreadLocal.withInitial(HashMap::new);
 
     private static boolean parseBenchmarkMode() {
         String raw = System.getProperty("cod.benchmark.mode");
@@ -50,6 +52,9 @@ public class DebugSystem {
 
     public static void setLevel(Level level) {
         currentLevel = level;
+        if (level == Level.OFF) {
+            clearTimerStateForCurrentThread();
+        }
     }
 
     public static void setShowTimestamp(boolean show) {
@@ -112,20 +117,40 @@ public class DebugSystem {
     // New level-based timer
     public static void startTimer(Level level, String name) {
         if (shouldLog(level)) {
-            levelTimers.put(name, System.nanoTime());
-            timerLevels.put(name, level);
+            Map<String, Deque<Long>> startsByName = levelTimerStacks.get();
+            Deque<Long> starts = startsByName.computeIfAbsent(name, k -> new ArrayDeque<>());
+            starts.push(System.nanoTime());
+
+            Map<String, Deque<Level>> levelsByName = timerLevelStacks.get();
+            Deque<Level> levels = levelsByName.computeIfAbsent(name, k -> new ArrayDeque<>());
+            levels.push(level);
         }
     }
 
     // Unified stopTimer - works for both original and level-based timers
     public static double stopTimer(String name) {
-        // Check level-based timers first
-        Long levelStart = levelTimers.remove(name);
-        if (levelStart != null) {
-            Level originalLevel = timerLevels.remove(name);
+        // Check level-based timers first (LIFO for nested same-name timers)
+        Map<String, Deque<Long>> startsByName = levelTimerStacks.get();
+        Deque<Long> starts = startsByName.get(name);
+        if (starts != null && !starts.isEmpty()) {
+            long levelStart = starts.pop();
+            if (starts.isEmpty()) {
+                startsByName.remove(name);
+            }
+
+            Map<String, Deque<Level>> levelsByName = timerLevelStacks.get();
+            Deque<Level> levels = levelsByName.get(name);
+            Level originalLevel = null;
+            if (levels != null && !levels.isEmpty()) {
+                originalLevel = levels.pop();
+                if (levels.isEmpty()) {
+                    levelsByName.remove(name);
+                }
+            }
+
             long durationNs = System.nanoTime() - levelStart;
             double durationMs = durationNs / 1_000_000.0;
-            
+
             if (originalLevel != null && shouldLog(originalLevel)) {
                 log(originalLevel, "PERF", String.format("%s took %.3f ms", name, durationMs));
             }
@@ -148,9 +173,10 @@ public class DebugSystem {
 
     public static double getTimerDuration(String name) {
         // Check level-based timers first
-        Long levelStart = levelTimers.get(name);
-        if (levelStart != null) {
-            long durationNs = System.nanoTime() - levelStart;
+        Map<String, Deque<Long>> startsByName = levelTimerStacks.get();
+        Deque<Long> starts = startsByName.get(name);
+        if (starts != null && !starts.isEmpty()) {
+            long durationNs = System.nanoTime() - starts.peek();
             return durationNs / 1_000_000.0;
         }
         
@@ -206,5 +232,10 @@ public class DebugSystem {
 
     public static Level getLevel() {
         return currentLevel;
+    }
+
+    public static void clearTimerStateForCurrentThread() {
+        levelTimerStacks.remove();
+        timerLevelStacks.remove();
     }
 }

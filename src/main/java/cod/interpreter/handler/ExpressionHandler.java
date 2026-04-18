@@ -30,7 +30,7 @@ public class ExpressionHandler {
     // === Core Expression Evaluation ===
     
     public Object handleBinaryOp(BinaryOp node, ExecutionContext ctx) {
-        String timer = startPerfTimer(DebugSystem.Level.DEBUG, "expression.handleBinaryOp");
+        String timer = startPerfTimer(DebugSystem.Level.TRACE, "expression.handleBinaryOp");
         try {
             if (node == null) {
                 throw new InternalError("handleBinaryOp called with null node");
@@ -640,9 +640,8 @@ public Object handleChainedComparison(ChainedComparison node, ExecutionContext c
         if (!isTimerEnabled(level)) {
             return null;
         }
-        String timerName = operation + "#" + Thread.currentThread().getId() + ":" + System.nanoTime();
-        DebugSystem.startTimer(level, timerName);
-        return timerName;
+        DebugSystem.startTimer(level, operation);
+        return operation;
     }
 
     private static void stopPerfTimer(String timerName) {

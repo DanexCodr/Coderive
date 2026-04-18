@@ -1785,9 +1785,8 @@ public class NaturalArray {
         if (!isTimerEnabled(level)) {
             return null;
         }
-        String timerName = operation + "#" + Thread.currentThread().getId() + ":" + System.nanoTime();
-        DebugSystem.startTimer(level, timerName);
-        return timerName;
+        DebugSystem.startTimer(level, operation);
+        return operation;
     }
 
     private static void stopPerfTimer(String timerName) {
