@@ -49,10 +49,12 @@ share JsonValue {
 
     share set(key: text, value: JsonValue) {
         if this.kind != 5 { fin }
-        for i of 0 to this.objectKeys.size - 1 {
-            if this.objectKeys[i] == key {
-                objectValues[i] = value
-                fin
+        if this.objectKeys.size > 0 {
+            for i of 0 to this.objectKeys.size - 1 {
+                if this.objectKeys[i] == key {
+                    objectValues[i] = value
+                    fin
+                }
             }
         }
         idx: int = this.objectKeys.size
@@ -62,17 +64,21 @@ share JsonValue {
 
     share has(key: text) :: bool {
         if this.kind != 5 { ~> (false) }
-        for i of 0 to this.objectKeys.size - 1 {
-            if this.objectKeys[i] == key { ~> (true) }
+        if this.objectKeys.size > 0 {
+            for i of 0 to this.objectKeys.size - 1 {
+                if this.objectKeys[i] == key { ~> (true) }
+            }
         }
         ~> (false)
     }
 
     share getKey(key: text) :: value: JsonValue {
         if this.kind != 5 { ~> (JsonValue.makeError("value is not an object")) }
-        for i of 0 to this.objectKeys.size - 1 {
-            if this.objectKeys[i] == key {
-                ~> (this.objectValues[i])
+        if this.objectKeys.size > 0 {
+            for i of 0 to this.objectKeys.size - 1 {
+                if this.objectKeys[i] == key {
+                    ~> (this.objectValues[i])
+                }
             }
         }
         ~> (JsonValue.makeError("missing object key: " + key))
@@ -288,16 +294,6 @@ share Json {
                 idx = idx + 1
                 skip
             }
-            if ch == "\b" {
-                outText = outText + "\\b"
-                idx = idx + 1
-                skip
-            }
-            if ch == "\f" {
-                outText = outText + "\\f"
-                idx = idx + 1
-                skip
-            }
             outText = outText + ch
             idx = idx + 1
         }
@@ -370,10 +366,34 @@ share Json {
         x: int = value
         if x < 0 { x = 0 }
         if x > 65535 { x = x % 65536 }
-        d0 := (x / 4096) % 16
-        d1 := (x / 256) % 16
-        d2 := (x / 16) % 16
-        d3 := x % 16
+        d0: int = 0
+        for i of 1 to 15 {
+            if x >= 4096 {
+                x = x - 4096
+                d0 = d0 + 1
+                skip
+            }
+            break
+        }
+        d1: int = 0
+        for i of 1 to 15 {
+            if x >= 256 {
+                x = x - 256
+                d1 = d1 + 1
+                skip
+            }
+            break
+        }
+        d2: int = 0
+        for i of 1 to 15 {
+            if x >= 16 {
+                x = x - 16
+                d2 = d2 + 1
+                skip
+            }
+            break
+        }
+        d3: int = x
         ~> (Json.hexDigit(d0) + Json.hexDigit(d1) + Json.hexDigit(d2) + Json.hexDigit(d3))
     }
     
@@ -468,102 +488,92 @@ share JsonParser {
             ~> (JsonValue.makeError("expected text at index " + this.index))
         }
 
-        index = this.index + 1
+        cursor := this.index + 1
         outText := ""
+        result := JsonValue.makeError("unterminated text")
 
-        for i of this.index to this.source.length {
-            if this.index >= this.source.length {
-                ~> (JsonValue.makeError("unterminated text"))
+        for n of 0 to this.source.length {
+            if cursor >= this.source.length {
+                result = JsonValue.makeError("unterminated text")
+                break
             }
 
-            ch := this.source[this.index]
-            index = this.index + 1
+            ch := this.source[cursor]
+            cursor = cursor + 1
 
             if ch == "\"" {
-                ~> (JsonValue.makeText(outText))
+                index = cursor
+                result = JsonValue.makeText(outText)
+                break
             }
 
             if ch == "\\" {
-                if this.index >= this.source.length {
-                    ~> (JsonValue.makeError("unterminated escape sequence"))
+                if cursor >= this.source.length {
+                    result = JsonValue.makeError("unterminated escape sequence")
+                    break
                 }
 
-                esc := this.source[this.index]
-                index = this.index + 1
+                esc := this.source[cursor]
+                cursor = cursor + 1
 
                 if esc == "\"" {
                     outText = outText + "\""
-                    skip
-                }
-                if esc == "\\" {
+                } else if esc == "\\" {
                     outText = outText + "\\"
-                    skip
-                }
-                if esc == "/" {
+                } else if esc == "/" {
                     outText = outText + "/"
-                    skip
-                }
-                if esc == "b" {
+                } else if esc == "b" {
                     outText = outText + "\b"
-                    skip
-                }
-                if esc == "f" {
+                } else if esc == "f" {
                     outText = outText + "\f"
-                    skip
-                }
-                if esc == "n" {
+                } else if esc == "n" {
                     outText = outText + "\n"
-                    skip
-                }
-                if esc == "r" {
+                } else if esc == "r" {
                     outText = outText + "\r"
-                    skip
-                }
-                if esc == "t" {
+                } else if esc == "t" {
                     outText = outText + "\t"
-                    skip
-                }
-
-                if esc == "u" {
-                    firstUnit := this.parseHex4At(this.index)
+                } else if esc == "u" {
+                    firstUnit := this.parseHex4At(cursor)
                     if firstUnit < 0 {
-                        ~> (JsonValue.makeError("invalid unicode escape at index " + this.index))
+                        result = JsonValue.makeError("invalid unicode escape at index " + cursor)
+                        break
                     }
-                    index = this.index + 4
+                    cursor = cursor + 4
                     firstText := "\\u" + Json.hex4(firstUnit)
 
                     if Json.isHighSurrogate(firstUnit) {
-                        if this.index + 5 >= this.source.length {
-                            ~> (JsonValue.makeError("missing low surrogate at index " + this.index))
+                        if cursor + 5 >= this.source.length {
+                            result = JsonValue.makeError("missing low surrogate at index " + cursor)
+                            break
                         }
-                        if any[this.source[this.index] != "\\", this.source[this.index + 1] != "u"] {
-                            ~> (JsonValue.makeError("expected low surrogate escape at index " + this.index))
+                        if any[this.source[cursor] != "\\", this.source[cursor + 1] != "u"] {
+                            result = JsonValue.makeError("expected low surrogate escape at index " + cursor)
+                            break
                         }
-                        index = this.index + 2
-                        secondUnit := this.parseHex4At(this.index)
+                        cursor = cursor + 2
+                        secondUnit := this.parseHex4At(cursor)
                         if any[secondUnit < 0, !Json.isLowSurrogate(secondUnit)] {
-                            ~> (JsonValue.makeError("invalid low surrogate at index " + this.index))
+                            result = JsonValue.makeError("invalid low surrogate at index " + cursor)
+                            break
                         }
-                        index = this.index + 4
+                        cursor = cursor + 4
                         outText = outText + firstText + "\\u" + Json.hex4(secondUnit)
-                        skip
+                    } else if Json.isLowSurrogate(firstUnit) {
+                        result = JsonValue.makeError("unexpected low surrogate at index " + (cursor - 4))
+                        break
+                    } else {
+                        outText = outText + firstText
                     }
-
-                    if Json.isLowSurrogate(firstUnit) {
-                        ~> (JsonValue.makeError("unexpected low surrogate at index " + (this.index - 4)))
-                    }
-
-                    outText = outText + firstText
-                    skip
+                } else {
+                    result = JsonValue.makeError("invalid escape sequence \\" + esc + " at index " + (cursor - 1))
+                    break
                 }
-
-                ~> (JsonValue.makeError("invalid escape sequence \\" + esc + " at index " + (this.index - 1)))
+            } else {
+                outText = outText + ch
             }
-
-            outText = outText + ch
         }
 
-        ~> (JsonValue.makeError("unterminated text"))
+        ~> (result)
     }
 
     share parseNumber() :: value: JsonValue {
