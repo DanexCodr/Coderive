@@ -34,9 +34,9 @@ public class DebugSystem {
     
     // Level-based timers (support nested same-name timers per thread)
     private static final ThreadLocal<Map<String, Deque<Long>>> levelTimerStacks =
-            ThreadLocal.withInitial(() -> new HashMap<String, Deque<Long>>());
+            ThreadLocal.withInitial(HashMap::new);
     private static final ThreadLocal<Map<String, Deque<Level>>> timerLevelStacks =
-            ThreadLocal.withInitial(() -> new HashMap<String, Deque<Level>>());
+            ThreadLocal.withInitial(HashMap::new);
 
     private static boolean parseBenchmarkMode() {
         String raw = System.getProperty("cod.benchmark.mode");
@@ -52,6 +52,9 @@ public class DebugSystem {
 
     public static void setLevel(Level level) {
         currentLevel = level;
+        if (level == Level.OFF) {
+            clearTimerStateForCurrentThread();
+        }
     }
 
     public static void setShowTimestamp(boolean show) {
@@ -115,19 +118,11 @@ public class DebugSystem {
     public static void startTimer(Level level, String name) {
         if (shouldLog(level)) {
             Map<String, Deque<Long>> startsByName = levelTimerStacks.get();
-            Deque<Long> starts = startsByName.get(name);
-            if (starts == null) {
-                starts = new ArrayDeque<Long>();
-                startsByName.put(name, starts);
-            }
+            Deque<Long> starts = startsByName.computeIfAbsent(name, k -> new ArrayDeque<>());
             starts.push(System.nanoTime());
 
             Map<String, Deque<Level>> levelsByName = timerLevelStacks.get();
-            Deque<Level> levels = levelsByName.get(name);
-            if (levels == null) {
-                levels = new ArrayDeque<Level>();
-                levelsByName.put(name, levels);
-            }
+            Deque<Level> levels = levelsByName.computeIfAbsent(name, k -> new ArrayDeque<>());
             levels.push(level);
         }
     }
@@ -237,5 +232,10 @@ public class DebugSystem {
 
     public static Level getLevel() {
         return currentLevel;
+    }
+
+    public static void clearTimerStateForCurrentThread() {
+        levelTimerStacks.remove();
+        timerLevelStacks.remove();
     }
 }
