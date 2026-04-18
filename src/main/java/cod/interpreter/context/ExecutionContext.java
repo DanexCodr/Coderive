@@ -1,6 +1,7 @@
 package cod.interpreter.context;
 
 import cod.ast.node.Type;
+import cod.debug.DebugSystem;
 import cod.error.InternalError;
 import cod.interpreter.handler.TypeHandler;
 import java.util.*;
@@ -358,38 +359,49 @@ public Map<String, Object> getLocalsMap() {
     }
     
     public Object getVariable(String name) {
-        if (name == null) return null;
-        
-        // Check locals (from innermost to outermost)
-        for (int i = localsStack.size() - 1; i >= 0; i--) {
-            Map<String, Object> scope = localsStack.get(i);
-            if (scope.containsKey(name)) {
-                return scope.get(name);
+        String timer = startPerfTimer(DebugSystem.Level.TRACE, "executionContext.getVariable");
+        try {
+            if (name == null) return null;
+            
+            // Check locals (from innermost to outermost)
+            for (int i = localsStack.size() - 1; i >= 0; i--) {
+                Map<String, Object> scope = localsStack.get(i);
+                Object value = scope.get(name);
+                if (value != null || scope.containsKey(name)) {
+                    return value;
+                }
             }
+            
+            return null;
+        } finally {
+            stopPerfTimer(timer);
         }
-        
-        return null;
     }
     
     public void setVariable(String name, Object value) {
-        if (name == null) {
-            throw new InternalError("setVariable called with null name");
-        }
-        
-        // Check if variable exists in any scope
-        for (int i = localsStack.size() - 1; i >= 0; i--) {
-            Map<String, Object> scope = localsStack.get(i);
-            if (scope.containsKey(name)) {
-                Object previous = scope.put(name, value);
-                replaceTrackedValue(previous, value);
-                return;
+        String timer = startPerfTimer(DebugSystem.Level.TRACE, "executionContext.setVariable");
+        try {
+            if (name == null) {
+                throw new InternalError("setVariable called with null name");
             }
+            
+            // Check if variable exists in any scope
+            for (int i = localsStack.size() - 1; i >= 0; i--) {
+                Map<String, Object> scope = localsStack.get(i);
+                if (scope.containsKey(name)) {
+                    Object previous = scope.put(name, value);
+                    replaceTrackedValue(previous, value);
+                    return;
+                }
+            }
+            
+            // Create in current scope
+            Map<String, Object> currentScope = localsStack.get(localsStack.size() - 1);
+            Object previous = currentScope.put(name, value);
+            replaceTrackedValue(previous, value);
+        } finally {
+            stopPerfTimer(timer);
         }
-        
-        // Create in current scope
-        Map<String, Object> currentScope = localsStack.get(localsStack.size() - 1);
-        Object previous = currentScope.put(name, value);
-        replaceTrackedValue(previous, value);
     }
 
     public int resolveVariableScopeIndex(String name) {
@@ -604,6 +616,10 @@ public boolean removeVariableFromAllScopes(String name) {
         }
 
         if (unwrapped instanceof List) {
+            String listClassName = unwrapped.getClass().getName();
+            if (!listClassName.startsWith("java.util.")) {
+                return;
+            }
             for (Object element : (List<Object>) unwrapped) {
                 collectBorrowsRecursive(element, delta);
             }
@@ -629,6 +645,26 @@ public boolean removeVariableFromAllScopes(String name) {
             if (countsByIndex.isEmpty()) {
                 activeBorrowsByContainer.remove(container);
             }
+        }
+    }
+
+    private static boolean isTimerEnabled(DebugSystem.Level level) {
+        DebugSystem.Level current = DebugSystem.getLevel();
+        return current != DebugSystem.Level.OFF && current.getLevel() >= level.getLevel();
+    }
+
+    private static String startPerfTimer(DebugSystem.Level level, String operation) {
+        if (!isTimerEnabled(level)) {
+            return null;
+        }
+        String timerName = operation + "#" + Thread.currentThread().getId() + ":" + System.nanoTime();
+        DebugSystem.startTimer(level, timerName);
+        return timerName;
+    }
+
+    private static void stopPerfTimer(String timerName) {
+        if (timerName != null) {
+            DebugSystem.stopTimer(timerName);
         }
     }
 }

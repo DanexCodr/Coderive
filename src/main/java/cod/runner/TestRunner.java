@@ -24,7 +24,7 @@ For production use CommandRunner.
 
 public class TestRunner extends BaseRunner {
 
-    private final String TEST_FILE = "helloworld/HelloWorldModule";
+    private final String TEST_FILE = "lazyloop/LazyLoop";
     
     private final String androidPath = "/storage/emulated/0";
     private final String definedFilePath =
@@ -32,7 +32,7 @@ public class TestRunner extends BaseRunner {
     private final String consoleRelativePath =
         "src/main/cod/demo/src/main/test/" + TEST_FILE + ".cod";
     private final String NAME = "TEST";
-    private final DebugSystem.Level level = DebugSystem.Level.OFF;
+    private final DebugSystem.Level level = DebugSystem.Level.DEBUG;
 
     private final Interpreter interpreter;
     private IRManager irManager;

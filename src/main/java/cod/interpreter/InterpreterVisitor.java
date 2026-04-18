@@ -267,7 +267,25 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         
         try {
             ExecutionContext ctx = getCurrentContext();
-            Type targetType = interpreter.getImportResolver().findType(node.className);
+            Type targetType = null;
+            try {
+                targetType = interpreter.getImportResolver().findType(node.className);
+            } catch (ProgramError ignore) {
+                Program currentProgram = interpreter.getCurrentProgram();
+                if (currentProgram != null
+                    && currentProgram.unit != null
+                    && currentProgram.unit.types != null) {
+                    for (Type localType : currentProgram.unit.types) {
+                        if (localType != null && node.className.equals(localType.name)) {
+                            targetType = localType;
+                            break;
+                        }
+                    }
+                }
+                if (targetType == null) {
+                    throw ignore;
+                }
+            }
             if (targetType != null
                 && targetType.isUnsafe
                 && !isUnsafeExecutionContext(ctx)
@@ -548,6 +566,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         } catch (BreakLoopException e) {
             throw e;
         } catch (TailCallSignal e) {
+            throw e;
+        } catch (EarlyExitException e) {
             throw e;
         } catch (ProgramError e) {
             throw e;
@@ -1187,7 +1207,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
     }
 
     @Override
-    public Object visit(Exit node) {
+    public Object visit(VoidReturn node) {
         throw new EarlyExitException();
     }
 
@@ -1545,6 +1565,21 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         String callName = node.name;
         String callQualifiedName = node.qualifiedName;
 
+        if (node.target != null) {
+            Object targetValue = dispatch(node.target);
+            Object unwrappedTarget = typeSystem.unwrap(targetValue);
+            if (unwrappedTarget instanceof ObjectInstance) {
+                ObjectInstance targetInstance = (ObjectInstance) unwrappedTarget;
+                if (targetInstance.type != null) {
+                    method = interpreter.getConstructorResolver()
+                        .findMethodInHierarchy(targetInstance.type, callName, ctx);
+                    if (method != null) {
+                        return method;
+                    }
+                }
+            }
+        }
+
         if (ctx.currentClass != null) {
             method = interpreter.getConstructorResolver().findMethodInHierarchy(ctx.currentClass, callName, ctx);
         }
@@ -1562,11 +1597,22 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                     String methodName = parts[1];
                     if (ctx.locals().containsKey(receiver)) {
                         Object receiverObj = ctx.locals().get(receiver);
-                        if (receiverObj instanceof ObjectInstance) {
-                            ObjectInstance objInst = (ObjectInstance) receiverObj;
+                        ObjectInstance objInst = extractObjectInstance(receiverObj);
+                        if (objInst != null) {
                             if (objInst.type != null) {
+                                Method instanceMethod = interpreter
+                                    .getConstructorResolver()
+                                    .findMethodInHierarchy(objInst.type, methodName, ctx);
+                                if (instanceMethod != null) {
+                                    return instanceMethod;
+                                }
                                 qName = objInst.type.name + "." + methodName;
                             }
+                        }
+                    } else {
+                        Method receiverTypeMethod = findMethodOnReceiverType(receiver, methodName);
+                        if (receiverTypeMethod != null) {
+                            return receiverTypeMethod;
                         }
                     }
                 }
@@ -1576,6 +1622,71 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         }
 
         return method;
+    }
+
+    private ObjectInstance extractObjectInstance(Object value) {
+        Object unwrapped = typeSystem.unwrap(value);
+        if (unwrapped instanceof ObjectInstance) {
+            return (ObjectInstance) unwrapped;
+        }
+        if (unwrapped instanceof Map<?, ?>) {
+            Map<?, ?> map = (Map<?, ?>) unwrapped;
+            if (map.size() == 1) {
+                Object only = map.values().iterator().next();
+                Object nested = typeSystem.unwrap(only);
+                if (nested instanceof ObjectInstance) {
+                    return (ObjectInstance) nested;
+                }
+            }
+        }
+        return null;
+    }
+
+    private Method findMethodOnReceiverType(String receiverTypeName, String methodName) {
+        if (receiverTypeName == null || methodName == null) {
+            return null;
+        }
+
+        Type receiverType = null;
+        try {
+            receiverType = interpreter.getImportResolver().findType(receiverTypeName);
+        } catch (ProgramError ignored) {
+            Program currentProgram = interpreter.getCurrentProgram();
+            if (currentProgram != null
+                && currentProgram.unit != null
+                && currentProgram.unit.types != null) {
+                for (Type localType : currentProgram.unit.types) {
+                    if (localType != null && receiverTypeName.equals(localType.name)) {
+                        receiverType = localType;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (receiverType == null || receiverType.methods == null) {
+            if (receiverType == null
+                && receiverTypeName.length() > 0
+                && Character.isUpperCase(receiverTypeName.charAt(0))) {
+                String lowerUnitName = receiverTypeName.toLowerCase(Locale.ENGLISH);
+                try {
+                    receiverType = interpreter.getImportResolver().resolveImport(
+                        lowerUnitName + "." + receiverTypeName);
+                } catch (Exception ignored) {
+                    // Keep searching through other fallbacks.
+                }
+            }
+        }
+
+        if (receiverType == null || receiverType.methods == null) {
+            return null;
+        }
+        for (Method method : receiverType.methods) {
+            if (method != null && methodName.equals(method.methodName)) {
+                return method;
+            }
+        }
+        return null;
     }
 
     private Object executeSafeCommit(MethodCall node, ExecutionContext ctx) {
@@ -1594,7 +1705,26 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
             Method targetMethod = resolveMethodForCall((MethodCall) argument, ctx);
             unsafeTarget = targetMethod != null && targetMethod.isUnsafe;
         } else if (argument instanceof ConstructorCall) {
-            Type targetType = interpreter.getImportResolver().findType(((ConstructorCall) argument).className);
+            Type targetType = null;
+            String className = ((ConstructorCall) argument).className;
+            try {
+                targetType = interpreter.getImportResolver().findType(className);
+            } catch (ProgramError ignore) {
+                Program currentProgram = interpreter.getCurrentProgram();
+                if (currentProgram != null
+                    && currentProgram.unit != null
+                    && currentProgram.unit.types != null) {
+                    for (Type localType : currentProgram.unit.types) {
+                        if (localType != null && className.equals(localType.name)) {
+                            targetType = localType;
+                            break;
+                        }
+                    }
+                }
+                if (targetType == null) {
+                    throw ignore;
+                }
+            }
             unsafeTarget = targetType != null && targetType.isUnsafe;
         }
 
@@ -1619,7 +1749,7 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         
         ExecutionContext ctx = getCurrentContext();
         String name = node.name;
-        
+
         Object val = ctx.getVariable(name);
         if (val != null) {
             return val;
@@ -1632,7 +1762,8 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
         if (ctx.objectInstance != null && ctx.objectInstance.type != null) {
             Object fieldValue = interpreter.getConstructorResolver()
                 .getFieldFromHierarchy(ctx.objectInstance.type, name, ctx);
-            if (fieldValue != null) {
+            if (fieldValue != null
+                || interpreter.getConstructorResolver().hasFieldInHierarchy(ctx.objectInstance.type, name, ctx)) {
                 return fieldValue;
             }
         }
@@ -1643,6 +1774,26 @@ public class InterpreterVisitor extends ASTVisitor<Object> implements Evaluator 
                 return dispatch(importedField.value);
             }
             return null;
+        }
+
+        Program currentProgram = interpreter.getCurrentProgram();
+        if (currentProgram != null && currentProgram.unit != null && currentProgram.unit.types != null) {
+            for (Type type : currentProgram.unit.types) {
+                if (type == null || type.fields == null) {
+                    continue;
+                }
+                if (!"__StaticModule__".equals(type.name)) {
+                    continue;
+                }
+                for (Field field : type.fields) {
+                    if (field != null && name.equals(field.name)) {
+                        if (field.value != null) {
+                            return dispatch(field.value);
+                        }
+                        return null;
+                    }
+                }
+            }
         }
         
         throw new ProgramError("Undefined variable: " + name);
@@ -1783,6 +1934,28 @@ public Object visit(TextLiteral node) {
                     }
                     return literalRegistry.handleMethod(leftObj, methodName, evaluatedArgs, ctx);
                 }
+                MethodCall targetedCall = new MethodCall();
+                targetedCall.name = literalMethod.name;
+                targetedCall.qualifiedName = literalMethod.qualifiedName;
+                targetedCall.arguments = literalMethod.arguments;
+                targetedCall.slotNames = literalMethod.slotNames;
+                targetedCall.argNames = literalMethod.argNames;
+                targetedCall.isSuperCall = literalMethod.isSuperCall;
+                targetedCall.isGlobal = literalMethod.isGlobal;
+                targetedCall.isSingleSlotCall = literalMethod.isSingleSlotCall;
+                targetedCall.isSelfCall = literalMethod.isSelfCall;
+                targetedCall.selfCallLevel = literalMethod.selfCallLevel;
+                targetedCall.selfCallLevelConstantName = literalMethod.selfCallLevelConstantName;
+                targetedCall.target = node.left;
+                return visit(targetedCall);
+            }
+
+            if (!(leftObj instanceof ObjectInstance) && node.right instanceof IndexAccess) {
+                IndexAccess indexAccess = (IndexAccess) node.right;
+                IndexAccess reboundAccess = new IndexAccess();
+                reboundAccess.array = new ValueExpr(leftObj);
+                reboundAccess.index = indexAccess.index;
+                return arrayOperationHandler.visitIndexAccess(reboundAccess);
             }
             
             if (leftObj instanceof NaturalArray) {
@@ -1810,15 +1983,31 @@ public Object visit(TextLiteral node) {
                     Object fieldValue = interpreter.getConstructorResolver()
                         .getFieldFromHierarchy(instance.type, fieldName, ctx);
                         
-                    if (fieldValue == null) {
+                    if (fieldValue == null
+                        && !interpreter.getConstructorResolver()
+                            .hasFieldInHierarchy(instance.type, fieldName, ctx)) {
                         throw new ProgramError("Undefined field: " + fieldName);
                     }
                     
                     return fieldValue;
                 }
+
+                if (node.right instanceof PropertyAccess) {
+                    PropertyAccess nested = (PropertyAccess) node.right;
+                    PropertyAccess prefix = new PropertyAccess();
+                    prefix.left = new ValueExpr(instance);
+                    prefix.right = nested.left;
+                    Object nestedLeftValue = dispatch(prefix);
+                    PropertyAccess rebound = new PropertyAccess();
+                    rebound.left = new ValueExpr(nestedLeftValue);
+                    rebound.right = nested.right;
+                    return dispatch(rebound);
+                }
             }
             
-            throw new ProgramError("Invalid property access");
+            String leftType = leftObj == null ? "null" : leftObj.getClass().getSimpleName();
+            String rightType = node.right == null ? "null" : node.right.getClass().getSimpleName();
+            throw new ProgramError("Invalid property access (left=" + leftType + ", right=" + rightType + ")");
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -1889,14 +2078,16 @@ public Object visit(TextLiteral node) {
                 Object fieldValue = interpreter.getConstructorResolver()
                     .getFieldFromHierarchy(ctx.objectInstance.type, fieldName, ctx);
                 
-                if (fieldValue == null) {
+                if (fieldValue == null
+                    && !interpreter.getConstructorResolver()
+                        .hasFieldInHierarchy(ctx.objectInstance.type, fieldName, ctx)) {
                     throw new ProgramError("Undefined field: " + fieldName);
                 }
                 
                 return fieldValue;
             }
             
-            throw new ProgramError("Invalid this property access");
+            return dispatch(node.right);
         } catch (ProgramError e) {
             throw e;
         } catch (Exception e) {
@@ -1950,77 +2141,104 @@ public Object visit(TextLiteral node) {
     }
 
     @SuppressWarnings("unchecked")
-    @Override
-    public Object visit(MethodCall node) {
+@Override
+public Object visit(MethodCall node) {
     if (node == null) {
         throw new InternalError("visit(MethodCall) called with null node");
     }
     
-        try {
-            // Handle super calls first
-            if (node.isSuperCall) {
-                return handleSuperMethodCall(node);
-            }
-            
-            ExecutionContext ctx = getCurrentContext();
-            String callName = node.name;
-            String callQualifiedName = node.qualifiedName;
-
-            if (node.isSelfCall) {
-                Integer requestedLevel = resolveSelfCallLevelValue(node, ctx);
-                if (requestedLevel != null) {
-                    LambdaClosure targetClosure = resolveSelfCallClosure(ctx, requestedLevel.intValue());
-                    List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
-                    return invokeLambdaCallback(targetClosure, evaluatedArgs, ctx, SELF_CALL_LAMBDA_OWNER);
-                }
-                if (ctx.currentLambdaClosure != null) {
-                    List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
-                    return invokeLambdaCallback(ctx.currentLambdaClosure, evaluatedArgs, ctx, SELF_CALL_LAMBDA_OWNER);
-                }
-                if (ctx.currentMethodName != null && !ctx.currentMethodName.isEmpty()) {
-                    callName = ctx.currentMethodName;
-                    callQualifiedName = ctx.currentMethodName;
-                } else {
-                    throw new ProgramError(
-                        "'<~(...)' can only be used inside a method or lambda body.");
-                }
-            }
-
-            if (ctx != null && callQualifiedName != null && callQualifiedName.contains(".")) {
-                String[] parts = callQualifiedName.split("\\.");
-                if (parts.length == 2) {
-                    String receiverName = parts[0];
-                    String methodName = parts[1];
-                    Object receiverValue = ctx.getVariable(receiverName);
-                    receiverValue = typeSystem.unwrap(receiverValue);
-                    if (literalRegistry.hasMethod(receiverValue, methodName)) {
-                        List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
-                        return literalRegistry.handleMethod(receiverValue, methodName, evaluatedArgs, ctx);
-                    }
-                }
-            }
-
-            if ("safe".equals(callName) && (callQualifiedName == null || "safe".equals(callQualifiedName))) {
-                return executeSafeCommit(node, ctx);
-            }
-            
-            // Evaluate all arguments first
-            List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
+    try {
+        // Handle super calls first
+        if (node.isSuperCall) {
+            return handleSuperMethodCall(node);
+        }
         
-        // ========== CHECK GLOBAL FUNCTIONS FIRST ==========
-        // This must come BEFORE any other resolution to ensure out(), in(), etc.
-        // work correctly from any context (scripts, methods, imported modules)
+        ExecutionContext ctx = getCurrentContext();
+        String callName = node.name;
+        String callQualifiedName = node.qualifiedName;
+
+        if (node.isSelfCall) {
+            Integer requestedLevel = resolveSelfCallLevelValue(node, ctx);
+            if (requestedLevel != null) {
+                LambdaClosure targetClosure = resolveSelfCallClosure(ctx, requestedLevel.intValue());
+                List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
+                return invokeLambdaCallback(targetClosure, evaluatedArgs, ctx, SELF_CALL_LAMBDA_OWNER);
+            }
+            if (ctx.currentLambdaClosure != null) {
+                List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
+                return invokeLambdaCallback(ctx.currentLambdaClosure, evaluatedArgs, ctx, SELF_CALL_LAMBDA_OWNER);
+            }
+            if (ctx.currentMethodName != null && !ctx.currentMethodName.isEmpty()) {
+                callName = ctx.currentMethodName;
+                callQualifiedName = ctx.currentMethodName;
+            } else {
+                throw new ProgramError(
+                    "'<~(...)' can only be used inside a method or lambda body.");
+            }
+        }
+
+        if (ctx != null && callQualifiedName != null && callQualifiedName.contains(".")) {
+            String[] parts = callQualifiedName.split("\\.");
+            if (parts.length == 2) {
+                String receiverName = parts[0];
+                String methodName = parts[1];
+                Object receiverValue = ctx.getVariable(receiverName);
+                receiverValue = typeSystem.unwrap(receiverValue);
+                if (literalRegistry.hasMethod(receiverValue, methodName)) {
+                    List<Object> evaluatedArgs = evaluateMethodCallArguments(node);
+                    return literalRegistry.handleMethod(receiverValue, methodName, evaluatedArgs, ctx);
+                }
+            }
+        }
+
+        if ("safe".equals(callName) && (callQualifiedName == null || "safe".equals(callQualifiedName))) {
+            return executeSafeCommit(node, ctx);
+        }
+        
+        // ========== FIX: Evaluate arguments with special handling for ValueExpr ==========
+        List<Object> evaluatedArgs = new ArrayList<Object>();
+        if (node.arguments != null) {
+            for (Expr arg : node.arguments) {
+                Object argValue;
+                if (arg instanceof ValueExpr) {
+                    // ValueExpr already contains the actual value - extract it directly
+                    argValue = ((ValueExpr) arg).getValue();
+                    DebugSystem.debug("METHOD_CALL", "ValueExpr argument extracted: " + argValue);
+                } else {
+                    argValue = dispatch(arg);
+                }
+                evaluatedArgs.add(typeSystem.unwrap(argValue));
+            }
+        }
+        
+        // Check global functions first
         GlobalRegistry globalRegistry = interpreter.getGlobalRegistry();
         if (globalRegistry != null && globalRegistry.isGlobal(callName)) {
             DebugSystem.debug("GLOBAL", "Executing global function: " + callName + 
                               " with args: " + evaluatedArgs);
             return globalRegistry.executeGlobal(callName, evaluatedArgs);
         }
-        // ========== END GLOBAL CHECK ==========
         
         // Try to find method in current class hierarchy
         Method method = null;
-        if (ctx.currentClass != null) {
+        ObjectInstance invocationInstance = ctx.objectInstance;
+        if (node.target != null) {
+            Object targetValue = dispatch(node.target);
+            Object unwrappedTarget = typeSystem.unwrap(targetValue);
+            if (unwrappedTarget instanceof ObjectInstance) {
+                ObjectInstance targetInstance = (ObjectInstance) unwrappedTarget;
+                if (targetInstance.type != null) {
+                    Method targetMethod = interpreter
+                        .getConstructorResolver()
+                        .findMethodInHierarchy(targetInstance.type, callName, ctx);
+                    if (targetMethod != null) {
+                        method = targetMethod;
+                        invocationInstance = targetInstance;
+                    }
+                }
+            }
+        }
+        if (method == null && ctx.currentClass != null) {
             method = interpreter
                 .getConstructorResolver()
                 .findMethodInHierarchy(ctx.currentClass, callName, ctx);
@@ -2043,17 +2261,31 @@ public Object visit(TextLiteral node) {
                     String methodName = parts[1];
                     if (ctx.locals().containsKey(receiver)) {
                         Object receiverObj = ctx.locals().get(receiver);
-                        if (receiverObj instanceof ObjectInstance) {
-                            ObjectInstance objInst = (ObjectInstance) receiverObj;
+                        ObjectInstance objInst = extractObjectInstance(receiverObj);
+                        if (objInst != null) {
                             if (objInst.type != null) {
+                                Method instanceMethod = interpreter
+                                    .getConstructorResolver()
+                                    .findMethodInHierarchy(objInst.type, methodName, ctx);
+                                if (instanceMethod != null) {
+                                    method = instanceMethod;
+                                    invocationInstance = objInst;
+                                }
                                 qName = objInst.type.name + "." + methodName;
                             }
+                        }
+                    } else {
+                        Method receiverTypeMethod = findMethodOnReceiverType(receiver, methodName);
+                        if (receiverTypeMethod != null) {
+                            method = receiverTypeMethod;
                         }
                     }
                 }
             }
-            if (qName == null) qName = callName;
-            method = interpreter.getImportResolver().findMethod(qName);
+            if (method == null) {
+                if (qName == null) qName = callName;
+                method = interpreter.getImportResolver().findMethod(qName);
+            }
         }
 
         // If method not found after all attempts, throw error
@@ -2115,7 +2347,7 @@ public Object visit(TextLiteral node) {
                 } else {
                     if (param.hasDefaultValue) {
                         ExecutionContext defaultCtx = new ExecutionContext(
-                            ctx.objectInstance,
+                            invocationInstance,
                             new HashMap<String, Object>(),
                             null,
                             null,
@@ -2174,7 +2406,7 @@ public Object visit(TextLiteral node) {
 
             // Create method execution context
             ExecutionContext methodCtx = new ExecutionContext(
-                ctx.objectInstance,
+                invocationInstance,
                 methodLocals,
                 slotValues,
                 slotTypes,
@@ -2185,7 +2417,7 @@ public Object visit(TextLiteral node) {
                 methodCtx.setVariableType(entry.getKey(), entry.getValue());
             }
 
-            methodCtx.objectInstance = ctx.objectInstance;
+            methodCtx.objectInstance = invocationInstance;
 
             if (method.associatedClass != null) {
                 Type classType = findTypeByName(method.associatedClass);
@@ -2194,9 +2426,9 @@ public Object visit(TextLiteral node) {
                 }
             }
 
-            if (ctx.objectInstance != null && ctx.objectInstance.type != null
+            if (invocationInstance != null && invocationInstance.type != null
                 && methodCtx.currentClass == null) {
-                Type classType = findTypeByName(ctx.objectInstance.type.name);
+                Type classType = findTypeByName(invocationInstance.type.name);
                 if (classType != null) {
                     methodCtx.currentClass = classType;
                 }

@@ -3,20 +3,10 @@ package cod.range.pattern;
 import cod.ast.node.*;
 import java.util.*;
 
-/**
- * Detects and extracts sequence patterns from loop bodies.
- * Handles patterns like:
- * - Simple: arr[i] = i * i
- * - 2-step: squared = i * i; arr[i] = squared + 10
- * - N-step: a = i + 1; b = a * 2; c = b - 3; arr[i] = c
- */
 public class SequencePattern {
     
-    /**
-     * Represents a single step in the sequence
-     */
     public static class Step {
-        public final String tempVar;      // null for final step
+        public final String tempVar;
         public final Expr expression;
         
         public Step(String tempVar, Expr expression) {
@@ -29,18 +19,17 @@ public class SequencePattern {
         }
     }
     
-    /**
-     * The complete sequence pattern extracted from loop body
-     */
     public static class Pattern {
-        public final List<Step> steps;           // All steps in sequence
-        public final Expr targetArray;       // The array being assigned to
-        public final String indexVar;             // Loop index variable
+        public final List<Step> steps;
+        public final Expr targetArray;
+        public final String indexVar;
+        public Expr substitutedFinalExpr;  // For output-aware optimization
         
         public Pattern(List<Step> steps, Expr targetArray, String indexVar) {
             this.steps = steps;
             this.targetArray = targetArray;
             this.indexVar = indexVar;
+            this.substitutedFinalExpr = null;
         }
         
         public boolean isOptimizable() {
@@ -82,9 +71,6 @@ public class SequencePattern {
         }
     }
     
-    /**
-     * Extract a sequence pattern from a list of statements
-     */
     public static Pattern extract(List<Stmt> statements, String iterator) {
         if (statements == null || statements.isEmpty()) {
             return null;
@@ -93,30 +79,26 @@ public class SequencePattern {
         List<Step> steps = new ArrayList<Step>();
         Set<String> definedVars = new HashSet<String>();
         
-        // Process all statements except the last one (temp variable definitions)
         for (int i = 0; i < statements.size() - 1; i++) {
             Stmt stmt = statements.get(i);
             Step step = extractVariableDefinition(stmt, iterator);
             
             if (step == null) {
-                return null; // Not a valid variable definition
+                return null;
             }
             
-            // Skip if assigning to '_' or iterator variable
             if ("_".equals(step.tempVar) || iterator.equals(step.tempVar)) {
                 return null;
             }
             
-            // Check for duplicate variable names
             if (definedVars.contains(step.tempVar)) {
-                return null; // Can't redefine variable in same sequence
+                return null;
             }
             
             steps.add(step);
             definedVars.add(step.tempVar);
         }
         
-        // Process the last statement (must be array assignment)
         Stmt lastStmt = statements.get(statements.size() - 1);
         ArrayAssignment arrayAssign = extractArrayAssignment(lastStmt, iterator);
         
@@ -124,55 +106,41 @@ public class SequencePattern {
             return null;
         }
         
-        // Validate that all temp variables are used in the expression chain
         if (!validateVariableUsage(definedVars, arrayAssign.expression)) {
             return null;
         }
         
-        // Add final step (no temp variable)
         steps.add(new Step(null, arrayAssign.expression));
         
         return new Pattern(steps, arrayAssign.targetArray, iterator);
     }
     
-    /**
-     * Extract a variable definition step
-     */
     private static Step extractVariableDefinition(Stmt stmt, String iterator) {
         String varName = null;
         Expr varExpr = null;
         
         if (stmt instanceof Var) {
-            // Declaration with := (Var)
             Var varDecl = (Var) stmt;
             varName = varDecl.name;
             varExpr = varDecl.value;
         } else if (stmt instanceof Assignment) {
-            // Assignment with = (Assignment)
             Assignment assign = (Assignment) stmt;
-            
-            // Must assign to a simple variable (not array[index])
             if (!(assign.left instanceof Identifier)) {
                 return null;
             }
             Identifier leftExpr = (Identifier) assign.left;
             varName = leftExpr.name;
             varExpr = assign.right;
-            
-            // Only optimize if this is a declaration (:=) 
             if (!assign.isDeclaration) {
                 return null;
             }
         } else {
-            return null; // Not a variable declaration/assignment
+            return null;
         }
         
         return new Step(varName, varExpr);
     }
     
-    /**
-     * Represents an array assignment
-     */
     private static class ArrayAssignment {
         final Expr targetArray;
         final Expr expression;
@@ -183,9 +151,6 @@ public class SequencePattern {
         }
     }
     
-    /**
-     * Extract array assignment from statement
-     */
     private static ArrayAssignment extractArrayAssignment(Stmt stmt, String iterator) {
         if (!(stmt instanceof Assignment)) {
             return null;
@@ -193,21 +158,18 @@ public class SequencePattern {
         
         Assignment assign = (Assignment) stmt;
         
-        // Must be array[index] assignment
         if (!(assign.left instanceof IndexAccess)) {
             return null;
         }
         
         IndexAccess indexAccess = (IndexAccess) assign.left;
         
-        // Check if index is the iterator variable
         if (!(indexAccess.index instanceof Identifier)) {
             return null;
         }
         
         Identifier indexExpr = (Identifier) indexAccess.index;
         
-        // Check if index matches iterator name
         if (!iterator.equals(indexExpr.name)) {
             return null;
         }
@@ -215,14 +177,10 @@ public class SequencePattern {
         return new ArrayAssignment(indexAccess.array, assign.right);
     }
     
-    /**
-     * Validate that all defined variables are used in the final expression
-     */
     private static boolean validateVariableUsage(Set<String> definedVars, Expr finalExpr) {
         Set<String> usedVars = new HashSet<String>();
         collectUsedVariables(finalExpr, usedVars);
         
-        // Check that every defined variable is used somewhere
         for (String var : definedVars) {
             if (!usedVars.contains(var)) {
                 return false;
@@ -232,9 +190,6 @@ public class SequencePattern {
         return true;
     }
     
-    /**
-     * Collect all variable names used in an expression
-     */
     private static void collectUsedVariables(Expr expr, Set<String> usedVars) {
         if (expr == null) return;
         

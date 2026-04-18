@@ -242,6 +242,9 @@ public void runType(Type typeNode) {
         for (Stmt stmt : mainMethod.body) {
             visitor.visit(stmt);
         }
+    } catch (EarlyExitException e) {
+        // Explicit `fin` from main() is a normal termination path.
+        DebugSystem.debug("INTERPRETER", "main() exited early for type: " + typeNode.name);
     } catch (ProgramError e) {
         throw e;
     } catch (Exception e) {

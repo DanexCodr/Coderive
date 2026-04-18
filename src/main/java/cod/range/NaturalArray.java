@@ -1,6 +1,7 @@
 package cod.range;
 
 import cod.ast.node.*;
+import cod.debug.DebugSystem;
 import cod.error.InternalError;
 import cod.error.ProgramError;
 import cod.interpreter.Evaluator;
@@ -14,6 +15,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class NaturalArray {
+    private static final String PERF_PREFIX = "naturalArray.";
 
     private final Range baseRange;
     private final Evaluator evaluator;
@@ -769,107 +771,117 @@ public class NaturalArray {
     // ========== CORE ARRAY OPERATIONS ==========
 
     public long size() {
-        if (cachedSize == null) {
-            cachedSize = calculateSizeInternal();
+        String timer = startPerfTimer(DebugSystem.Level.DEBUG, PERF_PREFIX + "size");
+        try {
+            if (cachedSize == null) {
+                cachedSize = calculateSizeInternal();
+            }
+            return cachedSize;
+        } finally {
+            stopPerfTimer(timer);
         }
-        return cachedSize;
     }
 
     public Object get(long index) {
-        if (index < 0) {
-            long size = size();
-            index = size + index;
-        }
+        String timer = startPerfTimer(DebugSystem.Level.DEBUG, PERF_PREFIX + "get");
+        try {
+            if (index < 0) {
+                long size = size();
+                index = size + index;
+            }
 
-        checkBounds(index);
-        
-        // ========== TRACKING ==========
-        if (tracked) {
-            ArrayTracker.recordArrayAccess(this);
-        }
-        
-        // Check recent cache first (fastest)
-        Object recent = getFromRecentCache(index);
-        if (recent != null) {
-            if (tracked) ArrayTracker.recordCacheHit(this);
+            checkBounds(index);
+            
+            // ========== TRACKING ==========
+            if (tracked) {
+                ArrayTracker.recordArrayAccess(this);
+            }
+            
+            // Check recent cache first (fastest)
+            Object recent = getFromRecentCache(index);
+            if (recent != null) {
+                if (tracked) ArrayTracker.recordCacheHit(this);
+                lastIndex = index;
+                lastValue = recent;
+                return maybeConvert(recent);
+            }
+            
+            if (tracked) ArrayTracker.recordCacheMiss(this);
+            
+            // Apply any pending updates that affect this index
+            applyPendingUpdatesForIndex(index);
+
+            if (lastIndex != null && lastIndex == index) {
+                Object val = maybeConvert(lastValue);
+                updateRecentCache(index, val);
+                return val;
+            }
+
+            if (isMutable && cache != null && cache.containsKey(index)) {
+                Object val = cache.get(index);
+                lastIndex = index;
+                lastValue = val;
+                updateRecentCache(index, val);
+                return maybeConvert(val);
+            }
+
+            if (computedCache != null && computedCache.containsKey(index)) {
+                Object cached = computedCache.get(index);
+                lastIndex = index;
+                lastValue = cached;
+                updateRecentCache(index, cached);
+                return maybeConvert(cached);
+            }
+
+            // Try sequence formulas first (most specific)
+            Object sequenceResult = evaluateSequenceFormulas(index);
+            if (sequenceResult != null) {
+                if (computedCache == null) computedCache = new HashMap<Long, Object>();
+                computedCache.put(index, sequenceResult);
+                lastIndex = index;
+                lastValue = sequenceResult;
+                updateRecentCache(index, sequenceResult);
+                return maybeConvert(sequenceResult);
+            }
+
+            // Then conditional formulas
+            Object conditionalResult = evaluateConditionalFormulas(index);
+            if (conditionalResult != null) {
+                if (computedCache == null) computedCache = new HashMap<Long, Object>();
+                computedCache.put(index, conditionalResult);
+                lastIndex = index;
+                lastValue = conditionalResult;
+                updateRecentCache(index, conditionalResult);
+                return maybeConvert(conditionalResult);
+            }
+            
+            // Then linear recurrence formulas
+            Object vectorRecurrenceResult = evaluateVectorRecurrenceFormulas(index);
+            if (vectorRecurrenceResult != null) {
+                lastIndex = index;
+                lastValue = vectorRecurrenceResult;
+                updateRecentCache(index, vectorRecurrenceResult);
+                return maybeConvert(vectorRecurrenceResult);
+            }
+
+            // Then scalar linear recurrence formulas
+            Object recurrenceResult = evaluateLinearRecurrenceFormulas(index);
+            if (recurrenceResult != null) {
+                lastIndex = index;
+                lastValue = recurrenceResult;
+                updateRecentCache(index, recurrenceResult);
+                return maybeConvert(recurrenceResult);
+            }
+
+            // Finally, base calculation
+            Object result = calculateValue(index);
             lastIndex = index;
-            lastValue = recent;
-            return maybeConvert(recent);
+            lastValue = result;
+            updateRecentCache(index, result);
+            return maybeConvert(result);
+        } finally {
+            stopPerfTimer(timer);
         }
-        
-        if (tracked) ArrayTracker.recordCacheMiss(this);
-        
-        // Apply any pending updates that affect this index
-        applyPendingUpdatesForIndex(index);
-
-        if (lastIndex != null && lastIndex == index) {
-            Object val = maybeConvert(lastValue);
-            updateRecentCache(index, val);
-            return val;
-        }
-
-        if (isMutable && cache != null && cache.containsKey(index)) {
-            Object val = cache.get(index);
-            lastIndex = index;
-            lastValue = val;
-            updateRecentCache(index, val);
-            return maybeConvert(val);
-        }
-
-        if (computedCache != null && computedCache.containsKey(index)) {
-            Object cached = computedCache.get(index);
-            lastIndex = index;
-            lastValue = cached;
-            updateRecentCache(index, cached);
-            return maybeConvert(cached);
-        }
-
-        // Try sequence formulas first (most specific)
-        Object sequenceResult = evaluateSequenceFormulas(index);
-        if (sequenceResult != null) {
-            if (computedCache == null) computedCache = new HashMap<Long, Object>();
-            computedCache.put(index, sequenceResult);
-            lastIndex = index;
-            lastValue = sequenceResult;
-            updateRecentCache(index, sequenceResult);
-            return maybeConvert(sequenceResult);
-        }
-
-        // Then conditional formulas
-        Object conditionalResult = evaluateConditionalFormulas(index);
-        if (conditionalResult != null) {
-            if (computedCache == null) computedCache = new HashMap<Long, Object>();
-            computedCache.put(index, conditionalResult);
-            lastIndex = index;
-            lastValue = conditionalResult;
-            updateRecentCache(index, conditionalResult);
-            return maybeConvert(conditionalResult);
-        }
-        
-        // Then linear recurrence formulas
-        Object vectorRecurrenceResult = evaluateVectorRecurrenceFormulas(index);
-        if (vectorRecurrenceResult != null) {
-            lastIndex = index;
-            lastValue = vectorRecurrenceResult;
-            updateRecentCache(index, vectorRecurrenceResult);
-            return maybeConvert(vectorRecurrenceResult);
-        }
-
-        // Then scalar linear recurrence formulas
-        Object recurrenceResult = evaluateLinearRecurrenceFormulas(index);
-        if (recurrenceResult != null) {
-            lastIndex = index;
-            lastValue = recurrenceResult;
-            updateRecentCache(index, recurrenceResult);
-            return maybeConvert(recurrenceResult);
-        }
-
-        // Finally, base calculation
-        Object result = calculateValue(index);
-        lastIndex = index;
-        lastValue = result;
-        updateRecentCache(index, result);
-        return maybeConvert(result);
     }
 
     // Get with explicit conversion control
@@ -1130,6 +1142,8 @@ public class NaturalArray {
     }
     
     private void applyPendingUpdatesForIndex(long index) {
+        String timer = startPerfTimer(DebugSystem.Level.TRACE, PERF_PREFIX + "applyPendingUpdatesForIndex");
+        try {
         if (!hasPendingUpdates || pendingUpdates.isEmpty()) {
             return;
         }
@@ -1144,6 +1158,9 @@ public class NaturalArray {
         }
         cache.put(index, resolvedUpdate.value);
         invalidateRecentCache(index);
+        } finally {
+            stopPerfTimer(timer);
+        }
     }
 
     private void registerPendingUpdate(PendingRangeUpdate update) {
@@ -1205,6 +1222,8 @@ public class NaturalArray {
     }
 
     private PendingRangeUpdate resolvePendingUpdateForIndex(long index) {
+        String timer = startPerfTimer(DebugSystem.Level.TRACE, PERF_PREFIX + "resolvePendingUpdateForIndex");
+        try {
         if (pendingUpdatesByStart == null) {
             for (int i = pendingUpdates.size() - 1; i >= 0; i--) {
                 PendingRangeUpdate update = pendingUpdates.get(i);
@@ -1244,9 +1263,14 @@ public class NaturalArray {
             }
         }
         return winner;
+        } finally {
+            stopPerfTimer(timer);
+        }
     }
     
     public void commitUpdates() {
+        String timer = startPerfTimer(DebugSystem.Level.DEBUG, PERF_PREFIX + "commitUpdates");
+        try {
         if (!hasPendingUpdates || pendingUpdates.isEmpty()) {
             return;
         }
@@ -1291,6 +1315,9 @@ public class NaturalArray {
         pendingUpdateOrderPrefixByStart = null;
         pendingUpdateOrderPrefixDirty = false;
         hasPendingUpdates = false;
+        } finally {
+            stopPerfTimer(timer);
+        }
     }
 
     private boolean canMerge(PendingRangeUpdate a, PendingRangeUpdate b) {
@@ -1456,15 +1483,20 @@ public class NaturalArray {
     }
 
     private Object calculateValue(long index) {
-        if (isLexicographicalRange) {
-            return calculateLexValue(index);
-        }
+        String timer = startPerfTimer(DebugSystem.Level.TRACE, PERF_PREFIX + "calculateValue");
+        try {
+            if (isLexicographicalRange) {
+                return calculateLexValue(index);
+            }
 
-        AutoStackingNumber startVal = getStart();
-        AutoStackingNumber stepVal = getStep();
-        AutoStackingNumber indexNum = AutoStackingNumber.fromLong(index);
-        
-        return startVal.add(indexNum.multiply(stepVal));
+            AutoStackingNumber startVal = getStart();
+            AutoStackingNumber stepVal = getStep();
+            AutoStackingNumber indexNum = AutoStackingNumber.fromLong(index);
+            
+            return startVal.add(indexNum.multiply(stepVal));
+        } finally {
+            stopPerfTimer(timer);
+        }
     }
 
     // ========== GETTERS WITH LAZY INITIALIZATION ==========
@@ -1611,122 +1643,157 @@ public class NaturalArray {
     }
 
     private Object evaluateSequenceFormulas(long index) {
-        if (sequenceFormulas.isEmpty()) return null;
-
-        for (int i = sequenceFormulas.size() - 1; i >= 0; i--) {
-            SequenceFormula formula = sequenceFormulas.get(i);
-            if (formula == null) {
-                throw new InternalError("Null SequenceFormula in list");
-            }
+        String timer = startPerfTimer(DebugSystem.Level.TRACE, PERF_PREFIX + "evaluateSequenceFormulas");
+        try {
+            if (sequenceFormulas.isEmpty()) return null;
             
-            if (formula.contains(index)) {
-                try {
-                    Object result = formula.evaluate(index, evaluator, context);
-                    if (result != null) {
+            
+            for (int i = sequenceFormulas.size() - 1; i >= 0; i--) {
+                SequenceFormula formula = sequenceFormulas.get(i);
+                if (formula.contains(index)) {
+                    try {
+                        Object result = formula.evaluate(index, evaluator, context);
                         if (computedCache == null) {
                             computedCache = new HashMap<Long, Object>();
                         }
                         computedCache.put(index, result);
+                        return result;
+                    } catch (ProgramError e) {
+                        throw e;
+                    } catch (Exception e) {
+                        throw new InternalError(
+                            "Sequence formula evaluation failed at index " + index, e);
                     }
-                    return result;
-                } catch (ProgramError e) {
-                    throw e;
-                } catch (Exception e) {
-                    throw new InternalError(
-                        "Sequence formula evaluation failed at index " + index, e);
                 }
             }
+            return null;
+        } finally {
+            stopPerfTimer(timer);
         }
-        return null;
     }
 
     private Object evaluateConditionalFormulas(long index) {
-        if (conditionalFormulas.isEmpty()) return null;
+        String timer = startPerfTimer(DebugSystem.Level.TRACE, PERF_PREFIX + "evaluateConditionalFormulas");
+        try {
+            if (conditionalFormulas.isEmpty()) return null;
 
-        for (int i = conditionalFormulas.size() - 1; i >= 0; i--) {
-            ConditionalFormula formula = conditionalFormulas.get(i);
-            if (formula == null) {
-                throw new InternalError("Null ConditionalFormula in list");
-            }
-            
-            if (formula.contains(index)) {
-                try {
-                    Object result = formula.evaluate(index, evaluator, context);
-                    if (result != null) {
-                        if (computedCache == null) {
-                            computedCache = new HashMap<Long, Object>();
+            for (int i = conditionalFormulas.size() - 1; i >= 0; i--) {
+                ConditionalFormula formula = conditionalFormulas.get(i);
+                if (formula == null) {
+                    throw new InternalError("Null ConditionalFormula in list");
+                }
+                
+                if (formula.contains(index)) {
+                    try {
+                        Object result = formula.evaluate(index, evaluator, context);
+                        if (result != null) {
+                            if (computedCache == null) {
+                                computedCache = new HashMap<Long, Object>();
+                            }
+                            computedCache.put(index, result);
                         }
-                        computedCache.put(index, result);
+                        return result;
+                    } catch (ProgramError e) {
+                        throw e;
+                    } catch (Exception e) {
+                        throw new InternalError(
+                            "Conditional formula evaluation failed at index " + index, e);
                     }
-                    return result;
-                } catch (ProgramError e) {
-                    throw e;
-                } catch (Exception e) {
-                    throw new InternalError(
-                        "Conditional formula evaluation failed at index " + index, e);
                 }
             }
+            return null;
+        } finally {
+            stopPerfTimer(timer);
         }
-        return null;
     }
 
     private Object evaluateLinearRecurrenceFormulas(long index) {
-        if (linearRecurrenceFormulas.isEmpty()) return null;
+        String timer = startPerfTimer(DebugSystem.Level.TRACE, PERF_PREFIX + "evaluateLinearRecurrenceFormulas");
+        try {
+            if (linearRecurrenceFormulas.isEmpty()) return null;
 
-        for (int i = linearRecurrenceFormulas.size() - 1; i >= 0; i--) {
-            LinearRecurrenceFormula formula = linearRecurrenceFormulas.get(i);
-            if (formula == null) {
-                throw new InternalError("Null LinearRecurrenceFormula in list");
-            }
-            
-            if (formula.contains(index)) {
-                try {
-                    Object result = formula.evaluate(index);
-                    if (result != null) {
-                        if (computedCache == null) {
-                            computedCache = new HashMap<Long, Object>();
+            for (int i = linearRecurrenceFormulas.size() - 1; i >= 0; i--) {
+                LinearRecurrenceFormula formula = linearRecurrenceFormulas.get(i);
+                if (formula == null) {
+                    throw new InternalError("Null LinearRecurrenceFormula in list");
+                }
+                
+                if (formula.contains(index)) {
+                    try {
+                        Object result = formula.evaluate(index);
+                        if (result != null) {
+                            if (computedCache == null) {
+                                computedCache = new HashMap<Long, Object>();
+                            }
+                            computedCache.put(index, result);
                         }
-                        computedCache.put(index, result);
+                        return result;
+                    } catch (ProgramError e) {
+                        throw e;
+                    } catch (Exception e) {
+                        throw new InternalError(
+                            "Linear recurrence formula evaluation failed at index " + index, e);
                     }
-                    return result;
-                } catch (ProgramError e) {
-                    throw e;
-                } catch (Exception e) {
-                    throw new InternalError(
-                        "Linear recurrence formula evaluation failed at index " + index, e);
                 }
             }
+            return null;
+        } finally {
+            stopPerfTimer(timer);
         }
-        return null;
     }
 
     private Object evaluateVectorRecurrenceFormulas(long index) {
-        if (vectorRecurrenceFormulas.isEmpty()) return null;
+        String timer = startPerfTimer(DebugSystem.Level.TRACE, PERF_PREFIX + "evaluateVectorRecurrenceFormulas");
+        try {
+            if (vectorRecurrenceFormulas.isEmpty()) return null;
 
-        for (int i = vectorRecurrenceFormulas.size() - 1; i >= 0; i--) {
-            VectorRecurrenceBinding binding = vectorRecurrenceFormulas.get(i);
-            if (binding == null || binding.formula == null) {
-                throw new InternalError("Null VectorRecurrenceFormula binding in list");
-            }
-            if (binding.formula.contains(index)) {
-                try {
-                    Object result = binding.formula.evaluate(index, binding.sequenceIndex);
-                    if (result != null) {
-                        if (computedCache == null) {
-                            computedCache = new HashMap<Long, Object>();
+            for (int i = vectorRecurrenceFormulas.size() - 1; i >= 0; i--) {
+                VectorRecurrenceBinding binding = vectorRecurrenceFormulas.get(i);
+                if (binding == null || binding.formula == null) {
+                    throw new InternalError("Null VectorRecurrenceFormula binding in list");
+                }
+                if (binding.formula.contains(index)) {
+                    try {
+                        Object result = binding.formula.evaluate(index, binding.sequenceIndex);
+                        if (result != null) {
+                            if (computedCache == null) {
+                                computedCache = new HashMap<Long, Object>();
+                            }
+                            computedCache.put(index, result);
                         }
-                        computedCache.put(index, result);
+                        return result;
+                    } catch (ProgramError e) {
+                        throw e;
+                    } catch (Exception e) {
+                        throw new InternalError(
+                            "Vector recurrence formula evaluation failed at index " + index, e);
                     }
-                    return result;
-                } catch (ProgramError e) {
-                    throw e;
-                } catch (Exception e) {
-                    throw new InternalError(
-                        "Vector recurrence formula evaluation failed at index " + index, e);
                 }
             }
+            return null;
+        } finally {
+            stopPerfTimer(timer);
         }
-        return null;
+    }
+
+    private static boolean isTimerEnabled(DebugSystem.Level level) {
+        DebugSystem.Level current = DebugSystem.getLevel();
+        return current != DebugSystem.Level.OFF && current.getLevel() >= level.getLevel();
+    }
+
+    private static String startPerfTimer(DebugSystem.Level level, String operation) {
+        if (!isTimerEnabled(level)) {
+            return null;
+        }
+        String timerName = operation + "#" + Thread.currentThread().getId() + ":" + System.nanoTime();
+        DebugSystem.startTimer(level, timerName);
+        return timerName;
+    }
+
+    private static void stopPerfTimer(String timerName) {
+        if (timerName != null) {
+            DebugSystem.stopTimer(timerName);
+        }
     }
 
     // ========== OUTPUT CACHING METHODS ==========

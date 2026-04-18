@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 public class ImportResolver {
+    private static final String PERF_PREFIX = "importResolver.";
     // The new layout uses src/main/cod/demo/src/main with internal as a sibling of demo.
     private static final String DEMO_DIR_NAME = "demo";
     private static final Pattern SAFE_UNIT_NAME_PATTERN =
@@ -294,6 +295,7 @@ public class ImportResolver {
     private static Map<String, String> createStandardUnitPathOverrides() {
         Map<String, String> overrides = new HashMap<String, String>();
         overrides.put("math", "std/math");
+        overrides.put("json", "std/json");
         overrides.put("scimath", "std/scimath");
         overrides.put("scimath.distribution", "std/scimath/distribution");
         return Collections.unmodifiableMap(overrides);
@@ -331,54 +333,59 @@ public class ImportResolver {
      * Get or create index for a unit (cached)
      */
     private Index getIndex(String unitName) {
-        if (unitName == null || unitName.isEmpty()) {
-            return null;
-        }
-        
-        // Check memory cache
-        if (indexCache.containsKey(unitName)) {
-            Index cached = indexCache.get(unitName);
-            String unitPath = getUnitPath(unitName);
-            if (!cached.isStale(unitPath)) {
-                indexCacheHits++;
-                DebugSystem.debug("IMPORTS_CACHE", "Index cache hit for unit: " + unitName);
-                return cached;
-            } else {
-                indexCache.remove(unitName);
-                DebugSystem.debug("IMPORTS_CACHE", "Index cache stale for unit: " + unitName);
-            }
-        }
-        
-        indexCacheMisses++;
-        
-        // Try to load from disk
-        Index index = Index.load(unitName);
-        
-        if (index != null) {
-            String unitPath = getUnitPath(unitName);
-            if (!index.isStale(unitPath)) {
-                indexCache.put(unitName, index);
-                DebugSystem.debug("IMPORTS_CACHE", "Loaded index from disk for unit: " + unitName + 
-                                 " (" + index.size() + " classes)");
-                return index;
-            } else {
-                DebugSystem.debug("IMPORTS_CACHE", "Index file stale for unit: " + unitName);
-            }
-        }
-        
-        // Generate new index - this may throw IllegalStateException on duplicates
+        String timer = startPerfTimer(DebugSystem.Level.DEBUG, PERF_PREFIX + "getIndex");
         try {
-            index = generateIndex(unitName);
-            if (index != null && !index.isEmpty()) {
-                index.save();
-                indexCache.put(unitName, index);
-                DebugSystem.debug("IMPORTS_CACHE", "Generated new index for unit: " + unitName + 
-                                 " (" + index.size() + " classes)");
+            if (unitName == null || unitName.isEmpty()) {
+                return null;
             }
-            return index;
-        } catch (IllegalStateException e) {
-            // Convert to ProgramError for user-friendly message
-            throw new ProgramError(e.getMessage());
+            
+            // Check memory cache
+            if (indexCache.containsKey(unitName)) {
+                Index cached = indexCache.get(unitName);
+                String unitPath = getUnitPath(unitName);
+                if (!cached.isStale(unitPath)) {
+                    indexCacheHits++;
+                    DebugSystem.debug("IMPORTS_CACHE", "Index cache hit for unit: " + unitName);
+                    return cached;
+                } else {
+                    indexCache.remove(unitName);
+                    DebugSystem.debug("IMPORTS_CACHE", "Index cache stale for unit: " + unitName);
+                }
+            }
+            
+            indexCacheMisses++;
+            
+            // Try to load from disk
+            Index index = Index.load(unitName);
+            
+            if (index != null) {
+                String unitPath = getUnitPath(unitName);
+                if (!index.isStale(unitPath)) {
+                    indexCache.put(unitName, index);
+                    DebugSystem.debug("IMPORTS_CACHE", "Loaded index from disk for unit: " + unitName + 
+                                     " (" + index.size() + " classes)");
+                    return index;
+                } else {
+                    DebugSystem.debug("IMPORTS_CACHE", "Index file stale for unit: " + unitName);
+                }
+            }
+            
+            // Generate new index - this may throw IllegalStateException on duplicates
+            try {
+                index = generateIndex(unitName);
+                if (index != null && !index.isEmpty()) {
+                    index.save();
+                    indexCache.put(unitName, index);
+                    DebugSystem.debug("IMPORTS_CACHE", "Generated new index for unit: " + unitName + 
+                                     " (" + index.size() + " classes)");
+                }
+                return index;
+            } catch (IllegalStateException e) {
+                // Convert to ProgramError for user-friendly message
+                throw new ProgramError(e.getMessage());
+            }
+        } finally {
+            stopPerfTimer(timer);
         }
     }
     
@@ -425,40 +432,45 @@ public class ImportResolver {
     }
     
     private Program loadImportFromFileCached(String filePath) throws Exception {
-        if (filePath == null || filePath.isEmpty()) {
-            throw new InternalError("loadImportFromFileCached called with null/empty path");
-        }
-        
-        File file = new File(filePath);
-        
-        FileMetadata metadata = getFileMetadata(file);
-        if (!metadata.exists) {
-            return null;
-        }
-        if (!metadata.isDirectory) {
-            if (fileCache.containsKey(filePath)) {
-                CachedFileResult cached = fileCache.get(filePath);
-                if (cached.isValid(file)) {
-                    fileCacheHits++;
-                    DebugSystem.debug("IMPORTS_CACHE", "File cache hit: " + filePath);
-                    return cached.program;
-                } else {
-                    fileCache.remove(filePath);
-                    DebugSystem.debug("IMPORTS_CACHE", "File cache stale: " + filePath);
+        String timer = startPerfTimer(DebugSystem.Level.DEBUG, PERF_PREFIX + "loadImportFromFileCached");
+        try {
+            if (filePath == null || filePath.isEmpty()) {
+                throw new InternalError("loadImportFromFileCached called with null/empty path");
+            }
+            
+            File file = new File(filePath);
+            
+            FileMetadata metadata = getFileMetadata(file);
+            if (!metadata.exists) {
+                return null;
+            }
+            if (!metadata.isDirectory) {
+                if (fileCache.containsKey(filePath)) {
+                    CachedFileResult cached = fileCache.get(filePath);
+                    if (cached.isValid(file)) {
+                        fileCacheHits++;
+                        DebugSystem.debug("IMPORTS_CACHE", "File cache hit: " + filePath);
+                        return cached.program;
+                    } else {
+                        fileCache.remove(filePath);
+                        DebugSystem.debug("IMPORTS_CACHE", "File cache stale: " + filePath);
+                    }
                 }
+                
+                fileCacheMisses++;
+                DebugSystem.debug("IMPORTS_CACHE", "File cache miss: " + filePath);
+                
+                Program program = loadImportFromFile(filePath);
+                if (program != null) {
+                    fileCache.put(filePath, new CachedFileResult(program, metadata.lastModified));
+                }
+                return program;
             }
             
-            fileCacheMisses++;
-            DebugSystem.debug("IMPORTS_CACHE", "File cache miss: " + filePath);
-            
-            Program program = loadImportFromFile(filePath);
-            if (program != null) {
-                fileCache.put(filePath, new CachedFileResult(program, metadata.lastModified));
-            }
-            return program;
+            return null;
+        } finally {
+            stopPerfTimer(timer);
         }
-        
-        return null;
     }
     
     public void registerBroadcast(String packageName, String mainClassName) {
@@ -665,6 +677,10 @@ public class ImportResolver {
             if (!importNameCache.containsKey(lastPart)) {
                 importNameCache.put(lastPart, importName);
             }
+            String lastPartLower = lastPart.toLowerCase(Locale.ENGLISH);
+            if (!importNameCache.containsKey(lastPartLower)) {
+                importNameCache.put(lastPartLower, importName);
+            }
             
             StringBuilder partial = new StringBuilder();
             for (int i = 0; i < parts.length; i++) {
@@ -673,6 +689,10 @@ public class ImportResolver {
                 String key = partial.toString();
                 if (!importNameCache.containsKey(key)) {
                     importNameCache.put(key, importName);
+                }
+                String lowerKey = key.toLowerCase(Locale.ENGLISH);
+                if (!importNameCache.containsKey(lowerKey)) {
+                    importNameCache.put(lowerKey, importName);
                 }
             }
         }
@@ -684,18 +704,38 @@ public class ImportResolver {
             DebugSystem.debug("IMPORTS", "Cache hit for import: " + calledImport + " -> " + cached);
             return cached;
         }
+        String calledImportLower = calledImport.toLowerCase(Locale.ENGLISH);
+        if (importNameCache.containsKey(calledImportLower)) {
+            String cached = importNameCache.get(calledImportLower);
+            DebugSystem.debug("IMPORTS", "Case-insensitive cache hit for import: " + calledImport + " -> " + cached);
+            return cached;
+        }
         
         for (String loadedImport : loadedPrograms.keySet()) {
-            if (loadedImport.endsWith("." + calledImport) || loadedImport.equals(calledImport)) {
+            if (loadedImport.endsWith("." + calledImport) || loadedImport.equals(calledImport)
+                || loadedImport.endsWith("." + calledImportLower)
+                || loadedImport.equalsIgnoreCase(calledImport)) {
                 importNameCache.put(calledImport, loadedImport);
+                importNameCache.put(calledImportLower, loadedImport);
                 return loadedImport;
             }
         }
         
         for (String registeredImport : registeredImports) {
-            if (registeredImport.endsWith("." + calledImport) || registeredImport.equals(calledImport)) {
+            if (registeredImport.endsWith("." + calledImport) || registeredImport.equals(calledImport)
+                || registeredImport.endsWith("." + calledImportLower)
+                || registeredImport.equalsIgnoreCase(calledImport)) {
                 importNameCache.put(calledImport, registeredImport);
+                importNameCache.put(calledImportLower, registeredImport);
                 return registeredImport;
+            }
+        }
+        
+        for (String wildcardUnit : wildcardEverythingUnits) {
+            if (wildcardUnit.equalsIgnoreCase(calledImport)) {
+                importNameCache.put(calledImport, wildcardUnit);
+                importNameCache.put(calledImportLower, wildcardUnit);
+                return wildcardUnit;
             }
         }
         
@@ -706,129 +746,148 @@ public class ImportResolver {
      * Resolve import and return Type directly
      */
     public Type resolveImport(String importName) throws Exception {
-        if (importName == null || importName.isEmpty()) {
-            throw new InternalError("resolveImport called with null/empty importName");
-        }
-        
-        DebugSystem.debug("IMPORTS", "=== RESOLVING IMPORT: " + importName + " ===");
-        
-        // Check cache first
-        if (loadedTypes.containsKey(importName)) {
-            DebugSystem.debug("IMPORTS", "Type already loaded: " + importName);
-            return loadedTypes.get(importName);
-        }
-        
-        int lastDot = importName.lastIndexOf('.');
-        if (lastDot <= 0 || lastDot >= importName.length() - 1) {
-            throw new ProgramError(
-                "Invalid import format: '" + importName + "'\n" +
-                "Expected format: unit.Class (e.g., sample.Imported, internal.range.RangeSpec)"
-            );
-        }
-        
-        String unitName = importName.substring(0, lastDot);
-        String className = importName.substring(lastDot + 1);
-        
-        DebugSystem.debug("IMPORTS", "Unit: " + unitName + ", Class: " + className);
-        
-        // ========== TRY CODE-P-TAC ARTIFACT FIRST (FAST PATH) ==========
-        if (irManager != null) {
-            Artifact artifact = irManager.loadArtifact(unitName, className);
-            if (artifact != null) {
-                bytecodeCacheHits++;
-                DebugSystem.debug("IR", "Loaded " + className + " CodP-TAC artifact from .codc/.codb (cache hit)");
-                loadedArtifacts.put(importName, artifact);
-                if (artifact.typeSnapshot != null) {
-                    loadedTypes.put(importName, artifact.typeSnapshot);
-                    return artifact.typeSnapshot;
-                }
-            } else {
-                bytecodeCacheMisses++;
-                DebugSystem.debug("IR", ".codc/.codb artifact not found for " + className + " (cache miss)");
+        String timer = startPerfTimer(DebugSystem.Level.DEBUG, PERF_PREFIX + "resolveImport");
+        try {
+            if (importName == null || importName.isEmpty()) {
+                throw new InternalError("resolveImport called with null/empty importName");
             }
-        }
-        // ========== END CodP-TAC CHECK ==========
-        
-        // Try to get index (fast path for source)
-        Index index = getIndex(unitName);
-        if (index != null) {
-            String fileName = index.getFile(className);
-            if (fileName != null) {
-                String filePath = getUnitPath(unitName) + "/" + fileName;
-                DebugSystem.debug("IMPORTS", "Found class '" + className + "' in '" + fileName + "' via index");
-                
-                Program program = loadImportFromFileCached(filePath);
-                if (program != null) {
-                    if (!isMatchingProgramUnit(program, unitName)) {
-                        DebugSystem.debug("IMPORTS",
-                            "Skipping indexed file due to unit mismatch for '" + importName +
-                            "': expected '" + unitName + "', found '" +
-                            (program.unit != null ? program.unit.name : "null") + "'");
-                    } else {
-                        // Extract the Type from the program
-                        for (Type type : program.unit.types) {
-                            if (type.name.equals(className)) {
-                                // Save IR for next time
-                                if (irManager != null) {
-                                    irManager.save(unitName, type);
-                                    DebugSystem.debug("IR", "Saved " + className + " to .codc/.codb");
+            
+            DebugSystem.debug("IMPORTS", "=== RESOLVING IMPORT: " + importName + " ===");
+            
+            // Check cache first
+            if (loadedTypes.containsKey(importName)) {
+                DebugSystem.debug("IMPORTS", "Type already loaded: " + importName);
+                return loadedTypes.get(importName);
+            }
+            
+            int lastDot = importName.lastIndexOf('.');
+            if (lastDot <= 0 || lastDot >= importName.length() - 1) {
+                throw new ProgramError(
+                    "Invalid import format: '" + importName + "'\n" +
+                    "Expected format: unit.Class (e.g., sample.Imported, internal.range.RangeSpec)"
+                );
+            }
+            
+            String unitName = importName.substring(0, lastDot);
+            String className = importName.substring(lastDot + 1);
+            
+            DebugSystem.debug("IMPORTS", "Unit: " + unitName + ", Class: " + className);
+            
+            // ========== TRY CODE-P-TAC ARTIFACT FIRST (FAST PATH) ==========
+            if (irManager != null) {
+                Artifact artifact = irManager.loadArtifact(unitName, className);
+                if (artifact != null) {
+                    bytecodeCacheHits++;
+                    DebugSystem.debug("IR", "Loaded " + className + " CodP-TAC artifact from .codc/.codb (cache hit)");
+                    loadedArtifacts.put(importName, artifact);
+                    if (artifact.typeSnapshot != null) {
+                        Type snapshot = artifact.typeSnapshot;
+                        boolean snapshotHasMembers =
+                            (snapshot.methods != null && !snapshot.methods.isEmpty())
+                                || (snapshot.fields != null && !snapshot.fields.isEmpty())
+                                || (snapshot.constructors != null && !snapshot.constructors.isEmpty());
+                        if (snapshotHasMembers) {
+                            loadedTypes.put(importName, snapshot);
+                            return snapshot;
+                        }
+                        DebugSystem.debug("IR",
+                            "Artifact snapshot for " + className + " has no members; falling back to source/index resolution");
+                    }
+                } else {
+                    bytecodeCacheMisses++;
+                    DebugSystem.debug("IR", ".codc/.codb artifact not found for " + className + " (cache miss)");
+                }
+            }
+            // ========== END CodP-TAC CHECK ==========
+            
+            // Try to get index (fast path for source)
+            Index index = getIndex(unitName);
+            if (index != null) {
+                String fileName = index.getFile(className);
+                if (fileName != null) {
+                    String filePath = getUnitPath(unitName) + "/" + fileName;
+                    DebugSystem.debug("IMPORTS", "Found class '" + className + "' in '" + fileName + "' via index");
+                    
+                    Program program = loadImportFromFileCached(filePath);
+                    if (program != null) {
+                        if (!isMatchingProgramUnit(program, unitName)) {
+                            DebugSystem.debug("IMPORTS",
+                                "Skipping indexed file due to unit mismatch for '" + importName +
+                                "': expected '" + unitName + "', found '" +
+                                (program.unit != null ? program.unit.name : "null") + "'");
+                        } else {
+                            // Extract the Type from the program
+                            for (Type type : program.unit.types) {
+                                if (type.name.equals(className)) {
+                                    // Save IR for next time
+                                    if (irManager != null) {
+                                        irManager.save(unitName, type);
+                                        DebugSystem.debug("IR", "Saved " + className + " to .codc/.codb");
+                                    }
+                                    loadedTypes.put(importName, type);
+                                    return type;
                                 }
-                                loadedTypes.put(importName, type);
-                                return type;
                             }
                         }
                     }
                 }
+                
+                // Class not found in index
+                throw new ProgramError(
+                    "Class '" + className + "' not found in unit '" + unitName + "'\n" +
+                    "Available classes: " + index.getClassNames()
+                );
             }
             
-            // Class not found in index
-            throw new ProgramError(
-                "Class '" + className + "' not found in unit '" + unitName + "'\n" +
-                "Available classes: " + index.getClassNames()
-            );
+            // Fallback to directory scanning (slow path)
+            DebugSystem.debug("IMPORTS", "No index found, scanning directory for unit: " + unitName);
+            return resolveImportByScan(importName, unitName, className);
+        } finally {
+            stopPerfTimer(timer);
         }
-        
-        // Fallback to directory scanning (slow path)
-        DebugSystem.debug("IMPORTS", "No index found, scanning directory for unit: " + unitName);
-        return resolveImportByScan(importName, unitName, className);
     }
     
     /**
      * Legacy method for Program resolution (for policies, etc.)
      */
     public Program resolveImportAsProgram(String importName) throws Exception {
-        if (importName == null || importName.isEmpty()) {
-            throw new InternalError("resolveImportAsProgram called with null/empty importName");
-        }
-        
-        // Check if already loaded
-        if (loadedPrograms.containsKey(importName)) {
-            return loadedPrograms.get(importName);
-        }
-        
-        // Check preloaded imports
-        if (preloadedImports.containsKey(importName)) {
-            Program program = preloadedImports.get(importName);
-            if (program != null) {
+        String timer = startPerfTimer(DebugSystem.Level.DEBUG, PERF_PREFIX + "resolveImportAsProgram");
+        try {
+            if (importName == null || importName.isEmpty()) {
+                throw new InternalError("resolveImportAsProgram called with null/empty importName");
+            }
+            
+            // Check if already loaded
+            if (loadedPrograms.containsKey(importName)) {
+                return loadedPrograms.get(importName);
+            }
+            
+            // Check preloaded imports
+            if (preloadedImports.containsKey(importName)) {
+                Program program = preloadedImports.get(importName);
+                if (program != null) {
+                    loadedPrograms.put(importName, program);
+                    importedUnits.put(importName, program);
+                    cacheImportName(importName);
+                    registerPoliciesAndBroadcast(program, importName);
+                    return program;
+                }
+            }
+            
+            // Resolve as Type first, then wrap
+            Type type = resolveImport(importName);
+            if (type != null) {
+                Program program = ASTFactory.createProgram();
+                program.unit = ASTFactory.createUnit("default", null);
+                program.unit.types.add(type);
                 loadedPrograms.put(importName, program);
-                importedUnits.put(importName, program);
-                cacheImportName(importName);
-                registerPoliciesAndBroadcast(program, importName);
                 return program;
             }
+            
+            return null;
+        } finally {
+            stopPerfTimer(timer);
         }
-        
-        // Resolve as Type first, then wrap
-        Type type = resolveImport(importName);
-        if (type != null) {
-            Program program = ASTFactory.createProgram();
-            program.unit = ASTFactory.createUnit("default", null);
-            program.unit.types.add(type);
-            loadedPrograms.put(importName, program);
-            return program;
-        }
-        
-        return null;
     }
     
     /**
@@ -1019,56 +1078,61 @@ public class ImportResolver {
     }
 
     public Type findType(String qualifiedTypeName) {
-        if (qualifiedTypeName == null || qualifiedTypeName.isEmpty()) {
-            throw new InternalError("findType called with null/empty name");
-        }
-        
-        DebugSystem.debug("IMPORTS", "findType called for: " + qualifiedTypeName);
-        
-        if (typeCache.containsKey(qualifiedTypeName)) {
-            DebugSystem.debug("IMPORTS", "Type cache hit: " + qualifiedTypeName);
-            return typeCache.get(qualifiedTypeName);
-        }
-        
-        int lastDot = qualifiedTypeName.lastIndexOf('.');
-        if (lastDot == -1) {
-            DebugSystem.debug("IMPORTS", "Simple type name, searching all imports");
-            Type found = findTypeByName(qualifiedTypeName);
-            if (found == null) {
-                throw new ProgramError("Type not found: " + qualifiedTypeName);
+        String timer = startPerfTimer(DebugSystem.Level.DEBUG, PERF_PREFIX + "findType");
+        try {
+            if (qualifiedTypeName == null || qualifiedTypeName.isEmpty()) {
+                throw new InternalError("findType called with null/empty name");
             }
-            typeCache.put(qualifiedTypeName, found);
-            return found;
-        }
-        
-        String typeName = qualifiedTypeName.substring(lastDot + 1);
-        String importPart = qualifiedTypeName.substring(0, lastDot);
-        
-        DebugSystem.debug("IMPORTS", "Import part: '" + importPart + "', type: '" + typeName + "'");
-        
-        String actualImportName = qualifiedTypeName;
-        if (typeName.isEmpty() || !Character.isUpperCase(typeName.charAt(0))) {
-            actualImportName = findMatchingImportCached(importPart);
-        }
-        
-        DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', type: '" + typeName + "'");
-        
-        if (!loadedTypes.containsKey(actualImportName)) {
-            DebugSystem.debug("IMPORTS", "Import not loaded, trying to resolve: " + actualImportName);
-            try {
-                Type type = resolveImport(actualImportName);
-                if (type == null) {
-                    throw new ProgramError("Failed to resolve import: " + actualImportName);
+            
+            DebugSystem.debug("IMPORTS", "findType called for: " + qualifiedTypeName);
+            
+            if (typeCache.containsKey(qualifiedTypeName)) {
+                DebugSystem.debug("IMPORTS", "Type cache hit: " + qualifiedTypeName);
+                return typeCache.get(qualifiedTypeName);
+            }
+            
+            int lastDot = qualifiedTypeName.lastIndexOf('.');
+            if (lastDot == -1) {
+                DebugSystem.debug("IMPORTS", "Simple type name, searching all imports");
+                Type found = findTypeByName(qualifiedTypeName);
+                if (found == null) {
+                    throw new ProgramError("Type not found: " + qualifiedTypeName);
                 }
-                loadedTypes.put(actualImportName, type);
-            } catch (ProgramError e) {
-                throw e;
-            } catch (Exception e) {
-                throw new InternalError("Unexpected error resolving import: " + actualImportName, e);
+                typeCache.put(qualifiedTypeName, found);
+                return found;
             }
+            
+            String typeName = qualifiedTypeName.substring(lastDot + 1);
+            String importPart = qualifiedTypeName.substring(0, lastDot);
+            
+            DebugSystem.debug("IMPORTS", "Import part: '" + importPart + "', type: '" + typeName + "'");
+            
+            String actualImportName = qualifiedTypeName;
+            if (typeName.isEmpty() || !Character.isUpperCase(typeName.charAt(0))) {
+                actualImportName = findMatchingImportCached(importPart);
+            }
+            
+            DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', type: '" + typeName + "'");
+            
+            if (!loadedTypes.containsKey(actualImportName)) {
+                DebugSystem.debug("IMPORTS", "Import not loaded, trying to resolve: " + actualImportName);
+                try {
+                    Type type = resolveImport(actualImportName);
+                    if (type == null) {
+                        throw new ProgramError("Failed to resolve import: " + actualImportName);
+                    }
+                    loadedTypes.put(actualImportName, type);
+                } catch (ProgramError e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new InternalError("Unexpected error resolving import: " + actualImportName, e);
+                }
+            }
+            
+            return loadedTypes.get(actualImportName);
+        } finally {
+            stopPerfTimer(timer);
         }
-        
-        return loadedTypes.get(actualImportName);
     }
 
     private Type findTypeByName(String typeName) {
@@ -1179,57 +1243,173 @@ public class ImportResolver {
     }
 
     public Method findMethod(String qualifiedMethodName) {
-        if (qualifiedMethodName == null || qualifiedMethodName.isEmpty()) {
-            throw new InternalError("findMethod called with null/empty name");
-        }
-        
-        DebugSystem.debug("IMPORTS", "findMethod called for: " + qualifiedMethodName);
-        
-        int lastDot = qualifiedMethodName.lastIndexOf('.');
-        if (lastDot == -1) {
-            Method methodBySpec = findMethodFromSpecs(qualifiedMethodName);
-            if (methodBySpec != null) {
-                return methodBySpec;
-            }
-            return null;
-        }
-        
-        String methodName = qualifiedMethodName.substring(lastDot + 1);
-        String calledImport = qualifiedMethodName.substring(0, lastDot);
-        
-        DebugSystem.debug("IMPORTS", "Called import part: '" + calledImport + "', method: '" + methodName + "'");
-        
-        String actualImportName = findMatchingImportCached(calledImport);
-        
-        DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', method: '" + methodName + "'");
-        
-        Type type = null;
+        String timer = startPerfTimer(DebugSystem.Level.DEBUG, PERF_PREFIX + "findMethod");
         try {
-            type = findType(actualImportName);
-            if (type != null) {
-                DebugSystem.debug("IMPORTS", "Searching for method '" + methodName + "' in type: " + type.name);
-                for (Method method : type.methods) {
-                    DebugSystem.debug("IMPORTS", "    Checking method: " + method.methodName);
-                    if (method.methodName.equals(methodName)) {
-                        DebugSystem.debug("IMPORTS", "    *** FOUND METHOD: " + method.methodName + " ***");
-                        return method;
+            if (qualifiedMethodName == null || qualifiedMethodName.isEmpty()) {
+                throw new InternalError("findMethod called with null/empty name");
+            }
+            
+            DebugSystem.debug("IMPORTS", "findMethod called for: " + qualifiedMethodName);
+            
+            int lastDot = qualifiedMethodName.lastIndexOf('.');
+            if (lastDot == -1) {
+                Method methodBySpec = findMethodFromSpecs(qualifiedMethodName);
+                if (methodBySpec != null) {
+                    return methodBySpec;
+                }
+                return null;
+            }
+            
+            String methodName = qualifiedMethodName.substring(lastDot + 1);
+            String calledImport = qualifiedMethodName.substring(0, lastDot);
+            
+            DebugSystem.debug("IMPORTS", "Called import part: '" + calledImport + "', method: '" + methodName + "'");
+            
+            String actualImportName = findMatchingImportCached(calledImport);
+            
+            DebugSystem.debug("IMPORTS", "Final import to resolve: '" + actualImportName + "', method: '" + methodName + "'");
+            
+            Type type = null;
+            try {
+                type = findType(actualImportName);
+                if (type != null && (type.methods == null || type.methods.isEmpty())) {
+                    int typeDot = actualImportName.lastIndexOf('.');
+                    if (typeDot > 0 && typeDot < actualImportName.length() - 1) {
+                        String typeUnit = actualImportName.substring(0, typeDot);
+                        String typeClass = actualImportName.substring(typeDot + 1);
+                        try {
+                            Type refreshedType = resolveImportByScan(actualImportName, typeUnit, typeClass);
+                            if (refreshedType != null) {
+                                type = refreshedType;
+                                loadedTypes.put(actualImportName, refreshedType);
+                            }
+                        } catch (Exception ignored) {
+                            // Fall back to existing resolved type if source refresh fails.
+                        }
+                    }
+                }
+                if (type != null) {
+                    DebugSystem.debug("IMPORTS", "Searching for method '" + methodName + "' in type: " + type.name);
+                    for (Method method : type.methods) {
+                        DebugSystem.debug("IMPORTS", "    Checking method: " + method.methodName);
+                        if (method.methodName.equals(methodName)) {
+                            DebugSystem.debug("IMPORTS", "    *** FOUND METHOD: " + method.methodName + " ***");
+                            return method;
+                        }
+                    }
+                }
+            } catch (ProgramError ignoreTypeError) {
+                // Not a class import; may still be a static-module method import.
+            }
+
+            if ((type == null || type.methods == null || type.methods.isEmpty())
+                && calledImport != null
+                && !calledImport.equals(actualImportName)) {
+                try {
+                    Type simpleType = findType(calledImport);
+                    if ((simpleType == null || simpleType.methods == null || simpleType.methods.isEmpty())
+                        && calledImport.length() > 0
+                        && Character.isUpperCase(calledImport.charAt(0))) {
+                        String lowerUnitName = calledImport.toLowerCase(Locale.ENGLISH);
+                        try {
+                            Type refreshedSimpleType = resolveImportByScan(
+                                lowerUnitName + "." + calledImport,
+                                lowerUnitName,
+                                calledImport);
+                            if (refreshedSimpleType != null) {
+                                simpleType = refreshedSimpleType;
+                            }
+                        } catch (Exception ignored) {
+                            // Keep original simpleType when refresh fails.
+                        }
+                    }
+                    if (simpleType != null && simpleType.methods != null && !simpleType.methods.isEmpty()) {
+                        type = simpleType;
+                        for (Method method : type.methods) {
+                            if (methodName.equals(method.methodName)) {
+                                return method;
+                            }
+                        }
+                    }
+                } catch (ProgramError ignored) {
+                    // Continue with static-module lookup.
+                }
+            }
+
+            if ((type == null || type.methods == null || type.methods.isEmpty())
+                && calledImport != null
+                && calledImport.length() > 0
+                && Character.isUpperCase(calledImport.charAt(0))) {
+                if (actualImportName != null
+                    && actualImportName.indexOf('.') == -1
+                    && !actualImportName.equals(calledImport)) {
+                    try {
+                        Type unitQualifiedType = resolveImport(actualImportName + "." + calledImport);
+                        if (unitQualifiedType != null && unitQualifiedType.methods != null) {
+                            for (Method method : unitQualifiedType.methods) {
+                                if (methodName.equals(method.methodName)) {
+                                    return method;
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {
+                        // Continue searching wildcard units.
+                    }
+                }
+                for (String unitName : wildcardEverythingUnits) {
+                    try {
+                        Type candidateType = resolveImport(unitName + "." + calledImport);
+                        if (candidateType != null && candidateType.methods != null) {
+                            for (Method method : candidateType.methods) {
+                                if (methodName.equals(method.methodName)) {
+                                    return method;
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {
+                        // Continue searching.
+                    }
+                }
+                for (String unitName : wildcardClassUnits) {
+                    try {
+                        Type candidateType = resolveImport(unitName + "." + calledImport);
+                        if (candidateType != null && candidateType.methods != null) {
+                            for (Method method : candidateType.methods) {
+                                if (methodName.equals(method.methodName)) {
+                                    return method;
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {
+                        // Continue searching.
                     }
                 }
             }
-        } catch (ProgramError ignoreTypeError) {
-            // Not a class import; may still be a static-module method import.
+            
+            Method moduleMethod = findMethodInStaticModule(actualImportName, methodName);
+            if (moduleMethod != null) {
+                return moduleMethod;
+            }
+            if (!calledImport.equals(actualImportName)) {
+                moduleMethod = findMethodInStaticModule(calledImport, methodName);
+                if (moduleMethod != null) {
+                    return moduleMethod;
+                }
+            }
+            String lowerImport = calledImport.toLowerCase(Locale.ENGLISH);
+            moduleMethod = findMethodInStaticModule(lowerImport, methodName);
+            if (moduleMethod != null) {
+                return moduleMethod;
+            }
+            
+            throw new ProgramError(
+                "Method not found: '" + qualifiedMethodName + "'\n" +
+                "Available methods in import '" + actualImportName + "': " + 
+                getMethodNames(type)
+            );
+        } finally {
+            stopPerfTimer(timer);
         }
-        
-        Method moduleMethod = findMethodInStaticModule(actualImportName, methodName);
-        if (moduleMethod != null) {
-            return moduleMethod;
-        }
-        
-        throw new ProgramError(
-            "Method not found: '" + qualifiedMethodName + "'\n" +
-            "Available methods in import '" + actualImportName + "': " + 
-            getMethodNames(type)
-        );
     }
     
     private String getMethodNames(Type type) {
@@ -1423,58 +1603,63 @@ public class ImportResolver {
     }
 
     public Field findField(String qualifiedFieldName) {
-        if (qualifiedFieldName == null || qualifiedFieldName.isEmpty()) {
-            return null;
-        }
-        
-        String fullName = qualifiedFieldName;
-        if (explicitFieldImports.containsKey(qualifiedFieldName)) {
-            fullName = explicitFieldImports.get(qualifiedFieldName);
-        }
-        
-        int lastDot = fullName.lastIndexOf('.');
-        if (lastDot == -1) {
+        String timer = startPerfTimer(DebugSystem.Level.DEBUG, PERF_PREFIX + "findField");
+        try {
+            if (qualifiedFieldName == null || qualifiedFieldName.isEmpty()) {
+                return null;
+            }
+            
+            String fullName = qualifiedFieldName;
+            if (explicitFieldImports.containsKey(qualifiedFieldName)) {
+                fullName = explicitFieldImports.get(qualifiedFieldName);
+            }
+            
+            int lastDot = fullName.lastIndexOf('.');
+            if (lastDot == -1) {
+                for (String wildcardUnit : wildcardEverythingUnits) {
+                    Type wildcardType = loadStaticModuleType(wildcardUnit);
+                    if (wildcardType != null && wildcardType.fields != null) {
+                        for (Field field : wildcardType.fields) {
+                            if (qualifiedFieldName.equals(field.name)) {
+                                return field;
+                            }
+                        }
+                    }
+                }
+                return null;
+            }
+            
+            if (lastDot <= 0 || lastDot >= fullName.length() - 1) {
+                return null;
+            }
+            
+            String unitName = fullName.substring(0, lastDot);
+            String fieldName = fullName.substring(lastDot + 1);
+            
+            Type staticType = loadStaticModuleType(unitName);
+            if (staticType != null && staticType.fields != null) {
+                for (Field field : staticType.fields) {
+                    if (fieldName.equals(field.name)) {
+                        return field;
+                    }
+                }
+            }
+            
             for (String wildcardUnit : wildcardEverythingUnits) {
                 Type wildcardType = loadStaticModuleType(wildcardUnit);
                 if (wildcardType != null && wildcardType.fields != null) {
                     for (Field field : wildcardType.fields) {
-                        if (qualifiedFieldName.equals(field.name)) {
+                        if (qualifiedFieldName.equals(field.name) || fieldName.equals(field.name)) {
                             return field;
                         }
                     }
                 }
             }
+            
             return null;
+        } finally {
+            stopPerfTimer(timer);
         }
-        
-        if (lastDot <= 0 || lastDot >= fullName.length() - 1) {
-            return null;
-        }
-        
-        String unitName = fullName.substring(0, lastDot);
-        String fieldName = fullName.substring(lastDot + 1);
-        
-        Type staticType = loadStaticModuleType(unitName);
-        if (staticType != null && staticType.fields != null) {
-            for (Field field : staticType.fields) {
-                if (fieldName.equals(field.name)) {
-                    return field;
-                }
-            }
-        }
-        
-        for (String wildcardUnit : wildcardEverythingUnits) {
-            Type wildcardType = loadStaticModuleType(wildcardUnit);
-            if (wildcardType != null && wildcardType.fields != null) {
-                for (Field field : wildcardType.fields) {
-                    if (qualifiedFieldName.equals(field.name) || fieldName.equals(field.name)) {
-                        return field;
-                    }
-                }
-            }
-        }
-        
-        return null;
     }
 
     private Method findMethodFromSpecs(String methodName) {
@@ -1601,6 +1786,26 @@ public class ImportResolver {
         parsed.methodName = head.substring(lastDot + 1);
         parsed.signature = spec.substring(open + 1, close);
         return parsed;
+    }
+
+    private static boolean isTimerEnabled(DebugSystem.Level level) {
+        DebugSystem.Level current = DebugSystem.getLevel();
+        return current != DebugSystem.Level.OFF && current.getLevel() >= level.getLevel();
+    }
+
+    private static String startPerfTimer(DebugSystem.Level level, String operation) {
+        if (!isTimerEnabled(level)) {
+            return null;
+        }
+        String timerName = operation + "#" + Thread.currentThread().getId() + ":" + System.nanoTime();
+        DebugSystem.startTimer(level, timerName);
+        return timerName;
+    }
+
+    private static void stopPerfTimer(String timerName) {
+        if (timerName != null) {
+            DebugSystem.stopTimer(timerName);
+        }
     }
 
     private static class ParsedMethodImport {

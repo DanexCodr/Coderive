@@ -1,8 +1,11 @@
 package cod.range.pattern;
 
+import cod.ast.ASTFactory;
 import cod.ast.node.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Detects patterns in loops that mix computation with output.
@@ -16,7 +19,7 @@ public class OutputAwarePattern {
         public final List<MethodCall> outputCalls;  // The out() calls
         public final boolean isOptimizable;
         
-        // NEW: Batched output storage
+        // Batched output storage
         private List<OutputBatch> batches = new ArrayList<>();
         
         public OutputPattern(Object computation, List<MethodCall> outputCalls) {
@@ -24,20 +27,18 @@ public class OutputAwarePattern {
             this.outputCalls = outputCalls != null ? outputCalls : new ArrayList<MethodCall>();
             this.isOptimizable = computation != null && !this.outputCalls.isEmpty();
             
-            // NEW: Auto-batch outputs if optimizable
             if (this.isOptimizable) {
                 batchOutputs();
             }
         }
         
-        // NEW: Batch outputs by type (out vs outs) and pair them
+        // Batch outputs by type (out vs outs) and pair them
         private void batchOutputs() {
             if (outputCalls.isEmpty()) return;
             
             List<MethodCall> outCalls = new ArrayList<>();
             List<MethodCall> outsCalls = new ArrayList<>();
             
-            // Separate by type
             for (MethodCall call : outputCalls) {
                 if ("out".equals(call.name)) {
                     outCalls.add(call);
@@ -46,32 +47,20 @@ public class OutputAwarePattern {
                 }
             }
             
-            // Batch out() calls in pairs
-            for (int i = 0; i < outCalls.size(); i += 2) {
-                if (i + 1 < outCalls.size()) {
-                    batches.add(new OutputBatch("out", outCalls.get(i), outCalls.get(i + 1)));
-                } else {
-                    batches.add(new OutputBatch("out", outCalls.get(i)));
-                }
+            for (MethodCall call : outCalls) {
+                batches.add(new OutputBatch("out", call));
             }
             
-            // Batch outs() calls in pairs
-            for (int i = 0; i < outsCalls.size(); i += 2) {
-                if (i + 1 < outsCalls.size()) {
-                    batches.add(new OutputBatch("outs", outsCalls.get(i), outsCalls.get(i + 1)));
-                } else {
-                    batches.add(new OutputBatch("outs", outsCalls.get(i)));
-                }
+            for (MethodCall call : outsCalls) {
+                batches.add(new OutputBatch("outs", call));
             }
         }
         
-        // NEW: Get batched outputs for execution
         public List<OutputBatch> getBatches() {
             return batches;
         }
     }
     
-    // NEW: Represents a batched output operation
     public static class OutputBatch {
         public final String type;  // "out" or "outs"
         public final List<MethodCall> calls;
@@ -84,12 +73,10 @@ public class OutputAwarePattern {
             }
         }
         
-        // NEW: Check if this batch has multiple calls
         public boolean isPaired() {
             return calls.size() > 1;
         }
         
-        // NEW: Get all arguments flattened
         public List<Expr> getAllArguments() {
             List<Expr> allArgs = new ArrayList<>();
             for (MethodCall call : calls) {
@@ -109,66 +96,163 @@ public class OutputAwarePattern {
         
         List<Stmt> computationStmts = new ArrayList<Stmt>();
         List<MethodCall> outputCalls = new ArrayList<MethodCall>();
+        Map<String, Expr> varDefinitions = new HashMap<String, Expr>();
         
-        // Separate computation from output
         for (Stmt stmt : node.body.statements) {
             if (isOutputCall(stmt)) {
                 outputCalls.add((MethodCall) stmt);
             } else {
+                if (stmt instanceof Var) {
+                    Var var = (Var) stmt;
+                    if (var.value != null) {
+                        varDefinitions.put(var.name, var.value);
+                    }
+                } else if (stmt instanceof Assignment && ((Assignment) stmt).isDeclaration) {
+                    Assignment assign = (Assignment) stmt;
+                    if (assign.left instanceof Identifier) {
+                        varDefinitions.put(((Identifier) assign.left).name, assign.right);
+                    }
+                }
                 computationStmts.add(stmt);
             }
         }
         
-        // If no output calls, not optimizable by this pattern
         if (outputCalls.isEmpty()) {
             return new OutputPattern(null, null);
         }
         
-        // Try to detect pattern in computation statements
-        Object computation = null;
-        
-        // Try sequence pattern first
-        SequencePattern.Pattern seqPattern = 
-            SequencePattern.extract(computationStmts, iterator);
+        SequencePattern.Pattern seqPattern = SequencePattern.extract(computationStmts, iterator);
         if (seqPattern != null && seqPattern.isOptimizable()) {
-            computation = seqPattern;
-            return new OutputPattern(computation, outputCalls);
+            Expr finalExpr = seqPattern.getFinalExpression();
+            Expr substitutedExpr = substituteVariables(finalExpr, varDefinitions);
+            
+            // Store the substituted expression in the pattern
+            seqPattern.substitutedFinalExpr = substitutedExpr;
+            
+            for (MethodCall outputCall : outputCalls) {
+                if (outputCall.arguments != null && !outputCall.arguments.isEmpty()) {
+                    Expr clonedExpr = cloneExpression(substitutedExpr);
+                    outputCall.arguments.set(0, clonedExpr);
+                }
+            }
+            
+            return new OutputPattern(seqPattern, outputCalls);
         }
         
-        // Try conditional pattern
-        ConditionalPattern condPattern = 
-            extractConditionalPatternFromList(computationStmts, iterator);
+        ConditionalPattern condPattern = extractConditionalPatternFromList(computationStmts, iterator);
         if (condPattern != null && condPattern.isOptimizable()) {
-            computation = condPattern;
-            return new OutputPattern(computation, outputCalls);
+            return new OutputPattern(condPattern, outputCalls);
+        }
+        
+        if (!outputCalls.isEmpty()) {
+            return new OutputPattern(null, outputCalls);
         }
         
         return new OutputPattern(null, null);
     }
     
     /**
-     * Check if a statement is an output call (out() or outs())
+     * Substitute variable references with their definitions recursively
      */
+    private static Expr substituteVariables(Expr expr, Map<String, Expr> varDefinitions) {
+        if (expr == null) return null;
+        
+        if (expr instanceof Identifier) {
+            String name = ((Identifier) expr).name;
+            Expr replacement = varDefinitions.get(name);
+            if (replacement != null) {
+                return substituteVariables(replacement, varDefinitions);
+            }
+            return expr;
+        }
+        
+        if (expr instanceof BinaryOp) {
+            BinaryOp bin = (BinaryOp) expr;
+            Expr left = substituteVariables(bin.left, varDefinitions);
+            Expr right = substituteVariables(bin.right, varDefinitions);
+            if (left == null || right == null) {
+                return ASTFactory.createBinaryOp(
+                    left != null ? left : bin.left,
+                    bin.op,
+                    right != null ? right : bin.right,
+                    null
+                );
+            }
+            return ASTFactory.createBinaryOp(left, bin.op, right, null);
+        }
+        
+        if (expr instanceof Unary) {
+            Unary unary = (Unary) expr;
+            Expr operand = substituteVariables(unary.operand, varDefinitions);
+            if (operand == null) {
+                return expr;
+            }
+            return ASTFactory.createUnaryOp(unary.op, operand, null);
+        }
+        
+        if (expr instanceof TypeCast) {
+            TypeCast cast = (TypeCast) expr;
+            Expr expression = substituteVariables(cast.expression, varDefinitions);
+            if (expression == null) {
+                return expr;
+            }
+            return ASTFactory.createTypeCast(cast.targetType, expression, null);
+        }
+        
+        return expr;
+    }
+    
+    /**
+     * Simple expression cloner for the expressions we care about
+     */
+    private static Expr cloneExpression(Expr expr) {
+        if (expr == null) return null;
+        
+        if (expr instanceof BinaryOp) {
+            BinaryOp bin = (BinaryOp) expr;
+            return ASTFactory.createBinaryOp(
+                cloneExpression(bin.left),
+                bin.op,
+                cloneExpression(bin.right),
+                null
+            );
+        }
+        if (expr instanceof Identifier) {
+            return ASTFactory.createIdentifier(((Identifier) expr).name, null);
+        }
+        if (expr instanceof IntLiteral) {
+            return ASTFactory.createIntLiteral(
+                (int) ((IntLiteral) expr).value.longValue(), 
+                null
+            );
+        }
+        if (expr instanceof FloatLiteral) {
+            return ASTFactory.createFloatLiteral(((FloatLiteral) expr).value, null);
+        }
+        if (expr instanceof Unary) {
+            Unary unary = (Unary) expr;
+            return ASTFactory.createUnaryOp(unary.op, cloneExpression(unary.operand), null);
+        }
+        if (expr instanceof TypeCast) {
+            TypeCast cast = (TypeCast) expr;
+            return ASTFactory.createTypeCast(cast.targetType, cloneExpression(cast.expression), null);
+        }
+        return expr;
+    }
+    
     private static boolean isOutputCall(Stmt stmt) {
         if (!(stmt instanceof MethodCall)) {
             return false;
         }
-        
         MethodCall call = (MethodCall) stmt;
         return "out".equals(call.name) || "outs".equals(call.name);
     }
     
-    /**
-     * Extract conditional pattern from a list of statements
-     */
-    private static ConditionalPattern extractConditionalPatternFromList(
-            List<Stmt> stmts, String iterator) {
-        
+    private static ConditionalPattern extractConditionalPatternFromList(List<Stmt> stmts, String iterator) {
         if (stmts == null || stmts.isEmpty()) {
             return null;
         }
         
-        // Find the first if-statement
         StmtIf firstIf = null;
         int ifIndex = -1;
         
@@ -184,30 +268,26 @@ public class OutputAwarePattern {
             return null;
         }
         
-        // Check that all statements before the if are variable declarations
         for (int i = 0; i < ifIndex; i++) {
             if (!isVariableDeclaration(stmts.get(i))) {
                 return null;
             }
         }
         
-        // Extract the conditional pattern
-        return ConditionalPattern.extract(firstIf, iterator);
+        List<ConditionalPattern> patterns = ConditionalPattern.extractAll(firstIf, iterator);
+        if (patterns.isEmpty()) {
+            return null;
+        }
+        return patterns.get(0);
     }
     
-    /**
-     * Check if a statement is a variable declaration
-     */
     private static boolean isVariableDeclaration(Stmt stmt) {
         if (stmt instanceof Var) {
             return true;
         }
-        
         if (stmt instanceof Assignment) {
-            Assignment assign = (Assignment) stmt;
-            return assign.isDeclaration;
+            return ((Assignment) stmt).isDeclaration;
         }
-        
         return false;
     }
 }

@@ -8,6 +8,7 @@ import cod.error.ProgramError;
 import cod.interpreter.InterpreterVisitor;
 import cod.interpreter.TailCallSignal;
 import cod.interpreter.context.ExecutionContext;
+import cod.interpreter.exception.EarlyExitException;
 import cod.math.AutoStackingNumber;
 import cod.range.ArrayTracker;
 import cod.range.NaturalArray;
@@ -95,6 +96,8 @@ public class LoopOptimizationHandler {
         } catch (ProgramError e) {
             throw e;
         } catch (TailCallSignal e) {
+            throw e;
+        } catch (EarlyExitException e) {
             throw e;
         } catch (Exception e) {
             throw new InternalError("For loop execution failed", e);
@@ -337,7 +340,6 @@ public class LoopOptimizationHandler {
         }
 
         int dimension = assignments.size();
-        // coeffByLag[targetRow][lag][sourceColumn]
         AutoStackingNumber[][][] coeffByLag = new AutoStackingNumber[dimension][MAX_SUPPORTED_LAG + 1][dimension];
         AutoStackingNumber[] constants = new AutoStackingNumber[dimension];
         for (int row = 0; row < dimension; row++) {
@@ -941,7 +943,10 @@ public class LoopOptimizationHandler {
         }
     }
 
+    // ========== OUTPUT-AWARE LOOP METHODS ==========
+
     public Object executeOutputAwareLoop(For node, OutputAwarePattern.OutputPattern pattern) {
+        
         ExecutionContext ctx = dispatcher.getCurrentContext();
 
         try {
@@ -949,18 +954,115 @@ public class LoopOptimizationHandler {
 
             ctx.enterOptimizedLoop();
 
+            List<Object> allValues = new ArrayList<Object>();
+            
             if (node.range != null) {
-                executeOutputRangeLoop(ctx, node, arr, pattern.outputCalls);
+                allValues = collectOutputRangeValues(ctx, node, arr);
             } else if (node.arraySource != null) {
-                executeOutputArrayLoop(ctx, node, arr, pattern.outputCalls);
+                allValues = collectOutputArrayValues(ctx, node, arr);
+            }
+            
+            // Update the variable to point to the optimized array
+            if (pattern.computation instanceof SequencePattern.Pattern) {
+                SequencePattern.Pattern seqPattern = (SequencePattern.Pattern) pattern.computation;
+                if (seqPattern.targetArray instanceof Identifier) {
+                    String arrayVarName = ((Identifier) seqPattern.targetArray).name;
+                    ctx.setVariable(arrayVarName, arr);
+                }
+            } else if (pattern.computation instanceof ConditionalPattern) {
+                ConditionalPattern condPattern = (ConditionalPattern) pattern.computation;
+                if (condPattern.array instanceof Identifier) {
+                    String arrayVarName = ((Identifier) condPattern.array).name;
+                    ctx.setVariable(arrayVarName, arr);
+                }
+            }
+            
+            // EXIT the optimized loop BEFORE dispatching output
+            ctx.exitOptimizedLoop();
+            
+            for (OutputAwarePattern.OutputBatch batch : pattern.getBatches()) {
+                for (MethodCall outputCall : batch.calls) {
+                    MethodCall batchedCall = new MethodCall();
+                    batchedCall.name = outputCall.name;
+                    batchedCall.arguments = new ArrayList<Expr>();
+                    
+                    for (Object val : allValues) {
+                        batchedCall.arguments.add(new ValueExpr(val));
+                    }
+                    
+                    
+                    dispatcher.dispatch(batchedCall);
+                }
             }
             return arr;
         } finally {
-            ctx.exitOptimizedLoop();
+            // Ensure we exit if there was an exception before exitOptimizedLoop was called
+            if (ctx.isInOptimizedLoop()) {
+                ctx.exitOptimizedLoop();
+            }
         }
     }
 
+    private List<Object> collectOutputRangeValues(ExecutionContext ctx, For node, NaturalArray arr) {
+        List<Object> values = new ArrayList<Object>();
+        
+        try {
+            Object startObj = dispatcher.dispatch(node.range.start);
+            Object endObj = dispatcher.dispatch(node.range.end);
+            startObj = typeSystem.unwrap(startObj);
+            endObj = typeSystem.unwrap(endObj);
+
+            long start = expressionHandler.toLong(startObj);
+            long end = expressionHandler.toLong(endObj);
+            long step = arrayOperationHandler.calculateRangeStep(node.range);
+
+            for (long i = start; i <= end; i += step) {
+                Object value = arr.get(i);
+                values.add(value);
+                ctx.setVariable(node.iterator, value);
+            }
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Output range value collection failed", e);
+        }
+        
+        return values;
+    }
+
+    private List<Object> collectOutputArrayValues(ExecutionContext ctx, For node, NaturalArray arr) {
+        List<Object> values = new ArrayList<Object>();
+        
+        try {
+            Object sourceObj = dispatcher.dispatch(node.arraySource);
+            sourceObj = typeSystem.unwrap(sourceObj);
+
+            long size = 0;
+            if (sourceObj instanceof NaturalArray) {
+                size = ((NaturalArray) sourceObj).size();
+            } else if (sourceObj instanceof List) {
+                size = ((List<?>) sourceObj).size();
+            } else {
+                throw new ProgramError("Cannot iterate over: " +
+                    (sourceObj != null ? sourceObj.getClass().getSimpleName() : "null"));
+            }
+
+            for (long i = 0; i < size; i++) {
+                Object value = arr.get(i);
+                values.add(value);
+                ctx.setVariable(node.iterator, value);
+            }
+        } catch (ProgramError e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InternalError("Output array value collection failed", e);
+        }
+        
+        return values;
+    }
+
     public NaturalArray createArrayFromOutputPattern(For node, Object computation, ExecutionContext ctx) {
+        
         if (computation instanceof SequencePattern.Pattern) {
             SequencePattern.Pattern seqPattern = (SequencePattern.Pattern) computation;
 
@@ -976,7 +1078,7 @@ public class LoopOptimizationHandler {
                     Expr start = ASTFactory.createIntLiteral(0, null);
                     Expr end = ASTFactory.createIntLiteral((int)(size - 1), null);
                     range = ASTFactory.createRange(null, start, end, null, null);
-                }
+                    }
             }
 
             if (range == null) {
@@ -985,10 +1087,17 @@ public class LoopOptimizationHandler {
 
             NaturalArray arr = new NaturalArray(range, dispatcher, ctx);
 
+            Expr finalExpr;
+            if (seqPattern.substitutedFinalExpr != null) {
+                finalExpr = seqPattern.substitutedFinalExpr;
+            } else {
+                finalExpr = seqPattern.getFinalExpression();
+            }
+
             if (seqPattern.isSimple()) {
                 SequenceFormula formula = SequenceFormula.createSimple(
                     0, arr.size() - 1,
-                    seqPattern.getFinalExpression(),
+                    finalExpr,
                     node.iterator
                 );
                 arr.addSequenceFormula(formula);
@@ -997,11 +1106,10 @@ public class LoopOptimizationHandler {
                     0, arr.size() - 1, node.iterator,
                     seqPattern.getTempVarNames(),
                     seqPattern.getTempExpressions(),
-                    seqPattern.getFinalExpression()
+                    finalExpr
                 );
                 arr.addSequenceFormula(formula);
             }
-
             return arr;
 
         } else if (computation instanceof ConditionalPattern) {
@@ -1050,94 +1158,15 @@ public class LoopOptimizationHandler {
         throw new ProgramError("Unknown computation pattern type");
     }
 
+    // Legacy methods kept for compatibility
     public void executeOutputRangeLoop(ExecutionContext ctx, For node,
                                        NaturalArray arr, List<MethodCall> outputCalls) {
-        try {
-            Object startObj = dispatcher.dispatch(node.range.start);
-            Object endObj = dispatcher.dispatch(node.range.end);
-            startObj = typeSystem.unwrap(startObj);
-            endObj = typeSystem.unwrap(endObj);
-
-            long start = expressionHandler.toLong(startObj);
-            long end = expressionHandler.toLong(endObj);
-            long step = arrayOperationHandler.calculateRangeStep(node.range);
-
-            for (long i = start; i <= end; i += step) {
-                Object value = arr.get(i);
-
-                arr.recordOutput(i, value);
-
-                ctx.setVariable(node.iterator, value);
-
-                for (MethodCall outputCall : outputCalls) {
-                    MethodCall evalCall = new MethodCall();
-                    evalCall.name = outputCall.name;
-                    evalCall.arguments = new ArrayList<Expr>();
-
-                    for (Expr arg : outputCall.arguments) {
-                        if (arg instanceof Identifier &&
-                            "_".equals(((Identifier) arg).name)) {
-                            evalCall.arguments.add(new ValueExpr(value));
-                        } else {
-                            evalCall.arguments.add(arg);
-                        }
-                    }
-
-                    dispatcher.dispatch(evalCall);
-                }
-            }
-        } catch (ProgramError e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InternalError("Output range loop execution failed", e);
-        }
+        collectOutputRangeValues(ctx, node, arr);
     }
 
     public void executeOutputArrayLoop(ExecutionContext ctx, For node,
                                        NaturalArray arr, List<MethodCall> outputCalls) {
-        try {
-            Object sourceObj = dispatcher.dispatch(node.arraySource);
-            sourceObj = typeSystem.unwrap(sourceObj);
-
-            long size = 0;
-            if (sourceObj instanceof NaturalArray) {
-                size = ((NaturalArray) sourceObj).size();
-            } else if (sourceObj instanceof List) {
-                size = ((List<?>) sourceObj).size();
-            } else {
-                throw new ProgramError("Cannot iterate over: " +
-                    (sourceObj != null ? sourceObj.getClass().getSimpleName() : "null"));
-            }
-
-            for (long i = 0; i < size; i++) {
-                Object value = arr.get(i);
-
-                arr.recordOutput(i, value);
-
-                ctx.setVariable(node.iterator, value);
-
-                for (MethodCall outputCall : outputCalls) {
-                    MethodCall evalCall = new MethodCall();
-                    evalCall.name = outputCall.name;
-                    evalCall.arguments = new ArrayList<Expr>();
-
-                    for (Expr arg : outputCall.arguments) {
-                        if (arg instanceof Identifier &&
-                            "_".equals(((Identifier) arg).name)) {
-                            evalCall.arguments.add(new ValueExpr(value));
-                        } else {
-                            evalCall.arguments.add(arg);
-                        }
-                    }
-
-                    dispatcher.dispatch(evalCall);
-                }
-            }
-        } catch (ProgramError e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InternalError("Output array loop execution failed", e);
-        }
+        collectOutputArrayValues(ctx, node, arr);
     }
 
     public List<ConditionalPattern> extractConditionalPatterns(StmtIf ifStmt, String iterator) {

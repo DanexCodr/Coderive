@@ -104,7 +104,7 @@ public class MainParser extends BaseParser {
         }
         
         // Check for method declarations
-        if (isMethodDeclarationStart() || isTopLevelMethodDeclaration()) {
+        if (isTopLevelMethodDeclaration()) {
             Method method = declarationParser.parseMethod();
             topLevelMethods.add(method);
             continue;
@@ -162,6 +162,11 @@ public class MainParser extends BaseParser {
     } else if (program.programType == ProgramType.SCRIPT) {
         Type scriptType = findOrCreateImplicitType(program.unit, "__Script__");
         scriptType.statements.addAll(topLevelStatements);
+    } else if (program.programType == ProgramType.MODULE) {
+        if (!topLevelFields.isEmpty()) {
+            Type staticModuleType = findOrCreateImplicitType(program.unit, "__StaticModule__");
+            staticModuleType.fields.addAll(topLevelFields);
+        }
     }
     
     // Validate module-specific rules if this is a module

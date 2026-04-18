@@ -1,6 +1,7 @@
 package cod.ast;
 
 import cod.ast.node.*;
+import cod.debug.DebugSystem;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -111,7 +112,7 @@ public abstract class ASTVisitor<T> implements VisitorImpl<T> {
   }
 
   @Override
-  public T visit(Exit n) {
+  public T visit(VoidReturn n) {
     return n.accept(this);
   }
 
@@ -279,6 +280,31 @@ public T visit(ChainedComparison n) {
 
   // Helper method to dispatch via accept() - this is what should be used in InterpreterVisitor
   public T dispatch(Base n) {
-    return n.accept(this);
+    String timer = startPerfTimer(DebugSystem.Level.TRACE, "ast.dispatch");
+    try {
+      return n.accept(this);
+    } finally {
+      stopPerfTimer(timer);
+    }
+  }
+
+  private static boolean isTimerEnabled(DebugSystem.Level level) {
+    DebugSystem.Level current = DebugSystem.getLevel();
+    return current != DebugSystem.Level.OFF && current.getLevel() >= level.getLevel();
+  }
+
+  private static String startPerfTimer(DebugSystem.Level level, String operation) {
+    if (!isTimerEnabled(level)) {
+      return null;
+    }
+    String timerName = operation + "#" + Thread.currentThread().getId() + ":" + System.nanoTime();
+    DebugSystem.startTimer(level, timerName);
+    return timerName;
+  }
+
+  private static void stopPerfTimer(String timerName) {
+    if (timerName != null) {
+      DebugSystem.stopTimer(timerName);
+    }
   }
 }

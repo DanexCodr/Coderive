@@ -31,6 +31,10 @@ public class DebugSystem {
     private static Map<String, Long> timers = new HashMap<String, Long>(); // Stores nanoseconds
     private static SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSS");
     private static final boolean BENCHMARK_MODE = parseBenchmarkMode();
+    
+    // Level-based timers (new)
+    private static Map<String, Long> levelTimers = new HashMap<String, Long>();
+    private static Map<String, Level> timerLevels = new HashMap<String, Level>();
 
     private static boolean parseBenchmarkMode() {
         String raw = System.getProperty("cod.benchmark.mode");
@@ -100,17 +104,40 @@ public class DebugSystem {
         }
     }
 
+    // Original timer - unchanged
     public static void startTimer(String name) {
-        timers.put(name, System.nanoTime()); // Store in nanoseconds
+        timers.put(name, System.nanoTime());
     }
 
+    // New level-based timer
+    public static void startTimer(Level level, String name) {
+        if (shouldLog(level)) {
+            levelTimers.put(name, System.nanoTime());
+            timerLevels.put(name, level);
+        }
+    }
+
+    // Unified stopTimer - works for both original and level-based timers
     public static double stopTimer(String name) {
+        // Check level-based timers first
+        Long levelStart = levelTimers.remove(name);
+        if (levelStart != null) {
+            Level originalLevel = timerLevels.remove(name);
+            long durationNs = System.nanoTime() - levelStart;
+            double durationMs = durationNs / 1_000_000.0;
+            
+            if (originalLevel != null && shouldLog(originalLevel)) {
+                log(originalLevel, "PERF", String.format("%s took %.3f ms", name, durationMs));
+            }
+            return durationMs;
+        }
+        
+        // Original timer behavior
         Long start = timers.remove(name);
         if (start != null) {
             long durationNs = System.nanoTime() - start;
-            double durationMs = durationNs / 1_000_000.0; // Convert to milliseconds with fraction
+            double durationMs = durationNs / 1_000_000.0;
             
-            // Only log if debug level allows
             if (shouldLog(Level.DEBUG)) {
                 debug("PERF", String.format("%s took %.3f ms", name, durationMs));
             }
@@ -120,10 +147,18 @@ public class DebugSystem {
     }
 
     public static double getTimerDuration(String name) {
+        // Check level-based timers first
+        Long levelStart = levelTimers.get(name);
+        if (levelStart != null) {
+            long durationNs = System.nanoTime() - levelStart;
+            return durationNs / 1_000_000.0;
+        }
+        
+        // Original timer
         Long start = timers.get(name);
         if (start != null) {
             long durationNs = System.nanoTime() - start;
-            return durationNs / 1_000_000.0; // Return milliseconds as double with fraction
+            return durationNs / 1_000_000.0;
         }
         return -1.0;
     }

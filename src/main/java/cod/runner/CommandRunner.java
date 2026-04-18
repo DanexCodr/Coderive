@@ -284,6 +284,7 @@ public class CommandRunner extends BaseRunner {
             && irManager != null
             && ast != null
             && ast.unit != null) {
+            prepareInterpreterForPTAC(ast);
             Type entryType = findMainType(ast);
             if (entryType != null) {
                 Artifact artifact = irManager.loadArtifact(ast.unit.name, entryType.name);
@@ -302,6 +303,23 @@ public class CommandRunner extends BaseRunner {
 
         interpreter.run(ast);
         DebugSystem.info(NAME + LOG_TAG, "Program interpretation completed");
+    }
+
+    private void prepareInterpreterForPTAC(Program ast) {
+        if (ast == null || ast.unit == null) {
+            return;
+        }
+        interpreter.setCurrentProgram(ast);
+        if (ast.unit.resolvedImports != null && !ast.unit.resolvedImports.isEmpty()) {
+            for (java.util.Map.Entry<String, Program> entry : ast.unit.resolvedImports.entrySet()) {
+                interpreter.getImportResolver().preloadImport(entry.getKey(), entry.getValue());
+            }
+        }
+        if (ast.unit.imports != null && ast.unit.imports.imports != null) {
+            for (String importName : ast.unit.imports.imports) {
+                interpreter.getImportResolver().registerImport(importName);
+            }
+        }
     }
     
     /**
@@ -383,7 +401,7 @@ public class CommandRunner extends BaseRunner {
                 }
             }
         }
-        return !ast.unit.types.isEmpty() ? ast.unit.types.get(0) : null;
+        return null;
     }
 
 }

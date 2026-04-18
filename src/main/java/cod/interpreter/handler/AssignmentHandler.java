@@ -200,7 +200,12 @@ private Object assignToSlot(String slotTarget, Object value, ExecutionContext ct
                 int intIndex = expressionHandler.toIntIndex(indexObj);
                 ensureNoActiveBorrow(arrayObj, intIndex, ctx);
                 List<Object> list = (List<Object>) arrayObj;
-                Object previous = list.set(intIndex, newValue);
+                Object previous = null;
+                if (intIndex == list.size()) {
+                    list.add(newValue);
+                } else {
+                    previous = list.set(intIndex, newValue);
+                }
                 ctx.trackValueReplacement(previous, newValue);
                 return newValue;
             }
@@ -411,9 +416,9 @@ public Object assignToVariableScoped(String varName, Object newValue, ExecutionC
     
     // Then check object fields
     if (ctx.objectInstance != null && ctx.objectInstance.type != null) {
-        Object fieldValue = interpreter.getConstructorResolver()
-            .getFieldFromHierarchy(ctx.objectInstance.type, varName, ctx);
-        if (fieldValue != null) {
+        boolean hasField = interpreter.getConstructorResolver()
+            .hasFieldInHierarchy(ctx.objectInstance.type, varName, ctx);
+        if (hasField) {
             if (NamingValidator.isAllCaps(varName)) {
                 throw new ProgramError("Cannot reassign constant field '" + varName + "'");
             }
@@ -457,7 +462,9 @@ public Object assignToVariableScoped(String varName, Object newValue, ExecutionC
         try {
             Object existingField = interpreter.getConstructorResolver()
                 .getFieldFromHierarchy(ctx.objectInstance.type, fieldName, ctx);
-            if (existingField != null) {
+            boolean hasField = existingField != null
+                || interpreter.getConstructorResolver().hasFieldInHierarchy(ctx.objectInstance.type, fieldName, ctx);
+            if (hasField) {
                 if (NamingValidator.isAllCaps(fieldName)) {
                     throw new ProgramError("Cannot reassign constant field '" + fieldName + "'");
                 }
